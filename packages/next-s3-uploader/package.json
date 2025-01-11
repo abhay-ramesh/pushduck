@@ -16,11 +16,16 @@
     "dist/**/*"
   ],
   "scripts": {
-    "dev": "tsup src/index.ts --format cjs,esm --dts --minify --clean --external react",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "build": "tsup src/index.ts --format cjs,esm --dts --minify --clean --external react",
-    "lint": "tsc",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist",
-    "ci": "pnpm run lint && pnpm run build"
+    "ci": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
+    "prepublishOnly": "pnpm run ci"
   },
   "keywords": [
     "nextjs",
@@ -30,7 +35,12 @@
     "react",
     "nextjs app directory",
     "nextjs app folder",
-    "nextjs 13 app directory file upload"
+    "nextjs 13 app directory file upload",
+    "aws",
+    "aws-s3",
+    "file-upload",
+    "multipart-upload",
+    "chunked-upload"
   ],
   "dependencies": {
     "@aws-sdk/client-s3": "^3.427.0",
@@ -39,12 +49,32 @@
     "aws-crt": "^1.18.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/user-event": "^14.5.1",
+    "@types/node": "^18.15.11",
     "@types/react": "^18.2.25",
+    "@typescript-eslint/eslint-plugin": "^6.7.0",
+    "@typescript-eslint/parser": "^6.7.0",
+    "@vitejs/plugin-react": "^4.1.0",
+    "@vitest/coverage-v8": "^0.34.6",
+    "eslint": "^8.49.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "happy-dom": "^12.9.1",
+    "prettier": "^3.0.3",
     "react": "^18.2.0",
     "tsup": "^7.2.0",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "vitest": "^0.34.6"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "sideEffects": false
 }

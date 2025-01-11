@@ -1,8 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     images: {
-        domains: ['http://localhost:9000'],
+        domains: ['localhost'],
+        remotePatterns: [
+            {
+                protocol: 'https',
+                hostname: 'localhost',
+                port: '9000',
+            },
+        ],
     },
+    transpilePackages: ['next-s3-uploader'],
     // webpack: (config, { webpack, isServer, nextRuntime }) => {
     //     // Avoid AWS SDK Node.js require issue 
     //     // Temporary fix 

@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { Download } from "lucide-react";
 import { useS3FileUpload } from "next-s3-uploader";
+import Image from "next/image";
 import React, { useRef } from "react";
 
 function UploadPage() {
@@ -39,8 +40,8 @@ function UploadPage() {
   };
 
   return (
-    <div className="bg-gray-100 min-h-screen">
-      <div className="container mx-auto p-4 prose pt-24">
+    <div className="min-h-screen bg-gray-100">
+      <div className="container p-4 pt-24 mx-auto prose">
         <h1 className="">File Upload to Amazon S3</h1>
         <div className="flex gap-2">
           <input
@@ -50,7 +51,7 @@ function UploadPage() {
             accept="image/*"
             multiple
             onChange={handleFileChange}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full h-10 px-3 py-2 text-sm border rounded-md border-input bg-background ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           />
           <Button
             onClick={() => {
@@ -70,7 +71,7 @@ function UploadPage() {
                 "ring-2 ring-blue-800": file.status === "uploading",
               })}
             >
-              <div className="mt-4 gap-4">
+              <div className="gap-4 mt-4">
                 <pre>
                   <code lang="json">{JSON.stringify(file, null, 2)}</code>
                 </pre>
@@ -140,7 +141,12 @@ function UploadPage() {
                 ? "Estimated Time Left: (" + file.timeLeft + ")"
                 : null}
               {file.status === "success" && (
-                <img src={file.url} alt={`Uploaded File ${index}`} />
+                <Image
+                  src={file.url}
+                  alt={`Uploaded File ${index}`}
+                  width={200}
+                  height={200}
+                />
               )}
             </div>
           ))}

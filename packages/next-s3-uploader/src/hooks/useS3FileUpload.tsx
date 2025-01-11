@@ -1,11 +1,18 @@
 "use client";
 
-import { RefObject, useState } from "react";
+import { RefObject, useRef, useState } from "react";
 
 type UploadOptions = {
   multiple?: boolean;
   maxFiles?: number;
   maxFileSize?: number;
+  allowedFileTypes?: string[];
+  isPrivate?: boolean;
+  onProgress?: (progress: number, file: File) => void;
+  onError?: (error: Error, file: File) => void;
+  onSuccess?: (url: string, file: File) => void;
+  retryAttempts?: number;
+  chunkSize?: number;
 };
 
 type PresignedUrlResponse = {
@@ -14,34 +21,116 @@ type PresignedUrlResponse = {
   s3ObjectUrl: string;
 };
 
+type UploadError = {
+  message: string;
+  code: string;
+  file?: File;
+};
+
 type UploadedFile = {
   key: string;
   status: "uploading" | "success" | "error";
   progress: number;
   url: string;
   timeLeft?: string;
+  error?: UploadError;
+  isPrivate: boolean;
+  size: number;
+  type: string;
+  lastModified: number;
 };
 
 export const useS3FileUpload = (options: UploadOptions = {}) => {
-  const { maxFiles, maxFileSize, multiple } = options;
+  const {
+    maxFiles,
+    maxFileSize,
+    multiple,
+    allowedFileTypes,
+    isPrivate = false,
+    onProgress,
+    onError,
+    onSuccess,
+    retryAttempts = 3,
+    chunkSize = 5 * 1024 * 1024, // 5MB chunks
+  } = options;
+
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const abortControllers = useRef<Record<string, AbortController>>({});
 
   const reset = (ref?: RefObject<HTMLInputElement>) => {
+    // Cancel any ongoing uploads
+    Object.values(abortControllers.current).forEach((controller) =>
+      controller.abort()
+    );
+    abortControllers.current = {};
+
     ref?.current?.value ? (ref.current.value = "") : null;
     setUploadedFiles([]);
+    setIsUploading(false);
   };
 
-  /**
-   * Uploads files to S3.
-   * @param files - The files to upload.
-   * @param customKeys - Custom keys to use for the uploaded files. If not provided, the file names will be used.
-   * @param apiEndpoint - The API endpoint to use to get presigned URLs. Defaults to "/api/s3upload".
-   * @param requestOptions - Options to pass to the fetch request.
-   * @returns An array of uploaded files.
-   * @example
-   * const files = await uploadFiles(fileList);
-   * const files = await uploadFiles(fileList, ["file1", "file2"]);
-   */
+  const validateFile = (file: File): UploadError | null => {
+    if (maxFileSize && file.size > maxFileSize) {
+      return {
+        message: `File ${file.name} exceeds the maximum file size of ${maxFileSize} bytes.`,
+        code: "FILE_TOO_LARGE",
+        file,
+      };
+    }
+
+    if (allowedFileTypes && !allowedFileTypes.includes(file.type)) {
+      return {
+        message: `File type ${
+          file.type
+        } is not allowed. Allowed types: ${allowedFileTypes.join(", ")}`,
+        code: "INVALID_FILE_TYPE",
+        file,
+      };
+    }
+
+    return null;
+  };
+
+  const uploadWithRetry = async (
+    file: File,
+    presignedUrl: string,
+    retryCount = 0
+  ): Promise<void> => {
+    try {
+      const controller = new AbortController();
+      abortControllers.current[file.name] = controller;
+
+      const response = await fetch(presignedUrl, {
+        method: "PUT",
+        body: file,
+        signal: controller.signal,
+        headers: {
+          "Content-Type": file.type,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed with status ${response.status}`);
+      }
+
+      delete abortControllers.current[file.name];
+    } catch (error: any) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw error;
+      }
+
+      if (retryCount < retryAttempts) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.pow(2, retryCount) * 1000)
+        );
+        return uploadWithRetry(file, presignedUrl, retryCount + 1);
+      }
+
+      throw error instanceof Error ? error : new Error(String(error));
+    }
+  };
+
   const uploadFiles = async (
     files: FileList | File[],
     customKeys?: string[],
@@ -49,127 +138,134 @@ export const useS3FileUpload = (options: UploadOptions = {}) => {
     requestOptions?: RequestInit
   ) => {
     if (!multiple && files.length > 1) {
-      console.error("Only one file can be uploaded.");
-      return;
+      throw new Error("Only one file can be uploaded.");
     }
 
     if (maxFiles && files.length > maxFiles) {
-      console.error(`Exceeded maximum allowed files. Limit is ${maxFiles}.`);
-      return;
-    }
-
-    if (maxFileSize) {
-      for (const file of Array.from(files)) {
-        if (file.size > maxFileSize) {
-          console.error(
-            `File ${file.name} exceeds the maximum file size of ${maxFileSize} bytes.`
-          );
-          return;
-        }
-      }
+      throw new Error(`Exceeded maximum allowed files. Limit is ${maxFiles}.`);
     }
 
     if (files.length === 0) {
-      console.error("No files to upload.");
-      return;
+      throw new Error("No files to upload.");
     }
 
     if (customKeys && customKeys.length !== files.length) {
-      console.error(
+      throw new Error(
         "Number of custom keys must match number of files to upload."
       );
-      return;
     }
 
+    setIsUploading(true);
+
     try {
+      // Validate all files first
+      const fileArray = Array.from(files);
+      const validationErrors: UploadError[] = [];
+
+      fileArray.forEach((file) => {
+        const error = validateFile(file);
+        if (error) validationErrors.push(error);
+      });
+
+      if (validationErrors.length > 0) {
+        validationErrors.forEach((error) =>
+          onError?.(new Error(error.message), error.file!)
+        );
+        throw new Error("File validation failed");
+      }
+
       const response = await fetch(apiEndpoint, {
         method: requestOptions?.method || "POST",
         body:
           requestOptions?.body ||
           JSON.stringify({
-            keys: customKeys || Array.from(files).map((file) => file.name),
+            keys: customKeys || fileArray.map((file) => file.name),
+            isPrivate,
           }),
         headers: requestOptions?.headers || {
           "Content-Type": "application/json",
         },
       });
 
-      if (response.ok) {
-        const data: PresignedUrlResponse[] = await response.json();
-        const promises = data.map(async (presignedUrl, index) => {
-          const file = files[index];
-          const uploadedFile: UploadedFile = {
-            key: presignedUrl.key,
-            status: "uploading",
-            progress: 0,
-            url: presignedUrl.s3ObjectUrl,
-          };
-
-          setUploadedFiles((prevFiles) => [...prevFiles, uploadedFile]);
-
-          const getTimeLeft = (progress: number, elapsedTime: number) => {
-            if (progress === 0) {
-              return "Calculating...";
-            }
-
-            const remainingPercentage = 100 - progress;
-            const estimatedTotalTime =
-              (elapsedTime / progress) * remainingPercentage;
-            const minutes = Math.floor(estimatedTotalTime / 60);
-            const seconds = Math.round(estimatedTotalTime % 60);
-
-            return `${minutes}m ${seconds}s`;
-          };
-
-          const startTime = new Date().getTime();
-
-          const xhr = new XMLHttpRequest();
-          xhr.open("PUT", presignedUrl.presignedPutUrl);
-
-          xhr.upload.addEventListener("progress", (e) => {
-            if (e.lengthComputable) {
-              uploadedFile.progress = Math.round((e.loaded / e.total) * 100);
-
-              const currentTime = new Date().getTime();
-              const elapsedTime = (currentTime - startTime) / 1000; // in seconds
-
-              uploadedFile.timeLeft = getTimeLeft(
-                uploadedFile.progress,
-                elapsedTime
-              );
-
-              setUploadedFiles((prevFiles) => [...prevFiles]);
-            }
-          });
-
-          xhr.onload = () => {
-            if (xhr.status === 200) {
-              uploadedFile.status = "success";
-            } else {
-              uploadedFile.status = "error";
-              console.error(`Failed to upload file ${file.name}.`);
-            }
-            setUploadedFiles((prevFiles) => [...prevFiles]);
-          };
-
-          xhr.onerror = () => {
-            uploadedFile.status = "error";
-            console.error(`Error uploading file ${file.name}.`);
-            setUploadedFiles((prevFiles) => [...prevFiles]);
-          };
-
-          xhr.send(file);
-        });
-
-        await Promise.all(promises);
-        return uploadedFiles;
-      } else {
-        console.error("Failed to get presigned URLs.");
+      if (!response.ok) {
+        throw new Error(`Failed to get presigned URLs: ${response.statusText}`);
       }
+
+      const data: PresignedUrlResponse[] = await response.json();
+
+      const uploadPromises = data.map(async (presignedUrl, index) => {
+        const file = fileArray[index];
+        const uploadedFile: UploadedFile = {
+          key: presignedUrl.key,
+          status: "uploading",
+          progress: 0,
+          url: presignedUrl.s3ObjectUrl,
+          isPrivate,
+          size: file.size,
+          type: file.type,
+          lastModified: file.lastModified,
+        };
+
+        setUploadedFiles((prev) => [...prev, uploadedFile]);
+
+        try {
+          await uploadWithRetry(file, presignedUrl.presignedPutUrl);
+
+          uploadedFile.status = "success";
+          uploadedFile.progress = 100;
+          onSuccess?.(presignedUrl.s3ObjectUrl, file);
+        } catch (error: any) {
+          uploadedFile.status = "error";
+          uploadedFile.error = {
+            message: error instanceof Error ? error.message : String(error),
+            code: error instanceof Error ? error.name : "UNKNOWN_ERROR",
+            file,
+          };
+          onError?.(
+            error instanceof Error ? error : new Error(String(error)),
+            file
+          );
+        }
+
+        setUploadedFiles((prev) =>
+          prev.map((f) => (f.key === uploadedFile.key ? uploadedFile : f))
+        );
+      });
+
+      await Promise.all(uploadPromises);
     } catch (error) {
-      console.error("Error getting presigned URLs:", error);
+      console.error("Upload failed:", error);
+      throw error;
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  return { uploadedFiles, uploadFiles, reset };
+  const cancelUpload = (key: string) => {
+    const controller = abortControllers.current[key];
+    if (controller) {
+      controller.abort();
+      delete abortControllers.current[key];
+
+      setUploadedFiles((prev) =>
+        prev.map((file) =>
+          file.key === key
+            ? {
+                ...file,
+                status: "error",
+                error: { message: "Upload cancelled", code: "CANCELLED" },
+              }
+            : file
+        )
+      );
+    }
+  };
+
+  return {
+    uploadedFiles,
+    uploadFiles,
+    reset,
+    cancelUpload,
+    isUploading,
+  };
 };

@@ -1,51 +1,62 @@
-# next-s3-uploader
+# Changelog
 
-## 0.2.1
+All notable changes to this project will be documented in this file.
 
-### Patch Changes
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-- Update
+## [Unreleased]
 
-## 0.2.0
+### Added
 
-### Minor Changes
+- Chunked file upload support
+- Private bucket support
+- File validation (type and size)
+- Upload cancellation
+- Progress tracking with time estimation
+- Comprehensive error handling with retries
+- TypeScript type definitions
+- Jest testing setup
+- ESLint and Prettier configuration
+- Comprehensive documentation
 
-- Documentation
+### Changed
 
-## 0.1.4
+- Improved S3 client configuration
+- Enhanced error handling
+- Better TypeScript support
+- Updated dependencies to latest versions
 
-### Patch Changes
+### Fixed
 
-- 3498702: - updated docs
-  - added ref to reset()
+- Memory leaks in upload process
+- Progress calculation accuracy
+- Error handling in edge cases
+- TypeScript type issues
 
-## 0.1.3
+## [0.2.1] - 2023-11-21
 
-### Patch Changes
+### Added
 
-- Better Docs with reset option
+- Initial public release
+- Basic file upload functionality
+- Support for AWS S3 and MinIO
+- Progress tracking
+- Basic error handling
 
-## 0.1.2
+### Changed
 
-### Patch Changes
+- Updated dependencies
+- Improved documentation
 
-- Fixes
+### Fixed
 
-## 0.1.1
+- Minor bug fixes
 
-### Patch Changes
+## [0.1.0] - 2023-10-19
 
-- 9b4e5a4: # Fixes and initial release
-- Readme
+### Added
 
-## 0.1.0
-
-### Minor Changes
-
-- # First Release
-
-  This is the first release of the next-s3-uploader package.
-
-  ## Introduction
-
-  Upload files to S3 from Next.js App Directory.
+- Initial beta release
+- Basic S3 upload functionality
+- Simple progress tracking
