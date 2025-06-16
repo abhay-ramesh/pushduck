@@ -6,10 +6,9 @@
  */
 
 import {
-  convertLegacyConfig,
-  ProviderConfig,
   providers,
   validateProviderConfig,
+  type ProviderConfig,
 } from "./providers";
 import type { S3Router } from "./router-v2";
 import { createS3Handler, createS3Router, S3Route } from "./router-v2";
@@ -159,9 +158,9 @@ export class UploadConfigBuilder {
   }
 
   /**
-   * Build the final configuration
+   * Build the final configuration and return configured instances
    */
-  build(): UploadConfig {
+  build(): UploadInitResult {
     if (!this.config.provider) {
       throw new Error("Provider configuration is required");
     }
@@ -173,7 +172,21 @@ export class UploadConfigBuilder {
       );
     }
 
-    return this.config as UploadConfig;
+    const config = this.config as UploadConfig;
+
+    // Set global configuration
+    globalUploadConfig = config;
+
+    console.log(
+      "📦 Upload configuration initialized with provider:",
+      config.provider.provider
+    );
+
+    return {
+      config,
+      s3,
+      createS3Handler,
+    };
   }
 }
 
@@ -252,21 +265,10 @@ let globalUploadConfig: UploadConfig | null = null;
 export interface UploadInitResult {
   config: UploadConfig;
   s3: typeof s3;
-  createS3Handler: typeof import("./router-v2").createS3Handler;
+  createS3Handler: typeof createS3Handler;
 }
 
-/**
- * Initialize global upload configuration and return configured instances
- */
-export function initializeUploadConfig(config: UploadConfig): UploadInitResult {
-  globalUploadConfig = config;
-
-  return {
-    config,
-    s3,
-    createS3Handler,
-  };
-}
+// initializeUploadConfig removed - use uploadConfig.build() directly
 
 /**
  * Get the global upload configuration
@@ -290,26 +292,6 @@ export function getUploadConfig(): UploadConfig {
  */
 function resetUploadConfig(): void {
   globalUploadConfig = null;
-}
-
-// ========================================
-// Legacy Configuration Support
-// ========================================
-
-/**
- * Convert legacy configuration to new format
- */
-function convertLegacyUploadConfig(legacyConfig: any): UploadConfig {
-  const providerConfig = convertLegacyConfig(legacyConfig);
-
-  return createUploadConfig()
-    .provider(providerConfig)
-    .defaults({
-      maxFileSize: legacyConfig.maxFileSize,
-      allowedFileTypes: legacyConfig.allowedFileTypes,
-      acl: legacyConfig.acl,
-    })
-    .build();
 }
 
 // ========================================

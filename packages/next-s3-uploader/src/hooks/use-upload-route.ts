@@ -4,7 +4,7 @@
  * Modern Upload Route Hook
  *
  * Provides type-safe file upload functionality with route-based configuration.
- * Supports both type-safe usage with router types and legacy string-based usage.
+ * Supports both type-safe usage with router types and string-based usage.
  */
 
 import { useCallback, useRef, useState } from "react";
@@ -339,16 +339,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
   };
 }
 
-// ========================================
-// Backward Compatibility
-// ========================================
-
-export function useS3RouteUpload(
-  routeName: string,
-  config: S3RouteUploadConfig = {}
-): S3RouteUploadResult {
-  return useUploadRoute(routeName, config);
-}
+// Backward compatibility removed - use useUploadRoute directly
 
 // Export utility functions for UI components
 export { formatETA, formatUploadSpeed };

@@ -117,21 +117,4 @@ export type InferClientRouter<T> =
       }
     : never;
 
-// ========================================
-// Legacy Types (for backward compatibility)
-// ========================================
-
-export interface S3UploadConfig<T = any> {
-  endpoint?: string;
-  onSuccess?: (result: T) => void | Promise<void>;
-  onError?: (error: Error) => void;
-  onProgress?: (progress: number) => void;
-}
-
-export interface S3UploadResult<T = any> {
-  files: S3UploadedFile[];
-  upload: (input: any) => Promise<void>;
-  reset: () => void;
-  isUploading: boolean;
-  errors: string[];
-}
+// Legacy types removed - use TypedRouteHook and ClientConfig instead

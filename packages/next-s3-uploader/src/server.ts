@@ -11,7 +11,6 @@
 
 // Provider system
 export {
-  convertLegacyConfig,
   getProviderEndpoint,
   providers,
   validateProviderConfig,
@@ -21,7 +20,6 @@ export {
 export {
   createUploadConfig,
   getUploadConfig,
-  initializeUploadConfig,
   uploadConfig,
 } from "./core/upload-config";
 
@@ -120,9 +118,4 @@ export type {
   UploadProgress,
 } from "./core/s3-client";
 
-// Legacy config types (deprecated)
-export type {
-  ConfigValidationResult,
-  S3Config,
-  S3HandlerConfig,
-} from "./core/config";
+// Legacy config types removed - use modern provider config types instead

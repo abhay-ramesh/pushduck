@@ -377,24 +377,3 @@ export function getProviderEndpoint(config: ProviderConfig): string {
       return "";
   }
 }
-
-// ========================================
-// Legacy Config Converter
-// ========================================
-
-export function convertLegacyConfig(legacyConfig: any): ProviderConfig {
-  // If it's already a provider config, return as-is
-  if (legacyConfig.provider) {
-    return legacyConfig as ProviderConfig;
-  }
-
-  // Convert legacy config to AWS provider config
-  return providers.aws({
-    region: legacyConfig.region,
-    bucket: legacyConfig.bucket,
-    accessKeyId: legacyConfig.accessKeyId,
-    secretAccessKey: legacyConfig.secretAccessKey,
-    acl: legacyConfig.acl,
-    customDomain: legacyConfig.customDomain,
-  });
-}

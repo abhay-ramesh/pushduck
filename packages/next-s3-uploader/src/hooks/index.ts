@@ -9,7 +9,6 @@
 export {
   formatETA,
   formatUploadSpeed,
-  useS3RouteUpload,
   useUploadRoute,
 } from "./use-upload-route";
 
