@@ -84,6 +84,9 @@ export { createS3Handler, s3 };
 // Export configuration for debugging/inspection
 export { config };
 
+// Export the complete upload config for typed client usage
+export { uploadConfig };
+
 // ========================================
 // Alternative Configurations
 // ========================================

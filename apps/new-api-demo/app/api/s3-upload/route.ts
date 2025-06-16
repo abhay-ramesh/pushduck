@@ -5,7 +5,7 @@
  * which automatically includes the configured provider and settings.
  */
 
-import { createS3Handler, s3 } from "../../../upload";
+import { createS3Handler, s3 } from "@/lib/upload";
 
 // Define upload routes with proper validation and lifecycle hooks
 const s3Router = s3.createRouter({
