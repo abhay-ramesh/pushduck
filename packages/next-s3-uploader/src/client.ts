@@ -15,7 +15,7 @@
 export { useS3RouteUpload, useS3UploadRoute } from "./core/route-hooks-v2";
 
 // Legacy hook (deprecated)
-export { useS3FileUpload } from "./hooks/useS3FileUpload";
+export { useS3FileUpload } from "./core/hooks";
 
 // ========================================
 // CLIENT-SAFE TYPES

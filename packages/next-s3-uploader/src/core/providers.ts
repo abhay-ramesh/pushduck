@@ -120,6 +120,7 @@ export const providers = {
       config?.bucket ||
       process.env.AWS_S3_BUCKET ||
       process.env.S3_BUCKET ||
+      process.env.S3_BUCKET_NAME ||
       "",
     accessKeyId:
       config?.accessKeyId ||
@@ -275,24 +276,19 @@ export const providers = {
   }),
 
   /**
+   * @deprecated
    * Auto-detect provider from environment
    */
   auto: (): ProviderConfig => {
-    const detectedProvider = detectProvider();
-
-    switch (detectedProvider) {
-      case "cloudflare-r2":
-        return providers.cloudflareR2();
-      case "digitalocean-spaces":
-        return providers.digitalOceanSpaces();
-      case "minio":
-        return providers.minio();
-      case "gcs":
-        return providers.gcs();
-      case "aws":
-      default:
-        return providers.aws();
-    }
+    throw new Error(
+      "Auto-detection provider is disabled. Please explicitly configure a provider:\n" +
+        "- uploadConfig.aws({ ... })\n" +
+        "- uploadConfig.cloudflareR2({ ... })\n" +
+        "- uploadConfig.digitalOceanSpaces({ ... })\n" +
+        "- uploadConfig.minio({ ... })\n" +
+        "- uploadConfig.gcs({ ... })\n\n" +
+        "This ensures explicit configuration and better security."
+    );
   },
 };
 

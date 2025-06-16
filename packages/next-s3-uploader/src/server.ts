@@ -19,7 +19,6 @@ export {
 
 // Upload configuration
 export {
-  createAutoUploadConfig,
   createUploadConfig,
   getUploadConfig,
   initializeUploadConfig,
@@ -40,7 +39,7 @@ export {
 } from "./core/schema";
 
 // Main s3 builder instance
-export { s3 } from "./core/index";
+export { s3 } from "./core/upload-config";
 
 // ========================================
 // ROUTER SYSTEM
@@ -54,11 +53,11 @@ export {
   S3Router,
 } from "./core/router-v2";
 
-// Legacy router (deprecated)
-export {
-  createS3Handler as createS3HandlerLegacy,
-  createS3Router as createS3RouterLegacy,
-} from "./core/router";
+// Legacy router (deprecated) - REMOVED
+// export {
+//   createS3Handler as createS3HandlerLegacy,
+//   createS3Router as createS3RouterLegacy,
+// } from "./core/router"; // FILE DELETED
 
 // ========================================
 // S3 CLIENT & UTILITIES
@@ -77,12 +76,12 @@ export {
   validateS3Connection,
 } from "./core/s3-client";
 
-// Legacy utilities (deprecated)
-export {
-  createS3Client as createS3ClientLegacy,
-  generatePresignedUrls,
-  uploadFileInChunks,
-} from "./utils";
+// Legacy utilities (deprecated) - REMOVED
+// export {
+//   createS3Client as createS3ClientLegacy,
+//   generatePresignedUrls,
+//   uploadFileInChunks,
+// } from "./utils"; // FILE DELETED
 
 // ========================================
 // TYPES & INTERFACES

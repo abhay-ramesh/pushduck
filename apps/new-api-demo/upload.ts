@@ -29,7 +29,14 @@ interface UploadMetadata {
 // Initialize upload configuration and get configured instances
 const { s3, createS3Handler, config } = initializeUploadConfig(
   uploadConfig
-    .auto() // Auto-detect provider from environment variables
+    .cloudflareR2({
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      region: "auto",
+      endpoint: process.env.AWS_ENDPOINT_URL,
+      bucket: process.env.S3_BUCKET_NAME,
+      accountId: process.env.R2_ACCOUNT_ID,
+    }) // Auto-detect provider from environment variables
     .defaults({
       maxFileSize: "10MB",
       acl: "public-read", // Make uploaded files publicly accessible

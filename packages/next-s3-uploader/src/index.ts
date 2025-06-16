@@ -13,7 +13,7 @@
 export { useS3RouteUpload, useS3UploadRoute } from "./core/route-hooks-v2";
 
 // Legacy hook (deprecated - use useS3UploadRoute instead)
-export { useS3FileUpload } from "./hooks/useS3FileUpload";
+export { useS3FileUpload } from "./core/hooks";
 
 // ========================================
 // TYPES & INTERFACES
@@ -58,8 +58,4 @@ export { formatETA, formatUploadSpeed } from "./core/route-hooks-v2";
 export { providers } from "./core/providers";
 
 // Upload configuration utilities
-export {
-  createAutoUploadConfig,
-  createUploadConfig,
-  uploadConfig,
-} from "./core/upload-config";
+export { createUploadConfig, uploadConfig } from "./core/upload-config";

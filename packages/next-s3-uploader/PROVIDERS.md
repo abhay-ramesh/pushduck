@@ -122,13 +122,6 @@ uploadConfig.gcs({
 })
 ```
 
-### Auto-Detection
-
-```typescript
-// Automatically detects provider from environment variables
-uploadConfig.auto()
-```
-
 ## Configuration Options
 
 ### File Defaults
@@ -315,7 +308,7 @@ const newConfig = uploadConfig
 ### 🔧 **Multi-Provider Support**
 
 - AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, GCS
-- Auto-detection from environment
+- Explicit provider configuration
 - Consistent API across providers
 
 ### 🛡️ **Enhanced Security**

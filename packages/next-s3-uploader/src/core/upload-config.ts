@@ -53,7 +53,7 @@ function smartCreateRouter<TRoutes extends Record<string, any>>(
 }
 
 // Main S3 Builder Instance (for upload-config)
-const s3 = {
+export const s3 = {
   // Schema builders
   file: (constraints?: S3FileConstraints) => new S3FileSchema(constraints),
   image: (constraints?: S3FileConstraints) => new S3ImageSchema(constraints),
@@ -187,7 +187,15 @@ export function createUploadConfig(): UploadConfigBuilder {
  * Create upload configuration with auto-detected provider
  */
 export function createAutoUploadConfig(): UploadConfig {
-  return createUploadConfig().provider(providers.auto()).build();
+  throw new Error(
+    "Auto-configuration is disabled. Please explicitly configure a provider using:\n" +
+      "- uploadConfig.aws({ ... }).build()\n" +
+      "- uploadConfig.cloudflareR2({ ... }).build()\n" +
+      "- uploadConfig.digitalOceanSpaces({ ... }).build()\n" +
+      "- uploadConfig.minio({ ... }).build()\n" +
+      "- uploadConfig.gcs({ ... }).build()\n\n" +
+      "This ensures explicit configuration and better security."
+  );
 }
 
 /**
@@ -225,11 +233,6 @@ export const uploadConfig = {
    */
   gcs: (config?: Partial<Parameters<typeof providers.gcs>[0]>) =>
     createUploadConfig().provider(providers.gcs(config)),
-
-  /**
-   * Auto-detect provider from environment
-   */
-  auto: () => createUploadConfig().provider(providers.auto()),
 };
 
 // ========================================
@@ -265,14 +268,14 @@ export function initializeUploadConfig(config: UploadConfig): UploadInitResult {
  */
 export function getUploadConfig(): UploadConfig {
   if (!globalUploadConfig) {
-    // Try to auto-initialize
-    try {
-      globalUploadConfig = createAutoUploadConfig();
-    } catch (error) {
-      throw new Error(
-        "Upload configuration not initialized. Please call initializeUploadConfig() or create an upload.ts file."
-      );
-    }
+    throw new Error(
+      "Upload configuration not initialized. Auto-configuration is disabled for security.\n\n" +
+        "Please explicitly initialize with a provider:\n" +
+        "1. Create an upload.ts file:\n" +
+        "   export const config = uploadConfig.aws({ ... }).build();\n" +
+        "   export const { s3, createS3Handler } = initializeUploadConfig(config);\n\n" +
+        "2. Or call initializeUploadConfig() manually with your provider configuration."
+    );
   }
   return globalUploadConfig;
 }

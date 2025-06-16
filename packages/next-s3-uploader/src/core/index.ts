@@ -3,19 +3,14 @@
  */
 
 // Core functionality
-export * from "./config";
+// export * from "./config"; // Only used for legacy type exports in server.ts
 export * from "./hooks";
 export * from "./providers";
 export * from "./schema";
 export * from "./upload-config";
 
 // Router system exports (Phase 1.2: File Router Architecture)
-export {
-  formatETA,
-  formatUploadSpeed,
-  useS3RouteUpload,
-  useS3UploadRoute,
-} from "./route-hooks-v2";
+export { formatETA, formatUploadSpeed } from "./route-hooks-v2";
 export { createS3Handler, createS3Router } from "./router-v2";
 
 // S3 Client functionality
