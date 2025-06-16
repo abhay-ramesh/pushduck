@@ -1,29 +1,111 @@
 /**
- * Server-side exports for next-s3-uploader
+ * next-s3-uploader - Server-side exports
  *
- * This file provides all server-side functionality including:
- * - S3 configuration and client
- * - Router implementations (both original and fixed)
- * - Schema builders
- * - Type utilities
+ * This file provides all server-side functionality for API routes and server components.
+ * Import client-side functionality from 'next-s3-uploader'
  */
 
-// Core S3 functionality (server-only)
-export * from "./core/config";
-export * from "./core/s3-client";
+// ========================================
+// CONFIGURATION & INITIALIZATION
+// ========================================
 
-// Schema and validation (server-only)
-export * from "./core/schema";
+// Provider system
+export {
+  convertLegacyConfig,
+  getProviderEndpoint,
+  providers,
+  validateProviderConfig,
+} from "./core/providers";
 
-// Router implementations (server-only) - Values
+// Upload configuration
+export {
+  createAutoUploadConfig,
+  createUploadConfig,
+  getUploadConfig,
+  initializeUploadConfig,
+  uploadConfig,
+} from "./core/upload-config";
+
+// ========================================
+// SCHEMA BUILDERS
+// ========================================
+
+// Schema classes and builders
+export {
+  S3ArraySchema,
+  S3FileSchema,
+  S3ImageSchema,
+  S3ObjectSchema,
+  S3Schema,
+} from "./core/schema";
+
+// Main s3 builder instance
+export { s3 } from "./core/index";
+
+// ========================================
+// ROUTER SYSTEM
+// ========================================
+
+// Modern router (recommended)
 export {
   createS3Handler,
   createS3Router,
   S3Route,
   S3Router,
+} from "./core/router-v2";
+
+// Legacy router (deprecated)
+export {
+  createS3Handler as createS3HandlerLegacy,
+  createS3Router as createS3RouterLegacy,
 } from "./core/router";
 
-// Router implementations (server-only) - Types
+// ========================================
+// S3 CLIENT & UTILITIES
+// ========================================
+
+// S3 client functionality
+export {
+  checkFileExists,
+  createS3Client,
+  generateFileKey,
+  generatePresignedUploadUrl,
+  generatePresignedUploadUrls,
+  getFileUrl,
+  resetS3Client,
+  uploadFileToS3,
+  validateS3Connection,
+} from "./core/s3-client";
+
+// Legacy utilities (deprecated)
+export {
+  createS3Client as createS3ClientLegacy,
+  generatePresignedUrls,
+  uploadFileInChunks,
+} from "./utils";
+
+// ========================================
+// TYPES & INTERFACES
+// ========================================
+
+// Configuration types
+export type {
+  AWSProviderConfig,
+  BaseProviderConfig,
+  CloudflareR2Config,
+  DigitalOceanSpacesConfig,
+  GoogleCloudStorageConfig,
+  MinIOConfig,
+  ProviderConfig,
+} from "./core/providers";
+
+// Upload configuration types
+export type {
+  UploadConfigBuilder,
+  UploadInitResult,
+} from "./core/upload-config";
+
+// Router types
 export type {
   GetRoute,
   InferRouteInput,
@@ -36,40 +118,27 @@ export type {
   S3MiddlewareContext,
   S3RouteContext,
   S3RouterDefinition,
-} from "./core/router";
-
-// Fixed router implementation - Values
-export {
-  createS3Handler as createS3HandlerV2,
-  createS3Router as createS3RouterV2,
-  S3Router as S3RouterV2,
-  S3Route as S3RouteV2,
 } from "./core/router-v2";
 
-// Main s3 builder instance (server-only)
-import { createS3Router, S3RouterDefinition } from "./core/router-v2";
-import {
+// Schema types
+export type {
+  InferS3Input,
+  InferS3Output,
   S3FileConstraints,
-  S3FileSchema,
-  S3ImageSchema,
-  S3ObjectSchema,
 } from "./core/schema";
 
-export const s3 = {
-  // Schema builders
-  file: (constraints?: S3FileConstraints) => new S3FileSchema(constraints),
-  image: (constraints?: S3FileConstraints) => new S3ImageSchema(constraints),
-  object: <T extends Record<string, any>>(shape: T) =>
-    new S3ObjectSchema(shape),
+// S3 client types
+export type {
+  FileKeyOptions,
+  PresignedUrlOptions,
+  PresignedUrlResult,
+  ProgressCallback,
+  UploadProgress,
+} from "./core/s3-client";
 
-  // Router factory
-  createRouter: <TRoutes extends S3RouterDefinition>(routes: TRoutes) =>
-    createS3Router(routes),
-} as const;
-
-// Re-export specific server utilities
-export {
-  createS3Client,
-  generatePresignedUrls,
-  uploadFileInChunks,
-} from "./utils";
+// Legacy config types (deprecated)
+export type {
+  ConfigValidationResult,
+  S3Config,
+  S3HandlerConfig,
+} from "./core/config";

@@ -4,7 +4,7 @@ import {
   formatETA,
   formatUploadSpeed,
   useS3UploadRoute,
-} from "next-s3-uploader";
+} from "next-s3-uploader/client";
 import { useState } from "react";
 
 export function SimpleImageUpload() {

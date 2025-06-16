@@ -1,191 +1,96 @@
-# 🚀 Next S3 Uploader Demo Setup
+# next-s3-uploader Demo Setup
 
-This demo showcases the new **File Router Architecture** with DX-friendly environment variable configuration.
+This demo shows the new configuration-first approach where everything flows from the `upload.ts` initialization.
 
-## 📋 Quick Setup (2 minutes)
+## 🚀 Quick Start
 
-### 1. Install Dependencies
+### 1. Configure Environment Variables
 
-```bash
-pnpm install
-```
-
-### 2. Configure S3 Credentials
-
-Create `.env.local` in the demo app root with your S3 credentials:
+Create `.env.local` with your provider credentials:
 
 ```bash
-# Simple naming (recommended)
-S3_ACCESS_KEY_ID=your_access_key_here
-S3_SECRET_ACCESS_KEY=your_secret_key_here
-S3_REGION=us-east-1
-S3_BUCKET=your-bucket-name
-```
-
-### 3. Start Development Server
-
-```bash
-pnpm dev
-```
-
-That's it! 🎉 The app will automatically detect your S3 configuration.
-
-## 🔧 Environment Variable Options
-
-The library supports **multiple naming conventions** for maximum compatibility:
-
-### Option 1: Simple Naming (Recommended)
-
-```bash
-S3_ACCESS_KEY_ID=your_access_key_here
-S3_SECRET_ACCESS_KEY=your_secret_key_here
-S3_REGION=us-east-1
-S3_BUCKET=your-bucket-name
-```
-
-### Option 2: AWS SDK Compatible
-
-```bash
-AWS_ACCESS_KEY_ID=your_access_key_here
-AWS_SECRET_ACCESS_KEY=your_secret_key_here
+# For AWS S3
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
 AWS_REGION=us-east-1
-AWS_S3_BUCKET=your-bucket-name
+AWS_S3_BUCKET=your-bucket
+
+# For Cloudflare R2
+CLOUDFLARE_ACCOUNT_ID=your-account-id
+CLOUDFLARE_R2_ACCESS_KEY_ID=your-access-key
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=your-secret-key
+CLOUDFLARE_R2_BUCKET=your-bucket
+
+# For DigitalOcean Spaces
+DO_SPACES_ACCESS_KEY_ID=your-access-key
+DO_SPACES_SECRET_ACCESS_KEY=your-secret-key
+DO_SPACES_REGION=nyc3
+DO_SPACES_BUCKET=your-bucket
 ```
 
-### Option 3: Prefixed (Multiple Services)
+### 2. Configuration File (`upload.ts`)
 
-```bash
-NEXT_S3_ACCESS_KEY_ID=your_access_key_here
-NEXT_S3_SECRET_ACCESS_KEY=your_secret_key_here
-NEXT_S3_REGION=us-east-1
-NEXT_S3_BUCKET=your-bucket-name
-```
-
-## 🌐 Provider-Specific Setup
-
-### Amazon S3
-
-```bash
-S3_ACCESS_KEY_ID=AKIA...
-S3_SECRET_ACCESS_KEY=...
-S3_REGION=us-east-1
-S3_BUCKET=my-app-uploads
-```
-
-### MinIO (Self-hosted)
-
-```bash
-S3_ACCESS_KEY_ID=minioadmin
-S3_SECRET_ACCESS_KEY=minioadmin
-S3_ENDPOINT=http://localhost:9000
-S3_BUCKET=uploads
-S3_FORCE_PATH_STYLE=true
-```
-
-### Cloudflare R2
-
-```bash
-S3_ACCESS_KEY_ID=...
-S3_SECRET_ACCESS_KEY=...
-S3_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
-S3_BUCKET=my-r2-bucket
-S3_REGION=auto
-```
-
-### DigitalOcean Spaces
-
-```bash
-S3_ACCESS_KEY_ID=...
-S3_SECRET_ACCESS_KEY=...
-S3_ENDPOINT=https://nyc3.digitaloceanspaces.com
-S3_BUCKET=my-space-name
-S3_REGION=nyc3
-```
-
-## ⚙️ Advanced Configuration
-
-### Custom Domain (CDN)
-
-```bash
-S3_CUSTOM_DOMAIN=https://cdn.yourdomain.com
-```
-
-### File Size Limits
-
-```bash
-S3_MAX_FILE_SIZE=10MB
-```
-
-### Access Control
-
-```bash
-S3_ACL=private  # or public-read, public-read-write, authenticated-read
-```
-
-### Debug Mode
-
-```bash
-S3_DEBUG=true  # Automatically enabled in development
-```
-
-## 🔍 How It Works
-
-The new DX implementation:
-
-1. **Auto-Detection**: Automatically detects S3 config from environment variables
-2. **Multiple Conventions**: Supports AWS SDK, simple, and prefixed naming
-3. **Provider Agnostic**: Works with AWS S3, MinIO, R2, Spaces, etc.
-4. **Helpful Errors**: Clear error messages with setup instructions
-5. **Zero Config**: Sensible defaults for most use cases
-
-## 🚨 Troubleshooting
-
-### Missing Configuration Error
-
-If you see configuration errors, make sure:
-
-1. `.env.local` exists in the app root
-2. All required variables are set
-3. Restart the development server after changes
-
-### Provider-Specific Issues
-
-- **MinIO**: Set `S3_FORCE_PATH_STYLE=true`
-- **R2**: Use `S3_REGION=auto`
-- **Custom Endpoints**: Include protocol (`https://`)
-
-## 📖 API Reference
-
-The demo uses the new router architecture:
+The `upload.ts` file initializes the configuration and returns configured instances:
 
 ```typescript
-// Server-side route definition
-const s3Router = createS3Router({
-  imageUpload: s3.image()
-    .max("5MB")
-    .formats(["jpeg", "png", "webp"])
-    .middleware(async ({ req }) => {
-      // Authentication, validation, etc.
-      return { userId: "user123" };
-    })
-    .onUploadComplete(async ({ file, metadata, url }) => {
-      // Post-processing, database updates, etc.
-      console.log(`Upload complete: ${url}`);
-    })
-});
+import { initializeUploadConfig, uploadConfig } from "next-s3-uploader";
 
-// Client-side usage
-const { startUpload, files, isUploading } = useS3UploadRoute("imageUpload");
+// Initialize and get configured instances
+const { s3, createS3Handler, config } = initializeUploadConfig(
+  uploadConfig
+    .auto() // Auto-detects provider from env vars
+    .defaults({ maxFileSize: "10MB" })
+    .security({ allowedOrigins: ["http://localhost:3000"] })
+    .build()
+);
+
+// Export the configured instances
+export { s3, createS3Handler };
 ```
 
-## 🎯 Next Steps
+### 3. API Route (`app/api/s3-upload/route.ts`)
 
-1. **Production Setup**: Configure your S3 bucket and IAM permissions
-2. **Authentication**: Add real authentication in middleware
-3. **Database**: Save file metadata to your database
-4. **Processing**: Add image resizing, virus scanning, etc.
-5. **UI**: Customize the upload components for your design system
+The API route imports the pre-configured instances:
 
----
+```typescript
+import { createS3Handler, s3 } from "../../../upload";
 
-**Need help?** Check the [main documentation](../../packages/next-s3-uploader/README.md) or [roadmap](../../packages/next-s3-uploader/GOLD_STANDARD_DX_ROADMAP.md).
+const s3Router = s3.createRouter({
+  imageUpload: s3.image().max("5MB").formats(["jpeg", "png"]),
+  documentUpload: s3.file().max("10MB").types(["application/pdf"]),
+});
+
+// Uses the configuration from upload.ts automatically!
+const handlers = createS3Handler(s3Router);
+export const { GET, POST } = handlers;
+```
+
+## 🎯 Key Benefits
+
+1. **Configuration-First**: Everything flows from `upload.ts`
+2. **Auto-Detection**: Automatically detects provider from environment
+3. **Type-Safe**: Full TypeScript support with IntelliSense
+4. **Multi-Cloud**: Easy switching between AWS, Cloudflare R2, DigitalOcean, etc.
+5. **Zero Boilerplate**: No configuration needed in API routes
+
+## 🔄 Provider Switching
+
+Change providers by updating environment variables or the config:
+
+```typescript
+// Explicit provider configuration
+const { s3, createS3Handler } = initializeUploadConfig(
+  uploadConfig
+    .cloudflareR2() // or .aws(), .digitalOceanSpaces(), .minio()
+    .defaults({ maxFileSize: "10MB" })
+    .build()
+);
+```
+
+## 🛠️ Development
+
+```bash
+npm run dev
+```
+
+Visit `http://localhost:3000` to test uploads!

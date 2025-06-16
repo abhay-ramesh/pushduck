@@ -10,7 +10,85 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { getS3Config } from "./config";
+import type { ProviderConfig } from "./providers";
+import { getUploadConfig } from "./upload-config";
+
+// ========================================
+// Configuration Helper
+// ========================================
+
+interface S3CompatibleConfig {
+  accessKeyId: string;
+  secretAccessKey: string;
+  region: string;
+  bucket: string;
+  endpoint?: string;
+  forcePathStyle?: boolean;
+  acl?: string;
+  customDomain?: string;
+  debug?: boolean;
+}
+
+/**
+ * Extracts S3-compatible configuration from provider config
+ */
+function getS3CompatibleConfig(config: ProviderConfig): S3CompatibleConfig {
+  const baseConfig = {
+    bucket: config.bucket,
+    acl: config.acl,
+    customDomain: config.customDomain,
+    debug:
+      process.env.NODE_ENV === "development" || process.env.DEBUG === "true",
+  };
+
+  switch (config.provider) {
+    case "aws":
+      return {
+        ...baseConfig,
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+        region: config.region,
+      };
+
+    case "cloudflare-r2":
+      return {
+        ...baseConfig,
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+        region: config.region || "auto",
+        endpoint: config.endpoint,
+        forcePathStyle: true, // R2 requires path-style
+      };
+
+    case "digitalocean-spaces":
+      return {
+        ...baseConfig,
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+        region: config.region,
+        endpoint: config.endpoint,
+        forcePathStyle: false,
+      };
+
+    case "minio":
+      return {
+        ...baseConfig,
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+        region: config.region || "us-east-1",
+        endpoint: config.endpoint,
+        forcePathStyle: true, // MinIO requires path-style
+      };
+
+    case "gcs":
+      throw new Error(
+        "Google Cloud Storage is not yet supported with S3-compatible API. Please use AWS S3, Cloudflare R2, DigitalOcean Spaces, or MinIO."
+      );
+
+    default:
+      throw new Error(`Unsupported provider: ${(config as any).provider}`);
+  }
+}
 
 // ========================================
 // S3 Client Factory
@@ -26,11 +104,12 @@ export function createS3Client(): S3Client {
     return s3ClientInstance;
   }
 
-  const config = getS3Config();
+  const uploadConfig = getUploadConfig();
+  const config = getS3CompatibleConfig(uploadConfig.provider);
 
   if (!config.accessKeyId || !config.secretAccessKey || !config.bucket) {
     throw new Error(
-      "Missing required S3 configuration. Please check your environment variables."
+      "Missing required S3 configuration. Please check your upload configuration."
     );
   }
 
@@ -88,7 +167,7 @@ export async function generatePresignedUploadUrl(
   options: PresignedUrlOptions
 ): Promise<PresignedUrlResult> {
   const s3Client = createS3Client();
-  const config = getS3Config();
+  const config = getS3CompatibleConfig(getUploadConfig().provider);
   const expiresIn = options.expiresIn || 3600; // 1 hour default
 
   const command = new PutObjectCommand({
@@ -171,7 +250,7 @@ export async function generatePresignedUploadUrls(
  */
 export async function checkFileExists(key: string): Promise<boolean> {
   const s3Client = createS3Client();
-  const config = getS3Config();
+  const config = getS3CompatibleConfig(getUploadConfig().provider);
 
   try {
     await s3Client.send(
@@ -193,7 +272,7 @@ export async function checkFileExists(key: string): Promise<boolean> {
  * Gets the public URL for a file
  */
 export function getFileUrl(key: string): string {
-  const config = getS3Config();
+  const config = getS3CompatibleConfig(getUploadConfig().provider);
 
   if (config.customDomain) {
     return `${config.customDomain}/${key}`;
@@ -288,7 +367,7 @@ export async function uploadFileToS3(
   } = {}
 ): Promise<string> {
   const s3Client = createS3Client();
-  const config = getS3Config();
+  const config = getS3CompatibleConfig(getUploadConfig().provider);
 
   const command = new PutObjectCommand({
     Bucket: config.bucket,
@@ -330,7 +409,7 @@ export async function validateS3Connection(): Promise<{
 }> {
   try {
     const s3Client = createS3Client();
-    const config = getS3Config();
+    const config = getS3CompatibleConfig(getUploadConfig().provider);
 
     // Try to check if bucket exists by listing objects (with limit 1)
     await s3Client.send(

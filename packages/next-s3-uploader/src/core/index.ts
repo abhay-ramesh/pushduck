@@ -5,7 +5,9 @@
 // Core functionality
 export * from "./config";
 export * from "./hooks";
+export * from "./providers";
 export * from "./schema";
+export * from "./upload-config";
 
 // Router system exports (Phase 1.2: File Router Architecture)
 export {

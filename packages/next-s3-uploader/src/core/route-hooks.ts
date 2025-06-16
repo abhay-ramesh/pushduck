@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Route-based React Hooks for next-s3-uploader
  *

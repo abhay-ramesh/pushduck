@@ -15,6 +15,7 @@ import {
   getFileUrl,
 } from "./s3-client";
 import { InferS3Input, InferS3Output, S3Schema } from "./schema";
+import { getUploadConfig } from "./upload-config";
 
 // ========================================
 // Core Router Types
@@ -325,9 +326,11 @@ export function createS3Router<TRoutes extends S3RouterDefinition>(
 }
 
 export function createS3Handler<TRoutes extends S3RouterDefinition>(
-  router: S3Router<TRoutes>,
-  config?: any
+  router: S3Router<TRoutes>
 ) {
+  // Initialize upload configuration from upload.ts
+  const uploadConfig = getUploadConfig();
+
   async function POST(req: NextRequest): Promise<NextResponse> {
     try {
       const url = new URL(req.url);
