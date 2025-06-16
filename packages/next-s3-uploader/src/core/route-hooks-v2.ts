@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useRef, useState } from "react";
+import type { RouterRouteNames } from "../client/types";
 import type { S3Router } from "./router-v2";
 
 // ========================================
@@ -468,9 +469,7 @@ export function useS3RouteUpload(
 // Utility Types for Better DX
 // ========================================
 
-// Extract route names from S3Router type
-export type RouterRouteNames<TRouter> =
-  TRouter extends S3Router<infer TRoutes> ? keyof TRoutes : never;
+// RouterRouteNames moved to client/types.ts to avoid duplication
 
 // Export utility functions for UI components
 export { formatETA, formatUploadSpeed };

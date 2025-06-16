@@ -3,7 +3,7 @@
  */
 
 import type { S3UploadedFile } from "../core/route-hooks-v2";
-import type { S3Route, S3Router } from "../core/router-v2";
+import type { S3Router } from "../core/router-v2";
 
 // ========================================
 // Template Literal Types
@@ -70,16 +70,5 @@ export type InferClientRouter<T> =
     : never;
 
 // ========================================
-// Constraint Inference (Future Enhancement)
+// Constraint Inference (Future Enhancement) - Removed unused type
 // ========================================
-
-// Helper to infer route constraints from schema
-export type InferRouteConstraints<T> =
-  T extends S3Route<infer TSchema, any>
-    ? {
-        // This will be enhanced when we add constraint extraction
-        // For now, we keep it simple
-        maxSize?: string;
-        formats?: readonly string[];
-      }
-    : unknown;

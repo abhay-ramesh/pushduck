@@ -25,9 +25,7 @@ export const upload = createUploadClient<AppS3Router>({
   endpoint: "/api/s3-upload",
 });
 
-// Type exports for convenience
-export type { TypedUploadedFile } from "next-s3-uploader/client";
-export type { AppS3Router } from "../app/api/s3-upload/route";
+// Removed unused type exports
 
 /**
  * Usage Examples:

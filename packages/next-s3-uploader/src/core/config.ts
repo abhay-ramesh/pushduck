@@ -49,7 +49,7 @@ export interface S3HandlerConfig extends S3Config {
  * Automatically detects S3 configuration from environment variables
  * Supports multiple naming conventions for maximum compatibility
  */
-export function detectS3Config(): S3Config {
+function detectS3Config(): S3Config {
   const env = process.env;
 
   return {
@@ -141,7 +141,7 @@ export interface ConfigValidationResult {
 /**
  * Validates S3 configuration and provides helpful error messages
  */
-export function validateS3Config(
+function validateS3Config(
   config: Partial<S3Config> = {}
 ): ConfigValidationResult {
   const detectedConfig = detectS3Config();
@@ -216,7 +216,7 @@ export function validateS3Config(
 /**
  * Pre-configured settings for popular S3-compatible providers
  */
-export const S3_PROVIDERS = {
+const S3_PROVIDERS = {
   aws: {
     name: "Amazon S3",
     forcePathStyle: false,
@@ -251,7 +251,7 @@ export const S3_PROVIDERS = {
 /**
  * Helper to create provider-specific configuration
  */
-export function createProviderConfig(
+function createProviderConfig(
   provider: keyof typeof S3_PROVIDERS,
   config: Partial<S3Config> = {}
 ): S3Config {
@@ -272,7 +272,7 @@ export function createProviderConfig(
 /**
  * Creates a complete S3 configuration with validation
  */
-export function createS3Config(config: Partial<S3Config> = {}): S3Config {
+function createS3Config(config: Partial<S3Config> = {}): S3Config {
   const validation = validateS3Config(config);
 
   // In development, allow missing credentials for testing
@@ -331,7 +331,7 @@ export function createS3Config(config: Partial<S3Config> = {}): S3Config {
 /**
  * Environment variable template for easy setup
  */
-export const ENV_TEMPLATE = `# next-s3-uploader Configuration
+const ENV_TEMPLATE = `# next-s3-uploader Configuration
 # Choose one naming convention and stick with it
 
 # Option 1: Simple naming (recommended)
@@ -378,7 +378,7 @@ let globalConfig: S3Config | null = null;
 /**
  * Gets the global S3 configuration (cached)
  */
-export function getS3Config(): S3Config {
+function getS3Config(): S3Config {
   if (!globalConfig) {
     globalConfig = createS3Config();
   }
@@ -388,13 +388,13 @@ export function getS3Config(): S3Config {
 /**
  * Sets the global S3 configuration
  */
-export function setS3Config(config: Partial<S3Config>): void {
+function setS3Config(config: Partial<S3Config>): void {
   globalConfig = createS3Config(config);
 }
 
 /**
  * Resets the global configuration (useful for testing)
  */
-export function resetS3Config(): void {
+function resetS3Config(): void {
   globalConfig = null;
 }

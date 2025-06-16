@@ -358,9 +358,7 @@ export function validateProviderConfig(config: ProviderConfig): {
 // Provider Configuration Helpers
 // ========================================
 
-export function getProviderDisplayName(
-  provider: ProviderConfig["provider"]
-): string {
+function getProviderDisplayName(provider: ProviderConfig["provider"]): string {
   const names = {
     aws: "Amazon S3",
     "cloudflare-r2": "Cloudflare R2",

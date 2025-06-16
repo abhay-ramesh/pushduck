@@ -195,7 +195,7 @@ export function createUploadConfig(): UploadConfigBuilder {
 /**
  * Create upload configuration with auto-detected provider
  */
-export function createAutoUploadConfig(): UploadConfig {
+function createAutoUploadConfig(): UploadConfig {
   throw new Error(
     "Auto-configuration is disabled. Please explicitly configure a provider using:\n" +
       "- uploadConfig.aws({ ... }).build()\n" +
@@ -292,7 +292,7 @@ export function getUploadConfig(): UploadConfig {
 /**
  * Reset global configuration (useful for testing)
  */
-export function resetUploadConfig(): void {
+function resetUploadConfig(): void {
   globalUploadConfig = null;
 }
 
@@ -303,7 +303,7 @@ export function resetUploadConfig(): void {
 /**
  * Convert legacy configuration to new format
  */
-export function convertLegacyUploadConfig(legacyConfig: any): UploadConfig {
+function convertLegacyUploadConfig(legacyConfig: any): UploadConfig {
   const providerConfig = convertLegacyConfig(legacyConfig);
 
   return createUploadConfig()
@@ -320,7 +320,7 @@ export function convertLegacyUploadConfig(legacyConfig: any): UploadConfig {
 // Configuration Validation
 // ========================================
 
-export function validateUploadConfig(config: UploadConfig): {
+function validateUploadConfig(config: UploadConfig): {
   valid: boolean;
   errors: string[];
 } {
