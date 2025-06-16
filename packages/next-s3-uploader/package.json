@@ -22,6 +22,11 @@
       "import": "./dist/server.mjs",
       "require": "./dist/server.js",
       "types": "./dist/server.d.ts"
+    },
+    "./client": {
+      "import": "./dist/client.mjs",
+      "require": "./dist/client.js",
+      "types": "./dist/client.d.ts"
     }
   },
   "files": [
@@ -29,7 +34,7 @@
   ],
   "scripts": {
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "build": "tsup src/index.ts src/server.ts --format cjs,esm --dts --minify --clean --external react",
+    "build": "tsup src/index.ts src/server.ts src/client.ts --format cjs,esm --dts --minify --clean --external react",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

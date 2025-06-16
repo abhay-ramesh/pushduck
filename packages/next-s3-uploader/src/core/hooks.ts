@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Modern React Hooks for next-s3-uploader
  *
