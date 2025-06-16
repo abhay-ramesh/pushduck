@@ -272,14 +272,14 @@ import { UploadZone } from "@/components/ui/upload-zone";
 import { FileList } from "@/components/ui/file-list";
 
 export default function UploadPage() {
-  const { startUpload, files, isUploading } = useS3Upload("fileUpload");
+  const { uploadFiles, files, isUploading } = useS3Upload("fileUpload");
 
   return (
     <div className="container px-4 py-8 mx-auto">
       <h1 className="mb-6 text-2xl font-bold">File Upload</h1>
       
       <UploadZone
-        onDrop={startUpload}
+        onDrop={uploadFiles}
         disabled={isUploading}
         className="mb-6"
       />

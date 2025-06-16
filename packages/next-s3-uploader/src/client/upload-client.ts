@@ -10,7 +10,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useS3UploadRoute } from "../core/route-hooks-v2";
+import { useUploadRoute } from "../core/route-hooks-v2";
 import type { S3Router } from "../core/router-v2";
 import type {
   ClientConfig,
@@ -28,7 +28,7 @@ function useTypedRoute<TRouter extends S3Router<any>>(
   config: ClientConfig
 ): TypedRouteHook {
   // Use the existing hook with enhanced typing
-  const hookResult = useS3UploadRoute(routeName, {
+  const hookResult = useUploadRoute(routeName, {
     endpoint: config.endpoint,
   });
 
@@ -36,13 +36,13 @@ function useTypedRoute<TRouter extends S3Router<any>>(
     async (files: File[], metadata?: any) => {
       // For now, we use the existing uploadFiles function
       // In the future, this will be enhanced with full type inference
-      await hookResult.startUpload(files);
+      await hookResult.uploadFiles(files);
       return hookResult.files.map((file) => ({
         ...file,
         metadata,
       }));
     },
-    [hookResult.startUpload, hookResult.files]
+    [hookResult.uploadFiles, hookResult.files]
   );
 
   return {

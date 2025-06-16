@@ -169,7 +169,7 @@ export type S3Router = typeof s3Router;
 
 ```typescript
 // Automatic type inference from server
-const { startUpload, isUploading, files } = useS3Upload<S3Router>("documentUpload");
+const { uploadFiles, isUploading, files } = useS3Upload<S3Router>("documentUpload");
 //    ^? TypeScript knows this route exists and its exact configuration
 
 // Compile-time error if route doesn't exist

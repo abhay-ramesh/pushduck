@@ -21,18 +21,20 @@ await uploadFiles(selectedFiles);
 
 ```typescript
 // Direct hook usage with type safety
-const { startUpload, files, isUploading } = 
-  useS3UploadRoute<AppRouter>("imageUpload");
-await startUpload(selectedFiles);
+const { uploadFiles, files, isUploading } = 
+  useUploadRoute<AppRouter>("imageUpload");
+await uploadFiles(selectedFiles);
 ```
 
 ### 3. Traditional Hook (Backward Compatible)
 
 ```typescript
 // Legacy style - still works but without type checking
-const { startUpload, files, isUploading } = 
-  useS3UploadRoute("imageUpload", { endpoint: "/api/upload" });
+const { uploadFiles, files, isUploading } = 
+  useUploadRoute("imageUpload", { endpoint: "/api/upload" });
 ```
+
+> **Note:** The older `useS3FileUpload` hook has been removed. Please use `useUploadRoute` instead.
 
 ---
 
@@ -110,15 +112,15 @@ export { upload } from './lib/upload-client';
 ```typescript
 // Simple, familiar React pattern
 function ImageUploadComponent() {
-  const { startUpload, files, isUploading } = 
-    useS3UploadRoute<AppRouter>("imageUpload");
+  const { uploadFiles, files, isUploading } = 
+    useUploadRoute<AppRouter>("imageUpload");
     
   // Rest of component logic...
 }
 
 // Easy migration from existing hooks
 // Before: const result = useOldUploadHook("images");
-// After:  const result = useS3UploadRoute<Router>("imageUpload");
+// After:  const result = useUploadRoute<Router>("imageUpload");
 ```
 
 ---
@@ -137,9 +139,11 @@ This style is **backward compatible** but offers limited benefits. Consider upgr
 
 ```typescript
 // Easy upgrade path
-// Before: useS3UploadRoute("imageUpload")
-// After:  useS3UploadRoute<AppRouter>("imageUpload")
+// Before: useUploadRoute("imageUpload")
+// After:  useUploadRoute<AppRouter>("imageUpload")
 ```
+
+> **Breaking Change:** The legacy `useS3FileUpload` hook has been removed. Migrate to `useUploadRoute` for continued support.
 
 ---
 
@@ -173,10 +177,10 @@ const { uploadFiles, files } = upload.documentUpload;
 
 ```typescript
 // components/image-upload.tsx
-import { useS3UploadRoute } from "next-s3-uploader";
+import { useUploadRoute } from "next-s3-uploader";
 import type { AppRouter } from "@/app/api/upload/route";
 
-const { startUpload, files } = useS3UploadRoute<AppRouter>("imageUpload");
+const { uploadFiles, files } = useUploadRoute<AppRouter>("imageUpload");
 ```
 
 **Benefits:**
@@ -194,8 +198,23 @@ const { startUpload, files } = useS3UploadRoute<AppRouter>("imageUpload");
 
 ```typescript
 // Step 1: Add router type (no other changes needed)
-- useS3UploadRoute("imageUpload")
-+ useS3UploadRoute<AppRouter>("imageUpload")
+- useUploadRoute("imageUpload")
++ useUploadRoute<AppRouter>("imageUpload")
+```
+
+### **From Legacy useS3FileUpload → Enhanced Hook**
+
+```typescript
+// The legacy hook has been removed - migrate to useUploadRoute
+- import { useS3FileUpload } from "next-s3-uploader";
+- const { uploadedFiles, uploadFiles, reset } = useS3FileUpload({
+-   multiple: true,
+-   maxFiles: 10,
+-   maxFileSize: 10 * 1024 * 1024,
+- });
+
++ import { useUploadRoute } from "next-s3-uploader";
++ const { files, uploadFiles, reset } = useUploadRoute("routeName");
 ```
 
 ### **From Enhanced Hook → Property-Based**
@@ -208,13 +227,13 @@ export const upload = createUploadClient<AppRouter>({
 });
 
 // Step 2: Update imports
-- import { useS3UploadRoute } from "next-s3-uploader";
-- const { startUpload, files } = useS3UploadRoute<AppRouter>("imageUpload");
+- import { useUploadRoute } from "next-s3-uploader";
+- const { uploadFiles, files } = useUploadRoute<AppRouter>("imageUpload");
 + import { upload } from "@/lib/upload-client";
 + const { uploadFiles, files } = upload.imageUpload;
 
 // Step 3: Update method names
-- startUpload(files)
+- uploadFiles(files)
 + uploadFiles(files)
 ```
 
@@ -246,12 +265,12 @@ const marketing = upload.bannerImages;
 ```typescript
 // Simple blog with few upload types
 function PostEditor() {
-  const { startUpload, files } = useS3UploadRoute<BlogRouter>("postImages");
+  const { uploadFiles, files } = useUploadRoute<BlogRouter>("postImages");
   // Simple, focused component
 }
 
 function UserProfile() {
-  const { startUpload, files } = useS3UploadRoute<BlogRouter>("avatars");
+  const { uploadFiles, files } = useUploadRoute<BlogRouter>("avatars");
   // Each component handles its own upload needs
 }
 ```

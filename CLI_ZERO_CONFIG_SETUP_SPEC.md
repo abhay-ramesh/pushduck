@@ -545,11 +545,11 @@ import { FileList } from "@/components/ui/file-list";
 import type { UploadRouter } from "@/lib/upload-config";
 
 export default function UploadPage() {
-  const { startUpload, files, isUploading, reset } = useS3Upload<UploadRouter>("fileUpload");
+  const { uploadFiles, files, isUploading, reset } = useS3Upload<UploadRouter>("fileUpload");
 
   const handleDrop = async (newFiles: File[]) => {
     try {
-      await startUpload(newFiles);
+      await uploadFiles(newFiles);
     } catch (error) {
       console.error("Upload failed:", error);
     }
@@ -1045,14 +1045,14 @@ import { UploadZone } from "@/components/ui/upload-zone";
 import type { UploadRouter } from "@/lib/upload-config";
 
 export default function UploadPage() {
-  const { startUpload, files, isUploading } = useS3Upload<UploadRouter>("fileUpload");
+  const { uploadFiles, files, isUploading } = useS3Upload<UploadRouter>("fileUpload");
 
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-2xl font-bold mb-6">File Upload</h1>
       
       <UploadZone
-        onDrop={startUpload}
+        onDrop={uploadFiles}
         accept="image/*,application/pdf,text/*"
         maxSize="10MB"
         disabled={isUploading}

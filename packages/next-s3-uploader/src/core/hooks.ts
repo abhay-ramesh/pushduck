@@ -244,20 +244,13 @@ function extractFiles(data: unknown): File[] {
 }
 
 // ========================================
-// Legacy Compatibility Hook
+// Legacy Hook Removed
 // ========================================
 
-/**
- * Wrapper to provide backward compatibility with the old API
- * while encouraging migration to the new schema-based approach
- */
-export function useS3FileUpload(options: any = {}) {
-  console.warn(
-    "⚠️  useS3FileUpload is deprecated. Please migrate to useS3Upload with schema validation.\n" +
-      "See migration guide: https://next-s3-uploader.com/migrate"
-  );
-
-  // Return the old hook implementation for now
-  // This will be removed in a future major version
-  return {} as any;
-}
+// useS3FileUpload has been removed.
+// Please migrate to useUploadRoute for enhanced type safety:
+//
+// Before: const { uploadedFiles, uploadFiles } = useS3FileUpload(options);
+// After:  const { files, uploadFiles } = useUploadRoute("routeName");
+//
+// See API_STYLE_GUIDE.md for migration instructions.

@@ -3,7 +3,7 @@
 import {
   formatETA,
   formatUploadSpeed,
-  useS3UploadRoute,
+  useUploadRoute,
 } from "next-s3-uploader/client";
 import { useState } from "react";
 import type { AppS3Router } from "../app/api/s3-upload/route";
@@ -11,8 +11,8 @@ import type { AppS3Router } from "../app/api/s3-upload/route";
 export function SimpleImageUpload() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-  const { startUpload, files, isUploading, errors, reset } =
-    useS3UploadRoute<AppS3Router>("imageUpload");
+  const { uploadFiles, files, isUploading, errors, reset } =
+    useUploadRoute<AppS3Router>("imageUpload");
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
@@ -26,7 +26,7 @@ export function SimpleImageUpload() {
     if (selectedFiles.length === 0) return;
 
     try {
-      await startUpload(selectedFiles);
+      await uploadFiles(selectedFiles);
       setSelectedFiles([]);
       // Reset file input
       const input = document.querySelector(
@@ -304,8 +304,8 @@ export function SimpleImageUpload() {
 export function SimpleDocumentUpload() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const { startUpload, files, isUploading, errors, reset } =
-    useS3UploadRoute("documentUpload");
+  const { uploadFiles, files, isUploading, errors, reset } =
+    useUploadRoute("documentUpload");
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -318,7 +318,7 @@ export function SimpleDocumentUpload() {
     if (!selectedFile) return;
 
     try {
-      await startUpload([selectedFile]);
+      await uploadFiles([selectedFile]);
       setSelectedFile(null);
       // Reset file input
       const input = document.querySelector(
@@ -505,8 +505,8 @@ export function SimpleDocumentUpload() {
 export function SingleImageUpload() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const { startUpload, files, isUploading, errors, reset } =
-    useS3UploadRoute("imageUpload");
+  const { uploadFiles, files, isUploading, errors, reset } =
+    useUploadRoute("imageUpload");
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -519,7 +519,7 @@ export function SingleImageUpload() {
     if (!selectedFile) return;
 
     try {
-      await startUpload([selectedFile]);
+      await uploadFiles([selectedFile]);
       setSelectedFile(null);
       // Reset file input
       const input = document.querySelector(

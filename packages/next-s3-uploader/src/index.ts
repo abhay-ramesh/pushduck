@@ -10,10 +10,9 @@
 // ========================================
 
 // Modern hooks (recommended)
-export { useS3RouteUpload, useS3UploadRoute } from "./core/route-hooks-v2";
+export { useS3RouteUpload, useUploadRoute } from "./core/route-hooks-v2";
 
-// Legacy hook (deprecated - use useS3UploadRoute instead)
-export { useS3FileUpload } from "./core/hooks";
+// Legacy hook removed - use useUploadRoute instead
 
 // ========================================
 // TYPES & INTERFACES

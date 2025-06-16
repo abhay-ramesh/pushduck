@@ -20,10 +20,9 @@ export type {
 } from "./types";
 
 // Re-export existing hooks for backward compatibility
-export { useS3RouteUpload, useS3UploadRoute } from "../core/route-hooks-v2";
+export { useS3RouteUpload, useUploadRoute } from "../core/route-hooks-v2";
 
-// Re-export legacy hook from the right place
-export { useS3FileUpload } from "../core/hooks";
+// Legacy hook removed - use useUploadRoute instead
 
 // Re-export existing types for backward compatibility
 export type {
@@ -33,8 +32,7 @@ export type {
   S3UploadedFile,
 } from "../core/route-hooks-v2";
 
-// Re-export legacy type from the right place
-export type { S3UploadConfig } from "../core/hooks";
+// Legacy types removed - use S3RouteUploadConfig instead
 
 // Utility functions
 export { formatETA, formatUploadSpeed } from "../core/route-hooks-v2";
