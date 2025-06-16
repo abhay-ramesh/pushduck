@@ -75,9 +75,9 @@ const s3Router = s3.createRouter({
     .onUploadError(async ({ file, error }) => {
       console.error(`❌ Document upload failed: ${file.name}`, error);
     }),
-});
+}); // Add 'as const' to preserve literal types
 
-// Export router type for client-side usage
+// Export router type for client-side usage with proper type preservation
 export type AppS3Router = typeof s3Router;
 
 // Export the HTTP handlers - uses the configuration from upload.ts!

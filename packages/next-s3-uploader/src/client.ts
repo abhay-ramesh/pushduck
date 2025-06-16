@@ -5,11 +5,25 @@
  * Use this import when you want to be explicit about client-side usage.
  *
  * @example
- * import { useS3UploadRoute } from 'next-s3-uploader/client'
+ * import { useS3UploadRoute, createUploadClient } from 'next-s3-uploader/client'
  */
 
 // ========================================
-// CLIENT-SIDE HOOKS ONLY
+// ENHANCED CLIENT API (NEW)
+// ========================================
+
+export { createUploadClient } from "./client/upload-client";
+
+export type {
+  ClientConfig,
+  InferClientRouter,
+  RouterRouteNames,
+  TypedRouteHook,
+  TypedUploadedFile,
+} from "./client/types";
+
+// ========================================
+// CLIENT-SIDE HOOKS (EXISTING)
 // ========================================
 
 export { useS3RouteUpload, useS3UploadRoute } from "./core/route-hooks-v2";
@@ -18,7 +32,7 @@ export { useS3RouteUpload, useS3UploadRoute } from "./core/route-hooks-v2";
 export { useS3FileUpload } from "./core/hooks";
 
 // ========================================
-// CLIENT-SAFE TYPES
+// CLIENT-SAFE TYPES (EXISTING)
 // ========================================
 
 export type {

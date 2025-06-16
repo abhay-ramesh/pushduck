@@ -15,7 +15,7 @@ import {
   createS3Handler,
   createS3Router,
   S3Route,
-  S3RouterDefinition,
+  S3Router,
 } from "./router-v2";
 import {
   S3FileConstraints,
@@ -31,7 +31,11 @@ import {
 // Smart router factory that handles schema-to-route conversion
 function smartCreateRouter<TRoutes extends Record<string, any>>(
   routes: TRoutes
-) {
+): S3Router<{
+  [K in keyof TRoutes]: TRoutes[K] extends S3Route<any, any>
+    ? TRoutes[K]
+    : S3Route<any, any>;
+}> {
   // Convert any schema objects to route objects
   const convertedRoutes: Record<string, S3Route<any, any>> = {};
 
@@ -49,7 +53,12 @@ function smartCreateRouter<TRoutes extends Record<string, any>>(
     }
   }
 
-  return createS3Router(convertedRoutes as S3RouterDefinition);
+  // Cast to maintain the exact route structure in the type system
+  return createS3Router(convertedRoutes) as any as S3Router<{
+    [K in keyof TRoutes]: TRoutes[K] extends S3Route<any, any>
+      ? TRoutes[K]
+      : S3Route<any, any>;
+  }>;
 }
 
 // Main S3 Builder Instance (for upload-config)
