@@ -1,0 +1,57 @@
+{
+    "name": "create-next-s3-uploader",
+    "version": "0.1.0",
+    "description": "Zero-config setup CLI for next-s3-uploader",
+    "main": "dist/index.js",
+    "bin": {
+        "create-next-s3-uploader": "./dist/index.js",
+        "next-s3-uploader": "./dist/index.js"
+    },
+    "scripts": {
+        "build": "tsup src/index.ts --format cjs --dts --clean --minify",
+        "dev": "tsup src/index.ts --format cjs --watch",
+        "test": "vitest",
+        "lint": "eslint src --ext .ts",
+        "typecheck": "tsc --noEmit"
+    },
+    "keywords": [
+        "nextjs",
+        "s3",
+        "upload",
+        "cli",
+        "setup",
+        "scaffold",
+        "aws",
+        "cloudflare",
+        "digitalocean"
+    ],
+    "author": "Abhay Ramesh",
+    "license": "MIT",
+    "dependencies": {
+        "@aws-sdk/client-s3": "^3.427.0",
+        "chalk": "^5.4.1",
+        "commander": "^11.0.0",
+        "detect-package-manager": "^3.0.1",
+        "dotenv": "^16.3.0",
+        "execa": "^8.0.0",
+        "fs-extra": "^11.1.0",
+        "handlebars": "^4.7.8",
+        "inquirer": "^9.2.0",
+        "ora": "^7.0.0"
+    },
+    "devDependencies": {
+        "@types/fs-extra": "^11.0.4",
+        "@types/inquirer": "^9.0.7",
+        "@types/node": "^18.15.11",
+        "tsup": "^7.2.0",
+        "typescript": "^5.2.2",
+        "vitest": "^0.34.6"
+    },
+    "files": [
+        "dist/**/*",
+        "templates/**/*"
+    ],
+    "engines": {
+        "node": ">=16.0.0"
+    }
+}
