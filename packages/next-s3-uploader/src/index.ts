@@ -10,7 +10,7 @@
 // ========================================
 
 // Modern hooks (recommended)
-export { useS3RouteUpload, useUploadRoute } from "./core/route-hooks-v2";
+export { useS3RouteUpload, useUploadRoute } from "./hooks/use-upload-route";
 
 // Legacy hook removed - use useUploadRoute instead
 
@@ -24,7 +24,7 @@ export type {
   S3RouteUploadConfig,
   S3RouteUploadResult,
   S3UploadedFile,
-} from "./core/route-hooks-v2";
+} from "./types";
 
 // Configuration types (for TypeScript IntelliSense)
 export type {
@@ -37,7 +37,7 @@ export type {
 } from "./core/providers";
 
 // Legacy config type
-export type { S3UploadConfig } from "./core/hooks";
+export type { S3UploadConfig } from "./types";
 
 // Schema inference types
 export type { InferS3Input, InferS3Output } from "./core/schema";
@@ -47,7 +47,7 @@ export type { InferS3Input, InferS3Output } from "./core/schema";
 // ========================================
 
 // File size and time formatting utilities
-export { formatETA, formatUploadSpeed } from "./core/route-hooks-v2";
+export { formatETA, formatUploadSpeed } from "./hooks/use-upload-route";
 
 // ========================================
 // CONFIGURATION (Client-safe)

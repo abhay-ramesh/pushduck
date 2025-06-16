@@ -11,12 +11,8 @@ import {
   providers,
   validateProviderConfig,
 } from "./providers";
-import {
-  createS3Handler,
-  createS3Router,
-  S3Route,
-  S3Router,
-} from "./router-v2";
+import type { S3Router } from "./router-v2";
+import { createS3Handler, createS3Router, S3Route } from "./router-v2";
 import {
   S3FileConstraints,
   S3FileSchema,

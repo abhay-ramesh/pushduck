@@ -1,83 +1,33 @@
 "use client";
 
 /**
- * Enhanced S3 Upload Route Hooks with Type Safety
+ * Modern Upload Route Hook
  *
- * This provides React hooks for file uploads with enhanced type inference
- * when used with typed routers, while maintaining full backward compatibility.
+ * Provides type-safe file upload functionality with route-based configuration.
+ * Supports both type-safe usage with router types and legacy string-based usage.
  */
 
 import { useCallback, useRef, useState } from "react";
-import type { RouterRouteNames } from "../client/types";
-import type { S3Router } from "./router-v2";
-
-// ========================================
-// Types
-// ========================================
-
-export interface S3UploadedFile {
-  id: string;
-  name: string;
-  size: number;
-  type: string;
-  status: "pending" | "uploading" | "success" | "error";
-  progress: number;
-  url?: string;
-  key?: string;
-  error?: string;
-  file?: File;
-  // ETA tracking
-  uploadStartTime?: number;
-  uploadSpeed?: number; // bytes per second
-  eta?: number; // seconds remaining
-}
-
-export interface S3FileMetadata {
-  name: string;
-  size: number;
-  type: string;
-}
-
-export interface S3RouteUploadConfig {
-  endpoint?: string;
-  onSuccess?: (results: S3UploadedFile[]) => void | Promise<void>;
-  onError?: (error: Error) => void;
-  onProgress?: (progress: number) => void;
-}
-
-export interface S3RouteUploadResult {
-  files: S3UploadedFile[];
-  uploadFiles: (files: File[]) => Promise<void>;
-  reset: () => void;
-  isUploading: boolean;
-  errors: string[];
-}
+import type {
+  RouterRouteNames,
+  S3FileMetadata,
+  S3RouteUploadConfig,
+  S3RouteUploadResult,
+  S3Router,
+  S3UploadedFile,
+} from "../types";
 
 // ========================================
 // Utility Functions
 // ========================================
 
 function formatETA(seconds: number): string {
-  if (!seconds || seconds <= 0 || !isFinite(seconds)) return "";
-
-  if (seconds < 60) {
-    return `${Math.round(seconds)}s`;
-  } else if (seconds < 3600) {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.round(seconds % 60);
-    return remainingSeconds > 0
-      ? `${minutes}m ${remainingSeconds}s`
-      : `${minutes}m`;
-  } else {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-  }
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+  return `${Math.round(seconds / 3600)}h`;
 }
 
 function formatUploadSpeed(bytesPerSecond: number): string {
-  if (!bytesPerSecond || bytesPerSecond <= 0) return "";
-
   const units = ["B/s", "KB/s", "MB/s", "GB/s"];
   let size = bytesPerSecond;
   let unitIndex = 0;
@@ -87,12 +37,8 @@ function formatUploadSpeed(bytesPerSecond: number): string {
     unitIndex++;
   }
 
-  return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+  return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
-
-// ========================================
-// Upload Progress Tracking
-// ========================================
 
 function createProgressTracker(
   fileId: string,
@@ -106,10 +52,6 @@ function createProgressTracker(
   };
 }
 
-// ========================================
-// S3 Direct Upload
-// ========================================
-
 async function uploadToS3(
   file: File,
   presignedUrl: string,
@@ -118,62 +60,30 @@ async function uploadToS3(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const startTime = Date.now();
-    let lastLoaded = 0;
-    let lastTime = startTime;
 
-    // Track upload progress with ETA calculation
-    if (onProgress) {
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          const progress = Math.round((event.loaded / event.total) * 100);
-          const currentTime = Date.now();
-          const timeElapsed = (currentTime - startTime) / 1000; // seconds
-          const timeSinceLastUpdate = (currentTime - lastTime) / 1000;
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        const progress = Math.round((event.loaded / event.total) * 100);
+        const elapsed = (Date.now() - startTime) / 1000;
+        const uploadSpeed = event.loaded / elapsed;
+        const remainingBytes = event.total - event.loaded;
+        const eta = remainingBytes / uploadSpeed;
 
-          // Calculate upload speed (bytes per second)
-          let uploadSpeed = 0;
-          let eta = 0;
+        onProgress(progress, uploadSpeed, eta);
+      }
+    };
 
-          if (timeElapsed > 0.5) {
-            // Only calculate after 500ms to avoid initial spikes
-            const bytesUploaded = event.loaded - lastLoaded;
-            if (timeSinceLastUpdate > 0) {
-              // Smooth the speed calculation using recent data
-              uploadSpeed = bytesUploaded / timeSinceLastUpdate;
-
-              // Calculate ETA based on remaining bytes and current speed
-              const remainingBytes = event.total - event.loaded;
-              if (uploadSpeed > 0 && remainingBytes > 0) {
-                eta = remainingBytes / uploadSpeed;
-              }
-            }
-          }
-
-          lastLoaded = event.loaded;
-          lastTime = currentTime;
-
-          onProgress(progress, uploadSpeed, eta);
-        }
-      });
-    }
-
-    xhr.addEventListener("load", () => {
+    xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve();
       } else {
-        reject(new Error(`Upload failed with status ${xhr.status}`));
+        reject(new Error(`Upload failed with status: ${xhr.status}`));
       }
-    });
+    };
 
-    xhr.addEventListener("error", () => {
-      reject(new Error("Upload failed due to network error"));
-    });
+    xhr.onerror = () => reject(new Error("Upload failed"));
+    xhr.onabort = () => reject(new Error("Upload aborted"));
 
-    xhr.addEventListener("abort", () => {
-      reject(new Error("Upload was aborted"));
-    });
-
-    // Open connection and send file
     xhr.open("PUT", presignedUrl);
     xhr.setRequestHeader("Content-Type", file.type);
     xhr.send(file);
@@ -181,22 +91,19 @@ async function uploadToS3(
 }
 
 // ========================================
-// Main Hook Implementation with Type Overloads
+// Main Hook Implementation
 // ========================================
 
-// Overload for when router type is provided (enhanced type safety)
 export function useUploadRoute<TRouter extends S3Router<any>>(
   routeName: RouterRouteNames<TRouter>,
   config?: S3RouteUploadConfig
 ): S3RouteUploadResult;
 
-// Overload for backward compatibility (no router type)
 export function useUploadRoute(
   routeName: string,
   config?: S3RouteUploadConfig
 ): S3RouteUploadResult;
 
-// Implementation
 export function useUploadRoute<TRouter extends S3Router<any>>(
   routeName: RouterRouteNames<TRouter> | string,
   config: S3RouteUploadConfig = {}
@@ -207,10 +114,8 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
   const abortControllers = useRef<Map<string, AbortController>>(new Map());
 
   const reset = useCallback(() => {
-    // Cancel any ongoing uploads
     abortControllers.current.forEach((controller) => controller.abort());
     abortControllers.current.clear();
-
     setFiles([]);
     setErrors([]);
     setIsUploading(false);
@@ -234,28 +139,28 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
       extra: Partial<S3UploadedFile> = {}
     ) => {
       setFiles((prev) =>
-        prev.map((file) => {
-          if (file.id === fileId) {
-            // Debug log for status transitions
-            if (process.env.NODE_ENV === "development") {
-              console.log(`📊 File ${file.name}: ${file.status} → ${status}`);
-            }
-            return { ...file, status, ...extra };
-          }
-          return file;
-        })
+        prev.map((file) =>
+          file.id === fileId ? { ...file, status, ...extra } : file
+        )
       );
     },
     []
   );
 
-  const uploadFiles = useCallback(
+  const startUpload = useCallback(
     async (uploadFiles: File[]) => {
+      if (!uploadFiles.length) return;
+
       try {
         setIsUploading(true);
         setErrors([]);
 
-        // Initialize file states
+        const fileMetadata: S3FileMetadata[] = uploadFiles.map((file) => ({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        }));
+
         const initialFiles: S3UploadedFile[] = uploadFiles.map(
           (file, index) => ({
             id: `${Date.now()}-${index}`,
@@ -269,13 +174,6 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
         );
 
         setFiles(initialFiles);
-
-        // Step 1: Request presigned URLs
-        const fileMetadata: S3FileMetadata[] = uploadFiles.map((file) => ({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-        }));
 
         const endpoint = config.endpoint || "/api/s3-upload";
         const presignResponse = await fetch(
@@ -300,7 +198,6 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
           throw new Error(presignData.error || "Failed to get presigned URLs");
         }
 
-        // Step 2: Upload files to S3 using presigned URLs
         const uploadPromises = presignData.results.map(
           async (result: any, index: number) => {
             const file = uploadFiles[index];
@@ -314,12 +211,10 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
             }
 
             try {
-              // Update status to uploading
               updateFileStatus(fileState.id, "uploading", {
                 uploadStartTime: Date.now(),
               });
 
-              // Upload to S3
               await uploadToS3(
                 file,
                 result.presignedUrl,
@@ -327,7 +222,6 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                   updateFileProgress(fileState.id, progress, uploadSpeed, eta)
               );
 
-              // Update status to success
               updateFileStatus(fileState.id, "success", {
                 progress: 100,
                 key: result.key,
@@ -354,7 +248,6 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
         const uploadResults = await Promise.all(uploadPromises);
         const successfulUploads = uploadResults.filter(Boolean);
 
-        // Step 3: Notify server of completion
         if (successfulUploads.length > 0) {
           try {
             const completeResponse = await fetch(
@@ -369,11 +262,9 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
             if (completeResponse.ok) {
               const completeData = await completeResponse.json();
 
-              // Update files with final URLs
               if (completeData.success && completeData.results) {
                 completeData.results.forEach((result: any) => {
                   if (result.success && result.key) {
-                    // Find the file by matching the key
                     const matchingUpload = successfulUploads.find(
                       (u) => u?.key === result.key
                     );
@@ -400,13 +291,10 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
               "Failed to notify server of upload completion:",
               error
             );
-            // Don't fail the entire upload for this
           }
         }
 
-        // Call success callback
         if (config.onSuccess) {
-          // Use the current files state instead of stale closure
           setFiles((currentFiles) => {
             const finalFiles = currentFiles.filter(
               (f) => f.status === "success"
@@ -414,7 +302,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
             if (finalFiles.length > 0) {
               config.onSuccess?.(finalFiles);
             }
-            return currentFiles; // Don't modify state, just access it
+            return currentFiles;
           });
         }
       } catch (error) {
@@ -422,14 +310,11 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
           error instanceof Error ? error.message : "Upload failed";
         setErrors((prev) => [...prev, errorMessage]);
 
-        // Only update files that are still in pending state (not those that succeeded)
         setFiles((prev) =>
           prev.map((file) => {
-            // Don't change files that have already succeeded or failed
             if (file.status === "success" || file.status === "error") {
               return file;
             }
-            // Only mark as error if still pending/uploading
             return { ...file, status: "error" as const, error: errorMessage };
           })
         );
@@ -447,7 +332,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
   return {
     files,
-    uploadFiles,
+    uploadFiles: startUpload,
     reset,
     isUploading,
     errors,
@@ -464,12 +349,6 @@ export function useS3RouteUpload(
 ): S3RouteUploadResult {
   return useUploadRoute(routeName, config);
 }
-
-// ========================================
-// Utility Types for Better DX
-// ========================================
-
-// RouterRouteNames moved to client/types.ts to avoid duplication
 
 // Export utility functions for UI components
 export { formatETA, formatUploadSpeed };

@@ -46,12 +46,10 @@ export { s3 } from "./core/upload-config";
 // ========================================
 
 // Modern router (recommended)
-export {
-  S3Route,
-  S3Router,
-  createS3Handler,
-  createS3Router,
-} from "./core/router-v2";
+export { S3Route, createS3Handler, createS3Router } from "./core/router-v2";
+
+// Router types
+export type { S3Router } from "./types";
 
 // Legacy router (deprecated) - REMOVED
 // export {
