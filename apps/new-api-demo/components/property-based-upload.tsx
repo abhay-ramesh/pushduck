@@ -7,7 +7,8 @@ export function PropertyBasedImageUpload() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   // Property-based access with full type inference - no string literals!
-  const { uploadFiles, files, isUploading, errors, reset } = upload.imageUpload;
+  const { uploadFiles, files, isUploading, errors, reset } =
+    upload.imageUpload();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
@@ -66,9 +67,9 @@ export function PropertyBasedImageUpload() {
           <li>
             •{" "}
             <code className="px-1 bg-emerald-100 rounded">
-              upload.imageUpload
+              upload.imagegUpload()
             </code>{" "}
-            - Property access (no strings!)
+            - Hook factory pattern (tRPC-style)
           </li>
           <li>• Full TypeScript inference from server router</li>
           <li>• Zero runtime overhead, compile-time safety</li>
@@ -285,7 +286,7 @@ export function PropertyBasedDocumentUpload() {
 
   // Property-based access with full type inference for documents
   const { uploadFiles, files, isUploading, errors, reset } =
-    upload.documentUpload;
+    upload.documentUpload();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -339,9 +340,9 @@ export function PropertyBasedDocumentUpload() {
           <li>
             •{" "}
             <code className="px-1 bg-amber-100 rounded">
-              upload.documentUpload
+              upload.documentUpload()
             </code>{" "}
-            - Direct property access
+            - Hook factory function call
           </li>
           <li>• Automatic validation from server route definition</li>
           <li>• IntelliSense shows available routes and methods</li>
