@@ -1,0 +1,25 @@
+[
+    {
+        "AllowedOrigins": [
+            "http://localhost:3002",
+            "http://localhost:3000",
+            "http://localhost:3001"
+        ],
+        "AllowedMethods": [
+            "GET",
+            "PUT",
+            "POST",
+            "DELETE",
+            "HEAD"
+        ],
+        "AllowedHeaders": [
+            "*"
+        ],
+        "ExposeHeaders": [
+            "ETag",
+            "x-amz-meta-*",
+            "x-amz-request-id"
+        ],
+        "MaxAgeSeconds": 3600
+    }
+]

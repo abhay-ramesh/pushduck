@@ -12,12 +12,24 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.mts",
   "module": "./dist/index.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server.mjs",
+      "require": "./dist/server.js",
+      "types": "./dist/server.d.ts"
+    }
+  },
   "files": [
     "dist/**/*"
   ],
   "scripts": {
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "build": "tsup src/index.ts --format cjs,esm --dts --minify --clean --external react",
+    "build": "tsup src/index.ts src/server.ts --format cjs,esm --dts --minify --clean --external react",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -46,7 +58,9 @@
     "@aws-sdk/client-s3": "^3.427.0",
     "@aws-sdk/s3-request-presigner": "^3.427.0",
     "@aws-sdk/signature-v4-multi-region": "^3.425.0",
-    "aws-crt": "^1.18.0"
+    "aws-crt": "^1.18.0",
+    "next": "^15.3.3",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@testing-library/react": "^14.0.0",
