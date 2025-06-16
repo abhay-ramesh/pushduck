@@ -1,6 +1,10 @@
 "use client";
 
-import { useS3UploadRoute } from "next-s3-uploader";
+import {
+  formatETA,
+  formatUploadSpeed,
+  useS3UploadRoute,
+} from "next-s3-uploader";
 import { useState } from "react";
 
 export function SimpleImageUpload() {
@@ -143,14 +147,32 @@ export function SimpleImageUpload() {
               {files.length} completed):
             </h3>
             {files.length > 1 && (
-              <div className="text-xs text-gray-500">
-                Overall:{" "}
-                {Math.round(
-                  (files.filter((f) => f.status === "success").length /
-                    files.length) *
-                    100
-                )}
-                %
+              <div className="flex gap-3 text-xs text-gray-500">
+                <span>
+                  Overall:{" "}
+                  {Math.round(
+                    (files.filter((f) => f.status === "success").length /
+                      files.length) *
+                      100
+                  )}
+                  %
+                </span>
+                {(() => {
+                  const uploadingFiles = files.filter(
+                    (f) => f.status === "uploading" && f.eta && f.eta > 0
+                  );
+                  if (uploadingFiles.length > 0) {
+                    const totalETA = Math.max(
+                      ...uploadingFiles.map((f) => f.eta || 0)
+                    );
+                    return (
+                      <span className="text-orange-600">
+                        ETA: {formatETA(totalETA)}
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             )}
           </div>
@@ -213,7 +235,21 @@ export function SimpleImageUpload() {
                         ? "Preparing upload..."
                         : "Uploading to R2..."}
                     </span>
-                    <span>{file.progress}%</span>
+                    <div className="flex gap-2">
+                      <span>{file.progress}%</span>
+                      {file.status === "uploading" && file.uploadSpeed && (
+                        <span className="text-blue-600">
+                          {formatUploadSpeed(file.uploadSpeed)}
+                        </span>
+                      )}
+                      {file.status === "uploading" &&
+                        file.eta &&
+                        file.eta > 0 && (
+                          <span className="text-orange-600">
+                            ETA: {formatETA(file.eta)}
+                          </span>
+                        )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -399,7 +435,21 @@ export function SimpleDocumentUpload() {
                         ? "Preparing upload..."
                         : "Uploading to R2..."}
                     </span>
-                    <span>{file.progress}%</span>
+                    <div className="flex gap-2">
+                      <span>{file.progress}%</span>
+                      {file.status === "uploading" && file.uploadSpeed && (
+                        <span className="text-green-600">
+                          {formatUploadSpeed(file.uploadSpeed)}
+                        </span>
+                      )}
+                      {file.status === "uploading" &&
+                        file.eta &&
+                        file.eta > 0 && (
+                          <span className="text-orange-600">
+                            ETA: {formatETA(file.eta)}
+                          </span>
+                        )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -586,7 +636,21 @@ export function SingleImageUpload() {
                         ? "Preparing upload..."
                         : "Uploading to R2..."}
                     </span>
-                    <span>{file.progress}%</span>
+                    <div className="flex gap-2">
+                      <span>{file.progress}%</span>
+                      {file.status === "uploading" && file.uploadSpeed && (
+                        <span className="text-purple-600">
+                          {formatUploadSpeed(file.uploadSpeed)}
+                        </span>
+                      )}
+                      {file.status === "uploading" &&
+                        file.eta &&
+                        file.eta > 0 && (
+                          <span className="text-orange-600">
+                            ETA: {formatETA(file.eta)}
+                          </span>
+                        )}
+                    </div>
                   </div>
                 </div>
               )}

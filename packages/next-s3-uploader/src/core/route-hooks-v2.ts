@@ -25,6 +25,10 @@ export interface S3UploadedFile {
   key?: string;
   error?: string;
   file?: File;
+  // ETA tracking
+  uploadStartTime?: number;
+  uploadSpeed?: number; // bytes per second
+  eta?: number; // seconds remaining
 }
 
 export interface S3FileMetadata {
@@ -46,6 +50,43 @@ export interface S3RouteUploadResult {
   reset: () => void;
   isUploading: boolean;
   errors: string[];
+}
+
+// ========================================
+// Utility Functions
+// ========================================
+
+function formatETA(seconds: number): string {
+  if (!seconds || seconds <= 0 || !isFinite(seconds)) return "";
+
+  if (seconds < 60) {
+    return `${Math.round(seconds)}s`;
+  } else if (seconds < 3600) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.round(seconds % 60);
+    return remainingSeconds > 0
+      ? `${minutes}m ${remainingSeconds}s`
+      : `${minutes}m`;
+  } else {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+}
+
+function formatUploadSpeed(bytesPerSecond: number): string {
+  if (!bytesPerSecond || bytesPerSecond <= 0) return "";
+
+  const units = ["B/s", "KB/s", "MB/s", "GB/s"];
+  let size = bytesPerSecond;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+
+  return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
 // ========================================
@@ -71,17 +112,46 @@ function createProgressTracker(
 async function uploadToS3(
   file: File,
   presignedUrl: string,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number, uploadSpeed?: number, eta?: number) => void
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    const startTime = Date.now();
+    let lastLoaded = 0;
+    let lastTime = startTime;
 
-    // Track upload progress
+    // Track upload progress with ETA calculation
     if (onProgress) {
       xhr.upload.addEventListener("progress", (event) => {
         if (event.lengthComputable) {
           const progress = Math.round((event.loaded / event.total) * 100);
-          onProgress(progress);
+          const currentTime = Date.now();
+          const timeElapsed = (currentTime - startTime) / 1000; // seconds
+          const timeSinceLastUpdate = (currentTime - lastTime) / 1000;
+
+          // Calculate upload speed (bytes per second)
+          let uploadSpeed = 0;
+          let eta = 0;
+
+          if (timeElapsed > 0.5) {
+            // Only calculate after 500ms to avoid initial spikes
+            const bytesUploaded = event.loaded - lastLoaded;
+            if (timeSinceLastUpdate > 0) {
+              // Smooth the speed calculation using recent data
+              uploadSpeed = bytesUploaded / timeSinceLastUpdate;
+
+              // Calculate ETA based on remaining bytes and current speed
+              const remainingBytes = event.total - event.loaded;
+              if (uploadSpeed > 0 && remainingBytes > 0) {
+                eta = remainingBytes / uploadSpeed;
+              }
+            }
+          }
+
+          lastLoaded = event.loaded;
+          lastTime = currentTime;
+
+          onProgress(progress, uploadSpeed, eta);
         }
       });
     }
@@ -132,11 +202,16 @@ export function useS3UploadRoute(
     setIsUploading(false);
   }, []);
 
-  const updateFileProgress = useCallback((fileId: string, progress: number) => {
-    setFiles((prev) =>
-      prev.map((file) => (file.id === fileId ? { ...file, progress } : file))
-    );
-  }, []);
+  const updateFileProgress = useCallback(
+    (fileId: string, progress: number, uploadSpeed?: number, eta?: number) => {
+      setFiles((prev) =>
+        prev.map((file) =>
+          file.id === fileId ? { ...file, progress, uploadSpeed, eta } : file
+        )
+      );
+    },
+    []
+  );
 
   const updateFileStatus = useCallback(
     (
@@ -226,11 +301,16 @@ export function useS3UploadRoute(
 
             try {
               // Update status to uploading
-              updateFileStatus(fileState.id, "uploading");
+              updateFileStatus(fileState.id, "uploading", {
+                uploadStartTime: Date.now(),
+              });
 
               // Upload to S3
-              await uploadToS3(file, result.presignedUrl, (progress) =>
-                updateFileProgress(fileState.id, progress)
+              await uploadToS3(
+                file,
+                result.presignedUrl,
+                (progress, uploadSpeed, eta) =>
+                  updateFileProgress(fileState.id, progress, uploadSpeed, eta)
               );
 
               // Update status to success
@@ -376,3 +456,6 @@ export function useS3RouteUpload(
 // ========================================
 
 export type RouterRouteNames<TRouter> = keyof TRouter;
+
+// Export utility functions for UI components
+export { formatETA, formatUploadSpeed };

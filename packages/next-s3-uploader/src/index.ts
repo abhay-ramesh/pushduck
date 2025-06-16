@@ -6,6 +6,8 @@ export * from "./utils";
 export {
   createS3Handler,
   createS3Router,
+  formatETA,
+  formatUploadSpeed,
   s3,
   S3ArraySchema,
   S3FileSchema,

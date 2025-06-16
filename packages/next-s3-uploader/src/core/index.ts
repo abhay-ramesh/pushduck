@@ -8,7 +8,12 @@ export * from "./hooks";
 export * from "./schema";
 
 // Router system exports (Phase 1.2: File Router Architecture)
-export { useS3RouteUpload, useS3UploadRoute } from "./route-hooks-v2";
+export {
+  formatETA,
+  formatUploadSpeed,
+  useS3RouteUpload,
+  useS3UploadRoute,
+} from "./route-hooks-v2";
 export { createS3Handler, createS3Router } from "./router-v2";
 
 // S3 Client functionality
