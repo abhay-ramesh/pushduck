@@ -105,11 +105,3 @@ export function createUploadClient<TRouter extends S3Router<any>>(
     },
   }) as InferClientRouter<TRouter>;
 }
-
-// ========================================
-// Utility Functions
-// ========================================
-
-// Removed unused functions:
-// - createUploadClientWithRoutes (unused)
-// - getRouterRoutes (unused)

@@ -6,7 +6,7 @@
  */
 
 // Router implementation
-export { createS3Router, handleS3RouteRequest } from "./router";
+export { createS3Router } from "./router";
 
 // Re-export from core for backward compatibility
 export { createS3Handler } from "../core/router-v2";

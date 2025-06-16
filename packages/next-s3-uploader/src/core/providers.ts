@@ -274,22 +274,6 @@ export const providers = {
     acl: config?.acl || "private",
     customDomain: config?.customDomain || process.env.GCS_CUSTOM_DOMAIN,
   }),
-
-  /**
-   * @deprecated
-   * Auto-detect provider from environment
-   */
-  auto: (): ProviderConfig => {
-    throw new Error(
-      "Auto-detection provider is disabled. Please explicitly configure a provider:\n" +
-        "- uploadConfig.aws({ ... })\n" +
-        "- uploadConfig.cloudflareR2({ ... })\n" +
-        "- uploadConfig.digitalOceanSpaces({ ... })\n" +
-        "- uploadConfig.minio({ ... })\n" +
-        "- uploadConfig.gcs({ ... })\n\n" +
-        "This ensures explicit configuration and better security."
-    );
-  },
 };
 
 // ========================================

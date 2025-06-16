@@ -46,16 +46,10 @@ export { s3 } from "./core/upload-config";
 // ========================================
 
 // Modern router (recommended)
-export { S3Route, createS3Handler, createS3Router } from "./core/router-v2";
+export { createS3Handler, createS3Router, S3Route } from "./core/router-v2";
 
 // Router types
 export type { S3Router } from "./types";
-
-// Legacy router (deprecated) - REMOVED
-// export {
-//   createS3Handler as createS3HandlerLegacy,
-//   createS3Router as createS3RouterLegacy,
-// } from "./core/router"; // FILE DELETED
 
 // ========================================
 // S3 CLIENT & UTILITIES
@@ -73,13 +67,6 @@ export {
   uploadFileToS3,
   validateS3Connection,
 } from "./core/s3-client";
-
-// Legacy utilities (deprecated) - REMOVED
-// export {
-//   createS3Client as createS3ClientLegacy,
-//   generatePresignedUrls,
-//   uploadFileInChunks,
-// } from "./utils"; // FILE DELETED
 
 // ========================================
 // TYPES & INTERFACES
