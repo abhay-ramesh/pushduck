@@ -97,7 +97,7 @@ export function SimpleImageUpload() {
           </h3>
           {files.map((file) => (
             <div key={file.id} className="p-3 mb-2 rounded-md border">
-              <div className="flex justify-between items-center mb-1">
+              <div className="flex justify-between items-center mb-2">
                 <span className="text-sm font-medium truncate">
                   {file.name}
                 </span>
@@ -105,7 +105,7 @@ export function SimpleImageUpload() {
                   className={`text-xs px-2 py-1 rounded ${
                     file.status === "success"
                       ? "bg-green-100 text-green-800"
-                      : file.status === "pending"
+                      : file.status === "pending" || file.status === "uploading"
                       ? "bg-blue-100 text-blue-800"
                       : "bg-red-100 text-red-800"
                   }`}
@@ -113,33 +113,53 @@ export function SimpleImageUpload() {
                   {file.status === "success"
                     ? "✅ Complete"
                     : file.status === "pending"
-                    ? "⏳ Uploading"
+                    ? "⏳ Preparing..."
+                    : file.status === "uploading"
+                    ? `📤 ${file.progress}%`
                     : "❌ Error"}
                 </span>
               </div>
 
-              {file.status === "pending" && (
-                <div className="w-full h-2 bg-gray-200 rounded-full">
-                  <div
-                    className="h-2 bg-blue-600 rounded-full transition-all duration-300"
-                    style={{ width: `${file.progress}%` }}
-                  />
+              {/* Progress Bar */}
+              {(file.status === "pending" || file.status === "uploading") && (
+                <div className="mb-2">
+                  <div className="w-full h-2 bg-gray-200 rounded-full">
+                    <div
+                      className="h-2 bg-blue-600 rounded-full transition-all duration-300"
+                      style={{ width: `${file.progress}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>
+                      {file.status === "pending"
+                        ? "Preparing upload..."
+                        : "Uploading to R2..."}
+                    </span>
+                    <span>{file.progress}%</span>
+                  </div>
                 </div>
               )}
 
-              {file.status === "success" && file.url && (
+              {/* Success State */}
+              {file.status === "success" && (
                 <div className="mt-2">
-                  <a
-                    href={file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-600 underline hover:text-blue-800"
-                  >
-                    View uploaded file →
-                  </a>
+                  {file.url && (
+                    <a
+                      href={file.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 underline hover:text-blue-800"
+                    >
+                      View uploaded file →
+                    </a>
+                  )}
+                  <p className="text-xs text-green-600 mt-1">
+                    ✅ Successfully uploaded to Cloudflare R2
+                  </p>
                 </div>
               )}
 
+              {/* Error State */}
               {file.status === "error" && file.error && (
                 <p className="mt-1 text-sm text-red-600">{file.error}</p>
               )}
@@ -213,7 +233,7 @@ export function SimpleDocumentUpload() {
       <div className="mb-4">
         <input
           type="file"
-          accept=".pdf,.doc,.docx"
+          accept=".pdf,.doc,.docx,.txt"
           onChange={handleFileSelect}
           className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
         />
@@ -259,7 +279,7 @@ export function SimpleDocumentUpload() {
           </h3>
           {files.map((file) => (
             <div key={file.id} className="p-3 mb-2 rounded-md border">
-              <div className="flex justify-between items-center mb-1">
+              <div className="flex justify-between items-center mb-2">
                 <span className="text-sm font-medium truncate">
                   {file.name}
                 </span>
@@ -267,7 +287,7 @@ export function SimpleDocumentUpload() {
                   className={`text-xs px-2 py-1 rounded ${
                     file.status === "success"
                       ? "bg-green-100 text-green-800"
-                      : file.status === "pending"
+                      : file.status === "pending" || file.status === "uploading"
                       ? "bg-blue-100 text-blue-800"
                       : "bg-red-100 text-red-800"
                   }`}
@@ -275,33 +295,53 @@ export function SimpleDocumentUpload() {
                   {file.status === "success"
                     ? "✅ Complete"
                     : file.status === "pending"
-                    ? "⏳ Uploading"
+                    ? "⏳ Preparing..."
+                    : file.status === "uploading"
+                    ? `📤 ${file.progress}%`
                     : "❌ Error"}
                 </span>
               </div>
 
-              {file.status === "pending" && (
-                <div className="w-full h-2 bg-gray-200 rounded-full">
-                  <div
-                    className="h-2 bg-green-600 rounded-full transition-all duration-300"
-                    style={{ width: `${file.progress}%` }}
-                  />
+              {/* Progress Bar */}
+              {(file.status === "pending" || file.status === "uploading") && (
+                <div className="mb-2">
+                  <div className="w-full h-2 bg-gray-200 rounded-full">
+                    <div
+                      className="h-2 bg-green-600 rounded-full transition-all duration-300"
+                      style={{ width: `${file.progress}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>
+                      {file.status === "pending"
+                        ? "Preparing upload..."
+                        : "Uploading to R2..."}
+                    </span>
+                    <span>{file.progress}%</span>
+                  </div>
                 </div>
               )}
 
-              {file.status === "success" && file.url && (
+              {/* Success State */}
+              {file.status === "success" && (
                 <div className="mt-2">
-                  <a
-                    href={file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-green-600 underline hover:text-green-800"
-                  >
-                    View uploaded file →
-                  </a>
+                  {file.url && (
+                    <a
+                      href={file.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-green-600 underline hover:text-green-800"
+                    >
+                      View uploaded file →
+                    </a>
+                  )}
+                  <p className="text-xs text-green-600 mt-1">
+                    ✅ Successfully uploaded to Cloudflare R2
+                  </p>
                 </div>
               )}
 
+              {/* Error State */}
               {file.status === "error" && file.error && (
                 <p className="mt-1 text-sm text-red-600">{file.error}</p>
               )}

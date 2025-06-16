@@ -145,9 +145,16 @@ export function useS3UploadRoute(
       extra: Partial<S3UploadedFile> = {}
     ) => {
       setFiles((prev) =>
-        prev.map((file) =>
-          file.id === fileId ? { ...file, status, ...extra } : file
-        )
+        prev.map((file) => {
+          if (file.id === fileId) {
+            // Debug log for status transitions
+            if (process.env.NODE_ENV === "development") {
+              console.log(`📊 File ${file.name}: ${file.status} → ${status}`);
+            }
+            return { ...file, status, ...extra };
+          }
+          return file;
+        })
       );
     },
     []
@@ -271,15 +278,24 @@ export function useS3UploadRoute(
               // Update files with final URLs
               if (completeData.success && completeData.results) {
                 completeData.results.forEach((result: any) => {
-                  if (result.success) {
-                    const fileToUpdate = initialFiles.find((f) =>
-                      successfulUploads.some((u) => u?.key === result.key)
+                  if (result.success && result.key) {
+                    // Find the file by matching the key
+                    const matchingUpload = successfulUploads.find(
+                      (u) => u?.key === result.key
                     );
-                    if (fileToUpdate) {
-                      updateFileStatus(fileToUpdate.id, "success", {
-                        url: result.url,
-                        key: result.key,
-                      });
+                    if (matchingUpload) {
+                      const fileToUpdate = initialFiles.find(
+                        (f) =>
+                          f.name === matchingUpload.file.name &&
+                          f.size === matchingUpload.file.size
+                      );
+                      if (fileToUpdate) {
+                        updateFileStatus(fileToUpdate.id, "success", {
+                          url: result.url,
+                          key: result.key,
+                          progress: 100,
+                        });
+                      }
                     }
                   }
                 });
@@ -296,21 +312,32 @@ export function useS3UploadRoute(
 
         // Call success callback
         if (config.onSuccess) {
-          const finalFiles = files.filter((f) => f.status === "success");
-          await config.onSuccess(finalFiles);
+          // Use the current files state instead of stale closure
+          setFiles((currentFiles) => {
+            const finalFiles = currentFiles.filter(
+              (f) => f.status === "success"
+            );
+            if (finalFiles.length > 0) {
+              config.onSuccess?.(finalFiles);
+            }
+            return currentFiles; // Don't modify state, just access it
+          });
         }
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Upload failed";
         setErrors((prev) => [...prev, errorMessage]);
 
-        // Update all pending/uploading files to error state
+        // Only update files that are still in pending state (not those that succeeded)
         setFiles((prev) =>
-          prev.map((file) =>
-            file.status === "pending" || file.status === "uploading"
-              ? { ...file, status: "error" as const, error: errorMessage }
-              : file
-          )
+          prev.map((file) => {
+            // Don't change files that have already succeeded or failed
+            if (file.status === "success" || file.status === "error") {
+              return file;
+            }
+            // Only mark as error if still pending/uploading
+            return { ...file, status: "error" as const, error: errorMessage };
+          })
         );
 
         config.onError?.(
@@ -321,7 +348,7 @@ export function useS3UploadRoute(
         abortControllers.current.clear();
       }
     },
-    [routeName, config, files, updateFileProgress, updateFileStatus]
+    [routeName, config, updateFileProgress, updateFileStatus]
   );
 
   return {

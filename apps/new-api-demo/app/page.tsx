@@ -15,8 +15,13 @@ export default function Home() {
           <p className="mb-4 text-lg text-gray-600">
             New Router Architecture Demo
           </p>
-          <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full">
-            ✅ Phase 1.2 Complete - File Router Architecture
+          <div className="flex flex-col gap-2 items-center">
+            <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full">
+              ✅ Phase 1.2 Complete - File Router Architecture
+            </div>
+            <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-blue-800 bg-blue-100 rounded-full">
+              🌐 Connected to Cloudflare R2
+            </div>
           </div>
         </div>
 
