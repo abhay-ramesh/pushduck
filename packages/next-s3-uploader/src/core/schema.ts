@@ -607,7 +607,7 @@ export class S3ObjectSchema<
 // Factory Functions (Public API)
 // ========================================
 
-export const s3 = {
+const s3 = {
   file: (constraints?: S3FileConstraints) => new S3FileSchema(constraints),
   image: (constraints?: S3FileConstraints) => new S3ImageSchema(constraints),
   object: <T extends Record<string, S3Schema>>(shape: T) =>

@@ -274,22 +274,6 @@ export const providers = {
     acl: config?.acl || "private",
     customDomain: config?.customDomain || process.env.GCS_CUSTOM_DOMAIN,
   }),
-
-  /**
-   * @deprecated
-   * Auto-detect provider from environment
-   */
-  auto: (): ProviderConfig => {
-    throw new Error(
-      "Auto-detection provider is disabled. Please explicitly configure a provider:\n" +
-        "- uploadConfig.aws({ ... })\n" +
-        "- uploadConfig.cloudflareR2({ ... })\n" +
-        "- uploadConfig.digitalOceanSpaces({ ... })\n" +
-        "- uploadConfig.minio({ ... })\n" +
-        "- uploadConfig.gcs({ ... })\n\n" +
-        "This ensures explicit configuration and better security."
-    );
-  },
 };
 
 // ========================================
@@ -358,9 +342,7 @@ export function validateProviderConfig(config: ProviderConfig): {
 // Provider Configuration Helpers
 // ========================================
 
-export function getProviderDisplayName(
-  provider: ProviderConfig["provider"]
-): string {
+function getProviderDisplayName(provider: ProviderConfig["provider"]): string {
   const names = {
     aws: "Amazon S3",
     "cloudflare-r2": "Cloudflare R2",
@@ -394,25 +376,4 @@ export function getProviderEndpoint(config: ProviderConfig): string {
     default:
       return "";
   }
-}
-
-// ========================================
-// Legacy Config Converter
-// ========================================
-
-export function convertLegacyConfig(legacyConfig: any): ProviderConfig {
-  // If it's already a provider config, return as-is
-  if (legacyConfig.provider) {
-    return legacyConfig as ProviderConfig;
-  }
-
-  // Convert legacy config to AWS provider config
-  return providers.aws({
-    region: legacyConfig.region,
-    bucket: legacyConfig.bucket,
-    accessKeyId: legacyConfig.accessKeyId,
-    secretAccessKey: legacyConfig.secretAccessKey,
-    acl: legacyConfig.acl,
-    customDomain: legacyConfig.customDomain,
-  });
 }

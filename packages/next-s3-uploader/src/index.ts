@@ -1,18 +1,23 @@
 /**
  * next-s3-uploader - Client-side exports
  *
- * This is the main entry point for client-side functionality.
+ * This file provides all client-side functionality for React components and hooks.
  * Import server-side functionality from 'next-s3-uploader/server'
  */
 
 // ========================================
-// CLIENT-SIDE HOOKS
+// HOOKS
 // ========================================
 
-// Modern hooks (recommended)
-export { useS3RouteUpload, useUploadRoute } from "./core/route-hooks-v2";
+// Main upload hook
+export { useUploadRoute } from "./hooks";
 
-// Legacy hook removed - use useUploadRoute instead
+// ========================================
+// UTILITY FUNCTIONS
+// ========================================
+
+// File size and time formatting utilities
+export { formatETA, formatUploadSpeed } from "./hooks/use-upload-route";
 
 // ========================================
 // TYPES & INTERFACES
@@ -24,30 +29,18 @@ export type {
   S3RouteUploadConfig,
   S3RouteUploadResult,
   S3UploadedFile,
-} from "./core/route-hooks-v2";
+} from "./types";
 
-// Configuration types (for TypeScript IntelliSense)
+// Client configuration types
+export type { ClientConfig } from "./types";
+
+// Router types for type inference
 export type {
-  AWSProviderConfig,
-  CloudflareR2Config,
-  DigitalOceanSpacesConfig,
-  GoogleCloudStorageConfig,
-  MinIOConfig,
-  ProviderConfig,
-} from "./core/providers";
-
-// Legacy config type
-export type { S3UploadConfig } from "./core/hooks";
-
-// Schema inference types
-export type { InferS3Input, InferS3Output } from "./core/schema";
-
-// ========================================
-// UTILITY FUNCTIONS
-// ========================================
-
-// File size and time formatting utilities
-export { formatETA, formatUploadSpeed } from "./core/route-hooks-v2";
+  InferClientRouter,
+  RouterRouteNames,
+  S3Router,
+  TypedRouteHook,
+} from "./types";
 
 // ========================================
 // CONFIGURATION (Client-safe)

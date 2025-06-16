@@ -1,34 +1,30 @@
 /**
- * next-s3-uploader - Client-only exports
+ * next-s3-uploader - Client-side exports
  *
- * This file provides ONLY client-side functionality that can safely run in the browser.
- * Use this import when you want to be explicit about client-side usage.
- *
- * @example
- * import { useUploadRoute, createUploadClient } from 'next-s3-uploader/client'
+ * This file provides all client-side functionality for React components and hooks.
+ * Import server-side functionality from 'next-s3-uploader/server'
  */
 
 // ========================================
-// ENHANCED CLIENT API (NEW)
+// ENHANCED CLIENT
 // ========================================
 
+// Property-based client with enhanced type inference
 export { createUploadClient } from "./client/upload-client";
 
-export type {
-  ClientConfig,
-  InferClientRouter,
-  RouterRouteNames,
-  TypedRouteHook,
-  TypedUploadedFile,
-} from "./client/types";
-
 // ========================================
-// CLIENT-SIDE HOOKS (EXISTING)
+// HOOKS
 // ========================================
 
-export { useS3RouteUpload, useUploadRoute } from "./core/route-hooks-v2";
+// Main upload hook
+export { useUploadRoute } from "./hooks";
 
-// Legacy hook removed - use useUploadRoute instead
+// ========================================
+// UTILITY FUNCTIONS
+// ========================================
+
+// File size and time formatting utilities
+export { formatETA, formatUploadSpeed } from "./hooks/use-upload-route";
 
 // ========================================
 // CLIENT-SAFE TYPES (EXISTING)
@@ -39,13 +35,18 @@ export type {
   S3RouteUploadConfig,
   S3RouteUploadResult,
   S3UploadedFile,
-} from "./core/route-hooks-v2";
-
-// Legacy config type
-export type { S3UploadConfig } from "./core/hooks";
+} from "./types";
 
 // ========================================
-// UTILITY FUNCTIONS (Client-safe)
+// ENHANCED TYPES
 // ========================================
 
-export { formatETA, formatUploadSpeed } from "./core/route-hooks-v2";
+// Type-safe client types
+export type {
+  ClientConfig,
+  InferClientRouter,
+  RouterRouteNames,
+  S3Router,
+  TypedRouteHook,
+  TypedUploadedFile,
+} from "./types";

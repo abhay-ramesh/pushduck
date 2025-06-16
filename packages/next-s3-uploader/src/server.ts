@@ -11,7 +11,6 @@
 
 // Provider system
 export {
-  convertLegacyConfig,
   getProviderEndpoint,
   providers,
   validateProviderConfig,
@@ -21,7 +20,6 @@ export {
 export {
   createUploadConfig,
   getUploadConfig,
-  initializeUploadConfig,
   uploadConfig,
 } from "./core/upload-config";
 
@@ -46,18 +44,10 @@ export { s3 } from "./core/upload-config";
 // ========================================
 
 // Modern router (recommended)
-export {
-  S3Route,
-  S3Router,
-  createS3Handler,
-  createS3Router,
-} from "./core/router-v2";
+export { createS3Handler, createS3Router, S3Route } from "./core/router-v2";
 
-// Legacy router (deprecated) - REMOVED
-// export {
-//   createS3Handler as createS3HandlerLegacy,
-//   createS3Router as createS3RouterLegacy,
-// } from "./core/router"; // FILE DELETED
+// Router types
+export type { S3Router } from "./types";
 
 // ========================================
 // S3 CLIENT & UTILITIES
@@ -75,13 +65,6 @@ export {
   uploadFileToS3,
   validateS3Connection,
 } from "./core/s3-client";
-
-// Legacy utilities (deprecated) - REMOVED
-// export {
-//   createS3Client as createS3ClientLegacy,
-//   generatePresignedUrls,
-//   uploadFileInChunks,
-// } from "./utils"; // FILE DELETED
 
 // ========================================
 // TYPES & INTERFACES
@@ -135,9 +118,4 @@ export type {
   UploadProgress,
 } from "./core/s3-client";
 
-// Legacy config types (deprecated)
-export type {
-  ConfigValidationResult,
-  S3Config,
-  S3HandlerConfig,
-} from "./core/config";
+// Legacy config types removed - use modern provider config types instead
