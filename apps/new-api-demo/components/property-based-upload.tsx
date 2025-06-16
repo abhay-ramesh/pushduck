@@ -1,6 +1,7 @@
 "use client";
 
 import { upload } from "@/lib/upload-client";
+import { formatETA, formatUploadSpeed } from "next-s3-uploader";
 import React, { useState } from "react";
 
 export function PropertyBasedImageUpload() {
@@ -215,7 +216,7 @@ export function PropertyBasedImageUpload() {
                 </span>
               </div>
 
-              {/* Individual Progress Bar */}
+              {/* Individual Progress Bar with ETA and Speed */}
               {(file.status === "pending" || file.status === "uploading") && (
                 <div className="mb-2">
                   <div className="w-full h-2 bg-gray-200 rounded-full">
@@ -230,7 +231,21 @@ export function PropertyBasedImageUpload() {
                         ? "Preparing upload..."
                         : "Uploading to R2..."}
                     </span>
-                    <span>{file.progress}%</span>
+                    <div className="flex gap-2">
+                      <span>{file.progress}%</span>
+                      {file.status === "uploading" && file.uploadSpeed && (
+                        <span className="text-emerald-600">
+                          {formatUploadSpeed(file.uploadSpeed)}
+                        </span>
+                      )}
+                      {file.status === "uploading" &&
+                        file.eta &&
+                        file.eta > 0 && (
+                          <span className="text-orange-600">
+                            ETA: {formatETA(file.eta)}
+                          </span>
+                        )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -427,7 +442,7 @@ export function PropertyBasedDocumentUpload() {
                 </span>
               </div>
 
-              {/* Progress Bar */}
+              {/* Progress Bar with ETA and Speed */}
               {(file.status === "pending" || file.status === "uploading") && (
                 <div className="mb-2">
                   <div className="w-full h-2 bg-gray-200 rounded-full">
@@ -442,7 +457,21 @@ export function PropertyBasedDocumentUpload() {
                         ? "Preparing upload..."
                         : "Uploading to R2..."}
                     </span>
-                    <span>{file.progress}%</span>
+                    <div className="flex gap-2">
+                      <span>{file.progress}%</span>
+                      {file.status === "uploading" && file.uploadSpeed && (
+                        <span className="text-amber-600">
+                          {formatUploadSpeed(file.uploadSpeed)}
+                        </span>
+                      )}
+                      {file.status === "uploading" &&
+                        file.eta &&
+                        file.eta > 0 && (
+                          <span className="text-orange-600">
+                            ETA: {formatETA(file.eta)}
+                          </span>
+                        )}
+                    </div>
                   </div>
                 </div>
               )}
