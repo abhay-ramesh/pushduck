@@ -10,31 +10,37 @@
   },
   "homepage": "https://next-s3-uploader.abhayramesh.com",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.mts",
+  "types": "./dist/index.d.ts",
   "module": "./dist/index.mjs",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     },
     "./server": {
+      "types": "./dist/server.d.ts",
       "import": "./dist/server.mjs",
-      "require": "./dist/server.js",
-      "types": "./dist/server.d.ts"
+      "require": "./dist/server.js"
     },
     "./client": {
+      "types": "./dist/client.d.ts",
       "import": "./dist/client.mjs",
-      "require": "./dist/client.js",
-      "types": "./dist/client.d.ts"
+      "require": "./dist/client.js"
     }
   },
   "files": [
-    "dist/**/*"
+    "dist/**/*",
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "build": "tsup src/index.ts src/server.ts src/client.ts --format cjs,esm --dts --minify --clean --external react",
+    "build": "tsup",
+    "build:analyze": "pnpm build && pnpm bundle:analyze",
+    "bundle:analyze": "npx bundlesize && ls -la dist/ && gzip-size-cli dist/*.js dist/*.mjs",
+    "bundle:visualize": "npx esbuild-visualizer dist/index.js --open",
+    "size-check": "size-limit",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -42,7 +48,11 @@
     "test:coverage": "vitest run --coverage",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist",
     "ci": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
-    "prepublishOnly": "pnpm run ci"
+    "prepublishOnly": "pnpm run ci",
+    "prepack": "pnpm build",
+    "release:patch": "npm version patch && npm publish",
+    "release:minor": "npm version minor && npm publish",
+    "release:major": "npm version major && npm publish"
   },
   "keywords": [
     "nextjs",
@@ -61,13 +71,16 @@
   ],
   "dependencies": {
     "@aws-sdk/client-s3": "^3.427.0",
-    "@aws-sdk/s3-request-presigner": "^3.427.0",
+    "@aws-sdk/s3-request-presigner": "^3.427.0"
+  },
+  "optionalDependencies": {
     "@aws-sdk/signature-v4-multi-region": "^3.425.0",
-    "aws-crt": "^1.18.0",
-    "next": "^15.3.3",
-    "zod": "^3.22.4"
+    "aws-crt": "^1.18.0"
   },
   "devDependencies": {
+    "next": "^15.3.3",
+    "zod": "^3.22.4",
+    "@size-limit/preset-small-lib": "^11.0.1",
     "@testing-library/react": "^14.0.0",
     "@testing-library/user-event": "^14.5.1",
     "@types/node": "^18.15.11",
@@ -76,18 +89,28 @@
     "@typescript-eslint/parser": "^6.7.0",
     "@vitejs/plugin-react": "^4.1.0",
     "@vitest/coverage-v8": "^0.34.6",
+    "bundlesize": "^0.18.1",
     "eslint": "^8.49.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.0",
+    "gzip-size-cli": "^5.1.0",
     "happy-dom": "^12.9.1",
     "prettier": "^3.0.3",
     "react": "^18.2.0",
+    "size-limit": "^11.0.1",
     "tsup": "^7.2.0",
     "typescript": "^5.2.2",
     "vitest": "^0.34.6"
   },
   "peerDependencies": {
-    "react": ">=18.0.0"
+    "next": ">=13.0.0",
+    "react": ">=18.0.0",
+    "zod": ">=3.20.0"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"
@@ -95,5 +118,59 @@
   "engines": {
     "node": ">=16.0.0"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "size-limit": [
+    {
+      "name": "Client bundle (ESM)",
+      "path": "dist/client.mjs",
+      "limit": "5 KB",
+      "gzip": true,
+      "ignore": [
+        "@aws-sdk/*",
+        "aws-crt",
+        "next",
+        "react"
+      ]
+    },
+    {
+      "name": "Server bundle (ESM)",
+      "path": "dist/server.mjs",
+      "limit": "10 KB",
+      "gzip": true,
+      "ignore": [
+        "@aws-sdk/*",
+        "aws-crt",
+        "next"
+      ]
+    },
+    {
+      "name": "Main bundle (ESM)",
+      "path": "dist/index.mjs",
+      "limit": "7 KB",
+      "gzip": true,
+      "ignore": [
+        "@aws-sdk/*",
+        "aws-crt",
+        "next",
+        "react"
+      ]
+    }
+  ],
+  "bundlesize": [
+    {
+      "path": "./dist/client.js",
+      "maxSize": "15kb",
+      "compression": "gzip"
+    },
+    {
+      "path": "./dist/server.js",
+      "maxSize": "25kb",
+      "compression": "gzip"
+    },
+    {
+      "path": "./dist/index.js",
+      "maxSize": "20kb",
+      "compression": "gzip"
+    }
+  ]
 }

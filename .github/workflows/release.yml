@@ -1,39 +1,134 @@
-name: Release
+name: 🚀 Release & Publish
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+    paths: ["packages/next-s3-uploader/**"]
+  release:
+    types: [published]
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  release:
-    name: Release
+  quality-checks:
+    name: 🔍 Quality Checks
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v2
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
 
-      - name: Setup pnpm 7
+      - name: 📦 Setup pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 7
+          version: 8
 
-      - name: Setup Node.js 18.x
-        uses: actions/setup-node@v2
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 18.x
+          node-version: 18
+          cache: "pnpm"
 
-      - name: Install Dependencies
-        run: pnpm install --no-frozen-lockfile
+      - name: 📚 Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Create Release Pull Request or Publish to npm
-        id: changesets
-        uses: changesets/action@v1
+      - name: 🔍 Lint
+        run: pnpm -F next-s3-uploader lint
+
+      - name: 🧪 Type Check
+        run: pnpm -F next-s3-uploader typecheck
+
+      - name: 🧪 Test
+        run: pnpm -F next-s3-uploader test
+
+      - name: 📦 Build
+        run: pnpm -F next-s3-uploader build
+
+      - name: 📊 Bundle Size Check
+        run: pnpm -F next-s3-uploader size-check
+
+  publish:
+    name: 📦 Publish to NPM
+    runs-on: ubuntu-latest
+    needs: quality-checks
+    if: github.event_name == 'release'
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v2
         with:
-          # This expects you to have a script called release which does a build for your packages and calls changeset publish
-          publish: pnpm release
+          version: 8
+
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: 📚 Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 📦 Build package
+        run: pnpm -F next-s3-uploader build
+
+      - name: 🚀 Publish to NPM
+        run: pnpm -F next-s3-uploader publish --no-git-checks
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  bundle-analysis:
+    name: 📊 Bundle Analysis
+    runs-on: ubuntu-latest
+    needs: quality-checks
+    if: github.event_name == 'push'
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: "pnpm"
+
+      - name: 📚 Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 📦 Build & Analyze
+        run: pnpm -F next-s3-uploader build:analyze
+
+      - name: 📊 Comment Bundle Size
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const distPath = 'packages/next-s3-uploader/dist';
+            const files = fs.readdirSync(distPath);
+
+            let comment = '## 📦 Bundle Size Report\n\n';
+            comment += '| File | Size | Gzipped |\n';
+            comment += '|------|------|----------|\n';
+
+            files.forEach(file => {
+              const stats = fs.statSync(path.join(distPath, file));
+              const size = (stats.size / 1024).toFixed(1);
+              comment += `| ${file} | ${size}KB | - |\n`;
+            });
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
