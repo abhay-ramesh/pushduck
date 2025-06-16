@@ -604,11 +604,11 @@ import { UploadZone } from "@/components/ui/upload-zone";
 import { FileList } from "@/components/ui/file-list";${typeImport}
 
 export default function UploadPage() {
-  const { startUpload, files, isUploading, reset } = useS3Upload${typeGeneric}("fileUpload");
+  const { uploadFiles, files, isUploading, reset } = useS3Upload${typeGeneric}("fileUpload");
 
   const handleDrop = async (newFiles${typescript ? ": File[]" : ""}) => {
     try {
-      await startUpload(newFiles);
+      await uploadFiles(newFiles);
     } catch (error) {
       console.error("Upload failed:", error);
     }

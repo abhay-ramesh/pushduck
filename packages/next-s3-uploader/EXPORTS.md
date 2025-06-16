@@ -10,7 +10,7 @@ This document explains the clean export structure of `next-s3-uploader` and how 
 
 ```typescript
 import { 
-  useS3UploadRoute,
+  useUploadRoute,
   formatETA,
   formatUploadSpeed,
   providers,
@@ -20,7 +20,7 @@ import {
 
 **What's included:**
 
-- ✅ Client-side hooks (`useS3UploadRoute`, `useS3RouteUpload`)
+- ✅ Client-side hooks (`useUploadRoute`, `useS3RouteUpload`)
 - ✅ Utility functions (`formatETA`, `formatUploadSpeed`)
 - ✅ Configuration builders (`uploadConfig`, `createUploadConfig`)
 - ✅ Provider configurations (for reference)
@@ -56,7 +56,7 @@ import {
 **Use for:** Explicit client-side imports (optional)
 
 ```typescript
-import { useS3UploadRoute } from 'next-s3-uploader/client'
+import { useUploadRoute } from 'next-s3-uploader/client'
 ```
 
 **What's included:**
@@ -71,13 +71,13 @@ import { useS3UploadRoute } from 'next-s3-uploader/client'
 
 ```typescript
 // ✅ Correct - use main entry point
-import { useS3UploadRoute, formatETA } from 'next-s3-uploader'
+import { useUploadRoute, formatETA } from 'next-s3-uploader'
 
 // ✅ Also correct - explicit client import
-import { useS3UploadRoute } from 'next-s3-uploader/client'
+import { useUploadRoute } from 'next-s3-uploader/client'
 
 export function FileUpload() {
-  const { files, startUpload } = useS3UploadRoute('avatar')
+  const { files, uploadFiles } = useUploadRoute('avatar')
   // ... component logic
 }
 ```
@@ -124,14 +124,14 @@ import { createS3Client } from 'next-s3-uploader' // Server-only!
 
 ```typescript
 // ❌ This will cause server-side errors
-import { useS3UploadRoute } from 'next-s3-uploader/server' // Not available!
+import { useUploadRoute } from 'next-s3-uploader/server' // Not available!
 ```
 
 ### ✅ Correct separation
 
 ```typescript
 // Client component
-import { useS3UploadRoute } from 'next-s3-uploader'
+import { useUploadRoute } from 'next-s3-uploader'
 
 // API route  
 import { createS3Handler } from 'next-s3-uploader/server'
@@ -143,10 +143,10 @@ import { createS3Handler } from 'next-s3-uploader/server'
 
 ```typescript
 // ❌ Old way (still works but deprecated)
-import { createS3Handler, useS3UploadRoute } from 'next-s3-uploader'
+import { createS3Handler, useUploadRoute } from 'next-s3-uploader'
 
 // ✅ New way - clear separation
-import { useS3UploadRoute } from 'next-s3-uploader'           // Client
+import { useUploadRoute } from 'next-s3-uploader'           // Client
 import { createS3Handler } from 'next-s3-uploader/server'    // Server
 ```
 

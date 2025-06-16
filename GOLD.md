@@ -23,7 +23,7 @@ export const ourFileRouter = {
 } satisfies FileRouter;
 
 // Client usage - auth state managed automatically
-const { startUpload, isUploading } = useUploadThing("imageUploader");
+const { uploadFiles, isUploading } = useUploadThing("imageUploader");
 // No manual auth state management needed
 ```
 
@@ -94,7 +94,7 @@ export const fileRouter = createFileRouter({
 });
 
 // Client - zero config
-const { startUpload } = useS3Upload("imageUploader");
+const { uploadFiles } = useS3Upload("imageUploader");
 ```
 
 ### 2. **End-to-End Type Safety** ❌
@@ -110,7 +110,7 @@ const { uploadFiles } = useS3FileUpload({ maxFiles: 5 });
 
 ```typescript
 // Types flow from server to client automatically
-const { startUpload } = useS3Upload("imageUploader"); // Knows this route exists
+const { uploadFiles } = useS3Upload("imageUploader"); // Knows this route exists
 // TypeScript error if route doesn't exist or config mismatch
 ```
 
@@ -201,7 +201,7 @@ export const fileRouter = createFileRouter({
 });
 
 // Client - auth state automatically handled
-const { startUpload } = useS3Upload("avatarUpload");
+const { uploadFiles } = useS3Upload("avatarUpload");
 // No manual auth checking needed
 ```
 
@@ -261,7 +261,7 @@ export type S3Router = typeof s3Router;
 // client/upload.tsx
 import type { S3Router } from "@/server/s3-router";
 
-const { startUpload, isUploading } = useS3Upload<S3Router>("avatarUpload");
+const { uploadFiles, isUploading } = useS3Upload<S3Router>("avatarUpload");
 //    ^? TypeScript knows this route exists and its config
 
 // Compile-time error if route doesn't exist
@@ -351,7 +351,7 @@ export const s3Router = createS3Router({
 });
 
 // Client automatically handles auth state
-const { startUpload, authStatus } = useS3Upload("userAvatars");
+const { uploadFiles, authStatus } = useS3Upload("userAvatars");
 // authStatus: "loading" | "authenticated" | "unauthenticated"
 
 // Example with better-auth integration
@@ -375,7 +375,7 @@ export const s3Router = createS3Router({
 
 // Client usage with better-auth session
 const { data: session } = useSession(); // better-auth hook
-const { startUpload } = useS3Upload("profileUpload", {
+const { uploadFiles } = useS3Upload("profileUpload", {
   disabled: !session?.user // Automatically disabled when not authenticated
 });
 ```

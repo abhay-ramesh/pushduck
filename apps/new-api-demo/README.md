@@ -67,17 +67,17 @@ export type S3RouterType = typeof s3Router;
 
 ```typescript
 // components/upload.tsx
-import { useS3UploadRoute } from "next-s3-uploader";
+import { useUploadRoute } from "next-s3-uploader";
 import type { S3RouterType } from "../app/api/s3-upload/route";
 
 export function ImageUpload() {
-  const { startUpload, files, isUploading, errors } = useS3UploadRoute<
+  const { uploadFiles, files, isUploading, errors } = useUploadRoute<
     S3RouterType,
     "imageUpload"
   >("imageUpload");
 
   const handleUpload = async (selectedFiles: File[]) => {
-    await startUpload(selectedFiles);
+    await uploadFiles(selectedFiles);
   };
 
   return (

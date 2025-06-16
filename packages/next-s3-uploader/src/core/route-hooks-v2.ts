@@ -1,16 +1,14 @@
 "use client";
 
 /**
- * Fixed Route-based React Hooks for next-s3-uploader
+ * Enhanced S3 Upload Route Hooks with Type Safety
  *
- * This implements the correct upload flow:
- * 1. Request presigned URLs from server
- * 2. Upload files directly to S3 using presigned URLs
- * 3. Track upload progress
- * 4. Notify server of completion
+ * This provides React hooks for file uploads with enhanced type inference
+ * when used with typed routers, while maintaining full backward compatibility.
  */
 
 import { useCallback, useRef, useState } from "react";
+import type { S3Router } from "./router-v2";
 
 // ========================================
 // Types
@@ -48,7 +46,7 @@ export interface S3RouteUploadConfig {
 
 export interface S3RouteUploadResult {
   files: S3UploadedFile[];
-  startUpload: (files: File[]) => Promise<void>;
+  uploadFiles: (files: File[]) => Promise<void>;
   reset: () => void;
   isUploading: boolean;
   errors: string[];
@@ -182,11 +180,24 @@ async function uploadToS3(
 }
 
 // ========================================
-// Main Hook Implementation
+// Main Hook Implementation with Type Overloads
 // ========================================
 
-export function useS3UploadRoute(
+// Overload for when router type is provided (enhanced type safety)
+export function useUploadRoute<TRouter extends S3Router<any>>(
+  routeName: RouterRouteNames<TRouter>,
+  config?: S3RouteUploadConfig
+): S3RouteUploadResult;
+
+// Overload for backward compatibility (no router type)
+export function useUploadRoute(
   routeName: string,
+  config?: S3RouteUploadConfig
+): S3RouteUploadResult;
+
+// Implementation
+export function useUploadRoute<TRouter extends S3Router<any>>(
+  routeName: RouterRouteNames<TRouter> | string,
   config: S3RouteUploadConfig = {}
 ): S3RouteUploadResult {
   const [files, setFiles] = useState<S3UploadedFile[]>([]);
@@ -237,7 +248,7 @@ export function useS3UploadRoute(
     []
   );
 
-  const startUpload = useCallback(
+  const uploadFiles = useCallback(
     async (uploadFiles: File[]) => {
       try {
         setIsUploading(true);
@@ -435,7 +446,7 @@ export function useS3UploadRoute(
 
   return {
     files,
-    startUpload,
+    uploadFiles,
     reset,
     isUploading,
     errors,
@@ -450,14 +461,16 @@ export function useS3RouteUpload(
   routeName: string,
   config: S3RouteUploadConfig = {}
 ): S3RouteUploadResult {
-  return useS3UploadRoute(routeName, config);
+  return useUploadRoute(routeName, config);
 }
 
 // ========================================
 // Utility Types for Better DX
 // ========================================
 
-export type RouterRouteNames<TRouter> = keyof TRouter;
+// Extract route names from S3Router type
+export type RouterRouteNames<TRouter> =
+  TRouter extends S3Router<infer TRoutes> ? keyof TRoutes : never;
 
 // Export utility functions for UI components
 export { formatETA, formatUploadSpeed };

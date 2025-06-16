@@ -43,10 +43,10 @@ export const { GET, POST } = createS3Handler(s3Router);
 
 ```typescript
 // components/upload.tsx
-import { useS3UploadRoute } from "next-s3-uploader";
+import { useUploadRoute } from "next-s3-uploader";
 
 export function UploadComponent() {
-  const { startUpload, files } = useS3UploadRoute("imageUpload");
+  const { uploadFiles, files } = useUploadRoute("imageUpload");
   // Component automatically uses the configured provider
 }
 ```
