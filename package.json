@@ -9,13 +9,14 @@
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "turbo build --filter=example^... && changeset publish",
-    "rundocs": "turbo dev --no-cache --continue --filter={./apps/docs}"
+    "docs": "turbo dev --no-cache --continue --filter=docs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.22.0",
     "eslint": "^7.32.0",
     "prettier": "^2.5.1",
-    "turbo": "latest"
+    "turbo": "^2.5.4"
   },
-  "packageManager": "pnpm@9.0.6"
+  "packageManager": "pnpm@9.0.6",
+  "name": "next-s3-uploader"
 }
