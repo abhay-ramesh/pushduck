@@ -1,0 +1,100 @@
+---
+title: Quick Start
+description: Get uploading files in 5 minutes
+---
+
+# Get Started in 5 Minutes
+
+Upload files to S3 with **zero configuration** in just 3 steps.
+
+## 1. Install
+
+```bash
+npm install -g create-next-s3-uploader
+```
+
+## 2. Initialize Your Project
+
+```bash
+npx create-next-s3-uploader init
+```
+
+The CLI will:
+
+- ✅ Set up your API route (`/api/s3-upload`)
+- ✅ Configure your storage provider (AWS S3, Cloudflare R2, etc.)
+- ✅ Generate type-safe client code
+- ✅ Create example components
+
+## 3. Start Uploading
+
+```typescript
+// In your component
+import { upload } from "@/lib/upload-client";
+
+export function ImageUpload() {
+  const { uploadFiles, files, isUploading } = upload.imageUpload();
+
+  return (
+    <div>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => uploadFiles(e.target.files)}
+      />
+
+      {files.map((file) => (
+        <div key={file.id}>
+          <span>{file.name}</span>
+          <progress value={file.progress} max={100} />
+          {file.url && <img src={file.url} alt={file.name} />}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## ✅ You're Done!
+
+That's it! You're now uploading files to the cloud with:
+
+- **Full type safety** - No string literals, complete TypeScript inference
+- **Real-time progress** - Built-in progress tracking
+- **Error handling** - Automatic retry and error states
+- **Any provider** - Works with AWS, Cloudflare, DigitalOcean, and more
+
+## 🚀 What's Next?
+
+<Cards>
+  <Card
+    href="/guides/uploads/images"
+    title="Upload Images"
+    description="Add drag & drop and image previews"
+  />
+  <Card
+    href="/guides/setup/aws-s3"
+    title="Configure AWS S3"
+    description="Set up your S3 bucket and permissions"
+  />
+  <Card
+    href="/examples"
+    title="See Examples"
+    description="Copy-paste ready components"
+  />
+  <Card
+    href="/guides/going-live/production-setup"
+    title="Go to Production"
+    description="Deploy your app with confidence"
+  />
+</Cards>
+
+## 🆘 Need Help?
+
+- **CLI not working?** → [Troubleshooting Guide](/guides/going-live/troubleshooting)
+- **Want different providers?** → [Setup Guides](/guides/setup)
+- **Need custom UI?** → [Examples](/examples)
+
+---
+
+**Having issues?** The CLI should handle everything automatically. If something's not working, check our [troubleshooting guide](/guides/going-live/troubleshooting) or [open an issue](https://github.com/your-username/next-s3-uploader/issues).

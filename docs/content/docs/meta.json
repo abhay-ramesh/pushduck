@@ -1,0 +1,48 @@
+{
+    "title": "Next S3 Uploader",
+    "pages": [
+        "index",
+        "quick-start",
+        {
+            "title": "Guides",
+            "pages": [
+                {
+                    "title": "Setup",
+                    "pages": [
+                        "guides/setup/aws-s3"
+                    ]
+                },
+                {
+                    "title": "Uploads",
+                    "pages": []
+                },
+                {
+                    "title": "Security",
+                    "pages": []
+                },
+                {
+                    "title": "Going Live",
+                    "pages": []
+                }
+            ]
+        },
+        {
+            "title": "API Reference",
+            "pages": [
+                {
+                    "title": "Configuration",
+                    "pages": []
+                },
+                {
+                    "title": "Hooks",
+                    "pages": []
+                },
+                {
+                    "title": "Utilities",
+                    "pages": []
+                }
+            ]
+        },
+        "examples"
+    ]
+}

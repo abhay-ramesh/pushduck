@@ -1,0 +1,267 @@
+---
+title: Examples
+description: Copy-paste ready components for file uploads
+---
+
+# Examples
+
+Copy-paste ready components to get you started quickly.
+
+## 🖼️ Basic Image Upload
+
+Simple image upload with preview:
+
+```typescript
+import { upload } from "@/lib/upload-client";
+
+export function BasicImageUpload() {
+  const { uploadFiles, files, isUploading } = upload.imageUpload();
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium mb-2">Upload Images</label>
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(e) => uploadFiles(e.target.files)}
+          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+        />
+      </div>
+
+      {files.length > 0 && (
+        <div className="grid grid-cols-2 gap-4">
+          {files.map((file) => (
+            <div key={file.id} className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium truncate">
+                  {file.name}
+                </span>
+                <span className="text-xs text-gray-500">{file.status}</span>
+              </div>
+
+              {file.status === "uploading" && (
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all"
+                    style={{ width: `${file.progress}%` }}
+                  />
+                </div>
+              )}
+
+              {file.url && (
+                <img
+                  src={file.url}
+                  alt={file.name}
+                  className="w-full h-32 object-cover rounded mt-2"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## 📄 Document Upload
+
+Upload PDFs and documents:
+
+```typescript
+import { upload } from "@/lib/upload-client";
+
+export function DocumentUpload() {
+  const { uploadFiles, files, isUploading } = upload.documentUpload();
+
+  return (
+    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+      <div className="text-center">
+        <svg
+          className="mx-auto h-12 w-12 text-gray-400"
+          stroke="currentColor"
+          fill="none"
+          viewBox="0 0 48 48"
+        >
+          <path
+            d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+
+        <div className="mt-4">
+          <label htmlFor="file-upload" className="cursor-pointer">
+            <span className="mt-2 block text-sm font-medium text-gray-900">
+              Upload documents
+            </span>
+            <span className="mt-1 block text-sm text-gray-500">
+              PDF, DOC, DOCX up to 10MB
+            </span>
+          </label>
+          <input
+            id="file-upload"
+            type="file"
+            accept=".pdf,.doc,.docx"
+            multiple
+            onChange={(e) => uploadFiles(e.target.files)}
+            className="sr-only"
+          />
+        </div>
+      </div>
+
+      {files.length > 0 && (
+        <div className="mt-6 space-y-3">
+          {files.map((file) => (
+            <div
+              key={file.id}
+              className="flex items-center justify-between p-3 bg-gray-50 rounded"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">📄</div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {file.name}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {file.status}{" "}
+                    {file.status === "uploading" && `(${file.progress}%)`}
+                  </p>
+                </div>
+              </div>
+
+              {file.url && (
+                <a
+                  href={file.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  View
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## 🎯 Drag & Drop Upload
+
+Advanced drag & drop with multiple file types:
+
+```typescript
+import { upload } from "@/lib/upload-client";
+import { useState } from "react";
+
+export function DragDropUpload() {
+  const { uploadFiles, files, isUploading } = upload.fileUpload();
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    uploadFiles(droppedFiles);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+          isDragOver
+            ? "border-blue-400 bg-blue-50"
+            : "border-gray-300 hover:border-gray-400"
+        }`}
+      >
+        <div className="space-y-4">
+          <div className="text-4xl">📁</div>
+          <div>
+            <p className="text-lg font-medium">
+              Drop files here or click to browse
+            </p>
+            <p className="text-sm text-gray-500">Images, documents, and more</p>
+          </div>
+          <input
+            type="file"
+            multiple
+            onChange={(e) => uploadFiles(e.target.files)}
+            className="hidden"
+            id="file-input"
+          />
+          <label
+            htmlFor="file-input"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer"
+          >
+            Choose Files
+          </label>
+        </div>
+      </div>
+
+      {files.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="font-medium">Uploaded Files</h3>
+          {files.map((file) => (
+            <div
+              key={file.id}
+              className="flex items-center justify-between p-3 border rounded"
+            >
+              <span className="text-sm">{file.name}</span>
+              <div className="flex items-center space-x-2">
+                {file.status === "uploading" && (
+                  <div className="w-16 bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-green-600 h-2 rounded-full"
+                      style={{ width: `${file.progress}%` }}
+                    />
+                  </div>
+                )}
+                <span className="text-xs text-gray-500">{file.status}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## 🚀 Ready to Use
+
+All these components are ready to copy-paste into your project. Just make sure you have:
+
+1. ✅ Completed the [Quick Start](/quick-start) setup
+2. ✅ Configured your [storage provider](/guides/setup/aws-s3)
+3. ✅ Added the necessary CSS classes (Tailwind recommended)
+
+## 🎨 Customization
+
+Want to customize these components? Check out:
+
+- [API Reference](/api) for all available options
+- [Guides](/guides) for advanced patterns
+- [GitHub Examples](https://github.com/your-username/next-s3-uploader/tree/main/examples) for more complex examples
+
+---
+
+**Need help?** → [Troubleshooting Guide](/guides/going-live/troubleshooting)

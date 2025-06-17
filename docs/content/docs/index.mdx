@@ -1,13 +1,89 @@
 ---
-title: Hello World
-description: Your first document
+title: Next S3 Uploader
+description: Upload files to S3 in 5 minutes with full TypeScript support
 ---
 
-Welcome to the docs! You can start writing documents in `/content/docs`.
+# Next S3 Uploader
 
-## What is Next?
+**Upload files to S3 in 5 minutes** with full TypeScript support and zero configuration.
+
+## ✨ What You Get
+
+- **🚀 5-Minute Setup**: CLI handles all the configuration
+- **🔒 Type Safe**: Full TypeScript inference from server to client
+- **🌐 Any Provider**: AWS S3, Cloudflare R2, DigitalOcean, MinIO, Google Cloud
+- **📱 Modern UI**: Drag & drop, progress tracking, beautiful components
+- **⚡ Zero Config**: Just run the CLI and start uploading
+
+## 🎯 Quick Example
+
+```typescript
+// 1. Install & initialize
+npx create-next-s3-uploader init
+
+// 2. Use in your component
+const { uploadFiles, files, isUploading } = upload.imageUpload();
+
+// 3. Upload files
+await uploadFiles(selectedFiles);
+```
+
+That's it! You're now uploading files to the cloud with full type safety.
+
+## 🚀 Get Started
+
+Ready to add file uploads to your Next.js app?
 
 <Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.vercel.app" />
+  <Card
+    href="/quick-start"
+    title="Quick Start"
+    description="Get uploading in 5 minutes"
+  />
+  <Card href="/guides" title="Guides" description="Step-by-step tutorials" />
+  <Card href="/examples" title="Examples" description="Copy-paste components" />
+  <Card
+    href="/api"
+    title="API Reference"
+    description="Complete API documentation"
+  />
 </Cards>
+
+## 🎮 Try It Live
+
+<div className="border rounded-lg p-6 bg-gray-50">
+  <p className="text-sm text-gray-600 mb-4">
+    Interactive demo coming soon! For now, check out our{" "}
+    <a href="/examples" className="text-blue-600 hover:underline">
+      examples
+    </a>{" "}
+    for working components.
+  </p>
+</div>
+
+## 🌟 Why Choose Next S3 Uploader?
+
+### **No Configuration Headaches**
+
+The CLI sets up everything automatically - routes, types, client configuration. Just focus on building your UI.
+
+### **Full Type Safety**
+
+```typescript
+// Property-based access with full inference
+const { uploadFiles } = upload.imageUpload(); // ✅ Type-safe
+// No more string literals and typos
+const { uploadFiles } = useUpload("imageUpload"); // ❌ Old way
+```
+
+### **Any Storage Provider**
+
+Works with AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, Google Cloud Storage, and more.
+
+### **Production Ready**
+
+Built-in error handling, progress tracking, file validation, and performance optimization.
+
+---
+
+**Ready to get started?** → [Quick Start Guide](/quick-start)
