@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { codeToHtml } from "shiki";
+import { BundledTheme, codeToHtml } from "shiki";
 
 const codeExample = `import { uploadConfig } from "next-s3-uploader/server";
 
@@ -30,6 +30,11 @@ const packageManagers = [
   { name: "bun", command: "bun add next-s3-uploader" },
 ];
 
+const themes = {
+  light: "one-light",
+  dark: "one-dark-pro",
+} satisfies Record<string, BundledTheme>;
+
 function InstallCommand() {
   const [selectedPM, setSelectedPM] = useState(packageManagers[0]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -41,10 +46,7 @@ function InstallCommand() {
       try {
         const html = await codeToHtml(selectedPM.command, {
           lang: "bash",
-          themes: {
-            light: "github-light",
-            dark: "github-dark",
-          },
+          themes,
           defaultColor: false,
         });
         setHighlightedCommand(html);
@@ -128,10 +130,7 @@ function CodeBlock() {
       try {
         const html = await codeToHtml(codeExample, {
           lang: "typescript",
-          themes: {
-            light: "github-light",
-            dark: "github-dark",
-          },
+          themes,
           defaultColor: false,
         });
         setHighlightedCode(html);
