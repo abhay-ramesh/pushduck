@@ -1,99 +1,122 @@
-import {
-  ArrowRight,
-  Code,
-  Github,
-  Shield,
-  Star,
-  Upload,
-  Zap,
-} from "lucide-react";
+import { ArrowRight, Copy, Github, Shield, Upload, Zap } from "lucide-react";
 import Link from "next/link";
 
 export default function HomePage() {
   return (
     <main className="flex-1">
       {/* Hero Section */}
-      <section className="overflow-hidden relative bg-gradient-to-b border-b from-background to-muted/20">
-        <div className="container px-4 py-16 mx-auto sm:px-6 lg:px-8">
-          <div className="grid gap-12 items-center lg:grid-cols-2">
-            <div className="space-y-8">
-              <div className="space-y-4">
-                <div className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full border bg-muted text-muted-foreground">
-                  <Star className="mr-2 w-4 h-4" />
-                  Open Source S3 Upload Solution
-                </div>
-                <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-                  Next.js S3 Uploads
-                  <span className="text-primary"> Made Simple</span>
-                </h1>
-                <p className="max-w-2xl text-lg text-muted-foreground">
-                  The most comprehensive file upload library for Next.js. Handle
-                  uploads to AWS S3, Cloudflare R2, DigitalOcean Spaces, and
-                  more with type-safe APIs and zero configuration.
-                </p>
-              </div>
+      <section className="container px-4 py-24 mx-auto sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-4xl text-center">
+          <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-6xl">
+            Next.js S3 Uploads
+            <span className="block mt-2 text-primary">Made Simple</span>
+          </h1>
+          <p className="mx-auto mb-8 max-w-2xl text-xl text-muted-foreground">
+            The most comprehensive file upload library for Next.js. Handle
+            uploads to AWS S3, Cloudflare R2, DigitalOcean Spaces, and more with
+            type-safe APIs.
+          </p>
 
-              <div className="flex flex-col gap-4 sm:flex-row">
-                <Link
-                  href="/docs"
-                  className="inline-flex justify-center items-center px-6 py-3 text-base font-medium text-white rounded-lg border border-transparent transition-colors bg-primary hover:bg-primary/90"
-                >
-                  Get Started
-                  <ArrowRight className="ml-2 w-4 h-4" />
-                </Link>
-                <Link
-                  href="https://github.com/abhay-ramesh/next-s3-uploader"
-                  className="inline-flex justify-center items-center px-6 py-3 text-base font-medium rounded-lg border transition-colors border-border text-foreground bg-background hover:bg-muted"
-                >
-                  <Github className="mr-2 w-4 h-4" />
-                  View on GitHub
-                </Link>
-              </div>
+          <div className="flex flex-col gap-4 justify-center mb-12 sm:flex-row">
+            <Link
+              href="/docs"
+              className="inline-flex justify-center items-center px-6 py-3 text-base font-medium rounded-lg border border-transparent transition-colors text-primary-foreground bg-primary hover:bg-primary/90"
+            >
+              Get Started
+              <ArrowRight className="ml-2 w-4 h-4" />
+            </Link>
+            <Link
+              href="https://github.com/abhay-ramesh/next-s3-uploader"
+              className="inline-flex justify-center items-center px-6 py-3 text-base font-medium rounded-lg border transition-colors border-border text-foreground bg-background hover:bg-muted"
+            >
+              <Github className="mr-2 w-4 h-4" />
+              View on GitHub
+            </Link>
+          </div>
 
-              <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-                <div className="flex items-center">
-                  <div className="mr-2 w-2 h-2 bg-green-500 rounded-full"></div>
-                  TypeScript Support
-                </div>
-                <div className="flex items-center">
-                  <div className="mr-2 w-2 h-2 bg-blue-500 rounded-full"></div>
-                  Zero Config
-                </div>
-                <div className="flex items-center">
-                  <div className="mr-2 w-2 h-2 bg-purple-500 rounded-full"></div>
-                  Production Ready
-                </div>
-              </div>
+          {/* Quick Install */}
+          <div className="mx-auto mb-12 max-w-md">
+            <div className="flex gap-2 items-center p-3 font-mono text-sm rounded-lg border bg-muted">
+              <span className="text-muted-foreground">$</span>
+              <span>npm install next-s3-uploader</span>
+              <button
+                className="p-1 ml-auto rounded transition-colors hover:bg-background"
+                title="Copy to clipboard"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
             </div>
+          </div>
 
-            <div className="relative">
-              <div className="overflow-hidden relative rounded-xl border shadow-2xl bg-card">
-                <div className="px-4 py-2 border-b bg-muted">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="ml-4 text-sm text-muted-foreground">
-                      upload.ts
+          {/* Code Example */}
+          <div className="mx-auto max-w-2xl">
+            <div className="overflow-hidden rounded-xl border shadow-sm bg-card">
+              <div className="px-4 py-2 border-b bg-muted">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="ml-4 text-sm text-muted-foreground">
+                    upload.ts
+                  </span>
+                </div>
+              </div>
+              <div className="p-6 text-left bg-[#1e1e1e] dark:bg-[#0d1117] overflow-x-auto">
+                <pre className="text-sm leading-relaxed">
+                  <code>
+                    <span className="text-[#569cd6]">import</span>{" "}
+                    <span className="text-[#b5cea8]">&#123;</span>{" "}
+                    <span className="text-[#9cdcfe]">uploadConfig</span>{" "}
+                    <span className="text-[#b5cea8]">&#125;</span>{" "}
+                    <span className="text-[#569cd6]">from</span>{" "}
+                    <span className="text-[#ce9178]">
+                      &quot;next-s3-uploader/server&quot;
                     </span>
-                  </div>
-                </div>
-                <div className="p-6 bg-card">
-                  <pre className="text-sm leading-relaxed text-foreground">
-                    <code>{`import { uploadConfig } from "next-s3-uploader/server";
-
-export const { s3, uploadHandler } = uploadConfig
-  .s3({
-    bucket: process.env.S3_BUCKET!,
-    region: process.env.AWS_REGION!,
-  })
-  .defaults({
-    maxFileSize: "10MB",
-    allowedTypes: ["image/*", "video/*"],
-  })
-  .build();`}</code>
-                  </pre>
-                </div>
+                    <span className="text-[#b5cea8]">;</span>
+                    {"\n\n"}
+                    <span className="text-[#569cd6]">export</span>{" "}
+                    <span className="text-[#569cd6]">const</span>{" "}
+                    <span className="text-[#b5cea8]">&#123;</span>{" "}
+                    <span className="text-[#9cdcfe]">uploadHandler</span>{" "}
+                    <span className="text-[#b5cea8]">&#125;</span>{" "}
+                    <span className="text-[#569cd6]">=</span>{" "}
+                    <span className="text-[#9cdcfe]">uploadConfig</span>
+                    {"\n  "}
+                    <span className="text-[#b5cea8]">.</span>
+                    <span className="text-[#dcdcaa]">s3</span>
+                    <span className="text-[#b5cea8]">(</span>
+                    <span className="text-[#b5cea8]">&#123;</span>
+                    {"\n    "}
+                    <span className="text-[#9cdcfe]">bucket</span>
+                    <span className="text-[#b5cea8]">:</span>{" "}
+                    <span className="text-[#9cdcfe]">process</span>
+                    <span className="text-[#b5cea8]">.</span>
+                    <span className="text-[#9cdcfe]">env</span>
+                    <span className="text-[#b5cea8]">.</span>
+                    <span className="text-[#9cdcfe]">S3_BUCKET</span>
+                    <span className="text-[#b5cea8]">!</span>
+                    <span className="text-[#b5cea8]">,</span>
+                    {"\n    "}
+                    <span className="text-[#9cdcfe]">region</span>
+                    <span className="text-[#b5cea8]">:</span>{" "}
+                    <span className="text-[#9cdcfe]">process</span>
+                    <span className="text-[#b5cea8]">.</span>
+                    <span className="text-[#9cdcfe]">env</span>
+                    <span className="text-[#b5cea8]">.</span>
+                    <span className="text-[#9cdcfe]">AWS_REGION</span>
+                    <span className="text-[#b5cea8]">!</span>
+                    <span className="text-[#b5cea8]">,</span>
+                    {"\n  "}
+                    <span className="text-[#b5cea8]">&#125;</span>
+                    <span className="text-[#b5cea8]">)</span>
+                    {"\n  "}
+                    <span className="text-[#b5cea8]">.</span>
+                    <span className="text-[#dcdcaa]">build</span>
+                    <span className="text-[#b5cea8]">(</span>
+                    <span className="text-[#b5cea8]">)</span>
+                    <span className="text-[#b5cea8]">;</span>
+                  </code>
+                </pre>
               </div>
             </div>
           </div>
@@ -101,85 +124,51 @@ export const { s3, uploadHandler } = uploadConfig
       </section>
 
       {/* Features Section */}
-      <section className="py-16 bg-background">
-        <div className="container px-4 mx-auto sm:px-6 lg:px-8">
-          <div className="mb-16 space-y-4 text-center">
-            <h2 className="text-3xl font-bold tracking-tight">
-              Everything you need for file uploads
-            </h2>
-            <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              Built with developer experience in mind. From local development to
-              production scale.
-            </p>
-          </div>
+      <section className="border-t bg-muted/20">
+        <div className="container px-4 py-16 mx-auto sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-4xl">
+            <div className="mb-12 text-center">
+              <h2 className="mb-4 text-3xl font-bold tracking-tight">
+                Everything you need
+              </h2>
+              <p className="text-lg text-muted-foreground">
+                Built with developer experience in mind
+              </p>
+            </div>
 
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            <div className="relative group">
-              <div className="p-6 rounded-xl border transition-all duration-200 border-border bg-card hover:shadow-lg">
-                <Upload className="mb-4 w-12 h-12 text-primary" />
-                <h3 className="mb-2 text-xl font-semibold">
+            <div className="grid gap-8 md:grid-cols-3">
+              <div className="text-center">
+                <div className="flex justify-center items-center mx-auto mb-4 w-12 h-12 rounded-lg bg-primary/10">
+                  <Upload className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="mb-2 text-lg font-semibold">
                   Multiple Providers
                 </h3>
-                <p className="text-muted-foreground">
-                  Support for AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO,
-                  and Google Cloud Storage.
+                <p className="text-sm text-muted-foreground">
+                  AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, and Google
+                  Cloud Storage
                 </p>
               </div>
-            </div>
 
-            <div className="relative group">
-              <div className="p-6 rounded-xl border transition-all duration-200 border-border bg-card hover:shadow-lg">
-                <Shield className="mb-4 w-12 h-12 text-primary" />
-                <h3 className="mb-2 text-xl font-semibold">Type Safe</h3>
-                <p className="text-muted-foreground">
+              <div className="text-center">
+                <div className="flex justify-center items-center mx-auto mb-4 w-12 h-12 rounded-lg bg-primary/10">
+                  <Shield className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="mb-2 text-lg font-semibold">Type Safe</h3>
+                <p className="text-sm text-muted-foreground">
                   Full TypeScript support with intelligent autocomplete and
-                  compile-time error checking.
+                  error checking
                 </p>
               </div>
-            </div>
 
-            <div className="relative group">
-              <div className="p-6 rounded-xl border transition-all duration-200 border-border bg-card hover:shadow-lg">
-                <Zap className="mb-4 w-12 h-12 text-primary" />
-                <h3 className="mb-2 text-xl font-semibold">Zero Config</h3>
-                <p className="text-muted-foreground">
+              <div className="text-center">
+                <div className="flex justify-center items-center mx-auto mb-4 w-12 h-12 rounded-lg bg-primary/10">
+                  <Zap className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="mb-2 text-lg font-semibold">Zero Config</h3>
+                <p className="text-sm text-muted-foreground">
                   Works out of the box with sensible defaults. Customize only
-                  what you need.
-                </p>
-              </div>
-            </div>
-
-            <div className="relative group">
-              <div className="p-6 rounded-xl border transition-all duration-200 border-border bg-card hover:shadow-lg">
-                <Code className="mb-4 w-12 h-12 text-primary" />
-                <h3 className="mb-2 text-xl font-semibold">
-                  Developer Experience
-                </h3>
-                <p className="text-muted-foreground">
-                  Beautiful APIs, comprehensive docs, and helpful error
-                  messages.
-                </p>
-              </div>
-            </div>
-
-            <div className="relative group">
-              <div className="p-6 rounded-xl border transition-all duration-200 border-border bg-card hover:shadow-lg">
-                <Shield className="mb-4 w-12 h-12 text-primary" />
-                <h3 className="mb-2 text-xl font-semibold">Security First</h3>
-                <p className="text-muted-foreground">
-                  Built-in validation, file type checking, and security best
-                  practices.
-                </p>
-              </div>
-            </div>
-
-            <div className="relative group">
-              <div className="p-6 rounded-xl border transition-all duration-200 border-border bg-card hover:shadow-lg">
-                <Zap className="mb-4 w-12 h-12 text-primary" />
-                <h3 className="mb-2 text-xl font-semibold">Production Ready</h3>
-                <p className="text-muted-foreground">
-                  Battle-tested in production with proper error handling and
-                  monitoring.
+                  what you need
                 </p>
               </div>
             </div>
@@ -188,25 +177,22 @@ export const { s3, uploadHandler } = uploadConfig
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 bg-muted/20">
-        <div className="container px-4 mx-auto text-center sm:px-6 lg:px-8">
-          <div className="space-y-6">
-            <h2 className="text-3xl font-bold tracking-tight">
+      <section className="border-t">
+        <div className="container px-4 py-16 mx-auto text-center sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl">
+            <h2 className="mb-4 text-3xl font-bold tracking-tight">
               Ready to start uploading?
             </h2>
-            <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              Get started in minutes with our comprehensive documentation and
-              examples.
+            <p className="mb-8 text-lg text-muted-foreground">
+              Get started in minutes with our comprehensive documentation.
             </p>
-            <div className="flex justify-center">
-              <Link
-                href="/docs/quick-start"
-                className="inline-flex justify-center items-center px-8 py-3 text-base font-medium text-white rounded-lg border border-transparent transition-colors bg-primary hover:bg-primary/90"
-              >
-                Start Building
-                <ArrowRight className="ml-2 w-4 h-4" />
-              </Link>
-            </div>
+            <Link
+              href="/docs"
+              className="inline-flex justify-center items-center px-8 py-3 text-base font-medium rounded-lg border border-transparent transition-colors text-primary-foreground bg-primary hover:bg-primary/90"
+            >
+              Start Building
+              <ArrowRight className="ml-2 w-4 h-4" />
+            </Link>
           </div>
         </div>
       </section>
