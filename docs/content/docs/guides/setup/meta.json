@@ -1,0 +1,10 @@
+{
+    "title": "Setup",
+    "pages": [
+        "aws-s3",
+        "cloudflare-r2",
+        "digitalocean-spaces",
+        "minio",
+        "google-cloud"
+    ]
+}

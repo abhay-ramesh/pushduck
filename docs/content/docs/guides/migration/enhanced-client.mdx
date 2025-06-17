@@ -1,0 +1,466 @@
+---
+title: Enhanced Client Migration
+description: Migrate from traditional hooks to property-based client with full type inference
+---
+
+# Enhanced Client Migration
+
+Upgrade from traditional string-based hooks to the property-based client for full type safety and better developer experience.
+
+## 🎯 Why Migrate?
+
+### ❌ Traditional Hook Limitations
+
+```typescript
+// Old way: String literals (error-prone)
+const { uploadFiles } = useUploadRoute("imageUpload"); // ❌ No autocomplete
+const { uploadFiles } = useUploadRoute("imgUpload"); // ❌ Typos cause runtime errors
+const { uploadFiles } = useUploadRoute("imageUplod"); // ❌ Hard to refactor
+```
+
+### ✅ Enhanced Client Benefits
+
+```typescript
+// New way: Property-based access (type-safe)
+const { uploadFiles } = upload.imageUpload(); // ✅ Full autocomplete
+const { uploadFiles } = upload.imgUpload(); // ✅ TypeScript error at build time
+const { uploadFiles } = upload.documentUpload(); // ✅ Easy refactoring
+```
+
+**Key Benefits:**
+
+- **🔒 Full Type Safety**: Catch errors at build time, not runtime
+- **🤖 Perfect Autocomplete**: IDE knows all your routes
+- **🔄 Easy Refactoring**: Rename routes across your entire codebase
+- **📚 Self-Documenting**: Routes are discoverable through IntelliSense
+
+## 🚀 Migration Steps
+
+### 1. Update Your Upload Client
+
+**Before (Traditional):**
+
+```typescript
+// lib/upload-client.ts
+import { createUploadClient } from "next-s3-uploader";
+
+export const uploadClient = createUploadClient();
+
+// Usage in components
+import { useUploadRoute } from "next-s3-uploader";
+const { uploadFiles } = useUploadRoute("imageUpload");
+```
+
+**After (Enhanced):**
+
+```typescript
+// lib/upload-client.ts
+import { createUploadClient } from "next-s3-uploader";
+import type { AppS3Router } from "@/app/api/s3-upload/route";
+
+export const upload = createUploadClient<AppS3Router>();
+
+// Usage in components
+import { upload } from "@/lib/upload-client";
+const { uploadFiles } = upload.imageUpload();
+```
+
+### 2. Export Your Router Type
+
+**Add to your API route:**
+
+```typescript
+// app/api/s3-upload/route.ts
+import { createS3Router } from "next-s3-uploader/server";
+
+const s3Router = createS3Router({
+  imageUpload: s3.image().max("5MB"),
+  documentUpload: s3.file().max("10MB"),
+});
+
+// Export type for client inference
+export type AppS3Router = typeof s3Router;
+
+export const { GET, POST } = createS3Handler(s3Router);
+```
+
+### 3. Update Components
+
+**Before:**
+
+```typescript
+import { useUploadRoute } from "next-s3-uploader";
+
+export function ImageUpload() {
+  const { uploadFiles, files, isUploading } = useUploadRoute("imageUpload");
+  //                                                        ^^^^^^^^^^^^
+  //                                                        String literal (unsafe)
+
+  return <input onChange={(e) => uploadFiles(e.target.files)} />;
+}
+```
+
+**After:**
+
+```typescript
+import { upload } from "@/lib/upload-client";
+
+export function ImageUpload() {
+  const { uploadFiles, files, isUploading } = upload.imageUpload();
+  //                                                 ^^^^^^^^^^^^
+  //                                                 Property access (type-safe)
+
+  return <input onChange={(e) => uploadFiles(e.target.files)} />;
+}
+```
+
+## 🔄 Automatic Migration Script
+
+Use our migration script to automatically convert your codebase:
+
+```bash
+# Install migration tool
+npm install -g next-s3-uploader-migrate
+
+# Run migration (dry run first)
+npx next-s3-uploader-migrate --dry-run
+
+# Apply changes
+npx next-s3-uploader-migrate --apply
+```
+
+The script will:
+
+- ✅ Find all `useUploadRoute` usage
+- ✅ Convert to property-based access
+- ✅ Add necessary imports
+- ✅ Update type annotations
+
+## 📝 Migration Examples
+
+### Basic Image Upload
+
+**Before:**
+
+```typescript
+export function BasicUpload() {
+  const { uploadFiles, files } = useUploadRoute("imageUpload");
+
+  return (
+    <div>
+      <input type="file" onChange={(e) => uploadFiles(e.target.files)} />
+      {files.map((file) => (
+        <img key={file.id} src={file.url} />
+      ))}
+    </div>
+  );
+}
+```
+
+**After:**
+
+```typescript
+export function BasicUpload() {
+  const { uploadFiles, files } = upload.imageUpload();
+
+  return (
+    <div>
+      <input type="file" onChange={(e) => uploadFiles(e.target.files)} />
+      {files.map((file) => (
+        <img key={file.id} src={file.url} />
+      ))}
+    </div>
+  );
+}
+```
+
+### Multiple Upload Routes
+
+**Before:**
+
+```typescript
+export function MultiUpload() {
+  const images = useUploadRoute("imageUpload");
+  const docs = useUploadRoute("documentUpload");
+  const videos = useUploadRoute("videoUpload");
+
+  return (
+    <div>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => images.uploadFiles(e.target.files)}
+      />
+      <input
+        type="file"
+        accept=".pdf,.doc"
+        onChange={(e) => docs.uploadFiles(e.target.files)}
+      />
+      <input
+        type="file"
+        accept="video/*"
+        onChange={(e) => videos.uploadFiles(e.target.files)}
+      />
+    </div>
+  );
+}
+```
+
+**After:**
+
+```typescript
+export function MultiUpload() {
+  const images = upload.imageUpload();
+  const docs = upload.documentUpload();
+  const videos = upload.videoUpload();
+
+  return (
+    <div>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => images.uploadFiles(e.target.files)}
+      />
+      <input
+        type="file"
+        accept=".pdf,.doc"
+        onChange={(e) => docs.uploadFiles(e.target.files)}
+      />
+      <input
+        type="file"
+        accept="video/*"
+        onChange={(e) => videos.uploadFiles(e.target.files)}
+      />
+    </div>
+  );
+}
+```
+
+### Conditional Routes
+
+**Before:**
+
+```typescript
+export function ConditionalUpload({ isPremium }: { isPremium: boolean }) {
+  const routeName = isPremium ? "premiumUpload" : "basicUpload";
+  const { uploadFiles } = useUploadRoute(routeName); // ❌ Type inference lost
+
+  return <input onChange={(e) => uploadFiles(e.target.files)} />;
+}
+```
+
+**After:**
+
+```typescript
+export function ConditionalUpload({ isPremium }: { isPremium: boolean }) {
+  // Option 1: Conditional hook calls (recommended)
+  const premium = isPremium ? upload.premiumUpload() : null;
+  const basic = !isPremium ? upload.basicUpload() : null;
+
+  const activeUpload = premium || basic!;
+
+  return <input onChange={(e) => activeUpload.uploadFiles(e.target.files)} />;
+
+  // Option 2: Factory pattern for complex conditionals
+  const uploadHook = isPremium ? upload.premiumUpload : upload.basicUpload;
+  const { uploadFiles } = uploadHook();
+
+  return <input onChange={(e) => uploadFiles(e.target.files)} />;
+}
+```
+
+## 🔧 Advanced Migration Patterns
+
+### Custom Hook Factories
+
+**Before:**
+
+```typescript
+function useImageUpload(quality: "low" | "high") {
+  const routeName = quality === "high" ? "highQualityImage" : "lowQualityImage";
+  return useUploadRoute(routeName);
+}
+```
+
+**After:**
+
+```typescript
+function useImageUpload(quality: "low" | "high") {
+  return quality === "high"
+    ? upload.highQualityImage()
+    : upload.lowQualityImage();
+}
+```
+
+### Route Composition
+
+**Before:**
+
+```typescript
+function useMultipleUploads() {
+  return {
+    images: useUploadRoute("imageUpload"),
+    documents: useUploadRoute("documentUpload"),
+    videos: useUploadRoute("videoUpload"),
+  };
+}
+```
+
+**After:**
+
+```typescript
+function useMultipleUploads() {
+  return {
+    images: upload.imageUpload(),
+    documents: upload.documentUpload(),
+    videos: upload.videoUpload(),
+  };
+}
+```
+
+## 🔍 Type Inference Deep Dive
+
+### Server to Client Type Flow
+
+```typescript
+// 1. Server Router Definition
+const s3Router = createS3Router({
+  imageUpload: s3.image().max("5MB").formats(["jpeg", "png"]),
+  documentUpload: s3.file().max("10MB").types(["pdf", "docx"]),
+});
+
+// 2. Export Router Type
+export type AppS3Router = typeof s3Router;
+//                        ^^^^^^^^^^^^^^^^^^
+//                        Full type information captured
+
+// 3. Client Type Inference
+export const upload = createUploadClient<AppS3Router>();
+//                                      ^^^^^^^^^^^^
+//                                      Client gets full route information
+
+// 4. Component Usage (Full Type Safety)
+const { uploadFiles } = upload.imageUpload();
+//      ^^^^^^^^^^^             ^^^^^^^^^^^
+//      Typed return            Route exists and typed
+```
+
+### TypeScript Integration
+
+```typescript
+// Types are automatically inferred
+type ImageUploadHook = ReturnType<typeof upload.imageUpload>;
+//   ^^^^^^^^^^^^^^^
+//   {
+//     uploadFiles: (files: FileList | File[]) => Promise<void>;
+//     files: UploadedFile[];
+//     isUploading: boolean;
+//     progress: number;
+//     error: string | null;
+//     reset: () => void;
+//   }
+
+// Route names are type-checked
+type AvailableRoutes = keyof AppS3Router;
+//   ^^^^^^^^^^^^^^^
+//   "imageUpload" | "documentUpload"
+```
+
+## ✅ Migration Checklist
+
+### Pre-Migration
+
+- [ ] **Backup your code** - Commit current state to git
+- [ ] **Update dependencies** - Ensure you have the latest version
+- [ ] **Export router type** - Add `export type AppS3Router = typeof s3Router`
+- [ ] **Test existing functionality** - Ensure current uploads work
+
+### During Migration
+
+- [ ] **Update upload client** - Add type parameter to `createUploadClient<AppS3Router>()`
+- [ ] **Convert components** - Replace `useUploadRoute("name")` with `upload.name()`
+- [ ] **Update imports** - Change from hook imports to client imports
+- [ ] **Fix TypeScript errors** - Address any new type errors
+
+### Post-Migration
+
+- [ ] **Test all upload routes** - Verify each route works correctly
+- [ ] **Verify type safety** - Confirm autocomplete and error detection
+- [ ] **Remove old imports** - Clean up unused `useUploadRoute` imports
+- [ ] **Update documentation** - Update internal docs if applicable
+
+## 🚨 Common Migration Issues
+
+### Issue 1: Missing Router Export
+
+**Error:**
+
+```typescript
+// ❌ Error: Type 'typeof import("...")' has no properties in common with type 'S3Router'
+export const upload = createUploadClient<AppS3Router>();
+```
+
+**Solution:**
+
+```typescript
+// ✅ Add router type export to your API route
+export type AppS3Router = typeof s3Router;
+```
+
+### Issue 2: Dynamic Route Names
+
+**Problem:**
+
+```typescript
+// ❌ Can't easily convert dynamic routes
+const routeName = getUserRoute(user);
+const { uploadFiles } = useUploadRoute(routeName);
+```
+
+**Solution:**
+
+```typescript
+// ✅ Use route mapping
+const routeMap = {
+  admin: upload.adminUpload,
+  premium: upload.premiumUpload,
+  basic: upload.basicUpload,
+} as const;
+
+const uploadHook = routeMap[user.role];
+const { uploadFiles } = uploadHook();
+```
+
+### Issue 3: Conditional Hook Calls
+
+**Problem:**
+
+```typescript
+// ❌ React hooks can't be called conditionally
+if (condition) {
+  const { uploadFiles } = upload.imageUpload();
+}
+```
+
+**Solution:**
+
+```typescript
+// ✅ Always call hooks, conditionally use them
+const imageUpload = upload.imageUpload();
+const documentUpload = upload.documentUpload();
+
+const activeUpload = condition ? imageUpload : documentUpload;
+```
+
+## 📚 Next Steps
+
+After migration, explore advanced features:
+
+- **[Schema Builders](/api-reference/server/schema/s3-builders)** - Advanced validation patterns
+- **[Middleware](/api-reference/server/schema/middleware)** - Custom upload logic
+- **[Lifecycle Hooks](/api-reference/server/router/lifecycle-hooks)** - Server-side processing
+- **[Error Handling](/guides/advanced/error-handling)** - Robust error recovery
+
+---
+
+**Questions?** Check our [Troubleshooting Guide](/guides/going-live/troubleshooting) or [open an issue](https://github.com/your-username/next-s3-uploader/issues).

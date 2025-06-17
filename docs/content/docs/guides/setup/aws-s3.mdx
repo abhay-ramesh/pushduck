@@ -1,106 +1,395 @@
 ---
-title: Using AWS S3
-description: Set up AWS S3 for file uploads
+title: AWS S3 Setup
+description: Set up AWS S3 for production file uploads in under 5 minutes
 ---
 
-# Using AWS S3
+import { Step, Steps } from "fumadocs-ui/components/steps";
+import { Callout } from "fumadocs-ui/components/callout";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
-Set up AWS S3 to store your uploaded files securely.
+# AWS S3 Setup
 
-## 1. Create an S3 Bucket
+Get **AWS S3** configured for production file uploads in under 5 minutes. This guide covers everything from bucket creation to security best practices.
 
-1. Go to the [AWS S3 Console](https://console.aws.amazon.com/s3/)
-2. Click **"Create bucket"**
-3. Choose a unique bucket name (e.g., `my-app-uploads`)
-4. Select your preferred region
-5. **Important**: Uncheck "Block all public access" if you want public file access
-6. Click **"Create bucket"**
+<Callout type="info">
+  **Why AWS S3?** The most trusted object storage service with 99.999999999%
+  durability, global CDN integration, and predictable pricing. Perfect for
+  applications that need reliable, scalable file storage.
+</Callout>
 
-## 2. Set Up Permissions
+## What You'll Accomplish
 
-### For Public Files (Images, Documents)
+By the end of this guide, you'll have:
 
-Add this bucket policy to allow public read access:
+- ✅ A secure S3 bucket configured for web uploads
+- ✅ IAM user with minimal required permissions
+- ✅ CORS configuration for your domain
+- ✅ Environment variables ready for production
+- ✅ Cost optimization settings enabled
+
+<Steps>
+
+<Step>
+
+## Create AWS Account & S3 Bucket
+
+If you don't have an AWS account, [sign up for free](https://aws.amazon.com/free/) - you get 5GB of S3 storage free for 12 months.
+
+1. **Open S3 Console**: Go to [S3 Console](https://console.aws.amazon.com/s3/)
+2. **Create Bucket**: Click "Create bucket"
+3. **Configure Basic Settings**:
+
+```bash
+Bucket name: your-app-uploads-prod
+Region: us-east-1 (or closest to your users)
+```
+
+<Callout type="warn">
+  **Bucket Naming**: Use a unique, descriptive name. Bucket names are global
+  across all AWS accounts and cannot be changed later.
+</Callout>
+
+4. **Block Public Access**: Keep all "Block public access" settings **enabled** (this is secure - we'll use presigned URLs)
+5. **Enable Versioning**: Recommended for data protection
+6. **Create Bucket**: Click "Create bucket"
+
+</Step>
+
+<Step>
+
+## Configure CORS for Web Access
+
+Your web application needs permission to upload files directly to S3.
+
+1. **Open Your Bucket**: Click on your newly created bucket
+2. **Go to Permissions Tab**: Click "Permissions"
+3. **Edit CORS Configuration**: Scroll to "Cross-origin resource sharing (CORS)" and click "Edit"
+4. **Add CORS Rules**:
+
+<Tabs items={['Development', 'Production']}>
+<Tab value="Development">
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "https://localhost:3000"
+    ],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+</Tab>
+<Tab value="Production">
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
+    "AllowedOrigins": [
+      "https://yourdomain.com",
+      "https://www.yourdomain.com",
+      "https://staging.yourdomain.com"
+    ],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 86400
+  }
+]
+```
+</Tab>
+</Tabs>
+
+5. **Save Changes**: Click "Save changes"
+
+<Callout type="info">
+  **Security Note**: Only add origins you trust. Wildcards (`*`) should never be
+  used in production - they allow any website to upload to your bucket.
+</Callout>
+
+</Step>
+
+<Step>
+
+## Create IAM User with Minimal Permissions
+
+Create a dedicated user for your application with only the permissions it needs.
+
+1. **Open IAM Console**: Go to [IAM Console](https://console.aws.amazon.com/iam/)
+2. **Create User**:
+   - Click "Users" → "Create user"
+   - Username: `your-app-s3-user`
+   - Select "Programmatic access" only
+3. **Create Custom Policy**:
+   - Click "Attach policies directly"
+   - Click "Create policy"
+   - Use JSON editor and paste:
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "PublicReadGetObject",
       "Effect": "Allow",
-      "Principal": "*",
-      "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::your-bucket-name/*"
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::your-app-uploads-prod/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::your-app-uploads-prod"
     }
   ]
 }
 ```
 
-### For Private Files
+4. **Name the Policy**: `YourApp-S3-Upload-Policy`
+5. **Attach to User**: Go back to user creation and attach your new policy
+6. **Create User**: Complete the user creation
 
-Keep the default settings - files will only be accessible via presigned URLs.
+<Callout type="warn">
+  **Replace Bucket Name**: Make sure to replace `your-app-uploads-prod` with
+  your actual bucket name in the policy JSON.
+</Callout>
 
-## 3. Configure CORS
+</Step>
 
-Add this CORS configuration to your bucket:
+<Step>
 
-```json
-[
-  {
-    "AllowedHeaders": ["*"],
-    "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
-    "AllowedOrigins": ["http://localhost:3000", "https://yourdomain.com"],
-    "ExposeHeaders": ["ETag"]
-  }
-]
-```
+## Get Access Keys
 
-## 4. Get Your Credentials
+Your application needs these credentials to generate presigned URLs.
 
-1. Go to [IAM Console](https://console.aws.amazon.com/iam/)
-2. Create a new user with programmatic access
-3. Attach the `AmazonS3FullAccess` policy (or create a custom policy)
-4. Save your `Access Key ID` and `Secret Access Key`
+1. **Select Your User**: In IAM Users, click on your newly created user
+2. **Security Credentials Tab**: Click "Security credentials"
+3. **Create Access Key**:
+   - Click "Create access key"
+   - Select "Application running outside AWS"
+   - Click "Next"
+4. **Copy Credentials**:
+   - **Access Key ID**: Copy this value
+   - **Secret Access Key**: Copy this value (you'll only see it once!)
 
-## 5. Configure Your App
+<Callout type="error">
+  **Security Alert**: Never commit these keys to version control or share them
+  publicly. Use environment variables or secure key management services.
+</Callout>
 
-Add to your `.env.local`:
+</Step>
 
+<Step>
+
+## Configure Environment Variables
+
+Add your AWS credentials to your application.
+
+<Tabs items={['Development', 'Production']}>
+<Tab value="Development">
 ```bash
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
+# .env.local
+AWS_ACCESS_KEY_ID=your_access_key_id
+AWS_SECRET_ACCESS_KEY=your_secret_access_key
 AWS_REGION=us-east-1
-AWS_S3_BUCKET_NAME=your-bucket-name
-```
+AWS_S3_BUCKET_NAME=your-app-uploads-prod
 
-## 6. Test Your Setup
+# Optional: Enable S3 debug logging
 
-Run the CLI test command:
+DEBUG=aws-sdk:\*
+
+````
+</Tab>
+<Tab value="Production">
+```bash
+# Use your hosting platform's environment variable system
+# Never store production keys in .env files
+
+# Vercel:
+# vercel env add AWS_ACCESS_KEY_ID
+# vercel env add AWS_SECRET_ACCESS_KEY
+
+# Netlify:
+# Add in Site settings > Environment variables
+
+# Railway:
+# Add in Variables tab
+
+AWS_ACCESS_KEY_ID=your_access_key_id
+AWS_SECRET_ACCESS_KEY=your_secret_access_key
+AWS_REGION=us-east-1
+AWS_S3_BUCKET_NAME=your-app-uploads-prod
+````
+
+</Tab>
+</Tabs>
+
+</Step>
+
+<Step>
+
+## Test Your Configuration
+
+Verify everything works by testing an upload.
+
+1. **Start Your App**: Run your development server
+2. **Test Upload**: Try uploading a file using your upload component
+3. **Check S3**: Verify the file appears in your S3 bucket
+4. **Check Access**: Verify you can access the uploaded file via its URL
+
+If something's not working:
+
+- ✅ Check CORS configuration matches your domain
+- ✅ Verify IAM policy has correct bucket name
+- ✅ Confirm environment variables are loaded
+- ✅ Check browser console for specific error messages
+
+</Step>
+
+</Steps>
+
+## 🎉 Congratulations!
+
+Your AWS S3 bucket is now ready for production! Here's what you've accomplished:
+
+- ✅ **Secure Storage**: Files are stored in AWS's enterprise-grade infrastructure
+- ✅ **Cost Efficient**: Pay only for what you use, with free tier coverage
+- ✅ **Globally Accessible**: Files available worldwide with low latency
+- ✅ **Scalable**: Handles millions of files without configuration changes
+- ✅ **Secure Access**: Minimal IAM permissions and proper CORS setup
+
+## 💰 Cost Optimization
+
+Keep your AWS bills low with these optimization tips:
+
+### Storage Classes
 
 ```bash
-npx create-next-s3-uploader test
+# Standard: $0.023 per GB/month - for frequently accessed files
+# Standard-IA: $0.0125 per GB/month - for infrequently accessed files
+# Glacier: $0.004 per GB/month - for archival (retrieval takes hours)
 ```
 
-This will verify your S3 connection and permissions.
+### Lifecycle Policies
 
-## ✅ You're Ready!
+Set up automatic transitions to save money:
 
-Your AWS S3 is now configured. Head back to the [Quick Start](/quick-start) to start uploading files.
+1. **Go to Your Bucket** → Management → Lifecycle rules
+2. **Create Rule**:
+   - Transition to Standard-IA after 30 days
+   - Transition to Glacier after 90 days
+   - Delete incomplete multipart uploads after 1 day
+
+### Request Optimization
+
+- **Use CloudFront**: Cache files globally to reduce S3 requests
+- **Batch Operations**: Group multiple operations when possible
+- **Monitor Usage**: Set up billing alerts for unexpected costs
 
 ## 🔒 Security Best Practices
 
-- **Use IAM roles** instead of access keys when possible
-- **Restrict bucket policies** to only necessary permissions
-- **Enable versioning** for important files
-- **Set up lifecycle policies** to manage costs
+### Access Control
 
-## 🆘 Common Issues
+```json
+// Example: User-specific upload paths
+{
+  "prefix": "users/${user.id}/*",
+  "maxFileSize": "10MB",
+  "allowedTypes": ["image/jpeg", "image/png"]
+}
+```
 
-**CORS errors?** → Make sure your domain is in the AllowedOrigins list
-**Access denied?** → Check your IAM user has S3 permissions
-**Bucket not found?** → Verify the bucket name in your environment variables
+### Monitoring
+
+1. **Enable CloudTrail**: Track all S3 API calls
+2. **Set Up Alerts**: Monitor unusual access patterns
+3. **Regular Audits**: Review IAM permissions quarterly
+
+### Backup Strategy
+
+```bash
+# Cross-region replication for critical data
+Source Bucket: us-east-1
+Replica Bucket: us-west-2
+Replication: Real-time
+```
+
+## 🚀 What's Next?
+
+Now that AWS S3 is configured, explore these advanced features:
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">📈 CloudFront CDN</h3>
+    <p className="text-sm text-gray-600 mb-3">
+      Speed up file delivery globally with AWS CloudFront
+    </p>
+    <a
+      href="/docs/guides/setup/cloudfront"
+      className="text-blue-600 text-sm hover:underline"
+    >
+      CloudFront Setup →
+    </a>
+  </div>
+
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">🔄 Lambda Processing</h3>
+    <p className="text-sm text-gray-600 mb-3">
+      Automatically resize images and process files
+    </p>
+    <a
+      href="/docs/guides/setup/lambda-processing"
+      className="text-blue-600 text-sm hover:underline"
+    >
+      Lambda Integration →
+    </a>
+  </div>
+
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">📊 Analytics & Monitoring</h3>
+    <p className="text-sm text-gray-600 mb-3">
+      Track upload metrics and usage patterns
+    </p>
+    <a
+      href="/docs/guides/going-live/monitoring"
+      className="text-blue-600 text-sm hover:underline"
+    >
+      Monitoring Guide →
+    </a>
+  </div>
+
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">🔐 Advanced Security</h3>
+    <p className="text-sm text-gray-600 mb-3">
+      Implement encryption, access logging, and compliance
+    </p>
+    <a
+      href="/docs/guides/security/encryption"
+      className="text-blue-600 text-sm hover:underline"
+    >
+      Security Guide →
+    </a>
+  </div>
+</div>
+
+## 💡 Pro Tips
+
+<Callout type="info">
+  **Naming Convention**: Use consistent bucket naming like `{company}-{app}-
+  {environment}-uploads` for easy management across multiple projects.
+</Callout>
+
+<Callout type="warn">
+  **Cost Alert**: Set up AWS billing alerts at $5, $20, and $50 to avoid
+  surprise charges during development.
+</Callout>
+
+<Callout type="success">
+  **Performance**: Place your S3 bucket in the same region as your application
+  server for fastest presigned URL generation.
+</Callout>
 
 ---
 
-**Next:** [Upload Your First Image](/guides/uploads/images)
+**Need help with AWS S3 setup?** Join our [Discord community](https://discord.gg/next-s3-uploader) or check out the [troubleshooting guide](/docs/guides/going-live/troubleshooting) for common issues.

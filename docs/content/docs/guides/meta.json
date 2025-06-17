@@ -1,0 +1,10 @@
+{
+    "title": "Guides",
+    "pages": [
+        "setup",
+        "uploads",
+        "security",
+        "migration",
+        "going-live"
+    ]
+}

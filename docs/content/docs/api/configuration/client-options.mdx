@@ -1,0 +1,652 @@
+---
+title: Client Options
+description: Configure your upload client with type-safe options and advanced features
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+# Client Options
+
+Configure your **upload client** with type-safe options, custom behaviors, and advanced features. The client automatically inherits types from your server router for complete type safety.
+
+<Callout type="info">
+  All client options are **fully typed** based on your server router. You get
+  autocomplete, validation, and compile-time error checking out of the box.
+</Callout>
+
+## Basic Client Setup
+
+Create a type-safe upload client:
+
+```typescript
+// lib/upload-client.ts
+import { createUploadClient } from "next-s3-uploader";
+import type { Router } from "@/app/api/s3-upload/route";
+
+export const upload = createUploadClient<Router>({
+  baseUrl: "/api/s3-upload",
+  timeout: 30000,
+  retryAttempts: 3,
+});
+
+// Export individual upload methods for convenience
+export const { imageUpload, documentUpload, gallery } = upload;
+```
+
+**What you get:**
+
+- ✅ Full TypeScript inference from server router
+- ✅ Automatic retry and error handling
+- ✅ Progress tracking and status management
+- ✅ Built-in request/response transformation
+
+## Client Configuration Options
+
+### Base Configuration
+
+```typescript
+import { createUploadClient } from "next-s3-uploader";
+
+const upload = createUploadClient<Router>({
+  // Server endpoint
+  baseUrl: "/api/s3-upload",
+
+  // Request configuration
+  timeout: 30000, // 30 seconds
+  retryAttempts: 3, // Retry failed requests
+  retryDelay: 1000, // Initial retry delay (ms)
+  retryDelayMultiplier: 2, // Exponential backoff
+
+  // Progress reporting
+  progressInterval: 100, // Progress update frequency (ms)
+
+  // Request headers
+  headers: {
+    "X-Client-Version": "2.0",
+    "X-User-Agent": "next-s3-uploader",
+  },
+
+  // Custom fetch implementation
+  fetch: customFetch,
+
+  // Authentication
+  auth: {
+    getToken: () => localStorage.getItem("auth-token"),
+    refreshToken: async () => await refreshAuthToken(),
+  },
+});
+```
+
+### Advanced Options
+
+```typescript
+const upload = createUploadClient<Router>({
+  baseUrl: "/api/s3-upload",
+
+  // Chunk upload configuration
+  chunks: {
+    enabled: true,
+    size: 5 * 1024 * 1024, // 5MB chunks
+    parallel: 3, // Max parallel chunks
+    retryChunkAttempts: 5,
+  },
+
+  // Queue management
+  queue: {
+    concurrency: 3, // Max concurrent uploads
+    prioritize: "newest", // 'newest' | 'oldest' | 'smallest'
+    pauseOnError: false,
+  },
+
+  // Validation
+  validation: {
+    enableClientValidation: true,
+    validateBeforeUpload: true,
+    customValidators: [(file) => file.name.length < 255 || "Filename too long"],
+  },
+
+  // Transformation
+  transform: {
+    image: {
+      autoResize: true,
+      maxWidth: 2000,
+      maxHeight: 2000,
+      quality: 0.85,
+      format: "webp",
+    },
+  },
+
+  // Caching
+  cache: {
+    enabled: true,
+    storage: "localStorage", // 'localStorage' | 'sessionStorage' | 'memory'
+    ttl: 3600000, // 1 hour in ms
+  },
+});
+```
+
+## Upload Method Options
+
+Each upload method accepts additional options for fine-grained control:
+
+### Basic Upload Options
+
+```typescript
+const { uploadFiles } = upload.imageUpload();
+
+// Upload with custom options
+await uploadFiles(files, {
+  // Override global settings
+  timeout: 60000,
+  retryAttempts: 5,
+
+  // Custom metadata
+  metadata: {
+    category: "profile",
+    source: "mobile-app",
+  },
+
+  // Custom path variables
+  pathVariables: {
+    userId: user.id,
+    timestamp: Date.now(),
+  },
+
+  // Progress callback
+  onProgress: (progress, file) => {
+    console.log(`${file.name}: ${progress}%`);
+  },
+
+  // Success callback
+  onSuccess: (result, file) => {
+    console.log(`Uploaded: ${result.url}`);
+  },
+
+  // Error callback
+  onError: (error, file) => {
+    console.error(`Failed: ${file.name}`, error);
+  },
+});
+```
+
+### Advanced Upload Options
+
+```typescript
+await uploadFiles(files, {
+  // Pause/resume support
+  pausable: true,
+
+  // Custom validation
+  validate: async (file) => {
+    const isDuplicate = await checkForDuplicate(file.name);
+    if (isDuplicate) {
+      throw new Error("File already exists");
+    }
+  },
+
+  // File transformation
+  transform: {
+    resize: { width: 800, height: 600 },
+    quality: 0.9,
+    format: "webp",
+  },
+
+  // Upload strategy
+  strategy: "chunk", // 'direct' | 'chunk' | 'resumable'
+
+  // Conditional upload
+  condition: (file) => file.size < 10 * 1024 * 1024, // Only < 10MB
+
+  // Custom headers for this upload
+  headers: {
+    "X-Upload-Source": "drag-drop",
+    "X-User-ID": user.id,
+  },
+});
+```
+
+## Hook-Based API
+
+Use the hook-based API for reactive upload management:
+
+### Basic Hook Usage
+
+```typescript
+"use client";
+
+import { upload } from "@/lib/upload-client";
+
+export function ImageUploader() {
+  const {
+    // Upload methods
+    uploadFiles,
+    uploadFromUrl,
+    cancel,
+    pause,
+    resume,
+
+    // State
+    files,
+    uploadedFiles,
+    isUploading,
+    progress,
+    error,
+
+    // Utils
+    reset,
+    removeFile,
+  } = upload.imageUpload({
+    // Hook options
+    autoUpload: false,
+    maxFiles: 5,
+    onComplete: (results) => {
+      console.log("All uploads complete:", results);
+    },
+  });
+
+  return (
+    <div>
+      <input
+        type="file"
+        multiple
+        onChange={(e) => uploadFiles(e.target.files)}
+      />
+
+      {files.map((file) => (
+        <div key={file.id}>
+          <span>{file.name}</span>
+          <progress value={file.progress} max={100} />
+          {file.status === "error" && (
+            <span className="error">{file.error}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### Advanced Hook Configuration
+
+```typescript
+const { uploadFiles, files, isUploading } = upload.gallery({
+  // Auto-upload behavior
+  autoUpload: true,
+  autoUploadDelay: 1000, // Delay before auto-upload
+
+  // File management
+  maxFiles: 10,
+  maxSize: "5MB",
+  acceptedTypes: ["image/*"],
+
+  // Validation
+  validate: (files) => {
+    if (files.length > 10) {
+      throw new Error("Too many files");
+    }
+  },
+
+  // State management
+  persistState: true, // Persist state across rerenders
+  storageKey: "gallery-uploads",
+
+  // Callbacks
+  onFileAdd: (file) => console.log("Added:", file.name),
+  onFileRemove: (file) => console.log("Removed:", file.name),
+  onUploadStart: (file) => console.log("Starting:", file.name),
+  onUploadProgress: (file, progress) =>
+    console.log(`${file.name}: ${progress}%`),
+  onUploadComplete: (file, result) => console.log("Complete:", result.url),
+  onUploadError: (file, error) => console.error("Error:", error),
+  onAllComplete: (results) => console.log("All done:", results),
+
+  // Error handling
+  retryFailedUploads: true,
+  maxRetryAttempts: 3,
+
+  // UI behavior
+  clearOnComplete: false,
+  showProgress: true,
+  enablePreview: true,
+});
+```
+
+## Property-Based Client Access
+
+Use property-based access for enhanced type safety:
+
+```typescript
+// Traditional approach
+const { uploadFiles } = useUploadRoute("imageUpload"); // ❌ String literal
+
+// Property-based approach
+const { uploadFiles } = upload.imageUpload(); // ✅ Type-safe property access
+```
+
+### Enhanced Client Features
+
+```typescript
+// Multiple route access with type inference
+const imageUploader = upload.imageUpload();
+const documentUploader = upload.documentUpload();
+const galleryUploader = upload.gallery();
+
+// Conditional route access
+const uploader = user.isPro
+  ? upload.highResImages() // Pro feature
+  : upload.standardImages(); // Free tier
+
+// Type-safe options for each route
+const { uploadFiles } = upload.imageUpload({
+  maxFiles: 1, // Inferred from server schema
+  onComplete: (result) => {
+    // result is fully typed based on server response
+    console.log(result.url, result.metadata);
+  },
+});
+```
+
+## Error Handling Configuration
+
+Configure comprehensive error handling:
+
+```typescript
+const upload = createUploadClient<Router>({
+  baseUrl: "/api/s3-upload",
+
+  // Global error handling
+  onError: (error, context) => {
+    console.error("Upload error:", error);
+
+    // Send to error tracking
+    errorTracking.captureException(error, {
+      extra: {
+        fileName: context.file?.name,
+        fileSize: context.file?.size,
+        uploadRoute: context.route,
+      },
+    });
+  },
+
+  // Retry configuration
+  retryCondition: (error, attempt) => {
+    // Don't retry validation errors
+    if (error.code === "VALIDATION_ERROR") return false;
+
+    // Don't retry after 3 attempts
+    if (attempt >= 3) return false;
+
+    // Retry network errors
+    return error.code === "NETWORK_ERROR";
+  },
+
+  // Error transformation
+  transformError: (error) => {
+    // Convert server errors to user-friendly messages
+    if (error.code === "FILE_TOO_LARGE") {
+      return new Error("File is too large. Please choose a smaller file.");
+    }
+
+    if (error.code === "INVALID_FILE_TYPE") {
+      return new Error(
+        "File type not supported. Please choose a different file."
+      );
+    }
+
+    return error;
+  },
+});
+```
+
+## Performance Optimization
+
+Optimize client performance for better user experience:
+
+```typescript
+const upload = createUploadClient<Router>({
+  baseUrl: "/api/s3-upload",
+
+  // Connection pooling
+  keepAlive: true,
+  maxConnections: 6,
+
+  // Request optimization
+  compression: true,
+  deduplication: true, // Prevent duplicate uploads
+
+  // Preloading
+  preload: {
+    enabled: true,
+    routes: ["imageUpload", "documentUpload"], // Preload common routes
+  },
+
+  // Caching
+  cache: {
+    enabled: true,
+    strategy: "stale-while-revalidate",
+    maxAge: 300000, // 5 minutes
+  },
+
+  // Background uploads
+  background: {
+    enabled: true,
+    persistAcrossReloads: true,
+    syncInterval: 5000, // Sync every 5 seconds
+  },
+});
+```
+
+## Framework-Specific Configuration
+
+<Tabs items={['Next.js', 'React', 'Vue', 'Svelte']}>
+<Tab value="Next.js">
+```typescript
+// lib/upload-client.ts
+import { createUploadClient } from 'next-s3-uploader/next'
+
+export const upload = createUploadClient<Router>({
+  baseUrl: '/api/s3-upload',
+  
+  // Next.js specific options
+  router: 'app',                    // 'app' | 'pages'
+  revalidate: ['uploads'],          // Revalidate these paths after upload
+  
+  // Server Components integration
+  serverActions: true,
+  
+  // App Router specific
+  streamingUploads: true,
+  parallelRoutes: true
+})
+```
+</Tab>
+<Tab value="React">
+```typescript
+// lib/upload-client.ts
+import { createUploadClient } from 'next-s3-uploader/react'
+
+export const upload = createUploadClient<Router>({
+  baseUrl: process.env.REACT_APP_UPLOAD_URL,
+  
+  // React specific options
+  suspense: true,
+  concurrent: true,
+  
+  // State management
+  reducer: uploadReducer,
+  middleware: [uploadMiddleware]
+})
+```
+</Tab>
+<Tab value="Vue">
+```typescript
+// lib/upload-client.ts
+import { createUploadClient } from 'next-s3-uploader/vue'
+
+export const upload = createUploadClient<Router>({
+  baseUrl: '/api/s3-upload',
+  
+  // Vue specific options
+  reactive: true,
+  composable: true
+})
+```
+</Tab>
+<Tab value="Svelte">
+```typescript
+// lib/upload-client.ts
+import { createUploadClient } from 'next-s3-uploader/svelte'
+
+export const upload = createUploadClient<Router>({
+  baseUrl: '/api/s3-upload',
+  
+  // Svelte specific options
+  stores: true,
+  reactive: true
+})
+```
+</Tab>
+</Tabs>
+
+## Real-World Configuration Examples
+
+### E-commerce Platform
+
+```typescript
+const upload = createUploadClient<Router>({
+  baseUrl: "/api/uploads",
+
+  // Optimize for product images
+  chunks: {
+    enabled: true,
+    size: 2 * 1024 * 1024, // 2MB chunks for faster uploads
+  },
+
+  // Handle high volume
+  queue: {
+    concurrency: 5,
+    prioritize: "smallest", // Upload smaller images first
+  },
+
+  // Optimize for mobile
+  transform: {
+    image: {
+      autoResize: true,
+      maxWidth: 1200,
+      quality: 0.8,
+      format: "webp",
+    },
+  },
+
+  // Analytics
+  onUploadComplete: (result, file) => {
+    analytics.track("Product Image Uploaded", {
+      fileSize: file.size,
+      fileName: file.name,
+      uploadTime: result.uploadTime,
+    });
+  },
+});
+```
+
+### Social Media App
+
+```typescript
+const upload = createUploadClient<Router>({
+  baseUrl: "/api/uploads",
+
+  // Optimize for media sharing
+  autoUpload: true,
+
+  // Background uploads for better UX
+  background: {
+    enabled: true,
+    persistAcrossReloads: true,
+  },
+
+  // Real-time progress for stories/posts
+  progressInterval: 50,
+
+  // Handle poor network conditions
+  retryAttempts: 5,
+  retryDelay: 2000,
+
+  // Pre-process for social media
+  transform: {
+    image: {
+      autoResize: true,
+      maxWidth: 1080,
+      quality: 0.85,
+      format: "jpeg",
+    },
+    video: {
+      maxDuration: 60,
+      format: "mp4",
+      quality: "medium",
+    },
+  },
+});
+```
+
+### Document Management System
+
+```typescript
+const upload = createUploadClient<Router>({
+  baseUrl: "/api/uploads",
+
+  // Security for sensitive documents
+  auth: {
+    getToken: () => authStore.getAccessToken(),
+    refreshToken: () => authStore.refreshToken(),
+  },
+
+  // Large file support
+  chunks: {
+    enabled: true,
+    size: 10 * 1024 * 1024, // 10MB chunks
+    parallel: 2, // Conservative for large files
+  },
+
+  // Validation for compliance
+  validation: {
+    enableClientValidation: true,
+    customValidators: [
+      (file) => file.size < 100 * 1024 * 1024 || "File too large (max 100MB)",
+      (file) =>
+        /\.(pdf|doc|docx)$/i.test(file.name) || "Only documents allowed",
+    ],
+  },
+
+  // Audit trail
+  onUploadComplete: (result, file) => {
+    auditLog.record("DOCUMENT_UPLOADED", {
+      fileName: file.name,
+      fileSize: file.size,
+      userId: user.id,
+      documentUrl: result.url,
+    });
+  },
+});
+```
+
+## Best Practices
+
+<Callout type="success">
+  **Type Safety**: Always export and use your router type for full TypeScript
+  inference across your application.
+</Callout>
+
+<Callout type="warn">
+  **Performance**: Use chunked uploads for files larger than 5MB to improve
+  reliability and user experience.
+</Callout>
+
+<Callout type="info">
+  **Error Handling**: Implement comprehensive error handling with user-friendly
+  messages and retry logic.
+</Callout>
+
+---
+
+**Next**: Learn how to implement [middleware](/docs/api/configuration/middleware) for authentication, validation, and custom processing.

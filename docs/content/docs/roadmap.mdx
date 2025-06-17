@@ -1,0 +1,263 @@
+---
+title: Roadmap
+description: Our vision for the future of file uploads in Next.js
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+# Roadmap
+
+Our mission is simple: **make file uploads in Next.js as straightforward as they should be**. We're building the most developer-friendly, type-safe, and production-ready file upload solution for the TypeScript ecosystem.
+
+<Callout type="info">
+  This roadmap is community-driven. **Your feedback shapes our priorities.**
+  Join our [Discord](https://discord.gg/nextjs-s3-uploader) or open an issue on
+  [GitHub](https://github.com/your-org/next-s3-uploader) to influence what we
+  build next.
+</Callout>
+
+## Current Status
+
+We've already solved the core problems that have frustrated developers for years:
+
+✅ **Zero Configuration** - Works out of the box with sensible defaults  
+✅ **Type Safety** - Full TypeScript inference for upload schemas  
+✅ **Multiple Providers** - AWS S3, Cloudflare R2, Google Cloud, and more  
+✅ **Production Ready** - Used by teams processing millions of uploads  
+✅ **Developer Experience** - Property-based client access with enhanced IntelliSense
+
+## What's Next
+
+### 🚀 Q1 2024: Developer Experience Revolution
+
+<Cards>
+  <Card
+    title="Interactive CLI Tool"
+    description="One command setup for any provider"
+  >
+    ```bash npx next-s3-uploader init # Automatically detects your stack and
+    configures everything ```
+  </Card>
+
+{" "}
+
+<Card
+  title="Visual Upload Builder"
+  description="Configure complex upload flows with a GUI"
+>
+  No more YAML or complex configuration files. Build upload pipelines visually
+  and export to code.
+</Card>
+
+  <Card
+    title="Real-time Preview"
+    description="See your upload UI as you build it"
+  >
+    Hot-reload your upload components with live preview of validation, progress,
+    and error states.
+  </Card>
+</Cards>
+
+### 🔒 Q2 2024: Enterprise & Security
+
+<Cards>
+  <Card title="Advanced Access Control" description="Role-based permissions and audit trails">
+    ```typescript
+    const router = createUploadRouter({
+      images: uploadSchema({
+        permissions: ["user:upload", "admin:all"],
+        auditLog: true,
+        compliance: "SOC2"
+      })
+    })
+    ```
+  </Card>
+  
+  <Card title="Content Scanning" description="Automatic malware and content policy detection">
+    Built-in integration with leading security providers for automatic threat detection.
+  </Card>
+  
+  <Card title="Compliance Suite" description="GDPR, HIPAA, and SOC2 compliance helpers">
+    Pre-built compliance workflows and automatic data handling policies.
+  </Card>
+</Cards>
+
+### ⚡ Q3 2024: Performance & Scale
+
+<Cards>
+  <Card title="Edge Computing" description="Process uploads at the edge globally">
+    ```typescript
+    const router = createUploadRouter({
+      images: uploadSchema({
+        processing: {
+          resize: { width: 800, height: 600 },
+          format: "webp",
+          edge: true // Process at nearest edge location
+        }
+      })
+    })
+    ```
+  </Card>
+  
+  <Card title="Smart Caching" description="Intelligent CDN integration and cache invalidation">
+    Automatic cache warming and smart invalidation strategies for optimal performance.
+  </Card>
+  
+  <Card title="Analytics Dashboard" description="Upload metrics, performance insights, and cost optimization">
+    Real-time dashboard showing upload success rates, processing times, and storage costs.
+  </Card>
+</Cards>
+
+### 🌍 Q4 2024: Ecosystem Expansion
+
+<Cards>
+  <Card
+    title="Framework Agnostic"
+    description="Support for Vue, Svelte, and vanilla JavaScript"
+  >
+    ```typescript // Vue 3 import {createUploadClient} from
+    '@next-s3-uploader/vue' // Svelte import {uploadStore} from
+    '@next-s3-uploader/svelte' // Vanilla JS import {UploadClient} from
+    '@next-s3-uploader/core' 
+    ```
+  </Card>
+
+{" "}
+
+<Card title="Mobile SDKs" description="React Native and Flutter support">
+  Native mobile SDKs with the same type-safe API you love on the web.
+</Card>
+
+  <Card
+    title="AI Integration"
+    description="Smart image tagging and content analysis"
+  >
+    Automatic alt text generation, content categorization, and duplicate
+    detection.
+  </Card>
+</Cards>
+
+## Community Roadmap
+
+### What You're Asking For
+
+Based on community feedback, GitHub issues, and Discord discussions:
+
+<Tabs items={["Most Requested", "Under Discussion", "Long Term"]}>
+  <Tab value="Most Requested">
+    **🔥 High Priority (Next 3 months)** - **Drag & Drop File Manager** - Visual
+    file organization and bulk operations - **Video Processing Pipeline** -
+    Automatic transcoding and thumbnail generation - **Better Error Messages** -
+    More helpful error descriptions with suggested fixes - **Upload Resume** -
+    Automatic retry and resume for failed large file uploads - **Real-time
+    Collaboration** - Multiple users uploading to shared spaces *These features
+    have 100+ upvotes across GitHub and Discord*
+  </Tab>
+
+{" "}
+
+<Tab value="Under Discussion">
+  **💭 Exploring (6 months)** - **GraphQL Integration** - Native GraphQL
+  subscription support for upload progress - **Webhook Builder** - Visual
+  webhook configuration for upload events - **Template Gallery** - Pre-built
+  upload components for common use cases - **A/B Testing** - Built-in
+  experimentation for upload flows - **White-label Solution** - Fully
+  customizable upload interface *Join the discussion on these features in our
+  Discord*
+</Tab>
+
+  <Tab value="Long Term">
+    **🔮 Vision (12+ months)** - **No-Code Integration** - Zapier/Make.com
+    connectors - **Blockchain Storage** - IPFS and decentralized storage options
+    - **AI-Powered Optimization** - Automatic performance tuning -
+    **Cross-Platform Desktop** - Electron-based upload manager - **Enterprise
+    Marketplace** - Plugin ecosystem for custom integrations *These are
+    aspirational goals that depend on community growth*
+  </Tab>
+</Tabs>
+
+## How We Prioritize
+
+Our roadmap is driven by three key factors:
+
+1. **Community Impact** - Features that solve real problems for the most developers
+2. **Technical Excellence** - Maintaining our high standards for type safety and DX
+3. **Ecosystem Health** - Building a sustainable, long-term solution
+
+### Voting on Features
+
+Have an idea or want to prioritize something? Here's how to influence our roadmap:
+
+<Cards>
+  <Card title="GitHub Issues" description="Submit detailed feature requests">
+    Use our feature request template with use cases and expected API design.
+  </Card>
+
+{" "}
+
+<Card title="Discord Polls" description="Vote on monthly feature priorities">
+  Join our Discord server where we run monthly polls on upcoming features.
+</Card>
+
+  <Card title="Community Calls" description="Monthly roadmap discussion">
+    First Friday of every month at 10 AM PT - open to all developers.
+  </Card>
+</Cards>
+
+## Behind the Scenes
+
+### What We're Working on Right Now
+
+**Week of January 15, 2024:**
+
+- 🔨 Enhanced type inference for nested upload schemas
+- 🧪 Testing framework for upload workflows
+- 📚 Interactive examples in documentation
+- 🐛 Bug fixes for edge cases in multi-part uploads
+
+<Callout type="info">
+  Follow our [GitHub project
+  board](https://github.com/your-org/next-s3-uploader/projects) for real-time
+  updates on development progress.
+</Callout>
+
+### Core Principles
+
+As we build new features, we never compromise on:
+
+- **Type Safety First** - Every feature must have full TypeScript support
+- **Zero Breaking Changes** - Backward compatibility is non-negotiable
+- **Performance by Default** - New features can't slow down existing workflows
+- **Developer Happiness** - If it's not delightful to use, we rebuild it
+
+## Get Involved
+
+This roadmap exists because of developers like you. Here's how to shape the future:
+
+### For Users
+
+- **Share your use case** - Tell us what you're building
+- **Report pain points** - What's still too complicated?
+- **Request integrations** - Which providers or tools do you need?
+
+### For Contributors
+
+- **Code contributions** - Check our [contributing guide](https://github.com/your-org/next-s3-uploader/blob/main/CONTRIBUTING.md)
+- **Documentation** - Help improve examples and guides
+- **Community support** - Answer questions in Discord and GitHub
+
+### For Organizations
+
+- **Sponsorship** - Support full-time development
+- **Enterprise feedback** - Share your scale challenges
+- **Partnership** - Integrate next-s3-uploader with your platform
+
+---
+
+<Callout type="success">
+  **Ready to build the future of file uploads?** Join our [Discord
+  community](https://discord.gg/nextjs-s3-uploader) and help us make file
+  uploads delightful for every Next.js developer.
+</Callout>

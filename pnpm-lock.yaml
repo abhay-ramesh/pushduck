@@ -69,6 +69,9 @@ importers:
       fumadocs-ui:
         specifier: 15.5.3
         version: 15.5.3(@types/react-dom@19.1.6(@types/react@19.1.8))(@types/react@19.1.8)(next@15.3.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(tailwindcss@4.1.10)
+      lucide-react:
+        specifier: ^0.516.0
+        version: 0.516.0(react@19.1.0)
       next:
         specifier: 15.3.3
         version: 15.3.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -78,6 +81,9 @@ importers:
       react-dom:
         specifier: ^19.1.0
         version: 19.1.0(react@19.1.0)
+      zod:
+        specifier: ^3.22.4
+        version: 3.25.67
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4.1.10
@@ -111,7 +117,7 @@ importers:
         version: 15.3.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       next-s3-uploader:
         specifier: workspace:*
-        version: link:../..
+        version: link:../../packages/next-s3-uploader
       react:
         specifier: ^19.0.0
         version: 19.1.0
@@ -5179,6 +5185,11 @@ packages:
   lru-cache@6.0.0:
     resolution: {integrity: sha512-Jo6dJ04CmSjuznwJSS3pUeWmd/H0ffTlkXXgwZi+eq1UCmqQwCh+eLsYOYCwY991i2Fah4h1BEMCx4qThGbsiA==}
     engines: {node: '>=10'}
+
+  lucide-react@0.516.0:
+    resolution: {integrity: sha512-aybBJzLHcw1CIn3rUcRkztB37dsJATtpffLNX+0/w+ws2p21nYIlOwX/B5fqxq8F/BjqVemnJX8chKwRidvROg==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
@@ -13386,6 +13397,10 @@ snapshots:
     dependencies:
       yallist: 4.0.0
 
+  lucide-react@0.516.0(react@19.1.0):
+    dependencies:
+      react: 19.1.0
+
   lz-string@1.5.0: {}
 
   magic-string@0.30.17:
@@ -14144,8 +14159,8 @@ snapshots:
       react-compiler-runtime: 0.0.0-experimental-22c6e49-20241219(react@18.2.0)
       react-dom: 18.2.0(react@18.2.0)
       scroll-into-view-if-needed: 3.1.0
-      zod: 3.22.4
-      zod-validation-error: 3.5.1(zod@3.22.4)
+      zod: 3.25.67
+      zod-validation-error: 3.5.1(zod@3.25.67)
       zustand: 5.0.5(@types/react@19.1.8)(react@18.2.0)(use-sync-external-store@1.5.0(react@18.2.0))
     transitivePeerDependencies:
       - '@types/react'
@@ -14193,8 +14208,8 @@ snapshots:
       unist-util-visit: 5.0.0
       unist-util-visit-children: 3.0.0
       yaml: 2.3.2
-      zod: 3.22.4
-      zod-validation-error: 3.5.1(zod@3.22.4)
+      zod: 3.25.67
+      zod-validation-error: 3.5.1(zod@3.25.67)
     transitivePeerDependencies:
       - acorn
       - supports-color
@@ -16342,9 +16357,9 @@ snapshots:
 
   yoctocolors-cjs@2.1.2: {}
 
-  zod-validation-error@3.5.1(zod@3.22.4):
+  zod-validation-error@3.5.1(zod@3.25.67):
     dependencies:
-      zod: 3.22.4
+      zod: 3.25.67
 
   zod@3.21.4: {}
 

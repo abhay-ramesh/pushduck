@@ -21,7 +21,7 @@ This demo showcases the new **File Router Architecture** (Phase 1.2) of the next
 
 2. **Configure AWS S3** (create `.env.local`):
 
-   ```env
+   ```dotenv
    AWS_ACCESS_KEY_ID=your_access_key_here
    AWS_SECRET_ACCESS_KEY=your_secret_key_here
    AWS_REGION=us-east-1

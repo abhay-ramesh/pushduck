@@ -37,7 +37,7 @@ pnpm add next-s3-uploader
 
 1. Set up your environment variables:
 
-```env
+```dotenv
 # .env.local
 AWS_ACCESS_KEY_ID=your_access_key
 AWS_SECRET_ACCESS_KEY=your_secret_key

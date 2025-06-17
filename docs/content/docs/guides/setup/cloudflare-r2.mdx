@@ -1,0 +1,211 @@
+---
+title: Using Cloudflare R2
+description: Set up Cloudflare R2 for fast, cost-effective file uploads
+---
+
+# Using Cloudflare R2
+
+Set up Cloudflare R2 for lightning-fast file uploads with zero egress fees.
+
+## Why Choose Cloudflare R2?
+
+- **🚀 Global Performance**: Cloudflare's edge network for fast uploads worldwide
+- **💰 Cost Effective**: 10x cheaper than S3 with zero egress fees
+- **🔗 S3 Compatible**: Works with existing S3 tools and libraries
+- **🌍 Built-in CDN**: Automatic content distribution via Cloudflare's network
+
+## 1. Create an R2 Bucket
+
+1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com/)
+2. Click **"R2 Object Storage"** in the sidebar
+3. Click **"Create bucket"**
+4. Choose a unique bucket name (e.g., `my-app-uploads`)
+5. Select your preferred location (Auto for global performance)
+6. Click **"Create bucket"**
+
+## 2. Configure Public Access (Optional)
+
+### For Public Files (Images, Documents)
+
+1. Go to your bucket settings
+2. Click **"Settings"** tab
+3. Under **"Public access"**, click **"Allow Access"**
+4. Choose **"Custom domain"** or use the R2.dev subdomain
+
+**Custom Domain Setup:**
+
+```bash
+# Add a CNAME record in your DNS:
+# uploads.yourdomain.com -> your-bucket.r2.cloudflarestorage.com
+```
+
+### For Private Files
+
+Keep public access disabled - files will only be accessible via presigned URLs.
+
+## 3. Generate API Token
+
+1. Go to **"Manage R2 API tokens"**
+2. Click **"Create API token"**
+3. Set permissions:
+   - **Object:Read** ✅
+   - **Object:Write** ✅
+   - **Bucket:Read** ✅
+4. Choose **"Specify bucket"** and select your bucket
+5. Click **"Create API token"**
+6. **Save your Access Key ID and Secret Access Key**
+
+## 4. Configure CORS (If Using Custom Domain)
+
+In your R2 bucket settings, add this CORS policy:
+
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+    "AllowedOrigins": ["http://localhost:3000", "https://yourdomain.com"],
+    "ExposeHeaders": ["ETag", "Content-Length"]
+  }
+]
+```
+
+## 5. Configure Your App
+
+Add to your `.env.local`:
+
+```bash
+# Cloudflare R2 Configuration
+AWS_ACCESS_KEY_ID=your_r2_access_key_id
+AWS_SECRET_ACCESS_KEY=your_r2_secret_access_key
+AWS_ENDPOINT_URL=https://account-id.r2.cloudflarestorage.com
+AWS_REGION=auto
+S3_BUCKET_NAME=your-bucket-name
+
+# Optional: Custom domain for public files
+CLOUDFLARE_R2_PUBLIC_URL=https://uploads.yourdomain.com
+```
+
+## 6. Update Your Upload Configuration
+
+```typescript
+// lib/upload.ts
+import { uploadConfig } from "next-s3-uploader/server";
+
+export const { s3, createS3Handler } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    accountId: process.env.R2_ACCOUNT_ID!, // Found in R2 dashboard
+    bucket: process.env.S3_BUCKET_NAME!,
+    // Optional: Custom domain for faster access
+    customDomain: process.env.CLOUDFLARE_R2_PUBLIC_URL,
+  })
+  .defaults({
+    maxFileSize: "10MB",
+    acl: "public-read", // For public access
+  })
+  .build();
+```
+
+## 7. Test Your Setup
+
+```bash
+npx next-s3-uploader test --provider r2
+```
+
+This will verify your R2 connection and upload a test file.
+
+## ✅ You're Ready!
+
+Your Cloudflare R2 is now configured! Files will be:
+
+- **Uploaded globally** via Cloudflare's edge network
+- **Served fast** with built-in CDN
+- **Cost effective** with zero egress fees
+
+## 🚀 Performance Benefits
+
+### Global Upload Acceleration
+
+R2 automatically routes uploads to the nearest Cloudflare data center:
+
+```typescript
+// Automatic performance optimization
+const { uploadFiles } = upload.imageUpload();
+
+// Uploads are automatically optimized for:
+// - Nearest edge location
+// - Fastest route to storage
+// - Automatic retry on connection issues
+```
+
+### Built-in CDN
+
+Your uploaded files are automatically cached globally:
+
+```typescript
+// Files are served from 250+ locations worldwide
+const imageUrl = file.url; // Automatically CDN-accelerated
+```
+
+## 🔧 Advanced Configuration
+
+### Worker Integration
+
+Integrate with Cloudflare Workers for server-side processing:
+
+```typescript
+// Advanced R2 setup with Workers
+export const { s3, createS3Handler } = uploadConfig
+  .cloudflareR2({
+    // ... basic config
+    workerScript: "image-transform", // Optional: Transform images on upload
+    webhookUrl: "https://api.yourdomain.com/webhook", // Optional: Post-upload webhook
+  })
+  .build();
+```
+
+### Analytics & Monitoring
+
+Track upload performance:
+
+```typescript
+.hooks({
+  onUploadComplete: async ({ file, metadata }) => {
+    // Track successful uploads
+    await analytics.track("file_uploaded", {
+      provider: "cloudflare-r2",
+      size: file.size,
+      type: file.type,
+      location: metadata.cfRay, // Cloudflare location
+    });
+  }
+})
+```
+
+## 🔒 Security Best Practices
+
+- **Use scoped API tokens** - Only grant permissions to specific buckets
+- **Enable custom domain** - Better security than r2.dev subdomain
+- **Set up WAF rules** - Protect against abuse via Cloudflare dashboard
+- **Monitor usage** - Set up billing alerts for unexpected usage
+
+## 🆘 Common Issues
+
+**CORS errors?** → Check your domain is in AllowedOrigins and verify custom domain setup  
+**Access denied?** → Verify API token has Object:Read and Object:Write permissions  
+**Slow uploads?** → Ensure you're using the correct endpoint URL with your account ID  
+**Custom domain not working?** → Verify CNAME record and bucket public access settings
+
+## 💰 Cost Comparison
+
+| Provider          | Storage      | Egress        | Requests      |
+| ----------------- | ------------ | ------------- | ------------- |
+| **Cloudflare R2** | $0.015/GB    | **FREE** 🎉   | $0.36/million |
+| AWS S3            | $0.023/GB    | $0.09/GB      | $0.40/million |
+| **Savings**       | **35% less** | **100% less** | **10% less**  |
+
+---
+
+**Next:** [Upload Your First Image](/guides/uploads/images) or try [DigitalOcean Spaces](/guides/setup/digitalocean-spaces)
