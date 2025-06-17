@@ -1,0 +1,154 @@
+---
+title: AI & LLM Integration
+description: Access documentation content in AI-friendly formats for large language models and automated tools.
+---
+
+# AI & LLM Integration
+
+Next S3 Uploader documentation provides AI-friendly endpoints that make it easy for large language models (LLMs) and automated tools to access and process our documentation content.
+
+## Available Endpoints
+
+### 📄 Complete Documentation Export
+
+Access all documentation content in a single, structured format:
+
+```
+GET /llms.txt
+```
+
+This endpoint returns all documentation pages in a clean, AI-readable format with:
+
+- Page titles and URLs
+- Descriptions and metadata
+- Full content with proper formatting
+- Structured sections and hierarchies
+
+**Example Usage:**
+
+```bash
+curl https://your-domain.com/llms.txt
+```
+
+### 📑 Individual Page Access
+
+Access any documentation page's raw content by appending `.mdx` to its URL:
+
+```
+GET /docs/{page-path}.mdx
+```
+
+**Examples:**
+
+- `/docs/quick-start.mdx` - Quick start guide content
+- `/docs/api/hooks/use-upload.mdx` - Hook documentation
+- `/docs/guides/setup/aws-s3.mdx` - AWS S3 setup guide
+
+## Use Cases
+
+### 🤖 **AI Assistant Integration**
+
+- Train custom AI models on our documentation
+- Create chatbots that can answer questions about Next S3 Uploader
+- Build intelligent documentation search systems
+
+### 🔧 **Development Tools**
+
+- Generate code examples and snippets
+- Create automated documentation tests
+- Build CLI tools that reference our docs
+
+### 📊 **Content Analysis**
+
+- Analyze documentation completeness
+- Track content changes over time
+- Generate documentation metrics
+
+## Content Format
+
+The LLM endpoints return content in a structured format:
+
+```
+# Page Title
+URL: /docs/page-path
+
+Page description here
+
+# Section Headers
+Content with proper markdown formatting...
+
+## Subsections
+- Lists and bullet points
+- Code blocks with syntax highlighting
+- Tables and structured data
+```
+
+## Technical Details
+
+- **Caching**: Content is cached for optimal performance
+- **Processing**: Uses Remark pipeline with MDX and GFM support
+- **Format**: Clean markdown with frontmatter removed
+- **Encoding**: UTF-8 text format
+- **CORS**: Enabled for cross-origin requests
+
+## Rate Limiting
+
+These endpoints are designed for programmatic access and don't have aggressive rate limiting. However, please be respectful:
+
+- Cache responses when possible
+- Avoid excessive automated requests
+- Use appropriate user agents for your tools
+
+## Examples
+
+### Python Script
+
+```python
+import requests
+
+# Get all documentation
+response = requests.get('https://your-domain.com/llms.txt')
+docs_content = response.text
+
+# Get specific page
+page_response = requests.get('https://your-domain.com/docs/quick-start.mdx')
+page_content = page_response.text
+```
+
+### Node.js/JavaScript
+
+```javascript
+// Fetch all documentation
+const allDocs = await fetch("/llms.txt").then((r) => r.text());
+
+// Fetch specific page
+const quickStart = await fetch("/docs/quick-start.mdx").then((r) => r.text());
+```
+
+### cURL
+
+```bash
+# Download all docs to file
+curl -o next-s3-uploader-docs.txt https://your-domain.com/llms.txt
+
+# Get specific page content
+curl https://your-domain.com/docs/api/hooks/use-upload.mdx
+```
+
+## Integration with Popular AI Tools
+
+### OpenAI GPT
+
+Use the `/llms.txt` endpoint to provide context about Next S3 Uploader in your GPT conversations.
+
+### Claude/Anthropic
+
+Feed documentation content to Claude for detailed analysis and code generation.
+
+### Local LLMs
+
+Download content for training or fine-tuning local language models.
+
+---
+
+These AI-friendly endpoints make it easy to integrate Next S3 Uploader documentation into your development workflow and AI-powered tools!

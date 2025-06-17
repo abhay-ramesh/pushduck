@@ -51,6 +51,11 @@ export const baseOptions: BaseLayoutProps = {
       url: "/docs/examples",
     },
     {
+      text: "AI/LLM TXT",
+      url: "/llms.txt",
+      external: true,
+    },
+    {
       text: "GitHub",
       url: "https://github.com/abhay-ramesh/next-s3-uploader",
       external: true,
