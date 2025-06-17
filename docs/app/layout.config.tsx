@@ -8,6 +8,7 @@ import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
  * Docs Layout: app/docs/layout.tsx
  */
 export const baseOptions: BaseLayoutProps = {
+  githubUrl: "https://github.com/abhay-ramesh/next-s3-uploader",
   nav: {
     title: (
       <>
@@ -68,7 +69,6 @@ export const baseOptions: BaseLayoutProps = {
         </div>
       </>
     ),
-    transparentMode: "top",
   },
   links: [
     {
@@ -87,11 +87,6 @@ export const baseOptions: BaseLayoutProps = {
     {
       text: "AI/LLM TXT",
       url: "/llms.txt",
-      external: true,
-    },
-    {
-      text: "GitHub",
-      url: "https://github.com/abhay-ramesh/next-s3-uploader",
       external: true,
     },
   ],

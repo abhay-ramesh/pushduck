@@ -1,6 +1,46 @@
-import type { ReactNode } from 'react';
-import { HomeLayout } from 'fumadocs-ui/layouts/home';
-import { baseOptions } from '@/app/layout.config';
+import { baseOptions } from "@/app/layout.config";
+import { baseUrl } from "@/lib/metadata";
+import { HomeLayout } from "fumadocs-ui/layouts/home";
+import type { Metadata } from "next";
+import type { ReactNode } from "react";
+
+export const metadata: Metadata = {
+  title: "Next.js S3 Uploader - The Complete File Upload Solution",
+  description:
+    "The most comprehensive file upload library for Next.js. Handle uploads to AWS S3, Cloudflare R2, DigitalOcean Spaces, and more with type-safe APIs.",
+  openGraph: {
+    title: "Next.js S3 Uploader - The Complete File Upload Solution",
+    description:
+      "The most comprehensive file upload library for Next.js. Handle uploads to AWS S3, Cloudflare R2, DigitalOcean Spaces, and more with type-safe APIs.",
+    type: "website",
+    url: baseUrl.origin,
+    images: {
+      url: `${baseUrl.origin}/og-image`,
+      width: 1200,
+      height: 630,
+      alt: "Next.js S3 Uploader - The Complete File Upload Solution",
+    },
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Next.js S3 Uploader - The Complete File Upload Solution",
+    description:
+      "The most comprehensive file upload library for Next.js. Handle uploads to AWS S3, Cloudflare R2, DigitalOcean Spaces, and more with type-safe APIs.",
+    images: `${baseUrl.origin}/og-image`,
+  },
+  keywords: [
+    "nextjs",
+    "file upload",
+    "s3",
+    "aws",
+    "cloudflare r2",
+    "digitalocean spaces",
+    "typescript",
+    "react",
+    "presigned urls",
+    "upload library",
+  ],
+};
 
 export default function Layout({ children }: { children: ReactNode }) {
   return <HomeLayout {...baseOptions}>{children}</HomeLayout>;

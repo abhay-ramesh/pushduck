@@ -9,13 +9,11 @@ export default function Layout({ children }: { children: ReactNode }) {
       {...baseOptions}
       tree={source.pageTree}
       sidebar={{
-        defaultOpenLevel: 1,
+        defaultOpenLevel: 0,
         collapsible: false,
+        footer: null,
       }}
-      nav={{
-        ...baseOptions.nav,
-        transparentMode: "top",
-      }}
+      nav={{ ...baseOptions.nav, mode: "top" }}
     >
       {children}
     </DocsLayout>
