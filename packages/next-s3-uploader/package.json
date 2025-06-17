@@ -1,6 +1,6 @@
 {
   "name": "next-s3-uploader",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "author": "Abhay Ramesh",
   "license": "MIT",
   "description": "A simple way to upload files to S3 from a Next.js app directory (aws s3, minio, or any s3 compatible service)",
@@ -53,6 +53,9 @@
     "release:patch": "npm version patch && npm publish",
     "release:minor": "npm version minor && npm publish",
     "release:major": "npm version major && npm publish",
+    "release:changeset": "cd ../.. && pnpm changeset:add && pnpm version-packages && pnpm release",
+    "release:preview": "cd ../.. && pnpm changeset:status",
+    "release:snapshot": "cd ../.. && pnpm release:snapshot",
     "maintenance:health": "bash scripts/health-check.sh",
     "maintenance:deps": "bash scripts/update-deps.sh",
     "maintenance:security": "pnpm audit && npx audit-ci --moderate",

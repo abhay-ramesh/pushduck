@@ -1,16 +1,30 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@2.0.0/schema.json",
-  "changelog": "@changesets/cli/changelog",
+  "changelog": [
+    "@changesets/changelog-github",
+    {
+      "repo": "YOUR_GITHUB_USERNAME/next-s3-uploader"
+    }
+  ],
   "commit": false,
   "fixed": [],
-  "linked": [],
+  "linked": [
+    [
+      "next-s3-uploader",
+      "create-next-s3-uploader"
+    ]
+  ],
   "access": "public",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "example",
     "@custom/tsconfig",
     "eslint-config-custom",
+    "new-api-demo",
     "nextra-docs-template"
   ],
-  "baseBranch": "main"
+  "baseBranch": "main",
+  "snapshot": {
+    "useCalculatedVersion": true,
+    "prereleaseTemplate": "{tag}-{datetime}"
+  }
 }

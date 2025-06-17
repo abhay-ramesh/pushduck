@@ -7,12 +7,19 @@
     "clean": "turbo clean && rm -rf node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "changeset": "changeset",
+    "changeset:add": "changeset add",
+    "changeset:status": "changeset status",
     "version-packages": "changeset version",
     "release": "turbo build --filter=example^... && changeset publish",
+    "release:snapshot": "changeset version --snapshot && changeset publish --tag snapshot",
+    "release:dry": "changeset publish --dry-run",
+    "release:check": "changeset status --verbose",
+    "changelog:preview": "changeset status --output=changelog.md",
     "rundocs": "turbo dev --no-cache --continue --filter={./apps/docs}"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.22.0",
+    "@changesets/changelog-github": "^0.5.1",
+    "@changesets/cli": "^2.25.2",
     "eslint": "^7.32.0",
     "prettier": "^2.5.1",
     "turbo": "latest"

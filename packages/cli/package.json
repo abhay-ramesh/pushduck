@@ -1,6 +1,6 @@
 {
     "name": "create-next-s3-uploader",
-    "version": "0.1.0",
+    "version": "0.3.0",
     "description": "Zero-config setup CLI for next-s3-uploader",
     "main": "dist/index.js",
     "bin": {
