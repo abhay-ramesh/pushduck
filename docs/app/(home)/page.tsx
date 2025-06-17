@@ -1,6 +1,15 @@
 "use client";
 
-import { ArrowRight, Copy, Github, Shield, Upload, Zap } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  ChevronDown,
+  Copy,
+  Github,
+  Shield,
+  Upload,
+  Zap,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { codeToHtml } from "shiki";
@@ -13,6 +22,102 @@ export const { uploadHandler } = uploadConfig
     region: process.env.AWS_REGION!,
   })
   .build();`;
+
+const packageManagers = [
+  { name: "npm", command: "npm install next-s3-uploader" },
+  { name: "pnpm", command: "pnpm add next-s3-uploader" },
+  { name: "yarn", command: "yarn add next-s3-uploader" },
+  { name: "bun", command: "bun add next-s3-uploader" },
+];
+
+function InstallCommand() {
+  const [selectedPM, setSelectedPM] = useState(packageManagers[0]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [highlightedCommand, setHighlightedCommand] = useState<string>("");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    async function highlightCommand() {
+      try {
+        const html = await codeToHtml(selectedPM.command, {
+          lang: "bash",
+          themes: {
+            light: "github-light",
+            dark: "github-dark",
+          },
+          defaultColor: false,
+        });
+        setHighlightedCommand(html);
+      } catch (error) {
+        console.error("Failed to highlight command:", error);
+        setHighlightedCommand(`<code>${selectedPM.command}</code>`);
+      }
+    }
+
+    highlightCommand();
+  }, [selectedPM]);
+
+  const handleCopy = async (command: string) => {
+    await navigator.clipboard.writeText(command);
+    setCopied(true);
+    setShowDropdown(false);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="relative mx-auto mb-12 max-w-md">
+      <div className="flex gap-2 items-center p-3 font-mono text-sm rounded-lg border bg-muted">
+        <span className="text-muted-foreground">$</span>
+        <div
+          className="flex-1 [&_pre]:m-0 [&_pre]:p-0 [&_pre]:bg-transparent [&_code]:bg-transparent text-start"
+          dangerouslySetInnerHTML={{ __html: highlightedCommand }}
+        />
+        <div className="relative">
+          <button
+            className="flex gap-1 items-center p-1 rounded transition-colors hover:bg-background"
+            title="Copy to clipboard"
+            onClick={() => setShowDropdown(!showDropdown)}
+          >
+            {copied ? (
+              <Check className="w-4 h-4 text-green-500" />
+            ) : (
+              <Copy className="w-4 h-4" />
+            )}
+            <ChevronDown className="w-3 h-3" />
+          </button>
+
+          {showDropdown && (
+            <div className="absolute right-0 top-full mt-1 bg-fd-background border border-fd-border rounded-md shadow-xl py-1 z-50 min-w-[160px]">
+              {packageManagers.map((pm) => (
+                <button
+                  key={pm.name}
+                  className="flex justify-between items-center px-3 py-2 w-full text-sm text-left transition-colors hover:bg-fd-muted text-fd-foreground"
+                  onClick={() => {
+                    setSelectedPM(pm);
+                    handleCopy(pm.command);
+                  }}
+                >
+                  <span className="font-medium">{pm.name}</span>
+                  {selectedPM.name === pm.name && (
+                    <Check className="w-3 h-3 text-fd-primary" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Click outside to close */}
+      {showDropdown && (
+        <div
+          className="fixed inset-0 z-0"
+          onClick={() => setShowDropdown(false)}
+        />
+      )}
+    </div>
+  );
+}
 
 function CodeBlock() {
   const [highlightedCode, setHighlightedCode] = useState<string>("");
@@ -103,21 +208,7 @@ export default function HomePage() {
           </div>
 
           {/* Quick Install */}
-          <div className="mx-auto mb-12 max-w-md">
-            <div className="flex gap-2 items-center p-3 font-mono text-sm rounded-lg border bg-muted">
-              <span className="text-muted-foreground">$</span>
-              <span>npm install next-s3-uploader</span>
-              <button
-                className="p-1 ml-auto rounded transition-colors hover:bg-background"
-                title="Copy to clipboard"
-                onClick={() => {
-                  navigator.clipboard.writeText("npm install next-s3-uploader");
-                }}
-              >
-                <Copy className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <InstallCommand />
 
           {/* Code Example */}
           <div className="mx-auto max-w-2xl">
