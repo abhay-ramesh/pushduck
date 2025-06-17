@@ -13,13 +13,30 @@
 
 ## Features
 
-- **Easy Integration**: Seamlessly integrate file upload functionality into your Next.js applications.
-- **Custom Hook**: Provides a custom hook, `useS3FileUpload`, to manage file uploads and track progress.
-- **Pre-Signed URLs**: Generates pre-signed URLs for secure file uploads directly to Amazon S3 or compatible services.
-- **Estimate Time Left**: Calculates and displays estimated time left for ongoing file uploads.
-- **Configurable**: Supports flexible configuration for both S3 and MinIO services.
+- **Enhanced Type Safety**: Full TypeScript inference from server router to client hooks
+- **Property-Based Access**: Direct property access eliminates string literals and typos (`upload.imageUpload` vs `"imageUpload"`)
+- **tRPC-Style DX**: Familiar developer experience inspired by modern type-safe libraries
+- **Zero Runtime Overhead**: Compile-time type safety with no performance impact
+- **Multi-Provider Support**: AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, and more
+- **Progress Tracking**: Real-time upload progress with ETA calculations
+- **Backward Compatible**: Works alongside existing patterns - migrate at your own pace
 
-> **Warning**: This package is currently in beta and is not recommended for production use and currently only supports uploading files to public buckets.
+## Repository Structure
+
+```
+next-s3-uploader/
+├── docs/                    # 📚 Documentation (root level)
+├── examples/                # 💡 Copy-paste ready examples
+│   └── enhanced-demo/       # Complete demo with modern patterns
+├── apps/                    # 🔧 Internal development tools
+│   ├── docs-legacy/         # Archived documentation
+│   └── docu/                # New docs development
+└── packages/                # 📦 Core packages
+    ├── next-s3-uploader/    # Main library
+    └── cli/                 # CLI tool for setup
+```
+
+> **Note**: This follows the structure of popular repositories like Next.js, React, and tRPC for better discoverability.
 
 ## Installation
 
