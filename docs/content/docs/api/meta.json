@@ -4,6 +4,7 @@
         "cli",
         "configuration",
         "hooks",
-        "utilities"
+        "utilities",
+        "troubleshooting"
     ]
 }

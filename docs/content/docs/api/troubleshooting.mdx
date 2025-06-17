@@ -1,0 +1,163 @@
+---
+title: Troubleshooting
+description: Common issues and solutions for next-s3-uploader
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+# Troubleshooting
+
+Common issues and solutions when using next-s3-uploader.
+
+## Development Issues
+
+### Next.js Turbo Mode Compatibility
+
+<Callout type="warn">
+**Known Issue:** next-s3-uploader has compatibility issues with Next.js Turbo mode (`--turbo` flag).
+</Callout>
+
+**Problem:** Uploads fail or behave unexpectedly when using `next dev --turbo`.
+
+**Solution:** Remove the `--turbo` flag from your development script:
+
+<Tabs items={["package.json", "Command Line"]}>
+  <Tab value="package.json">
+    ```json
+    {
+      "scripts": {
+        // ❌ This may cause issues
+        "dev": "next dev --turbo",
+        
+        // ✅ Use this instead
+        "dev": "next dev"
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab value="Command Line">
+    ```bash
+    # ❌ This may cause issues
+    npm run dev --turbo
+    
+    # ✅ Use this instead
+    npm run dev
+    ```
+  </Tab>
+</Tabs>
+
+**Why this happens:** Turbo mode's aggressive caching and bundling can interfere with the upload process, particularly with presigned URL generation and file streaming.
+
+## Upload Failures
+
+### CORS Errors
+
+**Problem:** Browser console shows CORS errors when uploading files.
+
+**Symptoms:**
+```
+Access to XMLHttpRequest at 'https://bucket.s3.amazonaws.com/...' 
+from origin 'http://localhost:3000' has been blocked by CORS policy
+```
+
+**Solution:** Configure CORS on your S3 bucket. See the [provider setup guides](/docs/providers) for detailed CORS configuration.
+
+### Environment Variables Not Found
+
+**Problem:** Errors about missing environment variables.
+
+**Symptoms:**
+```
+Error: Environment variable CLOUDFLARE_R2_ACCESS_KEY_ID is not defined
+```
+
+**Solution:** Ensure your environment variables are properly set:
+
+1. **Check your `.env.local` file exists** in your project root
+2. **Verify variable names** match exactly (case-sensitive)
+3. **Restart your development server** after adding new variables
+
+```bash
+# .env.local
+CLOUDFLARE_R2_ACCESS_KEY_ID=your_access_key
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_secret_key
+CLOUDFLARE_R2_ACCOUNT_ID=your_account_id
+R2_BUCKET=your-bucket-name
+```
+
+### File Size Limits
+
+**Problem:** Large files fail to upload.
+
+**Solution:** Check and adjust size limits:
+
+```typescript
+// app/api/upload/route.ts
+const uploadRouter = s3.createRouter({
+  imageUpload: s3
+    .image()
+    .max("10MB") // Increase as needed
+    .formats(["jpeg", "png", "webp"]),
+});
+```
+
+## Type Errors
+
+### TypeScript Inference Issues
+
+**Problem:** TypeScript errors with upload client.
+
+**Solution:** Ensure proper type exports:
+
+```typescript
+// app/api/upload/route.ts
+export const { GET, POST } = createS3Handler(uploadRouter);
+export type AppRouter = typeof uploadRouter; // ✅ Export the type
+
+// lib/upload-client.ts
+import type { AppRouter } from "@/app/api/upload/route";
+
+export const upload = createUploadClient<AppRouter>({ // ✅ Use the type
+  endpoint: "/api/upload",
+});
+```
+
+## Performance Issues
+
+### Slow Upload Speeds
+
+**Problem:** Uploads are slower than expected.
+
+**Solutions:**
+
+1. **Choose the right provider region** close to your users
+2. **Check your internet connection** and server resources
+3. **Consider your provider's performance characteristics**
+
+### Memory Issues with Large Files
+
+**Problem:** Browser crashes or high memory usage with large files.
+
+**Solution:** File streaming is handled automatically by next-s3-uploader:
+
+```typescript
+// File streaming is handled automatically
+// No additional configuration needed
+const { uploadFiles } = upload.fileUpload();
+await uploadFiles(largeFiles); // ✅ Streams automatically
+```
+
+## Getting Help
+
+If you're still experiencing issues:
+
+1. **Check the documentation** for your specific provider
+2. **Enable debug logging** by setting `NODE_ENV=development`
+3. **Check browser console** for detailed error messages
+4. **Verify your provider configuration** is correct
+
+<Callout type="info">
+**Need more help?** Create an issue on [GitHub](https://github.com/your-org/next-s3-uploader/issues) with detailed information about your setup and the error you're experiencing.
+</Callout> 
