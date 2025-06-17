@@ -1,0 +1,118 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement", "feature-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please provide detailed information to help us understand your request.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm before submitting
+      options:
+        - label: I have searched existing issues to ensure this feature hasn't been requested
+          required: true
+        - label: I have read the documentation and this feature doesn't exist
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 🎯 Problem Statement
+      description: What problem does this feature solve?
+      placeholder: |
+        Describe the problem you're facing or the use case this feature would address...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 💡 Proposed Solution
+      description: Describe your ideal solution
+      placeholder: |
+        Describe what you'd like to happen...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 🔄 Alternatives Considered
+      description: What alternatives have you considered?
+      placeholder: |
+        Describe any alternative solutions or features you've considered...
+    validations:
+      required: false
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: 📝 Code Examples
+      description: Provide examples of how this feature would be used
+      placeholder: |
+        // Example usage
+        import { newFeature } from 'next-s3-uploader';
+
+        const result = newFeature({
+          // configuration
+        });
+      render: typescript
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 🚨 Priority
+      description: How important is this feature to you?
+      options:
+        - Low - Nice to have
+        - Medium - Would significantly improve my workflow
+        - High - Blocking my current project
+        - Critical - Essential for production use
+    validations:
+      required: true
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: 🔧 Estimated Complexity
+      description: How complex do you think this feature is to implement?
+      options:
+        - Simple - Minor change or addition
+        - Medium - Moderate implementation effort
+        - Complex - Significant development required
+        - Not sure
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 📎 Additional Context
+      description: Add any other context, screenshots, or examples
+      placeholder: |
+        - Related issues or discussions
+        - Links to similar implementations
+        - Screenshots or mockups
+        - Any other relevant information
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: help
+    attributes:
+      label: 🤝 Would you like to help implement this?
+      description: Optional - would you be interested in contributing?
+      options:
+        - label: I'm willing to submit a PR to implement this feature
+          required: false
+        - label: I can help with testing this feature
+          required: false
+        - label: I can help with documentation for this feature
+          required: false

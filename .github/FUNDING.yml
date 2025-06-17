@@ -1,0 +1,38 @@
+# Funding configuration for next-s3-uploader
+# Support the development of this open source project
+
+# GitHub Sponsors
+github: [abhay-ramesh]
+
+# Polar
+# polar: abhay-ramesh
+
+# Open Collective
+# open_collective: next-s3-uploader
+
+# Ko-fi
+# ko_fi: abhay
+
+# Tidelift
+# tidelift: npm/next-s3-uploader
+
+# Community Bridge
+# community_bridge: next-s3-uploader
+
+# Liberapay
+# liberapay: abhay
+
+# IssueHunt
+# issuehunt: abhay
+
+# Buy Me a Coffee
+# buy_me_a_coffee: abhay
+
+# Patreon
+# patreon: abhay
+
+# Custom funding URLs
+custom:
+  - "https://github.com/sponsors/abhay"
+  # - "https://www.buymeacoffee.com/abhay"
+  # - "https://ko-fi.com/abhay"

@@ -2,133 +2,300 @@ name: 🚀 Release & Publish
 
 on:
   push:
-    branches: [main]
-    paths: ["packages/next-s3-uploader/**"]
-  release:
-    types: [published]
+    branches: [main, master]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  quality-checks:
-    name: 🔍 Quality Checks
+  # 🔍 Pre-Release Safety Check
+  pre-release-check:
+    name: 🛡️ Pre-Release Safety Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    outputs:
+      should-release: ${{ steps.check.outputs.should-release }}
+
     steps:
-      - name: 📥 Checkout code
+      - name: 📥 Checkout
         uses: actions/checkout@v4
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v2
         with:
-          version: 8
+          fetch-depth: 0
 
-      - name: 🏗️ Setup Node.js
+      - name: 📦 Setup Node.js & pnpm
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: "20"
           cache: "pnpm"
 
-      - name: 📚 Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: 🔍 Lint
-        run: pnpm -F next-s3-uploader lint
-
-      - name: 🧪 Type Check
-        run: pnpm -F next-s3-uploader typecheck
-
-      - name: 🧪 Test
-        run: pnpm -F next-s3-uploader test
-
-      - name: 📦 Build
-        run: pnpm -F next-s3-uploader build
-
-      - name: 📊 Bundle Size Check
-        run: pnpm -F next-s3-uploader size-check
-
-  publish:
-    name: 📦 Publish to NPM
-    runs-on: ubuntu-latest
-    needs: quality-checks
-    if: github.event_name == 'release'
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-
       - name: 📦 Setup pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8
 
-      - name: 🏗️ Setup Node.js
+      - name: 📥 Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🛡️ Run comprehensive safety check
+        id: safety
+        run: |
+          cd packages/next-s3-uploader
+          chmod +x scripts/pre-release-check.sh
+          ./scripts/pre-release-check.sh
+
+      - name: 📝 Validate changesets
+        run: |
+          cd packages/next-s3-uploader
+          chmod +x scripts/changeset-validator.js
+          node scripts/changeset-validator.js
+
+      - name: 📊 Check if release needed
+        id: check
+        run: |
+          if ls .changeset/*.md 1> /dev/null 2>&1; then
+            echo "should-release=true" >> $GITHUB_OUTPUT
+            echo "📦 Changesets found - release needed"
+          else
+            echo "should-release=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No changesets - no release needed"
+          fi
+
+  # 🚀 Automated Release
+  release:
+    name: 🚀 Release to NPM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: pre-release-check
+    if: needs.pre-release-check.outputs.should-release == 'true'
+
+    permissions:
+      contents: write
+      id-token: write
+
+    environment:
+      name: production
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📦 Setup Node.js & pnpm
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: "20"
           cache: "pnpm"
           registry-url: "https://registry.npmjs.org"
 
-      - name: 📚 Install dependencies
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: 📥 Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: 📦 Build package
-        run: pnpm -F next-s3-uploader build
+      - name: 🏗️ Build packages
+        run: pnpm build
 
-      - name: 🚀 Publish to NPM
-        run: pnpm -F next-s3-uploader publish --no-git-checks
+      - name: 🔐 Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: 📦 Generate versions & changelogs
+        run: |
+          pnpm version-packages
+          echo "📝 Generated versions and changelogs"
+
+      - name: 📤 Publish to NPM
+        run: pnpm release
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  bundle-analysis:
-    name: 📊 Bundle Analysis
+      - name: 🏷️ Commit version updates
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            git add .
+            git commit -m "chore(release): update versions and changelogs [skip ci]"
+            git push
+            echo "✅ Committed version updates"
+          else
+            echo "ℹ️ No changes to commit"
+          fi
+
+      - name: 📊 Get release info
+        id: release-info
+        run: |
+          MAIN_VERSION=$(node -p "require('./packages/next-s3-uploader/package.json').version")
+          CLI_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          echo "main-version=$MAIN_VERSION" >> $GITHUB_OUTPUT
+          echo "cli-version=$CLI_VERSION" >> $GITHUB_OUTPUT
+
+      - name: 🎉 Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.release-info.outputs.main-version }}
+          release_name: 🚀 Release v${{ steps.release-info.outputs.main-version }}
+          body: |
+            ## 📦 Packages Released
+
+            - `next-s3-uploader@${{ steps.release-info.outputs.main-version }}`
+            - `create-next-s3-uploader@${{ steps.release-info.outputs.cli-version }}`
+
+            ## 📝 Changelog
+
+            See [CHANGELOG.md](./packages/next-s3-uploader/CHANGELOG.md) for detailed changes.
+
+            ## 📥 Installation
+
+            ```bash
+            npm install next-s3-uploader@latest
+            # or
+            npx create-next-s3-uploader@latest
+            ```
+
+            ## 🔗 Links
+
+            - [📚 Documentation](https://next-s3-uploader.vercel.app)
+            - [🐛 Report Issues](https://github.com/${{ github.repository }}/issues)
+            - [💬 Discussions](https://github.com/${{ github.repository }}/discussions)
+          draft: false
+          prerelease: false
+
+  # 📊 Post-Release Monitoring
+  post-release:
+    name: 📊 Post-Release Monitoring
     runs-on: ubuntu-latest
-    needs: quality-checks
-    if: github.event_name == 'push'
+    timeout-minutes: 5
+    needs: release
+    if: always() && needs.release.result == 'success'
+
     steps:
-      - name: 📥 Checkout code
+      - name: 📥 Checkout
         uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js & pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
 
       - name: 📦 Setup pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8
 
-      - name: 🏗️ Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          cache: "pnpm"
+      - name: ✅ Verify NPM publication
+        run: |
+          echo "🔍 Verifying packages are available on NPM..."
 
-      - name: 📚 Install dependencies
-        run: pnpm install --frozen-lockfile
+          # Wait a moment for NPM propagation
+          sleep 30
 
-      - name: 📦 Build & Analyze
-        run: pnpm -F next-s3-uploader build:analyze
+          # Check main package
+          MAIN_VERSION=$(node -p "require('./packages/next-s3-uploader/package.json').version")
+          if npm view "next-s3-uploader@$MAIN_VERSION" version; then
+            echo "✅ next-s3-uploader@$MAIN_VERSION is live on NPM"
+          else
+            echo "❌ next-s3-uploader@$MAIN_VERSION not found on NPM"
+            exit 1
+          fi
 
-      - name: 📊 Comment Bundle Size
+          # Check CLI package
+          CLI_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          if npm view "create-next-s3-uploader@$CLI_VERSION" version; then
+            echo "✅ create-next-s3-uploader@$CLI_VERSION is live on NPM"
+          else
+            echo "❌ create-next-s3-uploader@$CLI_VERSION not found on NPM"
+            exit 1
+          fi
+
+      - name: 📱 Notify success
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const path = require('path');
+            const mainVersion = require('./packages/next-s3-uploader/package.json').version;
+            const cliVersion = require('./packages/cli/package.json').version;
 
-            const distPath = 'packages/next-s3-uploader/dist';
-            const files = fs.readdirSync(distPath);
-
-            let comment = '## 📦 Bundle Size Report\n\n';
-            comment += '| File | Size | Gzipped |\n';
-            comment += '|------|------|----------|\n';
-
-            files.forEach(file => {
-              const stats = fs.statSync(path.join(distPath, file));
-              const size = (stats.size / 1024).toFixed(1);
-              comment += `| ${file} | ${size}KB | - |\n`;
-            });
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            github.rest.repos.createCommitComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: comment
+              commit_sha: context.sha,
+              body: `## 🎉 Release Successful!
+              
+              ✅ **Packages Published:**
+              - \`next-s3-uploader@${mainVersion}\`
+              - \`create-next-s3-uploader@${cliVersion}\`
+              
+              📊 **Release Stats:**
+              - Build time: ${{ github.run_id }}
+              - All quality gates passed
+              - NPM verification successful
+              
+              🚀 **Ready for use!**`
+            });
+
+  # 🚨 Failure Notification
+  notify-failure:
+    name: 🚨 Release Failure Notification
+    runs-on: ubuntu-latest
+    needs: [pre-release-check, release]
+    if: always() && (needs.pre-release-check.result == 'failure' || needs.release.result == 'failure')
+
+    steps:
+      - name: 🚨 Create issue for failed release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🚨 Release Failed - ${new Date().toISOString().split('T')[0]}`;
+            const body = `## 🚨 Release Failure Report
+
+            **Workflow:** ${{ github.workflow }}
+            **Run ID:** ${{ github.run_id }}
+            **Commit:** ${{ github.sha }}
+            **Branch:** ${{ github.ref_name }}
+
+            **Failed Jobs:**
+            ${JSON.stringify(github.context.payload, null, 2)}
+
+            ## 🔍 Investigation Steps
+
+            1. Check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            2. Review the pre-release safety checks
+            3. Verify changeset quality
+            4. Check NPM token and permissions
+
+            ## 🛠️ Manual Release Process
+
+            If automation fails, you can release manually:
+
+            \`\`\`bash
+            # 1. Run safety checks
+            pnpm pre-release
+
+            # 2. Generate versions
+            pnpm version-packages
+
+            # 3. Publish
+            pnpm release
+            \`\`\`
+
+            ---
+
+            **Auto-generated by GitHub Actions**`;
+
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['bug', 'release', 'automation']
             });
