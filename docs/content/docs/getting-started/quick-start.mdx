@@ -17,17 +17,37 @@ Get **production-ready file uploads** working in your Next.js app in under 2 min
     
 Get everything set up instantly with our interactive CLI:
 
-```bash
-npx next-s3-uploader init
-```
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tab value="npm">
+    ```bash
+    npx next-s3-uploader init
+    ```
+  </Tab>
+  <Tab value="pnpm">
+    ```bash
+    pnpm dlx next-s3-uploader init
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn dlx next-s3-uploader init
+    ```
+  </Tab>
+  <Tab value="bun">
+    ```bash
+    bunx next-s3-uploader init
+    ```
+  </Tab>
+</Tabs>
 
 That's it! The CLI will:
-- ✅ Install dependencies automatically
-- ✅ Set up your chosen provider (AWS S3, Cloudflare R2, etc.)
+- ✅ **Auto-detect your package manager** (npm, pnpm, yarn, bun)
+- ✅ Install dependencies using your preferred package manager
+- ✅ Set up your chosen provider (Cloudflare R2, AWS S3, etc.)
 - ✅ Create API routes with type safety
 - ✅ Generate example components
 - ✅ Configure environment variables
-- ✅ Create and configure your S3 bucket
+- ✅ Create and configure your storage bucket
 
 **What you get:**
 - Production-ready upload API in `app/api/upload/route.ts`
@@ -50,11 +70,17 @@ That's it! The CLI will:
 🔍 Detecting your project...
   ✓ Next.js App Router detected
   ✓ TypeScript configuration found
+  ✓ Package manager: pnpm detected
+  ✓ No existing upload configuration
+  ✓ Project structure validated
 
 ? Which cloud storage provider would you like to use?
-❯ AWS S3 (recommended)
-  Cloudflare R2 (S3-compatible, global edge)
+❯ Cloudflare R2 (recommended)
+  AWS S3 (classic, widely supported)
   DigitalOcean Spaces (simple, affordable)
+  Google Cloud Storage (enterprise-grade)
+  MinIO (self-hosted, open source)
+  Custom S3-compatible endpoint
 
 ✨ Generated files:
   ├── app/api/upload/route.ts
@@ -62,6 +88,11 @@ That's it! The CLI will:
   ├── components/ui/upload-button.tsx
   ├── lib/upload-client.ts
   └── .env.example
+
+📦 Installing dependencies with pnpm...
+  ✓ next-s3-uploader
+  ✓ @aws-sdk/client-s3
+  ✓ react-dropzone
 
 🎉 Setup complete! Your uploads are ready.
 ```
@@ -80,6 +111,7 @@ Here's exactly what happens when you run the CLI and how to make the best choice
     🔍 Detecting your project...
       ✓ Next.js App Router detected
       ✓ TypeScript configuration found
+      ✓ Package manager: pnpm detected
       ✓ No existing upload configuration
       ✓ Project structure validated
     ```
@@ -90,6 +122,7 @@ Here's exactly what happens when you run the CLI and how to make the best choice
     - ⚠️ **Pages Router detected**: Still works, but examples will be for App Router
     - ⚠️ **No TypeScript**: JavaScript examples will be generated instead
     - ⚠️ **Existing configuration**: CLI will ask if you want to overwrite
+    - ⚠️ **Package manager not detected**: Will default to npm
   </Step>
 
   <Step>
@@ -97,8 +130,8 @@ Here's exactly what happens when you run the CLI and how to make the best choice
     
     ```
     ? Which cloud storage provider would you like to use?
-    ❯ AWS S3 (recommended)
-      Cloudflare R2 (S3-compatible, global edge)
+    ❯ Cloudflare R2 (recommended)
+      AWS S3 (classic, widely supported)
       DigitalOcean Spaces (simple, affordable)
       Google Cloud Storage (enterprise-grade)
       MinIO (self-hosted, open source)
@@ -109,11 +142,11 @@ Here's exactly what happens when you run the CLI and how to make the best choice
     
     <Tabs items={["First Time?", "Cost Conscious", "Global Users", "Enterprise"]}>
       <Tab value="First Time?">
-        **Choose: AWS S3 (recommended)**
-        - Most documentation and tutorials available
-        - Extensive AWS ecosystem integration
-        - Free tier: 5GB storage, 20,000 GET requests
-        - Best for learning and getting started
+        **Choose: Cloudflare R2 (recommended)**
+        - Zero egress fees (bandwidth is FREE)
+        - Global edge network with 200+ locations
+        - Simple setup with excellent documentation
+        - Best performance for most applications
       </Tab>
       
       <Tab value="Cost Conscious">
@@ -148,13 +181,13 @@ Here's exactly what happens when you run the CLI and how to make the best choice
     ### Credential Detection & Setup
     
     ```
-    🔧 Setting up AWS S3...
+    🔧 Setting up Cloudflare R2...
     
     🔍 Checking for existing credentials...
-      ✓ Found AWS_ACCESS_KEY_ID
-      ✓ Found AWS_SECRET_ACCESS_KEY
-      ✓ Found AWS_REGION
-      ⚠ AWS_S3_BUCKET_NAME not found
+      ✓ Found CLOUDFLARE_R2_ACCESS_KEY_ID
+      ✓ Found CLOUDFLARE_R2_SECRET_ACCESS_KEY
+      ✓ Found CLOUDFLARE_R2_ACCOUNT_ID
+      ⚠ CLOUDFLARE_R2_BUCKET_NAME not found
     ```
     
     **What this means:**
@@ -164,16 +197,16 @@ Here's exactly what happens when you run the CLI and how to make the best choice
     
     **If prompted for credentials:**
     ```
-    ? Enter your AWS Access Key ID: AKIA...
-    ? Enter your AWS Secret Access Key: [hidden]
-    ? Enter your AWS Region (us-east-1): us-east-1
-    ? Enter your S3 bucket name: my-app-uploads-2024
+    ? Enter your Cloudflare R2 Access Key ID: f1d2...
+    ? Enter your Cloudflare R2 Secret Access Key: [hidden]
+    ? Enter your Cloudflare Account ID: abc123...
+    ? Enter your R2 bucket name: my-app-uploads-2024
     ```
     
     **Pro tips:**
-    - Use a **unique bucket name** (globally unique across all AWS)
-    - Choose a **region close to your users**
-    - **Don't have credentials?** Check our [AWS S3 setup guide](/docs/providers/aws-s3)
+    - Use a **unique bucket name** (globally unique across all R2)
+    - **Account ID** can be found in your Cloudflare dashboard
+    - **Don't have credentials?** Check our [Cloudflare R2 setup guide](/docs/providers/cloudflare-r2)
   </Step>
 
   <Step>
@@ -196,7 +229,7 @@ Here's exactly what happens when you run the CLI and how to make the best choice
     
     **Success looks like:**
     ```
-    ✅ Created S3 bucket: my-app-uploads-2024
+    ✅ Created R2 bucket: my-app-uploads-2024
     ✅ Configured CORS for web uploads
     ✅ Set up public read permissions
     ✅ Connection test successful
@@ -267,7 +300,7 @@ Here's exactly what happens when you run the CLI and how to make the best choice
       ├── lib/upload-client.ts           # Type-safe client
       └── .env.example                   # Environment template
     
-    📦 Installing dependencies...
+    📦 Installing dependencies with pnpm...
       ✓ next-s3-uploader
       ✓ @aws-sdk/client-s3
       ✓ react-dropzone
@@ -277,14 +310,20 @@ Here's exactly what happens when you run the CLI and how to make the best choice
     
     **What happens:**
     1. **Files generated** with your specific configuration
-    2. **Dependencies installed** automatically
+    2. **Dependencies installed** using your detected package manager
     3. **Types generated** for full TypeScript support
     4. **Environment configured** with your settings
+    
+    **Package Manager Support:**
+    - **npm**: `npm install` commands
+    - **pnpm**: `pnpm add` commands  
+    - **yarn**: `yarn add` commands
+    - **bun**: `bun add` commands
     
     **Next steps shown:**
     ```
     🚀 Next steps:
-      1. Start your dev server: npm run dev
+      1. Start your dev server: pnpm dev
       2. Visit: http://localhost:3000/upload
       3. Try uploading a file!
       
@@ -301,33 +340,59 @@ Here's exactly what happens when you run the CLI and how to make the best choice
 ## Common CLI Scenarios
 
 ### First-Time Setup (Recommended)
-```bash
-npx next-s3-uploader init
-# Follow prompts, choose AWS S3, let CLI create bucket
-```
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tab value="npm">
+    ```bash
+    npx next-s3-uploader init
+    # Follow prompts, choose Cloudflare R2, let CLI create bucket
+    ```
+  </Tab>
+  <Tab value="pnpm">
+    ```bash
+    pnpm dlx next-s3-uploader init
+    # Follow prompts, choose Cloudflare R2, let CLI create bucket
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn dlx next-s3-uploader init
+    # Follow prompts, choose Cloudflare R2, let CLI create bucket
+    ```
+  </Tab>
+  <Tab value="bun">
+    ```bash
+    bunx next-s3-uploader init
+    # Follow prompts, choose Cloudflare R2, let CLI create bucket
+    ```
+  </Tab>
+</Tabs>
 
-### Quick AWS Setup
+### Quick Cloudflare R2 Setup
 ```bash
-npx next-s3-uploader init --provider aws
-# Skip provider selection, go straight to AWS
-```
-
-### Cloudflare R2 Setup
-```bash
+# Works with any package manager
 npx next-s3-uploader init --provider cloudflare-r2
-# Optimized for R2 with edge configuration
+pnpm dlx next-s3-uploader init --provider cloudflare-r2
+yarn dlx next-s3-uploader init --provider cloudflare-r2
+bunx next-s3-uploader init --provider cloudflare-r2
+```
+
+### AWS S3 Setup
+```bash
+# Skip provider selection, go straight to AWS S3
+npx next-s3-uploader init --provider aws
+# Use AWS S3 for existing AWS infrastructure
 ```
 
 ### Components Only
 ```bash
-npx next-s3-uploader init --skip-examples
 # Generate API and components, no demo page
+npx next-s3-uploader init --skip-examples
 ```
 
 ### Preview Mode
 ```bash
-npx next-s3-uploader init --dry-run
 # See what would be created without making changes
+npx next-s3-uploader init --dry-run
 ```
 
 ---

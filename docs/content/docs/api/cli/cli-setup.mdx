@@ -15,40 +15,37 @@ The CLI handles everything: dependency installation, API route creation, provide
 
 ## Quick Start
 
-<Steps>
-  <Step>
-    **Run the CLI in your Next.js project**
-    
+Get your file uploads working in under 2 minutes with our zero-configuration CLI tool.
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tab value="npm">
     ```bash
     npx next-s3-uploader init
     ```
-    
-    That's it! The CLI will guide you through the entire setup process.
-  </Step>
-  
-  <Step>
-    **Follow the interactive prompts**
-    
-    The CLI will detect your project and ask a few questions:
-    
-    - Which provider do you want to use? (AWS S3, Cloudflare R2, etc.)
-    - Should we create the bucket automatically?
-    - Where should we put the API routes?
-    - Do you want example components?
-  </Step>
-  
-  <Step>
-    **Start uploading immediately**
-    
-    The CLI generates everything you need:
-    
-    - ✅ API routes with type-safe configuration
-    - ✅ Environment variables setup
-    - ✅ Example upload components  
-    - ✅ TypeScript types
-    - ✅ Provider configuration
-  </Step>
-</Steps>
+  </Tab>
+  <Tab value="pnpm">
+    ```bash
+    pnpm dlx next-s3-uploader init
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn dlx next-s3-uploader init
+    ```
+  </Tab>
+  <Tab value="bun">
+    ```bash
+    bunx next-s3-uploader init
+    ```
+  </Tab>
+</Tabs>
+
+The CLI will automatically:
+- 🔍 **Detect your package manager** (npm, pnpm, yarn, bun)
+- 📦 **Install dependencies** using your preferred package manager
+- ☁️ **Set up your storage provider** (Cloudflare R2, AWS S3, etc.)
+- 🛠️ **Generate type-safe code** (API routes, client, components)
+- ⚙️ **Configure environment** variables and bucket setup
 
 ## What the CLI Does
 
@@ -180,6 +177,7 @@ npx next-s3-uploader test
 🔍 Detecting your project...
   ✓ Next.js App Router detected
   ✓ TypeScript configuration found
+  ✓ Package manager: pnpm detected
   ✓ No existing upload configuration
   ✓ Project structure validated
 ```
@@ -188,8 +186,8 @@ npx next-s3-uploader test
 
 ```
 ? Which cloud storage provider would you like to use?
-❯ AWS S3 (recommended)
-  Cloudflare R2 (S3-compatible, global edge)
+❯ Cloudflare R2 (recommended)
+  AWS S3 (classic, widely supported)
   DigitalOcean Spaces (simple, affordable)
   Google Cloud Storage (enterprise-grade)
   MinIO (self-hosted, open source)
@@ -199,15 +197,15 @@ npx next-s3-uploader test
 ### Step 3: Credential Setup
 
 ```
-🔧 Setting up AWS S3...
+🔧 Setting up Cloudflare R2...
 
 🔍 Checking for existing credentials...
-  ✓ Found AWS_ACCESS_KEY_ID
-  ✓ Found AWS_SECRET_ACCESS_KEY
-  ✓ Found AWS_REGION
-  ⚠ AWS_S3_BUCKET_NAME not found
+  ✓ Found CLOUDFLARE_R2_ACCESS_KEY_ID
+  ✓ Found CLOUDFLARE_R2_SECRET_ACCESS_KEY
+  ✓ Found CLOUDFLARE_R2_ACCOUNT_ID
+  ⚠ CLOUDFLARE_R2_BUCKET_NAME not found
 
-? Enter your S3 bucket name: my-app-uploads
+? Enter your R2 bucket name: my-app-uploads
 ? Create bucket automatically? Yes
 ```
 
@@ -371,58 +369,51 @@ export default function UploadPage() {
 The CLI automatically creates `.env.example` and prompts for missing values:
 
 ```bash title=".env.example"
-# AWS S3 Configuration
-AWS_ACCESS_KEY_ID=your_access_key_here
-AWS_SECRET_ACCESS_KEY=your_secret_key_here
-AWS_REGION=us-east-1
-AWS_S3_BUCKET_NAME=your-bucket-name
+# Cloudflare R2 Configuration (Recommended)
+CLOUDFLARE_R2_ACCESS_KEY_ID=your_access_key_here
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_secret_key_here
+CLOUDFLARE_R2_ACCOUNT_ID=your_account_id_here
+CLOUDFLARE_R2_BUCKET_NAME=your-bucket-name
+
+# Alternative: AWS S3 Configuration
+# AWS_ACCESS_KEY_ID=your_access_key_here
+# AWS_SECRET_ACCESS_KEY=your_secret_key_here
+# AWS_REGION=us-east-1
+# AWS_S3_BUCKET_NAME=your-bucket-name
 
 # Next.js Configuration
 NEXTAUTH_SECRET=your_nextauth_secret_here
 NEXTAUTH_URL=http://localhost:3000
 
-# Optional: Custom S3 endpoint (for R2, MinIO, etc.)
+# Optional: Custom S3 endpoint (for MinIO, etc.)
 # S3_ENDPOINT=https://your-custom-endpoint.com
 ```
 
 ## Provider-Specific Setup
 
-<Tabs items={["AWS S3", "Cloudflare R2", "DigitalOcean", "MinIO"]}>
-  <Tab value="AWS S3">
-    ```bash
-    npx next-s3-uploader init --provider aws
-    ```
-    
-    **Required Environment Variables:**
-    - `AWS_ACCESS_KEY_ID`
-    - `AWS_SECRET_ACCESS_KEY`
-    - `AWS_REGION`
-    - `AWS_S3_BUCKET_NAME`
-    
-    **What the CLI does:**
-    - Creates IAM policy for bucket access
-    - Sets up CORS configuration
-    - Configures bucket permissions
-    - Tests connection and permissions
-  </Tab>
-  
+<Tabs items={["Cloudflare R2", "AWS S3", "DigitalOcean", "MinIO"]}>
   <Tab value="Cloudflare R2">
     ```bash
     npx next-s3-uploader init --provider cloudflare-r2
     ```
     
-    **Required Environment Variables:**
-    - `AWS_ACCESS_KEY_ID` (R2 token ID)
-    - `AWS_SECRET_ACCESS_KEY` (R2 secret)
-    - `AWS_REGION=auto`
-    - `AWS_S3_BUCKET_NAME`
-    - `S3_ENDPOINT` (R2 endpoint URL)
+    **What gets configured:**
+    - Cloudflare R2 S3-compatible endpoints
+    - Global edge network optimization
+    - Zero egress fee configuration
+    - CORS settings for web uploads
+  </Tab>
+  
+  <Tab value="AWS S3">
+    ```bash
+    npx next-s3-uploader init --provider aws
+    ```
     
-    **What the CLI does:**
-    - Configures R2-specific endpoints
-    - Sets up CORS for web uploads
-    - Validates R2 credentials
-    - Optimizes for global edge performance
+    **What gets configured:**
+    - AWS S3 regional endpoints
+    - IAM permissions and policies
+    - Bucket lifecycle management
+    - CloudFront CDN integration (optional)
   </Tab>
   
   <Tab value="DigitalOcean">

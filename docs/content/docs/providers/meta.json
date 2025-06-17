@@ -1,8 +1,8 @@
 {
     "title": "Providers",
     "pages": [
-        "aws-s3",
         "cloudflare-r2",
+        "aws-s3",
         "digitalocean-spaces",
         "google-cloud",
         "minio"
