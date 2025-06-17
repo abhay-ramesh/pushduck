@@ -25,18 +25,34 @@ export async function GET(
           backgroundColor: "#0a0a0a",
           padding: "80px",
           fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+          position: "relative",
         }}
       >
+        {/* Subtle vertical accent line */}
+        <div
+          style={{
+            position: "absolute",
+            left: "0",
+            top: "0",
+            bottom: "0",
+            width: "3px",
+            background:
+              "linear-gradient(180deg, transparent 0%, rgba(59, 130, 246, 0.3) 20%, rgba(59, 130, 246, 0.6) 50%, rgba(59, 130, 246, 0.3) 80%, transparent 100%)",
+            display: "flex",
+          }}
+        />
+
         {/* Subtle grid pattern */}
         <div
           style={{
             position: "absolute",
             inset: "0",
             backgroundImage: `
-              linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px)
+              linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px)
             `,
             backgroundSize: "32px 32px",
+            display: "flex",
           }}
         />
 
@@ -45,16 +61,17 @@ export async function GET(
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "16px",
+            gap: "14px",
             zIndex: 1,
           }}
         >
           <div
             style={{
-              width: "8px",
+              width: "6px",
               height: "32px",
               backgroundColor: "#ffffff",
-              borderRadius: "2px",
+              borderRadius: "0px",
+              display: "flex",
             }}
           />
           <div
@@ -63,6 +80,7 @@ export async function GET(
               fontSize: "20px",
               fontWeight: "500",
               letterSpacing: "0.5px",
+              display: "flex",
             }}
           >
             NEXT S3 UPLOADER
@@ -88,6 +106,7 @@ export async function GET(
               lineHeight: "1.1",
               margin: "0 0 24px 0",
               letterSpacing: "-0.02em",
+              display: "flex",
             }}
           >
             {page.data.title}
@@ -100,6 +119,7 @@ export async function GET(
                 lineHeight: "1.5",
                 margin: "0",
                 fontWeight: "400",
+                display: "flex",
               }}
             >
               {page.data.description}
@@ -122,6 +142,7 @@ export async function GET(
               color: "#444444",
               fontSize: "16px",
               fontWeight: "400",
+              display: "flex",
             }}
           >
             Documentation
@@ -131,6 +152,7 @@ export async function GET(
               color: "#666666",
               fontSize: "16px",
               fontWeight: "400",
+              display: "flex",
             }}
           >
             next-s3-uploader.dev
