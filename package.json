@@ -16,9 +16,7 @@
     "release:dry": "turbo build --filter=next-s3-uploader^... && changeset publish --dry-run",
     "release:snapshot": "changeset version --snapshot && changeset publish --tag snapshot",
     "release:check": "changeset status --verbose",
-    "pre-release": "cd packages/next-s3-uploader && pnpm pre-release",
     "validate-changesets": "cd packages/next-s3-uploader && pnpm validate-changesets",
-    "release:safe": "pnpm pre-release && pnpm validate-changesets && pnpm version-packages && pnpm release",
     "changelog:preview": "changeset status --output=changelog.md",
     "rundocs": "turbo dev --no-cache --continue --filter={./apps/docs}"
   },

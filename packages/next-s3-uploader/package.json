@@ -56,9 +56,7 @@
     "release:preview": "pnpm changeset status",
     "release:snapshot": "pnpm changeset version --snapshot && pnpm changeset publish --tag snapshot",
     "release:patch": "pnpm changeset add --type patch && pnpm changeset version && pnpm changeset publish",
-    "pre-release": "./scripts/pre-release-check.sh",
-    "validate-changesets": "node ./scripts/changeset-validator.js",
-    "release:safe": "pnpm pre-release && pnpm version-packages && pnpm release"
+    "validate-changesets": "node ./scripts/changeset-validator.js"
   },
   "keywords": [
     "nextjs",
@@ -84,8 +82,6 @@
     "aws-crt": "^1.18.0"
   },
   "devDependencies": {
-    "next": "^15.3.3",
-    "zod": "^3.22.4",
     "@size-limit/preset-small-lib": "^11.0.1",
     "@testing-library/react": "^14.0.0",
     "@testing-library/user-event": "^14.5.1",
@@ -101,12 +97,14 @@
     "eslint-plugin-prettier": "^5.0.0",
     "gzip-size-cli": "^5.1.0",
     "happy-dom": "^12.9.1",
+    "next": "^15.3.3",
     "prettier": "^3.0.3",
     "react": "^18.2.0",
     "size-limit": "^11.0.1",
     "tsup": "^7.2.0",
     "typescript": "^5.2.2",
-    "vitest": "^0.34.6"
+    "vitest": "^0.34.6",
+    "zod": "^3.22.4"
   },
   "peerDependencies": {
     "next": ">=13.0.0",

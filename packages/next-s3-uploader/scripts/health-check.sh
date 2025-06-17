@@ -52,7 +52,7 @@ echo ""
 echo "🔷 Checking TypeScript compilation..."
 echo "-------------------------------------"
 
-if pnpm typecheck; then
+if pnpm type-check; then
     print_status "TypeScript compilation successful"
 else
     print_error "TypeScript compilation failed!"
