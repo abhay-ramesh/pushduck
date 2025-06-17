@@ -592,10 +592,10 @@ Automated dependency updates across the monorepo:
 
 ### CODEOWNERS
 
-- Repository-wide protection: `@abhay`
-- Core package: `@abhay`
-- Release files: `@abhay`
-- Security files: `@abhay`
+- Repository-wide protection: `@abhay-ramesh`
+- Core package: `@abhay-ramesh`
+- Release files: `@abhay-ramesh`
+- Security files: `@abhay-ramesh`
 - Documentation: Community reviewable
 
 ### Security Policy (`SECURITY.md`)

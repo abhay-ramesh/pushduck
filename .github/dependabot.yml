@@ -13,9 +13,9 @@ updates:
       timezone: "Etc/UTC"
     open-pull-requests-limit: 5
     reviewers:
-      - "abhay"
+      - "abhay-ramesh"
     assignees:
-      - "abhay"
+      - "abhay-ramesh"
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
@@ -33,9 +33,9 @@ updates:
       timezone: "Etc/UTC"
     open-pull-requests-limit: 3
     reviewers:
-      - "abhay"
+      - "abhay-ramesh"
     assignees:
-      - "abhay"
+      - "abhay-ramesh"
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
@@ -53,9 +53,9 @@ updates:
       timezone: "Etc/UTC"
     open-pull-requests-limit: 3
     reviewers:
-      - "abhay"
+      - "abhay-ramesh"
     assignees:
-      - "abhay"
+      - "abhay-ramesh"
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
@@ -73,7 +73,7 @@ updates:
       timezone: "Etc/UTC"
     open-pull-requests-limit: 2
     reviewers:
-      - "abhay"
+      - "abhay-ramesh"
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
@@ -91,7 +91,7 @@ updates:
       timezone: "Etc/UTC"
     open-pull-requests-limit: 2
     reviewers:
-      - "abhay"
+      - "abhay-ramesh"
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
