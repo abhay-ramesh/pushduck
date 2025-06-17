@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev --turbo",
+    "dev": "next dev",
     "start": "next start",
     "postinstall": "fumadocs-mdx"
   },
@@ -14,8 +14,10 @@
     "fumadocs-ui": "15.5.3",
     "lucide-react": "^0.516.0",
     "next": "15.3.3",
+    "next-s3-uploader": "workspace:*",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-dropzone": "^14.3.8",
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "remark-mdx": "^3.1.0",

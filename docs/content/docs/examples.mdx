@@ -1,945 +1,255 @@
 ---
-title: Examples
-description: Production-ready components and patterns you can copy and paste into your app
+title: Examples & Demos
+description: Experience next-s3-uploader with interactive demos and real-world examples. All demos use live Cloudflare R2 integration.
 ---
 
-import { Card, Cards } from "fumadocs-ui/components/card";
 import { Callout } from "fumadocs-ui/components/callout";
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
-
-# Examples
-
-**Copy-paste ready components** for every file upload scenario. All examples are production-tested, fully typed, and designed for real-world applications.
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 <Callout type="info">
-  All examples assume you have completed the [Quick Start](/docs/quick-start)
-  setup. Each example builds on the foundation you've already created.
+**Live Demos:** These are fully functional demos using real Cloudflare R2 storage. Files are uploaded to a demo bucket and may be automatically cleaned up. Don't upload sensitive information.
 </Callout>
 
-## 🖼️ Image Upload Examples
+## Interactive Upload Demo
 
-### Basic Image Upload with Preview
+The full-featured demo showcasing all capabilities:
 
-Perfect for profile pictures, product images, or any single image upload.
+<UploadDemo 
+  title="🚀 Full-Featured Demo" 
+  description="Complete upload experience with type-safe client, progress tracking, and error handling"
+  showTabs={true}
+  compact={false}
+/>
 
-<Tabs items={['Component', 'Usage', 'Styles']}>
-<Tab value="Component">
+<Callout type="info">
+**ETA & Speed Tracking:** Upload speed (MB/s) and estimated time remaining (ETA) appear below the progress bar during active uploads. Try uploading larger files (1MB+) to see these metrics in action! ETA becomes more accurate after the first few seconds of upload.
+</Callout>
+
+## Image-Only Upload
+
+Focused demo for image uploads with preview capabilities:
+
+<UploadDemo 
+  title="🖼️ Image Upload Demo" 
+  description="Optimized for images with instant previews and validation"
+  showTabs={false}
+  defaultTab="images"
+  compact={true}
+/>
+
+## Document Upload
+
+Streamlined demo for document uploads:
+
+<UploadDemo 
+  title="📄 Document Upload Demo" 
+  description="Professional document handling with type validation"
+  showTabs={false}
+  defaultTab="files"
+  compact={true}
+/>
+
+## Key Features Demonstrated
+
+### ✅ **Type-Safe Client**
 ```typescript
-// components/image-upload.tsx
-'use client'
+// Property-based access with full TypeScript inference
+const imageUpload = upload.imageUpload();
+const fileUpload = upload.fileUpload();
 
-import { useState } from 'react'
-import { upload } from '@/lib/upload-client'
+// No string literals, no typos, full autocomplete
+await imageUpload.uploadFiles(selectedFiles);
+```
 
-export function ImageUpload() {
-  const { uploadFiles, uploadedFiles, isUploading, error } = upload.imageUpload()
-  const [dragActive, setDragActive] = useState(false)
+### ⚡ **Real-Time Progress**
+- Individual file progress tracking with percentage completion
+- Upload speed monitoring (MB/s) with live updates
+- ETA calculations showing estimated time remaining
+- Pause/resume functionality (coming soon)
+- Comprehensive error handling with retry mechanisms
 
-const handleDrag = (e: React.DragEvent) => {
-e.preventDefault()
-e.stopPropagation()
-if (e.type === "dragenter" || e.type === "dragover") {
-setDragActive(true)
-} else if (e.type === "dragleave") {
-setDragActive(false)
-}
-}
+### 🔒 **Built-in Validation**
+- File type validation (MIME types)
+- File size limits with user-friendly errors
+- Custom validation middleware
+- Malicious file detection
 
-const handleDrop = (e: React.DragEvent) => {
-e.preventDefault()
-e.stopPropagation()
-setDragActive(false)
+### 🌐 **Provider Agnostic**
+- Same code works with any S3-compatible provider
+- Switch between Cloudflare R2, AWS S3, DigitalOcean Spaces
+- Zero vendor lock-in
 
-    const files = Array.from(e.dataTransfer.files).filter(
-      file => file.type.startsWith('image/')
-    )
+## Code Examples
 
-    if (files.length > 0) {
-      uploadFiles(files)
-    }
-
-}
-
-const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-const files = e.target.files
-if (files) {
-uploadFiles(Array.from(files))
-}
-}
-
-return (
-<div className="w-full max-w-md mx-auto">
-{/* Drop Zone */}
-<div
-className={`          border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
-          transition-colors duration-200
-          ${dragActive 
-            ? 'border-blue-500 bg-blue-50' 
-            : 'border-gray-300 hover:border-gray-400'
-          }
-          ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
-       `}
-onDragEnter={handleDrag}
-onDragLeave={handleDrag}
-onDragOver={handleDrag}
-onDrop={handleDrop}
-onClick={() => document.getElementById('file-input')?.click()} >
-<input
-          id="file-input"
-          type="file"
-          className="hidden"
-          accept="image/*"
-          multiple
-          onChange={handleFileInput}
-          disabled={isUploading}
-        />
-
-        {isUploading ? (
-          <div className="flex flex-col items-center">
-            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-2" />
-            <p className="text-sm text-gray-600">Uploading...</p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center">
-            <svg className="w-12 h-12 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            <p className="text-sm text-gray-600 mb-1">
-              <span className="font-medium">Click to upload</span> or drag and drop
-            </p>
-            <p className="text-xs text-gray-500">PNG, JPG, WEBP up to 10MB</p>
-          </div>
-        )}
-      </div>
-
-      {/* Error Display */}
-      {error && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-600">{error.message}</p>
-        </div>
-      )}
-
-      {/* Image Preview */}
-      {uploadedFiles.length > 0 && (
-        <div className="mt-6 space-y-3">
-          <h4 className="text-sm font-medium text-gray-900">Uploaded Images</h4>
-          <div className="grid grid-cols-2 gap-3">
-            {uploadedFiles.map((file) => (
-              <div key={file.key} className="relative group">
-                <img
-                  src={file.url}
-                  alt={file.name}
-                  className="w-full h-24 object-cover rounded-lg border"
-                />
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity rounded-lg" />
-                <p className="text-xs text-gray-500 mt-1 truncate">{file.name}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-
-)
-}
-
-````
-</Tab>
-<Tab value="Usage">
-```typescript
-// app/profile/page.tsx
-import { ImageUpload } from '@/components/image-upload'
-
-export default function ProfilePage() {
-  return (
-    <div className="max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Upload Profile Picture</h1>
-      <ImageUpload />
-    </div>
-  )
-}
-````
-
-</Tab>
-<Tab value="Styles">
-```css
-/* Add to your global CSS if needed */
-.drag-active {
-  @apply border-blue-500 bg-blue-50;
-}
-
-.upload-zone {
-@apply border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer;
-@apply hover:border-gray-400 transition-colors duration-200;
-}
-
-````
-</Tab>
-</Tabs>
-
-**What you get:**
-- ✅ Drag & drop upload interface
-- ✅ Click to upload fallback
-- ✅ Image preview with hover effects
-- ✅ Progress indicators and error states
-- ✅ File type validation
-- ✅ Responsive design
-
----
-
-### Image Gallery Upload
-
-Perfect for product galleries, photo albums, or any multi-image upload scenario.
-
-<Tabs items={['Component', 'Usage']}>
-<Tab value="Component">
-```typescript
-// components/image-gallery-upload.tsx
-'use client'
-
-import { useState } from 'react'
-import { upload } from '@/lib/upload-client'
-
-interface ImageGalleryUploadProps {
-  maxImages?: number
-  onImagesChange?: (images: Array<{ url: string; key: string; name: string }>) => void
-}
-
-export function ImageGalleryUpload({
-  maxImages = 10,
-  onImagesChange
-}: ImageGalleryUploadProps) {
-  const { uploadFiles, uploadedFiles, isUploading, error, progress } = upload.imageUpload()
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    const imageFiles = files.filter(file => file.type.startsWith('image/'))
-
-    // Respect max images limit
-    const remainingSlots = maxImages - uploadedFiles.length
-    const filesToAdd = imageFiles.slice(0, remainingSlots)
-
-    setSelectedFiles(filesToAdd)
-    uploadFiles(filesToAdd)
-  }
-
-  const removeImage = (keyToRemove: string) => {
-    // This would typically call an API to delete the file
-    // For demo purposes, we'll just filter it out
-    console.log('Remove image:', keyToRemove)
-  }
-
-  React.useEffect(() => {
-    if (onImagesChange) {
-      onImagesChange(uploadedFiles)
-    }
-  }, [uploadedFiles, onImagesChange])
-
-  const canUploadMore = uploadedFiles.length < maxImages
-
-  return (
-    <div className="w-full">
-      {/* Upload Area */}
-      {canUploadMore && (
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center mb-6">
+<Tabs items={["Basic Usage", "Advanced Configuration", "Error Handling"]}>
+  <Tab value="Basic Usage">
+    ```typescript
+    "use client";
+    
+    import { upload } from "@/lib/upload-client";
+    
+    export function SimpleUpload() {
+      const { uploadFiles, files, isUploading } = upload.imageUpload();
+      
+      return (
+        <div>
           <input
             type="file"
             multiple
             accept="image/*"
-            onChange={handleFileSelect}
+            onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
             disabled={isUploading}
-            className="hidden"
-            id="gallery-upload"
           />
-
-          <label
-            htmlFor="gallery-upload"
-            className={`cursor-pointer block ${isUploading ? 'opacity-50' : ''}`}
-          >
-            <div className="flex flex-col items-center">
-              <svg className="w-16 h-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Add Images to Gallery
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Choose multiple images to upload at once
-              </p>
-              <div className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors">
-                Select Images
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                {uploadedFiles.length} of {maxImages} images uploaded
-              </p>
-            </div>
-          </label>
-        </div>
-      )}
-
-      {/* Upload Progress */}
-      {isUploading && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-blue-900">
-              Uploading {selectedFiles.length} image{selectedFiles.length !== 1 ? 's' : ''}...
-            </span>
-            <span className="text-sm text-blue-700">{Math.round(progress)}%</span>
-          </div>
-          <div className="w-full bg-blue-200 rounded-full h-2">
-            <div
-              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Error Display */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-600">{error.message}</p>
-        </div>
-      )}
-
-      {/* Image Grid */}
-      {uploadedFiles.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {uploadedFiles.map((file, index) => (
-            <div key={file.key} className="relative group">
-              <div className="aspect-square overflow-hidden rounded-lg border-2 border-gray-200">
-                <img
-                  src={file.url}
-                  alt={file.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              {/* Image Overlay */}
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 rounded-lg flex items-center justify-center">
-                <button
-                  onClick={() => removeImage(file.key)}
-                  className="opacity-0 group-hover:opacity-100 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-all"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Image Index */}
-              <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-                {index + 1}
-              </div>
+          
+          {files.map(file => (
+            <div key={file.id}>
+              <span>{file.name}</span>
+              <span>{file.status}</span>
+              {file.url && <a href={file.url}>View</a>}
             </div>
           ))}
         </div>
-      )}
-
-      {/* Max Images Reached */}
-      {!canUploadMore && (
-        <div className="text-center p-6 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-600">
-            Maximum of {maxImages} images reached. Remove an image to add more.
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-````
-
-</Tab>
-<Tab value="Usage">
-```typescript
-// app/products/new/page.tsx
-import { ImageGalleryUpload } from '@/components/image-gallery-upload'
-
-export default function NewProductPage() {
-  const handleImagesChange = (images: Array<{ url: string; key: string; name: string }>) => {
-    console.log('Gallery updated:', images)
-    // Save to form state, etc.
-  }
-
-return (
-<div className="max-w-4xl mx-auto p-6">
-<h1 className="text-2xl font-bold mb-6">Add Product Images</h1>
-<ImageGalleryUpload 
-        maxImages={8}
-        onImagesChange={handleImagesChange}
-      />
-</div>
-)
-}
-
-````
-</Tab>
-</Tabs>
-
-**What you get:**
-- ✅ Multi-image upload with progress tracking
-- ✅ Configurable image limits
-- ✅ Grid layout with hover effects
-- ✅ Image removal functionality
-- ✅ Upload progress indicator
-- ✅ Responsive design for mobile/desktop
-
----
-
-## 📄 Document Upload Examples
-
-### Professional Document Upload
-
-Perfect for resumes, contracts, reports, or any business document upload.
-
-<Tabs items={['Component', 'Usage']}>
-<Tab value="Component">
-```typescript
-// components/document-upload.tsx
-'use client'
-
-import { useState } from 'react'
-import { upload } from '@/lib/upload-client'
-
-const documentIcons = {
-  'application/pdf': '📄',
-  'application/msword': '📝',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '📝',
-  'application/vnd.ms-excel': '📊',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '📊',
-  'application/vnd.ms-powerpoint': '📈',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': '📈',
-  'text/plain': '📄',
-  'text/csv': '📊',
-  default: '📎'
-}
-
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
-export function DocumentUpload() {
-  const { uploadFiles, uploadedFiles, isUploading, error, progress } = upload.documentUpload()
-  const [dragActive, setDragActive] = useState(false)
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
-    } else if (e.type === "dragleave") {
-      setDragActive(false)
+      );
     }
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-
-    const files = Array.from(e.dataTransfer.files)
-    if (files.length > 0) {
-      uploadFiles(files)
-    }
-  }
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (files) {
-      uploadFiles(Array.from(files))
-    }
-  }
-
-  const getFileIcon = (mimeType: string): string => {
-    return documentIcons[mimeType as keyof typeof documentIcons] || documentIcons.default
-  }
-
-  const getFileExtension = (filename: string): string => {
-    return filename.split('.').pop()?.toUpperCase() || ''
-  }
-
-  return (
-    <div className="w-full max-w-2xl mx-auto">
-      {/* Upload Zone */}
-      <div
-        className={`
-          border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
-          transition-all duration-200
-          ${dragActive
-            ? 'border-blue-500 bg-blue-50 scale-105'
-            : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
-          }
-          ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
-        `}
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
-        onDrop={handleDrop}
-        onClick={() => !isUploading && document.getElementById('doc-input')?.click()}
-      >
-        <input
-          id="doc-input"
-          type="file"
-          className="hidden"
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
-          multiple
-          onChange={handleFileInput}
-          disabled={isUploading}
-        />
-
-        {isUploading ? (
-          <div className="flex flex-col items-center">
-            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-lg font-medium text-gray-900 mb-2">Uploading Documents...</p>
-            <div className="w-64 bg-gray-200 rounded-full h-2 mb-2">
-              <div
-                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <p className="text-sm text-gray-600">{Math.round(progress)}% complete</p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              Upload Documents
-            </h3>
-            <p className="text-gray-600 mb-4">
-              <span className="font-medium">Click to browse</span> or drag and drop your files here
-            </p>
-            <p className="text-sm text-gray-500">
-              Supports PDF, Word, Excel, PowerPoint, and text files up to 50MB
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Error Display */}
-      {error && (
-        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <div className="flex items-center">
-            <svg className="w-5 h-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-sm text-red-600">{error.message}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Uploaded Files List */}
-      {uploadedFiles.length > 0 && (
-        <div className="mt-6">
-          <h4 className="text-lg font-medium text-gray-900 mb-4">
-            Uploaded Documents ({uploadedFiles.length})
-          </h4>
-          <div className="space-y-3">
-            {uploadedFiles.map((file) => (
-              <div key={file.key} className="flex items-center p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-                <div className="flex-shrink-0 mr-4">
-                  <span className="text-2xl">{getFileIcon(file.type || 'default')}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {file.name}
-                  </p>
-                  <div className="flex items-center mt-1 space-x-2">
-                    <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                      {getFileExtension(file.name)}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {formatFileSize(file.size || 0)}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex-shrink-0 ml-4">
-                  <a
-                    href={file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200"
-                  >
-                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Download
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-````
-
-</Tab>
-<Tab value="Usage">
-```typescript
-// app/documents/upload/page.tsx
-import { DocumentUpload } from '@/components/document-upload'
-
-export default function DocumentUploadPage() {
-  return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Document Upload Center
-        </h1>
-        <p className="text-gray-600">
-          Securely upload and manage your important documents
-        </p>
-      </div>
-      
-      <DocumentUpload />
-    </div>
-  )
-}
-```
-</Tab>
-</Tabs>
-
-**What you get:**
-
-- ✅ Professional document handling
-- ✅ File type icons and metadata display
-- ✅ Progress tracking with visual feedback
-- ✅ File size formatting and validation
-- ✅ Download links for uploaded documents
-- ✅ Responsive design for all devices
-
----
-
-## 🎯 Advanced Examples
-
-### Form Integration with Validation
-
-Real-world example showing how to integrate uploads with forms and validation.
-
-<Tabs items={['Component', 'Schema', 'Usage']}>
-<Tab value="Component">
-```typescript
-// components/profile-form-with-upload.tsx
-'use client'
-
-import { useState } from "react";
-import { upload } from "@/lib/upload-client";
-import { z } from "zod";
-
-const profileSchema = z.object({
-name: z.string().min(2, 'Name must be at least 2 characters'),
-email: z.string().email('Invalid email address'),
-bio: z.string().max(500, 'Bio must be less than 500 characters'),
-avatar: z.string().url('Avatar must be a valid URL').optional(),
-})
-
-type ProfileFormData = z.infer<typeof profileSchema>
-
-export function ProfileFormWithUpload() {
-  const [formData, setFormData] = useState<Partial<ProfileFormData>>({
-    name: '',
-    email: '',
-    bio: '',
-  })
-  const [errors, setErrors] = useState<Partial<Record<keyof ProfileFormData, string>>>({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
+    ```
+  </Tab>
   
-  const { uploadFiles, uploadedFiles, isUploading } = upload.imageUpload()
-
-const validateForm = (): boolean => {
-try {
-const dataToValidate = {
-...formData,
-avatar: uploadedFiles[0]?.url
-}
-profileSchema.parse(dataToValidate)
-setErrors({})
-return true
-} catch (error) {
-if (error instanceof z.ZodError) {
-const fieldErrors: Partial<Record<keyof ProfileFormData, string>> = {}
-error.errors.forEach((err) => {
-if (err.path[0]) {
-fieldErrors[err.path[0] as keyof ProfileFormData] = err.message
-}
-})
-setErrors(fieldErrors)
-}
-return false
-}
-}
-
-const handleSubmit = async (e: React.FormEvent) => {
-e.preventDefault()
-
-    if (!validateForm()) return
-
-    setIsSubmitting(true)
-
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-
-      const profileData = {
-        ...formData,
-        avatar: uploadedFiles[0]?.url
-      }
-
-      console.log('Profile saved:', profileData)
-      // Handle success (e.g., redirect, show toast)
-
-    } catch (error) {
-      console.error('Save failed:', error)
-    } finally {
-      setIsSubmitting(false)
-    }
-
-}
-
-const handleFileUpload = (files: FileList | null) => {
-if (files && files.length > 0) {
-uploadFiles([files[0]]) // Only allow one avatar
-}
-}
-
-return (
-<form onSubmit={handleSubmit} className="max-w-2xl mx-auto space-y-6">
-{/* Avatar Upload */}
-<div>
-<label className="block text-sm font-medium text-gray-700 mb-2">
-Profile Picture
-</label>
-<div className="flex items-start space-x-4">
-<div className="flex-shrink-0">
-{uploadedFiles[0] ? (
-<img
-                src={uploadedFiles[0].url}
-                alt="Profile"
-                className="w-24 h-24 rounded-full object-cover border-2 border-gray-300"
-              />
-) : (
-<div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
-<svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-</svg>
-</div>
-)}
-</div>
-<div className="flex-1">
-<input
-type="file"
-accept="image/\*"
-onChange={(e) => handleFileUpload(e.target.files)}
-disabled={isUploading}
-className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-/>
-<p className="text-xs text-gray-500 mt-1">
-JPG, PNG or WEBP. Max size 5MB.
-</p>
-{isUploading && (
-<p className="text-xs text-blue-600 mt-1">Uploading...</p>
-)}
-</div>
-</div>
-{errors.avatar && (
-<p className="text-sm text-red-600 mt-1">{errors.avatar}</p>
-)}
-</div>
-
-      {/* Name Field */}
-      <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-          Full Name
-        </label>
-        <input
-          type="text"
-          id="name"
-          value={formData.name}
-          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-          className={`block w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            errors.name ? 'border-red-300' : 'border-gray-300'
-          }`}
-          placeholder="Enter your full name"
-        />
-        {errors.name && (
-          <p className="text-sm text-red-600 mt-1">{errors.name}</p>
-        )}
-      </div>
-
-      {/* Email Field */}
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-          Email Address
-        </label>
-        <input
-          type="email"
-          id="email"
-          value={formData.email}
-          onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-          className={`block w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            errors.email ? 'border-red-300' : 'border-gray-300'
-          }`}
-          placeholder="Enter your email address"
-        />
-        {errors.email && (
-          <p className="text-sm text-red-600 mt-1">{errors.email}</p>
-        )}
-      </div>
-
-      {/* Bio Field */}
-      <div>
-        <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-2">
-          Bio
-        </label>
-        <textarea
-          id="bio"
-          rows={4}
-          value={formData.bio}
-          onChange={(e) => setFormData(prev => ({ ...prev, bio: e.target.value }))}
-          className={`block w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
-            errors.bio ? 'border-red-300' : 'border-gray-300'
-          }`}
-          placeholder="Tell us about yourself..."
-        />
-        <p className="text-xs text-gray-500 mt-1">
-          {(formData.bio?.length || 0)}/500 characters
-        </p>
-        {errors.bio && (
-          <p className="text-sm text-red-600 mt-1">{errors.bio}</p>
-        )}
-      </div>
-
-      {/* Submit Button */}
-      <div className="flex justify-end space-x-3">
-        <button
-          type="button"
-          className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-          onClick={() => setFormData({ name: '', email: '', bio: '' })}
-        >
-          Reset
-        </button>
-        <button
-          type="submit"
-          disabled={isSubmitting || isUploading}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-        >
-          {isSubmitting ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-              Saving...
-            </>
-          ) : (
-            'Save Profile'
+  <Tab value="Advanced Configuration">
+    ```typescript
+    // app/api/upload/route.ts
+    import { uploadConfig } from "next-s3-uploader/server";
+    
+    const { s3, createS3Handler } = uploadConfig
+      .cloudflareR2({
+        accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
+        bucket: process.env.R2_BUCKET!,
+      })
+      .defaults({
+        maxFileSize: "10MB",
+        acl: "public-read",
+      })
+      .build();
+    
+    const uploadRouter = s3.createRouter({
+      imageUpload: s3
+        .image()
+        .max("5MB")
+        .formats(["jpeg", "png", "webp"])
+        .middleware(async ({ file, metadata }) => {
+          // Custom authentication and metadata
+          const session = await getServerSession();
+          if (!session) throw new Error("Unauthorized");
+          
+          return {
+            ...metadata,
+            userId: session.user.id,
+            uploadedAt: new Date().toISOString(),
+          };
+        })
+        .onUploadComplete(async ({ file, url, metadata }) => {
+          // Post-upload processing
+          console.log(`Upload complete: ${url}`);
+          await saveToDatabase({ url, metadata });
+        }),
+    });
+    
+    export const { GET, POST } = createS3Handler(uploadRouter);
+    export type AppRouter = typeof uploadRouter;
+    ```
+  </Tab>
+  
+  <Tab value="Error Handling">
+    ```typescript
+    "use client";
+    
+    import { upload } from "@/lib/upload-client";
+    
+    export function RobustUpload() {
+      const { uploadFiles, files, errors, reset } = upload.imageUpload();
+      
+      const handleUpload = async (fileList: FileList) => {
+        try {
+          await uploadFiles(Array.from(fileList));
+        } catch (error) {
+          console.error("Upload failed:", error);
+          // Error is automatically added to the errors array
+        }
+      };
+      
+      return (
+        <div>
+          <input
+            type="file"
+            onChange={(e) => e.target.files && handleUpload(e.target.files)}
+          />
+          
+          {/* Display errors */}
+          {errors.length > 0 && (
+            <div className="error-container">
+              <h4>Upload Errors:</h4>
+              {errors.map((error, index) => (
+                <p key={index} className="error">{error}</p>
+              ))}
+              <button onClick={reset}>Clear Errors</button>
+            </div>
           )}
-        </button>
-      </div>
-    </form>
-
-)
-}
-
-````
-</Tab>
-<Tab value="Schema">
-```typescript
-// lib/schemas.ts
-import { z } from 'zod'
-
-export const profileSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  bio: z.string().max(500, 'Bio must be less than 500 characters'),
-  avatar: z.string().url('Avatar must be a valid URL').optional(),
-})
-
-export type ProfileFormData = z.infer<typeof profileSchema>
-
-// Server-side validation
-export const validateProfile = (data: unknown): ProfileFormData => {
-  return profileSchema.parse(data)
-}
-````
-
-</Tab>
-<Tab value="Usage">
-```typescript
-// app/profile/edit/page.tsx
-import { ProfileFormWithUpload } from '@/components/profile-form-with-upload'
-
-export default function EditProfilePage() {
-  return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Edit Profile</h1>
-          <p className="text-gray-600 mt-2">
-            Update your profile information and avatar
-          </p>
+          
+          {/* Display files with status */}
+          {files.map(file => (
+            <div key={file.id} className={`file-item ${file.status}`}>
+              <span>{file.name}</span>
+              <span>{file.status}</span>
+              {file.status === "uploading" && (
+                <progress value={file.progress} max={100} />
+              )}
+              {file.status === "error" && (
+                <span className="error">{file.error}</span>
+              )}
+              {file.status === "success" && file.url && (
+                <a href={file.url} target="_blank">View File</a>
+              )}
+            </div>
+          ))}
         </div>
-        
-        <div className="bg-white rounded-lg shadow p-8">
-          <ProfileFormWithUpload />
-        </div>
-      </div>
-    </div>
-  )
-}
-```
-</Tab>
+      );
+    }
+    ```
+  </Tab>
 </Tabs>
 
-**What you get:**
+## Real-World Use Cases
 
-- ✅ Complete form integration with file uploads
-- ✅ Client-side validation with Zod
-- ✅ Real-time feedback and error handling
-- ✅ Professional form design and UX
-- ✅ Avatar preview with fallback
-- ✅ Loading states and disabled inputs
+### **Profile Picture Upload**
+Single image upload with instant preview and crop functionality.
 
----
+### **Document Management**
+Multi-file document upload with categorization and metadata.
 
-## 🚀 Next Steps
+### **Media Gallery**
+Batch image upload with automatic optimization and thumbnail generation.
 
-Ready to implement these examples in your app?
+### **File Sharing**
+Secure file upload with expiration dates and access controls.
 
-<Cards>
-  <Card
-    title="🛠️ Customize Components"
-    description="Adapt these examples to match your design system and requirements"
-    href="/docs/guides/uploads/images"
-  />
-  <Card
-    title="🔧 Advanced Configuration"
-    description="Add middleware, authentication, and custom validation"
-    href="/docs/api/configuration"
-  />
-  <Card
-    title="☁️ Production Setup"
-    description="Deploy with proper CORS, security, and monitoring"
-    href="/docs/guides/going-live"
-  />
-  <Card
-    title="💡 More Examples"
-    description="Explore the enhanced demo for advanced patterns"
-    href="/docs/enhanced-demo"
-  />
-</Cards>
+## Next Steps
 
-<Callout type="info">
-  **Need help customizing these examples?** Join our [Discord
-  community](https://discord.gg/next-s3-uploader) or check out the [GitHub
-  discussions](https://github.com/your-org/next-s3-uploader/discussions) for
-  community support.
-</Callout>
+<div className="not-prose">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+    <a href="/docs/getting-started/quick-start" className="block p-4 border border-fd-border rounded-lg hover:border-fd-border-hover transition-colors">
+      <div className="font-semibold text-fd-foreground">⚡ Quick Start</div>
+      <div className="text-sm text-fd-muted-foreground">Get set up in 2 minutes with our CLI</div>
+    </a>
+    <a href="/docs/api" className="block p-4 border border-fd-border rounded-lg hover:border-fd-border-hover transition-colors">
+      <div className="font-semibold text-fd-foreground">📚 API Reference</div>
+      <div className="text-sm text-fd-muted-foreground">Complete API documentation</div>
+    </a>
+    <a href="/docs/providers" className="block p-4 border border-fd-border rounded-lg hover:border-fd-border-hover transition-colors">
+      <div className="font-semibold text-fd-foreground">☁️ Providers</div>
+      <div className="text-sm text-fd-muted-foreground">Configure your storage provider</div>
+    </a>
+    <a href="/upload" className="block p-4 border border-fd-border rounded-lg hover:border-fd-border-hover transition-colors">
+      <div className="font-semibold text-fd-foreground">🎬 Full Demo</div>
+      <div className="text-sm text-fd-muted-foreground">Complete upload experience</div>
+    </a>
+  </div>
+</div>
