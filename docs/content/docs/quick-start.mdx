@@ -1,6 +1,6 @@
 ---
 title: Quick Start
-description: Get file uploads working in your Next.js app in under 5 minutes
+description: Get file uploads working in your Next.js app in under 2 minutes with our CLI
 ---
 
 import { Step, Steps } from "fumadocs-ui/components/steps";
@@ -9,12 +9,76 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
 # Quick Start
 
-Get **production-ready file uploads** working in your Next.js app in under 5 minutes. No complex configuration, no vendor lock-in.
+Get **production-ready file uploads** working in your Next.js app in under 2 minutes with our CLI tool. Zero configuration, just one command.
 
-<Callout type="info">
-  This guide assumes you have a Next.js app with App Router. For Pages Router or
-  other frameworks, see our [setup guides](/docs/guides/setup).
+<Callout type="success">
+  **🚀 New!** Use our CLI for instant setup: `npx next-s3-uploader init` - handles everything automatically!
 </Callout>
+
+## Choose Your Setup Method
+
+<Tabs items={["CLI Setup (Recommended)", "Manual Setup"]}>
+  <Tab value="CLI Setup (Recommended)">
+    
+### ⚡ Zero-Config CLI Setup
+    
+Get everything set up instantly with our interactive CLI:
+
+```bash
+npx next-s3-uploader init
+```
+
+That's it! The CLI will:
+- ✅ Install dependencies automatically
+- ✅ Set up your chosen provider (AWS S3, Cloudflare R2, etc.)
+- ✅ Create API routes with type safety
+- ✅ Generate example components
+- ✅ Configure environment variables
+- ✅ Create and configure your S3 bucket
+
+**What you get:**
+- Production-ready upload API in `app/api/upload/route.ts`
+- Type-safe upload client in `lib/upload-client.ts`
+- Example components in `components/ui/`
+- Working demo page in `app/upload/page.tsx`
+
+[**📚 Full CLI Documentation →**](/docs/guides/setup/cli-setup)
+
+**Example CLI Output:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   🚀 Welcome to Next.js S3 Uploader                         │
+│                                                             │
+│   Let's get your file uploads working in 2 minutes!         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+
+🔍 Detecting your project...
+  ✓ Next.js App Router detected
+  ✓ TypeScript configuration found
+
+? Which cloud storage provider would you like to use?
+❯ AWS S3 (recommended)
+  Cloudflare R2 (S3-compatible, global edge)
+  DigitalOcean Spaces (simple, affordable)
+
+✨ Generated files:
+  ├── app/api/upload/route.ts
+  ├── app/upload/page.tsx
+  ├── components/ui/upload-button.tsx
+  ├── lib/upload-client.ts
+  └── .env.example
+
+🎉 Setup complete! Your uploads are ready.
+```
+
+  </Tab>
+  <Tab value="Manual Setup">
+
+### 🔧 Manual Setup
+
+If you prefer to set things up manually or need custom configuration:
 
 ## Prerequisites
 
@@ -321,3 +385,6 @@ Now that you have the basics working, explore these advanced features:
   [GitHub](https://github.com/your-org/next-s3-uploader) and help spread the
   word!
 </Callout>
+
+  </Tab>
+</Tabs>

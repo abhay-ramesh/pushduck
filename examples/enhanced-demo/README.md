@@ -13,6 +13,24 @@ This demo showcases the new **File Router Architecture** (Phase 1.2) of the next
 
 ## 🛠️ Setup
 
+### ⚡ Quick Setup with CLI (Recommended)
+
+Get everything working instantly:
+
+```bash
+npx next-s3-uploader init
+```
+
+The CLI will:
+
+- ✅ Install dependencies automatically
+- ✅ Set up your provider (AWS S3, Cloudflare R2, etc.)  
+- ✅ Create API routes with type safety
+- ✅ Generate example components
+- ✅ Configure environment variables
+
+### 🔧 Manual Setup
+
 1. **Install dependencies**:
 
    ```bash

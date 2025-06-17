@@ -1,6 +1,7 @@
 {
     "title": "Setup",
     "pages": [
+        "cli-setup",
         "aws-s3",
         "cloudflare-r2",
         "digitalocean-spaces",

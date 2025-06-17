@@ -66,74 +66,32 @@ Next.js S3 Uploader gives you:
 - **Type-safe development** with full TypeScript inference
 - **Community-driven** with real-world usage patterns
 
-## Get Started in 2 Minutes
+## Get Started
 
-<Steps>
-
-<Step>
-
-### Install the package
-
-```bash
-npm install next-s3-uploader
-```
-
-</Step>
-
-<Step>
-
-### Create your upload router
-
-```typescript
-// app/api/s3-upload/route.ts
-import { createS3Router } from "next-s3-uploader/server";
-
-const router = createS3Router({
-  imageUpload: s3.image().maxSize("10MB").accept([".jpg", ".png"]),
-});
-
-export { router as POST };
-export type Router = typeof router;
-```
-
-</Step>
-
-<Step>
-
-### Use in your components
-
-```typescript
-// components/image-upload.tsx
-import { createUploadClient } from "next-s3-uploader";
-import type { Router } from "../app/api/s3-upload/route";
-
-const upload = createUploadClient<Router>();
-
-export function ImageUpload() {
-  const { uploadFiles, uploadedFiles, isUploading } = upload.imageUpload();
-
-  return (
-    <div>
-      <input
-        type="file"
-        onChange={(e) => uploadFiles(e.target.files)}
-        disabled={isUploading}
-      />
-      {uploadedFiles.map((file) => (
-        <img key={file.key} src={file.url} alt="Uploaded" />
-      ))}
-    </div>
-  );
-}
-```
-
-</Step>
-
-</Steps>
-
-**🎉 That's it!** You now have production-ready file uploads with progress tracking, validation, and TypeScript inference.
-
----
+<div className="not-prose mb-8">
+  <Cards>
+    <Card
+      title="⚡ CLI Setup"
+      description="Zero-config setup with npx next-s3-uploader init - everything in one command"
+      href="/docs/guides/setup/cli-setup"
+    />
+    <Card
+      title="📚 Quick Start"
+      description="Manual setup guide - get up and running in under 5 minutes"
+      href="/docs/quick-start"
+    />
+    <Card
+      title="🎯 Examples"
+      description="See it in action with real-world examples and demo components"
+      href="/docs/examples"
+    />
+    <Card
+      title="🚀 Migration Guide"
+      description="Migrating from other upload solutions or upgrading your API"
+      href="/docs/guides/migration/enhanced-client"
+    />
+  </Cards>
+</div>
 
 ## Loved by Developers
 
@@ -177,25 +135,3 @@ Everything you need for production file uploads:
 - ✅ **Image Processing** - Built-in Sharp integration for optimization
 - ✅ **Drag & Drop** - Ready-to-use components and hooks
 - ✅ **Multi-file Support** - Concurrent uploads with progress aggregation
-
-## Get Started
-
-<div className="not-prose mb-8">
-  <Cards>
-    <Card
-      title="Quick Start"
-      description="Get up and running in under 5 minutes"
-      href="/docs/quick-start"
-    />
-    <Card
-      title="Examples"
-      description="See it in action with real-world examples"
-      href="/docs/examples"
-    />
-    <Card
-      title="Migration Guide"
-      description="Migrating from other upload solutions"
-      href="/docs/guides/migration/enhanced-client"
-    />
-  </Cards>
-</div>
