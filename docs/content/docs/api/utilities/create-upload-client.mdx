@@ -1,0 +1,127 @@
+---
+title: createUploadClient
+description: Create a type-safe upload client with enhanced property-based access
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { TypeTable } from "fumadocs-ui/components/type-table";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+# createUploadClient
+
+Creates a type-safe upload client that provides property-based access to your upload endpoints with full TypeScript inference.
+
+<Callout type="info">
+  This utility function is the foundation of the enhanced type inference system.
+  It eliminates string literals and provides compile-time validation.
+</Callout>
+
+## Function Signature
+
+```typescript
+function createUploadClient<TRouter>(
+  options: ClientOptions
+): UploadClient<TRouter>;
+```
+
+## Parameters
+
+<TypeTable
+  type={{
+    endpoint: {
+      description: "API endpoint URL for your upload router",
+      type: "string",
+      required: true,
+    },
+    headers: {
+      description: "Custom headers to include with requests",
+      type: "Record<string, string>",
+    },
+    timeout: {
+      description: "Request timeout in milliseconds",
+      type: "number",
+      default: "30000",
+    },
+    retries: {
+      description: "Number of retry attempts",
+      type: "number",
+      default: "3",
+    },
+  }}
+/>
+
+## Return Type
+
+The function returns an upload client with property-based access to your router endpoints:
+
+```typescript
+type UploadClient<TRouter> = {
+  [K in keyof TRouter]: {
+    uploadFiles: (
+      files: File[],
+      options?: UploadOptions
+    ) => Promise<UploadResult[]>;
+    files: UploadFile[];
+    isUploading: boolean;
+    reset: () => void;
+  };
+};
+```
+
+## Usage Examples
+
+<Tabs items={["Basic", "Advanced", "With Authentication"]}>
+  <Tab value="Basic">
+    ```typescript
+    import { createUploadClient } from 'next-s3-uploader/client'
+    import type { AppRouter } from '@/lib/upload'
+
+    export const upload = createUploadClient<AppRouter>({
+      endpoint: '/api/upload'
+    })
+
+    // Property-based access with full type safety
+    const { uploadFiles, files } = upload.imageUpload
+    ```
+
+  </Tab>
+  
+  <Tab value="Advanced">
+    ```typescript
+    export const upload = createUploadClient<AppRouter>({
+      endpoint: '/api/upload',
+      timeout: 60000,
+      retries: 5,
+      headers: {
+        'X-Client-Version': '1.0.0'
+      },
+      onProgress: (progress) => {
+        console.log(`Global progress: ${progress.percentage}%`)
+      }
+    })
+    ```
+  </Tab>
+  
+  <Tab value="With Authentication">
+    ```typescript
+    export const upload = createUploadClient<AppRouter>({
+      endpoint: '/api/upload',
+      headers: {
+        'Authorization': `Bearer ${getAuthToken()}`
+      },
+      onError: (error) => {
+        if (error.status === 401) {
+          redirectToLogin()
+        }
+      }
+    })
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+<Callout type="success">
+  **Type Safety:** The client automatically infers all available endpoints from
+  your router type, providing compile-time validation and autocomplete.
+</Callout>{" "}

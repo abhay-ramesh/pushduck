@@ -1,0 +1,464 @@
+---
+title: Production Checklist
+description: Essential checklist for deploying next-s3-uploader to production safely
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+
+# Production Checklist
+
+Ensure your file upload system is production-ready with this comprehensive checklist.
+
+<Callout type="warning">
+  **Critical:** Never deploy file upload functionality to production without
+  proper security, monitoring, and error handling. Follow this checklist to
+  avoid common pitfalls.
+</Callout>
+
+## Security Checklist
+
+<Steps>
+  <Step>
+    **Authentication & Authorization**
+    
+    - [ ] Authentication middleware is implemented on all upload routes
+    - [ ] Role-based access control (RBAC) is configured
+    - [ ] API endpoints are protected with proper authorization
+    - [ ] Test authentication flows work correctly
+    
+    ```typescript
+    // ✅ Secure endpoint
+    export const router = createUploadRouter({
+      userFiles: uploadSchema({
+        image: { maxSize: "5MB", maxCount: 10 }
+      }).middleware(async ({ req }) => {
+        const session = await getServerSession(req)
+        if (!session) throw new Error("Authentication required")
+        return { userId: session.user.id }
+      })
+    })
+    ```
+  </Step>
+
+{" "}
+<Step>
+  **Environment Variables** - [ ] All sensitive data is in environment variables
+  (never in code) - [ ] AWS credentials are properly configured - [ ] JWT
+  secrets are using strong, unique values - [ ] Database connection strings are
+  secure ```bash # ✅ Required environment variables
+  AWS_ACCESS_KEY_ID=your_access_key AWS_SECRET_ACCESS_KEY=your_secret_key
+  AWS_REGION=us-east-1 AWS_S3_BUCKET_NAME=your-bucket
+  JWT_SECRET=your_strong_jwt_secret NEXTAUTH_SECRET=your_nextauth_secret ```
+</Step>
+
+  <Step>
+    **Input Validation**
+    
+    - [ ] File type validation is implemented
+    - [ ] File size limits are enforced
+    - [ ] File count limits are set
+    - [ ] Malicious file detection is in place
+    
+    ```typescript
+    // ✅ Comprehensive validation
+    userPhotos: uploadSchema({
+      image: { 
+        maxSize: "10MB",
+        maxCount: 5,
+        allowedTypes: ["image/jpeg", "image/png", "image/webp"]
+      }
+    })
+    ```
+  </Step>
+
+  <Step>
+    **Rate Limiting**
+    
+    - [ ] Upload rate limiting is configured
+    - [ ] Per-user quotas are implemented
+    - [ ] IP-based rate limiting is active
+    - [ ] Burst protection is in place
+    
+    ```typescript
+    import { Ratelimit } from "@upstash/ratelimit"
+    import { Redis } from "@upstash/redis"
+    
+    const ratelimit = new Ratelimit({
+      redis: Redis.fromEnv(),
+      limiter: Ratelimit.slidingWindow(10, "1 m"), // 10 uploads per minute
+    })
+    ```
+  </Step>
+</Steps>
+
+## Infrastructure Checklist
+
+<Steps>
+  <Step>
+    **AWS S3 Configuration**
+    
+    - [ ] S3 bucket is created with proper naming convention
+    - [ ] Bucket policies are configured correctly
+    - [ ] CORS is set up for your domain
+    - [ ] Public access is blocked unless specifically needed
+    - [ ] Versioning is enabled for important buckets
+    
+    ```json
+    // ✅ Secure CORS configuration
+    {
+      "CORSRules": [
+        {
+          "AllowedOrigins": ["https://yourdomain.com"],
+          "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
+          "AllowedHeaders": ["*"],
+          "ExposeHeaders": ["ETag"]
+        }
+      ]
+    }
+    ```
+  </Step>
+
+  <Step>
+    **CDN & Performance**
+    
+    - [ ] CloudFront distribution is configured for faster delivery
+    - [ ] Cache headers are set appropriately
+    - [ ] Image optimization is enabled
+    - [ ] Compression is configured
+    
+    ```typescript
+    // ✅ Cache headers configuration
+    export const router = createUploadRouter({
+      publicImages: uploadSchema({
+        image: { maxSize: "5MB", maxCount: 10 }
+      }).afterUpload(async ({ uploadedFiles }) => {
+        // Set cache headers for uploaded files
+        await setCacheHeaders(uploadedFiles, {
+          maxAge: 31536000, // 1 year
+          immutable: true
+        })
+      })
+    })
+    ```
+  </Step>
+
+  <Step>
+    **Backup & Recovery**
+    
+    - [ ] S3 cross-region replication is configured
+    - [ ] Backup strategy is documented and tested
+    - [ ] Point-in-time recovery is available
+    - [ ] Data retention policies are defined
+    
+    ```typescript
+    // ✅ Backup configuration example
+    const backupConfig = {
+      enabled: process.env.NODE_ENV === 'production',
+      replicationBucket: process.env.AWS_BACKUP_BUCKET,
+      retentionDays: 30,
+      crossRegion: true
+    }
+    ```
+  </Step>
+</Steps>
+
+## Performance Checklist
+
+<Cards>
+  <Card title="Upload Optimization" description="Ensure fast and efficient uploads">
+    - [ ] Multipart uploads are enabled for large files
+    - [ ] Parallel upload chunks are configured
+    - [ ] Upload progress tracking is working
+    - [ ] Network error retry logic is implemented
+    
+    ```typescript
+    export const upload = createUploadClient<AppRouter>({
+      endpoint: '/api/upload',
+      chunkSize: 5 * 1024 * 1024, // 5MB chunks
+      maxRetries: 3,
+      retryDelay: 1000,
+      parallel: true
+    })
+    ```
+  </Card>
+  
+  <Card title="Database Performance" description="Optimize file metadata storage">
+    - [ ] Database indexes are created for file queries
+    - [ ] Connection pooling is configured
+    - [ ] Query performance is monitored
+    - [ ] Database backup strategy is in place
+    
+    ```sql
+    -- ✅ Essential indexes
+    CREATE INDEX idx_files_user_id ON files(user_id);
+    CREATE INDEX idx_files_created_at ON files(created_at);
+    CREATE INDEX idx_files_status ON files(status);
+    ```
+  </Card>
+  
+  <Card title="Caching Strategy" description="Implement proper caching layers">
+    - [ ] Redis/memory cache for frequently accessed data
+    - [ ] CDN caching for static files
+    - [ ] Application-level caching for metadata
+    - [ ] Cache invalidation strategy is defined
+    
+    ```typescript
+    import { cache } from '@/lib/cache'
+    
+    export async function getUserFiles(userId: string) {
+      return cache.get(`user:${userId}:files`, async () => {
+        return await db.files.findMany({ where: { userId } })
+      }, { ttl: 300 }) // 5 minutes
+    }
+    ```
+  </Card>
+</Cards>
+
+## Monitoring Checklist
+
+<Steps>
+  <Step>
+    **Error Tracking**
+    
+    - [ ] Error tracking service is integrated (Sentry, LogRocket, etc.)
+    - [ ] Upload errors are properly logged
+    - [ ] Error notifications are configured
+    - [ ] Error rate thresholds are set
+    
+    ```typescript
+    import * as Sentry from "@sentry/nextjs"
+    
+    export const router = createUploadRouter({
+      userFiles: uploadSchema({
+        image: { maxSize: "5MB", maxCount: 10 }
+      }).onError(async ({ error, context }) => {
+        Sentry.captureException(error, {
+          tags: { 
+            route: 'userFiles',
+            userId: context.userId 
+          }
+        })
+      })
+    })
+    ```
+  </Step>
+
+  <Step>
+    **Performance Monitoring**
+    
+    - [ ] Upload speed metrics are tracked
+    - [ ] Server response times are monitored
+    - [ ] Resource usage is measured
+    - [ ] Uptime monitoring is active
+    
+    ```typescript
+    // ✅ Performance tracking
+    export const router = createUploadRouter({
+      userFiles: uploadSchema({
+        image: { maxSize: "5MB", maxCount: 10 }
+      }).beforeUpload(async ({ context }) => {
+        context.startTime = Date.now()
+      }).afterUpload(async ({ context, uploadedFiles }) => {
+        const duration = Date.now() - context.startTime
+        await trackMetric('upload_duration', duration, {
+          userId: context.userId,
+          fileCount: uploadedFiles.length
+        })
+      })
+    })
+    ```
+  </Step>
+
+  <Step>
+    **Security Monitoring**
+    
+    - [ ] Failed authentication attempts are logged
+    - [ ] Suspicious upload patterns are detected
+    - [ ] Rate limit violations are tracked
+    - [ ] Security alerts are configured
+    
+    ```typescript
+    import { auditLog } from '@/lib/audit'
+    
+    export const router = createUploadRouter({
+      userFiles: uploadSchema({
+        image: { maxSize: "5MB", maxCount: 10 }
+      }).middleware(async ({ req }) => {
+        const session = await getServerSession(req)
+        
+        await auditLog('upload_attempt', {
+          userId: session?.user?.id || 'anonymous',
+          ip: req.headers.get('x-forwarded-for'),
+          userAgent: req.headers.get('user-agent'),
+          timestamp: new Date()
+        })
+        
+        if (!session) {
+          await auditLog('auth_failure', {
+            ip: req.headers.get('x-forwarded-for'),
+            endpoint: '/api/upload'
+          })
+          throw new Error("Authentication required")
+        }
+        
+        return { userId: session.user.id }
+      })
+    })
+    ```
+  </Step>
+</Steps>
+
+## Deployment Checklist
+
+<Steps>
+  <Step>
+    **CI/CD Pipeline**
+    
+    - [ ] Automated tests are passing
+    - [ ] Build process is successful
+    - [ ] Environment variables are configured
+    - [ ] Database migrations are applied
+    
+    ```yaml
+    # ✅ GitHub Actions example
+    name: Deploy to Production
+    on:
+      push:
+        branches: [main]
+    
+    jobs:
+      deploy:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v3
+          - name: Run tests
+            run: npm test
+          - name: Build application
+            run: npm run build
+          - name: Deploy to production
+            run: npm run deploy
+    ```
+  </Step>
+
+  <Step>
+    **Health Checks**
+    
+    - [ ] Upload endpoint health check is implemented
+    - [ ] Database connectivity check is working
+    - [ ] S3 connectivity check is active
+    - [ ] Overall system health endpoint exists
+    
+    ```typescript
+    // app/api/health/route.ts
+    export async function GET() {
+      const checks = await Promise.allSettled([
+        checkDatabase(),
+        checkS3Connection(),
+        checkRedisConnection()
+      ])
+      
+      const isHealthy = checks.every(check => check.status === 'fulfilled')
+      
+      return Response.json({
+        status: isHealthy ? 'healthy' : 'unhealthy',
+        checks: checks.map((check, i) => ({
+          name: ['database', 's3', 'redis'][i],
+          status: check.status
+        }))
+      }, { status: isHealthy ? 200 : 503 })
+    }
+    ```
+  </Step>
+
+  <Step>
+    **Load Testing**
+    
+    - [ ] Upload endpoints are load tested
+    - [ ] Concurrent user limits are determined
+    - [ ] Resource scaling thresholds are set
+    - [ ] Performance baselines are established
+    
+    ```javascript
+    // k6 load testing script example
+    import http from 'k6/http';
+    import { check } from 'k6';
+    
+    export let options = {
+      vus: 10,
+      duration: '30s',
+    };
+    
+    export default function() {
+      let response = http.post('https://yourapp.com/api/upload', {
+        file: http.file(open('./test-image.jpg', 'b'), 'test.jpg')
+      });
+      
+      check(response, {
+        'status is 200': (r) => r.status === 200,
+        'upload successful': (r) => r.json('success') === true,
+      });
+    }
+    ```
+  </Step>
+</Steps>
+
+## Documentation Checklist
+
+- [ ] **API Documentation** - All endpoints are documented with examples
+- [ ] **Deployment Guide** - Step-by-step deployment instructions
+- [ ] **Troubleshooting Guide** - Common issues and solutions
+- [ ] **Security Documentation** - Security measures and best practices
+- [ ] **Monitoring Runbook** - How to respond to alerts and incidents
+
+## Legal & Compliance
+
+- [ ] **Terms of Service** - File upload terms are clearly defined
+- [ ] **Privacy Policy** - Data handling practices are documented
+- [ ] **GDPR Compliance** - Data retention and deletion policies
+- [ ] **Content Moderation** - Guidelines for acceptable content
+- [ ] **Copyright Protection** - DMCA takedown procedures
+
+## Final Verification
+
+<Callout type="info">
+  **Pre-Launch Testing**: Test all upload flows with real data in a staging
+  environment that mirrors production exactly.
+</Callout>
+
+### Critical Tests
+
+1. **Authentication Flow**
+
+   - [ ] Test login/logout with upload permissions
+   - [ ] Verify unauthorized access is blocked
+   - [ ] Test token expiration handling
+
+2. **Upload Functionality**
+
+   - [ ] Test single file uploads
+   - [ ] Test multiple file uploads
+   - [ ] Test large file uploads
+   - [ ] Test network interruption recovery
+
+3. **Error Handling**
+
+   - [ ] Test file size limit enforcement
+   - [ ] Test invalid file type rejection
+   - [ ] Test quota limit enforcement
+   - [ ] Test server error responses
+
+4. **Performance**
+   - [ ] Measure upload speeds under load
+   - [ ] Test concurrent user scenarios
+   - [ ] Verify CDN delivery performance
+   - [ ] Check mobile device compatibility
+
+---
+
+<Callout type="success">
+  **Ready for Production**: Once all checklist items are complete, your file
+  upload system is ready for production deployment. Monitor closely during the
+  first few days and be prepared to respond quickly to any issues.
+</Callout>

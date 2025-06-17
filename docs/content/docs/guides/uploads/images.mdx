@@ -1,65 +1,607 @@
 ---
-title: Image Upload Guide
-description: Upload images with validation, optimization, and beautiful UI components
+title: Image Uploads
+description: Complete guide to handling image uploads with optimization, validation, and processing
 ---
 
-# Image Upload Guide
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { TypeTable } from "fumadocs-ui/components/type-table";
+import { Files, Folder, File } from "fumadocs-ui/components/files";
 
-Build robust image upload functionality with validation, previews, and optimization.
+# Image Uploads
 
-## 🖼️ Basic Image Upload
+Handle image uploads with built-in optimization, validation, and processing features for the best user experience.
 
-Start with a simple image upload component:
+<Callout type="info">
+  Images are the most common upload type. This guide covers everything from
+  basic setup to advanced optimization techniques for production apps.
+</Callout>
+
+## Basic Image Upload Setup
+
+### Server Configuration
 
 ```typescript
-// components/ImageUpload.tsx
+// app/api/upload/route.ts
+import { createUploadRouter, uploadSchema } from "next-s3-uploader/server";
+
+export const router = createUploadRouter({
+  // Basic image upload
+  profilePicture: uploadSchema({
+    image: {
+      maxSize: "5MB",
+      maxCount: 1,
+      formats: ["jpeg", "png", "webp"],
+    },
+  }),
+
+  // Multiple images with optimization
+  galleryImages: uploadSchema({
+    image: {
+      maxSize: "10MB",
+      maxCount: 10,
+      formats: ["jpeg", "png", "webp", "gif"],
+      optimization: {
+        quality: 85,
+        progressive: true,
+        stripMetadata: true,
+      },
+    },
+  }),
+});
+
+export type AppRouter = typeof router;
+export const { GET, POST } = router;
+```
+
+### Client Implementation
+
+```typescript
+// components/image-uploader.tsx
 import { upload } from "@/lib/upload-client";
 
-export function ImageUpload() {
-  const { uploadFiles, files, isUploading } = upload.imageUpload();
+export function ImageUploader() {
+  const { uploadFiles, files, isUploading } = upload.galleryImages;
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    uploadFiles(selectedFiles);
+  };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium mb-2">Upload Images</label>
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(e) => uploadFiles(e.target.files)}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-        />
+    <div className="image-uploader">
+      <input
+        type="file"
+        multiple
+        accept="image/*"
+        onChange={handleImageSelect}
+        className="file-input"
+      />
+
+      <div className="image-preview-grid">
+        {files.map((file) => (
+          <div key={file.id} className="image-preview">
+            {file.status === "success" && (
+              <img src={file.url} alt={file.name} className="preview-image" />
+            )}
+            {file.status === "uploading" && (
+              <div className="upload-progress">
+                <progress value={file.progress} max={100} />
+                <span>{file.progress}%</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+## Image Validation & Processing
+
+### Format Validation
+
+<TypeTable
+  type={{
+    formats: {
+      description: "Allowed image formats",
+      type: "string[]",
+      default: '["jpeg", "png", "webp", "gif"]',
+    },
+    minWidth: {
+      description: "Minimum image width in pixels",
+      type: "number",
+    },
+    maxWidth: {
+      description: "Maximum image width in pixels",
+      type: "number",
+    },
+    minHeight: {
+      description: "Minimum image height in pixels",
+      type: "number",
+    },
+    maxHeight: {
+      description: "Maximum image height in pixels",
+      type: "number",
+    },
+    aspectRatio: {
+      description: "Required aspect ratio (width/height)",
+      type: "number",
+    },
+  }}
+/>
+
+```typescript
+export const router = createUploadRouter({
+  productImages: uploadSchema({
+    image: {
+      maxSize: "8MB",
+      maxCount: 5,
+      formats: ["jpeg", "png", "webp"],
+
+      // Dimension validation
+      minWidth: 800,
+      maxWidth: 4000,
+      minHeight: 600,
+      maxHeight: 3000,
+
+      // Aspect ratio validation (16:9)
+      aspectRatio: 16 / 9,
+      aspectRatioTolerance: 0.1,
+    },
+  }).middleware(async ({ files }) => {
+    // Custom validation
+    for (const file of files) {
+      const metadata = await getImageMetadata(file);
+
+      if (
+        metadata.hasTransparency &&
+        !["png", "webp"].includes(metadata.format)
+      ) {
+        throw new Error("Transparent images must be PNG or WebP format");
+      }
+
+      if (metadata.colorProfile !== "sRGB") {
+        console.warn(
+          `Image ${file.name} uses ${metadata.colorProfile} color profile`
+        );
+      }
+    }
+
+    return { userId: await getUserId(req) };
+  }),
+});
+```
+
+### Image Optimization
+
+```typescript
+export const router = createUploadRouter({
+  optimizedImages: uploadSchema({
+    image: {
+      maxSize: "15MB",
+      maxCount: 10,
+      formats: ["jpeg", "png", "webp"],
+
+      optimization: {
+        // Quality settings
+        quality: 85,
+        progressive: true,
+        stripMetadata: true,
+
+        // Resizing
+        resize: {
+          width: 1920,
+          height: 1080,
+          fit: "inside", // 'cover', 'contain', 'fill', 'inside', 'outside'
+          withoutEnlargement: true,
+        },
+
+        // Format conversion
+        convertTo: "webp", // Auto-convert to WebP for better compression
+        fallbackFormat: "jpeg", // Fallback for unsupported browsers
+      },
+    },
+  }).afterUpload(async ({ uploadedFiles }) => {
+    // Generate multiple sizes
+    for (const file of uploadedFiles) {
+      await generateImageVariants(file, [
+        { name: "thumbnail", width: 150, height: 150, fit: "cover" },
+        { name: "medium", width: 800, height: 600, fit: "inside" },
+        { name: "large", width: 1920, height: 1080, fit: "inside" },
+      ]);
+    }
+  }),
+});
+```
+
+## Advanced Image Features
+
+### Responsive Image Generation
+
+```typescript
+interface ImageVariant {
+  name: string;
+  width: number;
+  height?: number;
+  quality?: number;
+  format?: "jpeg" | "png" | "webp";
+}
+
+const imageVariants: ImageVariant[] = [
+  { name: "thumbnail", width: 150, height: 150, quality: 80 },
+  { name: "small", width: 400, quality: 85 },
+  { name: "medium", width: 800, quality: 85 },
+  { name: "large", width: 1200, quality: 85 },
+  { name: "xlarge", width: 1920, quality: 90 },
+];
+
+export const router = createUploadRouter({
+  responsiveImages: uploadSchema({
+    image: {
+      maxSize: "20MB",
+      maxCount: 5,
+      formats: ["jpeg", "png", "webp"],
+    },
+  }).afterUpload(async ({ uploadedFiles, context }) => {
+    for (const file of uploadedFiles) {
+      // Generate responsive variants
+      const variants = await Promise.all(
+        imageVariants.map((variant) => generateImageVariant(file, variant))
+      );
+
+      // Save variant information to database
+      await saveImageVariants(file.key, variants, context.userId);
+    }
+  }),
+});
+
+// Client-side responsive image component
+export function ResponsiveImage({
+  src,
+  alt,
+  sizes = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw",
+}: {
+  src: string;
+  alt: string;
+  sizes?: string;
+}) {
+  const variants = useImageVariants(src);
+
+  if (!variants) return <img src={src} alt={alt} />;
+
+  const srcSet = [
+    `${variants.small} 400w`,
+    `${variants.medium} 800w`,
+    `${variants.large} 1200w`,
+    `${variants.xlarge} 1920w`,
+  ].join(", ");
+
+  return (
+    <img
+      src={variants.medium}
+      srcSet={srcSet}
+      sizes={sizes}
+      alt={alt}
+      loading="lazy"
+    />
+  );
+}
+```
+
+### Image Upload with Crop & Preview
+
+<Tabs items={["React Component", "Image Cropper", "Upload Handler"]}>
+  <Tab value="React Component">
+    ```typescript
+    import { useState } from 'react'
+    import { ImageCropper } from './image-cropper'
+    import { upload } from '@/lib/upload-client'
+    
+    export function ImageUploadWithCrop() {
+      const [selectedFile, setSelectedFile] = useState<File | null>(null)
+      const [croppedImage, setCroppedImage] = useState<Blob | null>(null)
+      const { uploadFiles, isUploading } = upload.profilePicture
+    
+      const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (file) setSelectedFile(file)
+      }
+    
+      const handleCropComplete = (croppedBlob: Blob) => {
+        setCroppedImage(croppedBlob)
+      }
+    
+      const handleUpload = async () => {
+        if (!croppedImage) return
+        
+        const file = new File([croppedImage], 'cropped-image.jpg', {
+          type: 'image/jpeg'
+        })
+        
+        await uploadFiles([file])
+        
+        // Reset state
+        setSelectedFile(null)
+        setCroppedImage(null)
+      }
+    
+      return (
+        <div className="image-upload-crop">
+          {!selectedFile && (
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+            />
+          )}
+          
+          {selectedFile && !croppedImage && (
+            <ImageCropper
+              image={selectedFile}
+              aspectRatio={1} // Square crop
+              onCropComplete={handleCropComplete}
+            />
+          )}
+          
+          {croppedImage && (
+            <div className="crop-preview">
+              <img 
+                src={URL.createObjectURL(croppedImage)} 
+                alt="Cropped preview" 
+              />
+              <div className="crop-actions">
+                <button onClick={() => setCroppedImage(null)}>
+                  Recrop
+                </button>
+                <button 
+                  onClick={handleUpload}
+                  disabled={isUploading}
+                >
+                  {isUploading ? 'Uploading...' : 'Upload'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+    ```
+  </Tab>
+  
+  <Tab value="Image Cropper">
+    ```typescript
+    import { useRef, useCallback } from 'react'
+    import ReactCrop, { Crop, PixelCrop } from 'react-image-crop'
+    import 'react-image-crop/dist/ReactCrop.css'
+    
+    interface ImageCropperProps {
+      image: File
+      aspectRatio?: number
+      onCropComplete: (croppedBlob: Blob) => void
+    }
+    
+    export function ImageCropper({ 
+      image, 
+      aspectRatio = 1, 
+      onCropComplete 
+    }: ImageCropperProps) {
+      const imgRef = useRef<HTMLImageElement>(null)
+      const [crop, setCrop] = useState<Crop>({
+        unit: '%',
+        x: 25,
+        y: 25,
+        width: 50,
+        height: 50
+      })
+      
+      const imageUrl = URL.createObjectURL(image)
+    
+      const getCroppedImage = useCallback(async (
+        image: HTMLImageElement,
+        crop: PixelCrop
+      ): Promise<Blob> => {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')!
+        
+        const scaleX = image.naturalWidth / image.width
+        const scaleY = image.naturalHeight / image.height
+        
+        canvas.width = crop.width * scaleX
+        canvas.height = crop.height * scaleY
+        
+        ctx.imageSmoothingQuality = 'high'
+        
+        ctx.drawImage(
+          image,
+          crop.x * scaleX,
+          crop.y * scaleY,
+          crop.width * scaleX,
+          crop.height * scaleY,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        )
+        
+        return new Promise(resolve => {
+          canvas.toBlob(blob => resolve(blob!), 'image/jpeg', 0.9)
+        })
+      }, [])
+    
+      const handleCropComplete = useCallback(async (crop: PixelCrop) => {
+        if (imgRef.current && crop.width && crop.height) {
+          const croppedBlob = await getCroppedImage(imgRef.current, crop)
+          onCropComplete(croppedBlob)
+        }
+      }, [getCroppedImage, onCropComplete])
+    
+      return (
+        <div className="image-cropper">
+          <ReactCrop
+            crop={crop}
+            onChange={setCrop}
+            onComplete={handleCropComplete}
+            aspect={aspectRatio}
+          >
+            <img
+              ref={imgRef}
+              src={imageUrl}
+              alt="Crop preview"
+              style={{ maxWidth: '100%', maxHeight: '400px' }}
+            />
+          </ReactCrop>
+        </div>
+      )
+    }
+    ```
+  </Tab>
+  
+  <Tab value="Upload Handler">
+    ```typescript
+    // Server-side image processing after upload
+    export const router = createUploadRouter({
+      profilePicture: uploadSchema({
+        image: {
+          maxSize: "10MB",
+          maxCount: 1,
+          formats: ["jpeg", "png", "webp"]
+        }
+      }).afterUpload(async ({ uploadedFiles, context }) => {
+        for (const file of uploadedFiles) {
+          // Generate avatar sizes
+          await Promise.all([
+            generateImageVariant(file, {
+              name: 'avatar-small',
+              width: 32,
+              height: 32,
+              fit: 'cover',
+              quality: 90
+            }),
+            generateImageVariant(file, {
+              name: 'avatar-medium',
+              width: 64,
+              height: 64,
+              fit: 'cover',
+              quality: 90
+            }),
+            generateImageVariant(file, {
+              name: 'avatar-large',
+              width: 128,
+              height: 128,
+              fit: 'cover',
+              quality: 95
+            })
+          ])
+          
+          // Update user profile with new avatar
+          await updateUserAvatar(context.userId, {
+            original: file.url,
+            small: getVariantUrl(file.key, 'avatar-small'),
+            medium: getVariantUrl(file.key, 'avatar-medium'),
+            large: getVariantUrl(file.key, 'avatar-large')
+          })
+        }
+      })
+    })
+    ```
+  </Tab>
+</Tabs>
+
+## Image Upload Patterns
+
+### Drag & Drop Image Gallery
+
+```typescript
+import { useDropzone } from "react-dropzone";
+import { upload } from "@/lib/upload-client";
+
+export function ImageGalleryUploader() {
+  const { uploadFiles, files, isUploading } = upload.galleryImages;
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: {
+      "image/*": [".jpeg", ".jpg", ".png", ".webp", ".gif"],
+    },
+    maxFiles: 10,
+    onDrop: (acceptedFiles) => {
+      uploadFiles(acceptedFiles);
+    },
+  });
+
+  const removeFile = (fileId: string) => {
+    // Implementation to remove file from gallery
+  };
+
+  return (
+    <div className="image-gallery-uploader">
+      <div
+        {...getRootProps()}
+        className={`dropzone ${isDragActive ? "active" : ""}`}
+      >
+        <input {...getInputProps()} />
+        {isDragActive ? (
+          <p>Drop the images here...</p>
+        ) : (
+          <div className="dropzone-content">
+            <svg className="upload-icon" viewBox="0 0 24 24">
+              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+            </svg>
+            <p>Drag & drop images here, or click to select</p>
+            <p className="dropzone-hint">Up to 10 images, max 10MB each</p>
+          </div>
+        )}
       </div>
 
       {files.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="image-grid">
           {files.map((file) => (
-            <div key={file.id} className="relative">
-              {file.url ? (
-                <img
-                  src={file.url}
-                  alt={file.name}
-                  className="w-full h-32 object-cover rounded-lg"
-                />
-              ) : (
-                <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-sm text-gray-500">{file.name}</div>
-                    <div className="text-xs text-gray-400">
-                      {file.status === "uploading" && `${file.progress}%`}
-                    </div>
-                  </div>
+            <div key={file.id} className="image-item">
+              {file.status === "success" && (
+                <div className="image-wrapper">
+                  <img src={file.url} alt={file.name} />
+                  <button
+                    className="remove-button"
+                    onClick={() => removeFile(file.id)}
+                  >
+                    ×
+                  </button>
                 </div>
               )}
 
               {file.status === "uploading" && (
-                <div className="absolute bottom-2 left-2 right-2">
-                  <div className="w-full bg-gray-200 rounded-full h-1">
-                    <div
-                      className="bg-blue-600 h-1 rounded-full transition-all"
-                      style={{ width: `${file.progress}%` }}
-                    />
+                <div className="upload-placeholder">
+                  <div className="progress-circle">
+                    <svg viewBox="0 0 36 36">
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke="#e5e7eb"
+                        strokeWidth="3"
+                      />
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke="#3b82f6"
+                        strokeWidth="3"
+                        strokeDasharray={`${file.progress}, 100`}
+                      />
+                    </svg>
+                    <span>{file.progress}%</span>
                   </div>
+                  <p>{file.name}</p>
+                </div>
+              )}
+
+              {file.status === "error" && (
+                <div className="error-placeholder">
+                  <span className="error-icon">⚠️</span>
+                  <p>Upload failed</p>
+                  <button onClick={() => uploadFiles([file.originalFile])}>
+                    Retry
+                  </button>
                 </div>
               )}
             </div>
@@ -71,631 +613,174 @@ export function ImageUpload() {
 }
 ```
 
-## 🔧 Server Configuration
-
-Configure your image upload route with validation:
+### Image Upload with Metadata
 
 ```typescript
-// app/api/s3-upload/route.ts
-import { createS3Router, s3 } from "next-s3-uploader/server";
+export const router = createUploadRouter({
+  portfolioImages: uploadSchema({
+    image: {
+      maxSize: "15MB",
+      maxCount: 20,
+      formats: ["jpeg", "png", "webp"],
+    },
+  })
+    .middleware(async ({ req, files }) => {
+      const { userId } = await authenticateUser(req);
 
-const s3Router = createS3Router({
-  imageUpload: s3
-    .image()
-    .max("5MB") // File size limit
-    .formats(["jpeg", "jpg", "png", "webp"]) // Allowed formats
-    .dimensions({
-      // Image dimensions
-      min: { width: 100, height: 100 },
-      max: { width: 4000, height: 4000 },
-    }),
-});
+      // Extract and validate metadata
+      for (const file of files) {
+        const metadata = await extractImageMetadata(file);
 
-export type AppS3Router = typeof s3Router;
-export const { GET, POST } = createS3Handler(s3Router);
-```
+        // Store rich metadata
+        file.metadata = {
+          ...metadata,
+          uploadedBy: userId,
+          uploadedAt: new Date(),
+          originalFilename: file.name,
+          fileHash: await calculateFileHash(file),
+        };
+      }
 
-## 🎨 Drag & Drop Upload
-
-Create a beautiful drag & drop interface:
-
-```typescript
-// components/ImageDropZone.tsx
-import { upload } from "@/lib/upload-client";
-import { useState } from "react";
-
-export function ImageDropZone() {
-  const { uploadFiles, files, isUploading } = upload.imageUpload();
-  const [isDragOver, setIsDragOver] = useState(false);
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-
-    const droppedFiles = Array.from(e.dataTransfer.files).filter((file) =>
-      file.type.startsWith("image/")
-    );
-
-    if (droppedFiles.length > 0) {
-      uploadFiles(droppedFiles);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  };
-
-  return (
-    <div className="space-y-6">
-      <div
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        className={`
-          border-2 border-dashed rounded-lg p-8 text-center transition-colors
-          ${
-            isDragOver
-              ? "border-blue-400 bg-blue-50"
-              : "border-gray-300 hover:border-gray-400"
-          }
-        `}
-      >
-        <div className="space-y-4">
-          <div className="text-4xl">🖼️</div>
-          <div>
-            <p className="text-lg font-medium">
-              Drop images here or click to browse
-            </p>
-            <p className="text-sm text-gray-500">
-              PNG, JPG, WebP up to 5MB each
-            </p>
-          </div>
-
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={(e) => uploadFiles(e.target.files)}
-            className="hidden"
-            id="image-input"
-          />
-          <label
-            htmlFor="image-input"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer"
-          >
-            Choose Images
-          </label>
-        </div>
-      </div>
-
-      {files.length > 0 && (
-        <div>
-          <h3 className="font-medium mb-4">Uploaded Images ({files.length})</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {files.map((file) => (
-              <ImagePreview key={file.id} file={file} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ImagePreview({ file }: { file: UploadedFile }) {
-  return (
-    <div className="relative bg-white rounded-lg shadow border overflow-hidden">
-      {file.url ? (
-        <img
-          src={file.url}
-          alt={file.name}
-          className="w-full h-48 object-cover"
-        />
-      ) : (
-        <div className="w-full h-48 bg-gray-100 flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-sm text-gray-500 mb-2">{file.name}</div>
-            <div className="w-16 bg-gray-200 rounded-full h-2 mx-auto">
-              <div
-                className="bg-blue-600 h-2 rounded-full transition-all"
-                style={{ width: `${file.progress}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="p-3">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-medium truncate">{file.name}</div>
-          <div className="text-xs text-gray-500 ml-2">
-            {file.status === "completed" && "✅"}
-            {file.status === "uploading" && "⏳"}
-            {file.status === "error" && "❌"}
-          </div>
-        </div>
-
-        {file.status === "error" && (
-          <div className="text-xs text-red-600 mt-1">
-            Upload failed - try again
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-```
-
-## ✅ Advanced Validation
-
-Add comprehensive image validation:
-
-```typescript
-// app/api/s3-upload/route.ts
-const s3Router = createS3Router({
-  profileImage: s3
-    .image()
-    .max("2MB")
-    .formats(["jpeg", "jpg", "png", "webp"])
-    .dimensions({
-      min: { width: 200, height: 200 },
-      max: { width: 2000, height: 2000 },
-      aspectRatio: { min: 0.8, max: 1.2 }, // Nearly square
+      return { userId };
     })
-    .middleware(async ({ file, req }) => {
-      // Custom validation
-      if (file.name.includes("test")) {
-        throw new Error("Test images not allowed");
-      }
-
-      // User-specific validation
-      const user = await getCurrentUser(req);
-      if (!user.isPremium && file.size > 1024 * 1024) {
-        // 1MB
-        throw new Error("Premium required for large images");
-      }
-
-      return { userId: user.id };
-    }),
-
-  galleryImages: s3
-    .image()
-    .max("10MB")
-    .formats(["jpeg", "jpg", "png", "webp", "avif"])
-    .array()
-    .min(1)
-    .max(10) // Max 10 images at once
-    .middleware(async ({ files, req }) => {
-      const user = await getCurrentUser(req);
-
-      // Check total storage limit
-      const currentUsage = await getUserStorageUsage(user.id);
-      const uploadSize = files.reduce((sum, file) => sum + file.size, 0);
-
-      if (currentUsage + uploadSize > user.storageLimit) {
-        throw new Error("Storage limit exceeded");
-      }
-
-      return { userId: user.id };
-    }),
-});
-```
-
-## 📱 Responsive Image Upload
-
-Create a mobile-friendly upload component:
-
-```typescript
-// components/ResponsiveImageUpload.tsx
-import { upload } from "@/lib/upload-client";
-import { useState } from "react";
-
-export function ResponsiveImageUpload() {
-  const { uploadFiles, files, isUploading } = upload.galleryImages();
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-
-  return (
-    <div className="space-y-4">
-      {/* Upload Area */}
-      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6">
-        <div className="text-center">
-          <div className="text-2xl sm:text-4xl mb-2">📸</div>
-          <p className="text-sm sm:text-base font-medium">
-            Add images to your gallery
-          </p>
-          <p className="text-xs sm:text-sm text-gray-500 mb-4">
-            Up to 10 images, 10MB each
-          </p>
-
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={(e) => uploadFiles(e.target.files)}
-            className="hidden"
-            id="gallery-input"
-          />
-          <label
-            htmlFor="gallery-input"
-            className="inline-flex items-center px-3 py-2 sm:px-4 sm:py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer"
-          >
-            Choose Images
-          </label>
-        </div>
-      </div>
-
-      {/* View Controls */}
-      {files.length > 0 && (
-        <div className="flex items-center justify-between">
-          <h3 className="font-medium">Images ({files.length})</h3>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`p-2 rounded ${
-                viewMode === "grid"
-                  ? "bg-blue-100 text-blue-600"
-                  : "text-gray-400"
-              }`}
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-              </svg>
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-2 rounded ${
-                viewMode === "list"
-                  ? "bg-blue-100 text-blue-600"
-                  : "text-gray-400"
-              }`}
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 8a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 12a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 16a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Image Display */}
-      {viewMode === "grid" ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
-          {files.map((file) => (
-            <GridImageCard key={file.id} file={file} />
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {files.map((file) => (
-            <ListImageCard key={file.id} file={file} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function GridImageCard({ file }: { file: UploadedFile }) {
-  return (
-    <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
-      {file.url ? (
-        <img
-          src={file.url}
-          alt={file.name}
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          <div className="text-center p-2">
-            <div className="text-xs text-gray-500 mb-1 truncate">
-              {file.name}
-            </div>
-            <div className="w-12 bg-gray-200 rounded-full h-1">
-              <div
-                className="bg-blue-600 h-1 rounded-full transition-all"
-                style={{ width: `${file.progress}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ListImageCard({ file }: { file: UploadedFile }) {
-  return (
-    <div className="flex items-center space-x-3 p-3 bg-white rounded-lg border">
-      <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-        {file.url ? (
-          <img
-            src={file.url}
-            alt={file.name}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="text-gray-400">📄</div>
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-gray-900 truncate">
-          {file.name}
-        </div>
-        <div className="text-xs text-gray-500">
-          {file.status === "completed" &&
-            `Uploaded • ${formatFileSize(file.size)}`}
-          {file.status === "uploading" && `Uploading ${file.progress}%`}
-          {file.status === "error" && "Upload failed"}
-        </div>
-
-        {file.status === "uploading" && (
-          <div className="w-full bg-gray-200 rounded-full h-1 mt-1">
-            <div
-              className="bg-blue-600 h-1 rounded-full transition-all"
-              style={{ width: `${file.progress}%` }}
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="flex-shrink-0">
-        {file.status === "completed" && (
-          <span className="text-green-500">✅</span>
-        )}
-        {file.status === "uploading" && (
-          <span className="text-blue-500">⏳</span>
-        )}
-        {file.status === "error" && <span className="text-red-500">❌</span>}
-      </div>
-    </div>
-  );
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-}
-```
-
-## 🔧 Image Optimization
-
-Add automatic image optimization on upload:
-
-```typescript
-// app/api/s3-upload/route.ts
-import { createS3Router, s3 } from "next-s3-uploader/server";
-import sharp from "sharp"; // npm install sharp
-
-const s3Router = createS3Router({
-  optimizedImages: s3
-    .image()
-    .max("20MB") // Accept larger files for processing
-    .formats(["jpeg", "jpg", "png", "webp"])
-    .onUploadComplete(async ({ file, key, metadata }) => {
-      // Generate optimized versions
-      const originalBuffer = await downloadFile(key);
-
-      // Create thumbnail (200x200)
-      const thumbnail = await sharp(originalBuffer)
-        .resize(200, 200, { fit: "cover" })
-        .jpeg({ quality: 80 })
-        .toBuffer();
-
-      // Create medium size (800px wide)
-      const medium = await sharp(originalBuffer)
-        .resize(800, null, { withoutEnlargement: true })
-        .jpeg({ quality: 85 })
-        .toBuffer();
-
-      // Create WebP version
-      const webp = await sharp(originalBuffer).webp({ quality: 80 }).toBuffer();
-
-      // Upload optimized versions
-      await Promise.all([
-        uploadFile(`${key}-thumbnail.jpg`, thumbnail),
-        uploadFile(`${key}-medium.jpg`, medium),
-        uploadFile(`${key}.webp`, webp),
-      ]);
-
-      return {
-        ...file,
-        variants: {
-          thumbnail: `${file.url}-thumbnail.jpg`,
-          medium: `${file.url}-medium.jpg`,
-          webp: `${file.url}.webp`,
-        },
-      };
-    }),
-});
-```
-
-## 📊 Upload Analytics
-
-Track image upload metrics:
-
-```typescript
-// app/api/s3-upload/route.ts
-const s3Router = createS3Router({
-  analyticsImages: s3
-    .image()
-    .max("5MB")
-    .onUploadStart(async ({ file, metadata }) => {
-      // Track upload start
-      await analytics.track("image_upload_started", {
-        fileSize: file.size,
-        fileType: file.type,
-        userId: metadata.userId,
-      });
-    })
-    .onUploadProgress(async ({ file, progress, metadata }) => {
-      // Track progress milestones
-      if (progress === 50 || progress === 100) {
-        await analytics.track("image_upload_progress", {
-          fileName: file.name,
-          progress,
-          userId: metadata.userId,
+    .afterUpload(async ({ uploadedFiles, context }) => {
+      // Save detailed image information
+      for (const file of uploadedFiles) {
+        await saveImageToDatabase({
+          userId: context.userId,
+          s3Key: file.key,
+          url: file.url,
+          filename: file.metadata.originalFilename,
+          size: file.size,
+          dimensions: {
+            width: file.metadata.width,
+            height: file.metadata.height,
+          },
+          format: file.metadata.format,
+          colorProfile: file.metadata.colorProfile,
+          hasTransparency: file.metadata.hasTransparency,
+          exifData: file.metadata.exif,
+          hash: file.metadata.fileHash,
         });
       }
-    })
-    .onUploadComplete(async ({ file, metadata, uploadTime }) => {
-      // Track successful upload
-      await analytics.track("image_upload_completed", {
-        fileSize: file.size,
-        uploadDuration: uploadTime,
-        userId: metadata.userId,
-        success: true,
-      });
-
-      // Update user storage usage
-      await updateUserStorageUsage(metadata.userId, file.size);
-    })
-    .onUploadError(async ({ file, error, metadata }) => {
-      // Track upload failures
-      await analytics.track("image_upload_failed", {
-        fileName: file.name,
-        errorMessage: error.message,
-        userId: metadata.userId,
-        success: false,
-      });
     }),
 });
 ```
 
-## 🎯 Common Use Cases
+## Performance Best Practices
 
-### Profile Avatar Upload
-
-```typescript
-// components/AvatarUpload.tsx
-export function AvatarUpload({ currentAvatar }: { currentAvatar?: string }) {
-  const { uploadFiles, files } = upload.profileImage();
-
-  const latestFile = files[files.length - 1];
-  const displayUrl = latestFile?.url || currentAvatar;
-
-  return (
-    <div className="flex items-center space-x-4">
-      <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-300">
-        {displayUrl ? (
+<Cards>
+  <Card title="Client-Side Optimization" description="Optimize images before upload">
+    ```typescript
+    import { compress } from 'image-conversion'
+    
+    export function optimizeImage(file: File): Promise<File> {
+      return compress(file, {
+        quality: 0.8,
+        type: 'image/webp',
+        width: 1920,
+        height: 1080,
+        orientation: true // Auto-rotate based on EXIF
+      })
+    }
+    
+    // Usage in upload component
+    const handleFileSelect = async (files: File[]) => {
+      const optimizedFiles = await Promise.all(
+        files.map(file => optimizeImage(file))
+      )
+      uploadFiles(optimizedFiles)
+    }
+    ```
+  </Card>
+  
+  <Card title="Progressive Loading" description="Implement blur-to-sharp loading">
+    ```typescript
+    export function ProgressiveImage({ 
+      src, 
+      blurDataURL, 
+      alt 
+    }: {
+      src: string
+      blurDataURL: string
+      alt: string
+    }) {
+      const [isLoaded, setIsLoaded] = useState(false)
+      
+      return (
+        <div className="progressive-image">
           <img
-            src={displayUrl}
-            alt="Profile"
-            className="w-full h-full object-cover"
+            src={blurDataURL}
+            alt={alt}
+            className={`blur-image ${isLoaded ? 'hidden' : ''}`}
           />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <span className="text-gray-400">👤</span>
-          </div>
-        )}
-      </div>
-
-      <div>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => uploadFiles(e.target.files)}
-          className="hidden"
-          id="avatar-input"
-        />
-        <label
-          htmlFor="avatar-input"
-          className="cursor-pointer text-sm font-medium text-blue-600 hover:text-blue-500"
-        >
-          Change Avatar
-        </label>
-        <p className="text-xs text-gray-500">JPG, PNG up to 2MB</p>
-      </div>
-    </div>
-  );
-}
-```
-
-### Image Gallery with Lightbox
-
-```typescript
-// components/ImageGallery.tsx
-import { useState } from "react";
-
-export function ImageGallery() {
-  const { uploadFiles, files } = upload.galleryImages();
-  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-
-  return (
-    <div className="space-y-6">
-      {/* Upload Area */}
-      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(e) => uploadFiles(e.target.files)}
-          className="hidden"
-          id="gallery-input"
-        />
-        <label
-          htmlFor="gallery-input"
-          className="cursor-pointer inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-        >
-          Add Images to Gallery
-        </label>
-      </div>
-
-      {/* Gallery Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {files
-          .filter((f) => f.url)
-          .map((file) => (
-            <button
-              key={file.id}
-              onClick={() => setLightboxImage(file.url!)}
-              className="aspect-square bg-gray-100 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
-            >
-              <img
-                src={file.url}
-                alt={file.name}
-                className="w-full h-full object-cover"
-              />
-            </button>
-          ))}
-      </div>
-
-      {/* Lightbox */}
-      {lightboxImage && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
-          onClick={() => setLightboxImage(null)}
-        >
           <img
-            src={lightboxImage}
-            alt="Full size"
-            className="max-w-full max-h-full object-contain"
+            src={src}
+            alt={alt}
+            className={`sharp-image ${isLoaded ? 'visible' : ''}`}
+            onLoad={() => setIsLoaded(true)}
           />
         </div>
-      )}
-    </div>
-  );
-}
-```
+      )
+    }
+    ```
+  </Card>
+  
+  <Card title="Lazy Loading" description="Load images as they enter viewport">
+    ```typescript
+    import { useIntersectionObserver } from '@/hooks/use-intersection-observer'
+    
+    export function LazyImage({ src, alt, ...props }) {
+      const [ref, isIntersecting] = useIntersectionObserver({
+        threshold: 0.1,
+        rootMargin: '50px'
+      })
+      
+      return (
+        <div ref={ref} className="lazy-image-container">
+          {isIntersecting ? (
+            <img src={src} alt={alt} {...props} />
+          ) : (
+            <div className="lazy-placeholder">Loading...</div>
+          )}
+        </div>
+      )
+    }
+    ```
+  </Card>
+</Cards>
 
-## 📚 Next Steps
+## Project Structure
 
-- **[Document Upload Guide](/guides/uploads/documents)** - Handle PDFs and documents
-- **[Multiple Files](/guides/uploads/multiple-files)** - Batch upload patterns
-- **[Drag & Drop](/guides/uploads/drag-and-drop)** - Advanced drag & drop features
-- **[API Reference](/api-reference)** - Complete API documentation
+<Files>
+  <Folder name="app" defaultOpen>
+    <Folder name="api">
+      <File name="upload/route.ts" />
+    </Folder>
+    <Folder name="gallery">
+      <File name="page.tsx" />
+    </Folder>
+  </Folder>
+  <Folder name="components" defaultOpen>
+    <File name="image-uploader.tsx" />
+    <File name="image-cropper.tsx" />
+    <File name="image-gallery.tsx" />
+    <File name="progressive-image.tsx" />
+  </Folder>
+  <Folder name="lib">
+    <File name="upload-client.ts" />
+    <File name="image-utils.ts" />
+  </Folder>
+  <Folder name="hooks">
+    <File name="use-image-upload.ts" />
+    <File name="use-intersection-observer.ts" />
+  </Folder>
+</Files>
 
 ---
 
-**Need help?** Check our [Examples](/examples) or [Troubleshooting Guide](/guides/going-live/troubleshooting)
+<Callout type="success">
+  **Image Excellence**: With proper optimization, validation, and processing,
+  your image uploads will provide an excellent user experience while maintaining
+  performance and quality.
+</Callout>

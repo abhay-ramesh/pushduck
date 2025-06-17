@@ -1,4 +1,6 @@
 {
     "title": "Utilities",
-    "pages": []
+    "pages": [
+        "create-upload-client"
+    ]
 }

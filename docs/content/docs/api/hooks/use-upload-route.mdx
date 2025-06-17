@@ -1,0 +1,198 @@
+---
+title: useUploadRoute
+description: React hook for uploading files with reactive state management
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { TypeTable } from "fumadocs-ui/components/type-table";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+# useUploadRoute
+
+A React hook that provides reactive state management for file uploads with progress tracking and error handling.
+
+<Callout type="info">
+  This hook follows familiar React patterns and is perfect for teams that prefer
+  the traditional hook-based approach over property-based access.
+</Callout>
+
+## Basic Usage
+
+```typescript
+import { useUploadRoute } from "next-s3-uploader/client";
+import type { AppRouter } from "@/lib/upload";
+
+export function ImageUploader() {
+  const { uploadFiles, files, isUploading, error, reset } =
+    useUploadRoute<AppRouter>("imageUpload");
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    uploadFiles(selectedFiles);
+  };
+
+  return (
+    <div>
+      <input
+        type="file"
+        multiple
+        accept="image/*"
+        onChange={handleFileSelect}
+      />
+
+      {files.map((file) => (
+        <div key={file.id}>
+          <span>{file.name}</span>
+          <progress value={file.progress} max={100} />
+          {file.status === "success" && <a href={file.url}>View</a>}
+        </div>
+      ))}
+
+      {error && <div className="error">{error.message}</div>}
+      <button onClick={reset}>Reset</button>
+    </div>
+  );
+}
+```
+
+## Hook Signature
+
+```typescript
+function useUploadRoute<TRouter>(
+  route: keyof TRouter,
+  options?: UseUploadOptions
+): UseUploadReturn;
+```
+
+## Parameters
+
+<TypeTable
+  type={{
+    route: {
+      description: "The upload route name from your router",
+      type: "keyof TRouter",
+      required: true,
+    },
+    options: {
+      description: "Optional configuration for the hook",
+      type: "UseUploadOptions",
+    },
+  }}
+/>
+
+## Options
+
+<TypeTable
+  type={{
+    onSuccess: {
+      description: "Callback when uploads complete successfully",
+      type: "(results: UploadResult[]) => void",
+    },
+    onError: {
+      description: "Callback when upload fails",
+      type: "(error: UploadError) => void",
+    },
+    onProgress: {
+      description: "Callback for progress updates",
+      type: "(progress: UploadProgress) => void",
+    },
+    disabled: {
+      description: "Disable upload functionality",
+      type: "boolean",
+      default: "false",
+    },
+    autoUpload: {
+      description: "Automatically upload files when added",
+      type: "boolean",
+      default: "true",
+    },
+  }}
+/>
+
+## Return Value
+
+<TypeTable
+  type={{
+    uploadFiles: {
+      description: "Function to upload files",
+      type: "(files: File[]) => Promise<UploadResult[]>",
+    },
+    files: {
+      description: "Array of files with upload status",
+      type: "UploadFile[]",
+    },
+    isUploading: {
+      description: "Whether any upload is in progress",
+      type: "boolean",
+    },
+    uploadedFiles: {
+      description: "Successfully uploaded files",
+      type: "UploadResult[]",
+    },
+    error: {
+      description: "Upload error if any",
+      type: "UploadError | null",
+    },
+    reset: {
+      description: "Reset upload state",
+      type: "() => void",
+    },
+  }}
+/>
+
+## Advanced Examples
+
+<Tabs items={["With Callbacks", "Multiple Files", "Form Integration"]}>
+  <Tab value="With Callbacks">
+    ```typescript
+    const { uploadFiles, files } = useUploadRoute<AppRouter>('documentUpload', {
+      onSuccess: (results) => {
+        toast.success(`Uploaded ${results.length} files`)
+        updateDocuments(results)
+      },
+      onError: (error) => {
+        toast.error(`Upload failed: ${error.message}`)
+      },
+      onProgress: (progress) => {
+        setGlobalProgress(progress.percentage)
+      }
+    })
+    ```
+  </Tab>
+  
+  <Tab value="Multiple Files">
+    ```typescript
+    const images = useUploadRoute<AppRouter>('imageUpload')
+    const documents = useUploadRoute<AppRouter>('documentUpload')
+    
+    return (
+      <div>
+        <FileUploadSection {...images} accept="image/*" />
+        <FileUploadSection {...documents} accept=".pdf,.doc" />
+      </div>
+    )
+    ```
+  </Tab>
+  
+  <Tab value="Form Integration">
+    ```typescript
+    const { uploadFiles, uploadedFiles } = useUploadRoute<AppRouter>('attachments', {
+      onSuccess: (results) => {
+        setValue('attachments', results.map(r => r.url))
+      }
+    })
+    
+    const onSubmit = (data) => {
+      // Form data includes uploaded file URLs
+      console.log(data.attachments)
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+<Callout type="success">
+  **Flexible API:** Use this hook when you prefer React's familiar hook patterns
+  or need more granular control over upload state.
+</Callout>

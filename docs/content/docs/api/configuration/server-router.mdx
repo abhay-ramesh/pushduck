@@ -1,209 +1,316 @@
 ---
-title: Server Router
-description: Configure your upload routes with type-safe validation and middleware
+title: Server Router Configuration
+description: Complete guide to configuring your upload router with type safety and advanced features
 ---
 
 import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+import { TypeTable } from "fumadocs-ui/components/type-table";
 
 # Server Router Configuration
 
-The **server router** is the heart of your upload system. It defines upload routes, validation rules, and middleware with full TypeScript inference.
+The server router is the heart of next-s3-uploader. It defines your upload endpoints with complete type safety and validates all uploads against your schema.
 
 <Callout type="info">
-  Every route you define here automatically becomes available on your client
-  with complete type safety. No string literals, no runtime errors.
+  This guide covers the **enhanced router API** with property-based client
+  access. Looking for the legacy API? Check our [migration
+  guide](/docs/guides/migration/enhanced-client).
 </Callout>
+
+## Project Structure
+
+A typical Next.js project with next-s3-uploader follows this structure:
+
+<Files>
+  <Folder name="your-app" defaultOpen>
+    <Folder name="app">
+      <Folder name="api">
+        <Folder name="upload" defaultOpen>
+          <File name="route.ts" />
+        </Folder>
+      </Folder>
+      <File name="layout.tsx" />
+      <File name="page.tsx" />
+    </Folder>
+    <Folder name="lib">
+      <File name="upload.ts" />
+      <File name="upload-client.ts" />
+    </Folder>
+    <File name=".env.local" />
+    <File name="next.config.js" />
+  </Folder>
+</Files>
 
 ## Basic Router Setup
 
-Start with a simple router configuration:
+<Steps>
+  <Step>
+    **Create your upload route**
+    
+    Start by creating the API route that will handle your uploads:
+
+    ```typescript title="app/api/upload/route.ts"
+    import { createUploadRouter, uploadSchema } from 'next-s3-uploader/server'
+    import { createS3Client } from 'next-s3-uploader/s3'
+
+    const s3 = createS3Client({
+      endpoint: process.env.S3_ENDPOINT!,
+      accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+      bucket: process.env.S3_BUCKET!,
+      region: process.env.S3_REGION!,
+    })
+
+    export const { POST, GET } = createUploadRouter({
+      imageUpload: uploadSchema({
+        image: {
+          maxSize: "4MB",
+          maxCount: 10,
+        }
+      }).middleware(({ req }) => {
+        // Add your authentication logic here
+        return { userId: "user_123" }
+      }),
+
+      documentUpload: uploadSchema({
+        pdf: {
+          maxSize: "10MB",
+          maxCount: 1,
+        }
+      })
+    }, { s3 })
+    ```
+
+  </Step>
+
+  <Step>
+    **Export router types**
+    
+    Create a separate file to export your router types for client-side usage:
+
+    ```typescript title="lib/upload.ts"
+    import { createUploadRouter, uploadSchema } from 'next-s3-uploader/server'
+
+    // Define your router (same as in route.ts)
+    export const router = createUploadRouter({
+      imageUpload: uploadSchema({
+        image: { maxSize: "4MB", maxCount: 10 }
+      }),
+      documentUpload: uploadSchema({
+        pdf: { maxSize: "10MB", maxCount: 1 }
+      })
+    })
+
+    // Export the router type for client usage
+    export type AppRouter = typeof router
+    ```
+
+  </Step>
+
+  <Step>
+    **Create typed client**
+    
+    Set up your client-side upload client with full type safety:
+
+    ```typescript title="lib/upload-client.ts"
+    import { createUploadClient } from 'next-s3-uploader/client'
+    import type { AppRouter } from './upload'
+
+    export const upload = createUploadClient<AppRouter>({
+      endpoint: '/api/upload'
+    })
+    ```
+
+  </Step>
+</Steps>
+
+## Schema Builder Reference
+
+The `uploadSchema` function provides a fluent API for defining your upload requirements:
+
+<TypeTable
+  type={{
+    image: {
+      description: "Image file validation and processing options",
+      type: "FileConfig",
+    },
+    video: {
+      description: "Video file validation and processing options",
+      type: "FileConfig",
+    },
+    pdf: {
+      description: "PDF file validation options",
+      type: "FileConfig",
+    },
+    any: {
+      description: "Accept any file type with size/count limits",
+      type: "FileConfig",
+    },
+  }}
+/>
+
+### FileConfig Options
+
+<TypeTable
+  type={{
+    maxSize: {
+      description: 'Maximum file size (e.g., "4MB", "1GB")',
+      type: "string",
+      default: '"1MB"',
+    },
+    maxCount: {
+      description: "Maximum number of files that can be uploaded",
+      type: "number",
+      default: "1",
+    },
+    mimeTypes: {
+      description:
+        "Allowed MIME types. Auto-detected from file type if not specified",
+      type: "string[]",
+    },
+    processing: {
+      description: "File processing options (resize, format conversion, etc.)",
+      type: "ProcessingConfig",
+    },
+  }}
+/>
+
+## Advanced Configuration
+
+### Multiple File Types
+
+You can define schemas that accept multiple file types:
+
+<Tabs items={["Images & Documents", "Mixed Media", "Any Files"]} groupId="file-types">
+  <Tab value="Images & Documents">
+    ```typescript
+    export const router = createUploadRouter({
+      mixedUpload: uploadSchema({
+        image: { maxSize: "4MB", maxCount: 5 },
+        pdf: { maxSize: "10MB", maxCount: 2 },
+        docx: { maxSize: "5MB", maxCount: 3 }
+      })
+    })
+    ```
+  </Tab>
+  
+  <Tab value="Mixed Media">
+    ```typescript
+    export const router = createUploadRouter({
+      mediaUpload: uploadSchema({
+        image: { 
+          maxSize: "4MB", 
+          maxCount: 10,
+          processing: {
+            resize: { width: 1200, height: 1200 },
+            format: "webp"
+          }
+        },
+        video: { 
+          maxSize: "100MB", 
+          maxCount: 2,
+          processing: {
+            transcode: { format: "mp4", quality: "720p" }
+          }
+        }
+      })
+    })
+    ```
+  </Tab>
+  
+  <Tab value="Any Files">
+    ```typescript
+    export const router = createUploadRouter({
+      genericUpload: uploadSchema({
+        any: { 
+          maxSize: "50MB", 
+          maxCount: 20,
+          mimeTypes: [
+            "image/*", "video/*", "application/pdf", 
+            "application/msword", "text/plain"
+          ]
+        }
+      })
+    })
+    ```
+  </Tab>
+</Tabs>
+
+### Global Configuration
+
+Configure settings that apply to all upload endpoints:
+
+<TypeTable
+  type={{
+    maxTotalSize: {
+      description: "Maximum total size across all files in a single upload",
+      type: "string",
+      default: '"100MB"',
+    },
+    allowedOrigins: {
+      description: "CORS origins allowed to upload",
+      type: "string[]",
+      default: '["*"]',
+    },
+    uploadTimeout: {
+      description: "Maximum time allowed for upload completion",
+      type: "number",
+      default: "300000",
+    },
+    pathPrefix: {
+      description: "S3 key prefix for all uploaded files",
+      type: "string",
+    },
+  }}
+/>
 
 ```typescript
-// app/api/s3-upload/route.ts
-import { createS3Router, s3 } from "next-s3-uploader/server";
-
-const router = createS3Router({
-  // Simple image upload
-  profileImage: s3.image(),
-
-  // Document upload with size limit
-  documents: s3.file().maxSize("50MB"),
-
-  // Multiple images with custom validation
-  gallery: s3
-    .image()
-    .maxSize("10MB")
-    .accept([".jpg", ".png", ".webp"])
-    .maxFiles(10),
-});
-
-export { router as POST };
-export type Router = typeof router;
-```
-
-**What you get:**
-
-- ✅ Automatic presigned URL generation
-- ✅ File validation before upload
-- ✅ Type-safe client integration
-- ✅ Built-in error handling
-
-## Schema Builders
-
-Use schema builders to define validation rules with a fluent API:
-
-### Image Schema
-
-```typescript
-import { s3 } from "next-s3-uploader/server";
-
-// Basic image upload
-const basicImage = s3.image();
-
-// Advanced image upload
-const advancedImage = s3
-  .image()
-  .maxSize("5MB") // File size limit
-  .accept([".jpg", ".png", ".webp"]) // Allowed formats
-  .dimensions({
-    // Image dimensions
-    minWidth: 100,
-    maxWidth: 2000,
-    minHeight: 100,
-    maxHeight: 2000,
-  })
-  .quality(0.8) // JPEG quality (0-1)
-  .format("webp"); // Convert to WebP
-```
-
-### File Schema
-
-```typescript
-// Basic file upload
-const basicFile = s3.file();
-
-// Advanced file upload
-const advancedFile = s3
-  .file()
-  .maxSize("100MB")
-  .accept([".pdf", ".doc", ".docx"])
-  .virus.scan(true) // Enable virus scanning
-  .metadata({
-    // Custom metadata
-    category: "documents",
-    department: "hr",
-  });
-```
-
-### Video Schema
-
-```typescript
-// Video upload with processing
-const videoUpload = s3
-  .video()
-  .maxSize("500MB")
-  .accept([".mp4", ".mov", ".avi"])
-  .duration({ max: 600 }) // Max 10 minutes
-  .transcode({
-    // Video transcoding
-    formats: ["mp4", "webm"],
-    resolutions: ["720p", "1080p"],
-  });
-```
-
-## Advanced Router Configuration
-
-### Custom Paths and Organization
-
-```typescript
-const router = createS3Router({
-  // User-specific uploads
-  userFiles: s3.file().path("users/{userId}/files"),
-
-  // Organization-specific uploads
-  orgDocuments: s3.file().path("orgs/{orgId}/documents"),
-
-  // Date-based organization
-  dailyReports: s3.file().path("reports/{year}/{month}/{day}"),
-
-  // Custom path generation
-  customPath: s3
-    .file()
-    .path(({ userId, timestamp }) => `custom/${userId}/${timestamp}/files`),
-});
+export const { POST, GET } = createUploadRouter(
+  {
+    // ... your upload schemas
+  },
+  {
+    s3,
+    maxTotalSize: "500MB",
+    allowedOrigins: ["https://yourdomain.com"],
+    uploadTimeout: 600000, // 10 minutes
+    pathPrefix: "uploads/",
+  }
+);
 ```
 
 ### Multiple Providers
 
+Support different storage providers for different upload types:
+
 ```typescript
-import { createMultiProviderRouter } from "next-s3-uploader/server";
+import { createS3Client } from "next-s3-uploader/s3";
 
-const router = createMultiProviderRouter({
-  // Use S3 for images
-  images: {
-    provider: "s3",
-    schema: s3.image().maxSize("10MB"),
-  },
-
-  // Use R2 for documents
-  documents: {
-    provider: "r2",
-    schema: s3.file().maxSize("50MB"),
-  },
-
-  // Use local storage for development
-  temp: {
-    provider: process.env.NODE_ENV === "development" ? "local" : "s3",
-    schema: s3.file().maxSize("1MB"),
-  },
+const primaryS3 = createS3Client({
+  // Primary S3 config for production files
 });
-```
 
-### Global Configuration
+const backupR2 = createS3Client({
+  // Cloudflare R2 config for backups
+});
 
-Set default behaviors for all routes:
-
-```typescript
-const router = createS3Router(
+export const router = createUploadRouter(
   {
-    // Route definitions...
+    productImages: uploadSchema({
+      image: { maxSize: "4MB", maxCount: 10 },
+    }),
+
+    backups: uploadSchema({
+      any: { maxSize: "1GB", maxCount: 1 },
+    }),
   },
   {
-    // Global configuration
-    defaults: {
-      maxSize: "10MB",
-      path: "uploads/{timestamp}",
-      metadata: {
-        uploadedBy: "next-s3-uploader",
-        version: "2.0",
-      },
-    },
-
-    // Security settings
-    security: {
-      requireAuth: true,
-      rateLimit: {
-        max: 10,
-        windowMs: 60000, // 1 minute
-      },
-      virus: {
-        enabled: true,
-        provider: "clamav",
-      },
-    },
-
-    // Processing settings
-    processing: {
-      image: {
-        autoOptimize: true,
-        generateThumbnails: ["small", "medium", "large"],
-        formats: ["webp", "avif"],
-      },
-      video: {
-        autoTranscode: true,
-        generatePreviews: true,
-      },
+    s3: primaryS3,
+    providers: {
+      backups: { s3: backupR2 },
     },
   }
 );
@@ -211,267 +318,184 @@ const router = createS3Router(
 
 ## Middleware Integration
 
-Add custom logic to your upload pipeline:
+Add authentication, logging, and custom validation:
 
 ### Authentication Middleware
 
 ```typescript
-import { withAuth } from "@/lib/auth";
+export const router = createUploadRouter({
+  privateUploads: uploadSchema({
+    image: { maxSize: "4MB", maxCount: 5 },
+  }).middleware(async ({ req }) => {
+    const session = await getServerSession(req);
 
-const router = createS3Router({
-  userFiles: s3
-    .file()
-    .middleware(withAuth())
-    .middleware(async (ctx) => {
-      // Custom validation
-      if (!ctx.user.canUpload) {
-        throw new Error("Upload permission denied");
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    return {
+      userId: session.user.id,
+      userRole: session.user.role,
+    };
+  }),
+
+  publicUploads: uploadSchema({
+    image: { maxSize: "1MB", maxCount: 1 },
+  }), // No middleware = publicly accessible
+});
+```
+
+### File Validation Middleware
+
+```typescript
+import { z } from "zod";
+
+export const router = createUploadRouter({
+  profilePicture: uploadSchema({
+    image: { maxSize: "2MB", maxCount: 1 },
+  }).middleware(async ({ req, files }) => {
+    // Custom file validation
+    for (const file of files) {
+      if (file.name.includes("temp") || file.name.includes("test")) {
+        throw new Error("Temporary files not allowed");
       }
+    }
 
-      // Add user context to path
-      ctx.path = `users/${ctx.user.id}/files`;
-
-      return ctx;
-    }),
+    const userId = await getUserId(req);
+    return { userId };
+  }),
 });
 ```
 
 ### Metadata Enhancement
 
 ```typescript
-const router = createS3Router({
-  documents: s3.file().middleware(async (ctx) => {
-    // Add custom metadata
-    ctx.metadata = {
-      ...ctx.metadata,
+export const router = createUploadRouter({
+  documentUpload: uploadSchema({
+    pdf: { maxSize: "10MB", maxCount: 1 },
+  }).middleware(async ({ req }) => {
+    const metadata = {
       uploadedAt: new Date().toISOString(),
-      uploadedBy: ctx.user?.id,
-      ipAddress: ctx.request.ip,
-      userAgent: ctx.request.headers["user-agent"],
+      userAgent: req.headers.get("user-agent"),
+      ip: req.headers.get("x-forwarded-for") || "unknown",
     };
 
-    return ctx;
-  }),
-});
-```
-
-### Validation Middleware
-
-```typescript
-const router = createS3Router({
-  profileImages: s3.image().middleware(async (ctx) => {
-    // Custom file validation
-    if (ctx.file.name.includes("temp")) {
-      throw new Error("Temporary files not allowed");
-    }
-
-    // Check file content
-    const isValidImage = await validateImageContent(ctx.file);
-    if (!isValidImage) {
-      throw new Error("Invalid image content");
-    }
-
-    return ctx;
+    return { metadata };
   }),
 });
 ```
 
 ## Lifecycle Hooks
 
-Hook into the upload lifecycle for custom processing:
+Handle upload events for processing, notifications, and cleanup:
+
+<TypeTable
+  type={{
+    onUploadStart: {
+      description: "Called when upload begins",
+      type: "(context) => void | Promise<void>",
+    },
+    onUploadProgress: {
+      description: "Called during upload progress",
+      type: "(context, progress) => void | Promise<void>",
+    },
+    onUploadComplete: {
+      description: "Called when upload succeeds",
+      type: "(context, result) => void | Promise<void>",
+    },
+    onUploadError: {
+      description: "Called when upload fails",
+      type: "(context, error) => void | Promise<void>",
+    },
+  }}
+/>
 
 ```typescript
-const router = createS3Router(
-  {
-    images: s3.image(),
-  },
-  {
-    hooks: {
-      beforeUpload: async (ctx) => {
-        console.log("Starting upload:", ctx.file.name);
-
-        // Validate against database
-        const canUpload = await checkUploadQuota(ctx.user.id);
-        if (!canUpload) {
-          throw new Error("Upload quota exceeded");
-        }
-      },
-
-      afterUpload: async (ctx) => {
-        console.log("Upload completed:", ctx.result.url);
-
-        // Save to database
-        await saveFileRecord({
-          userId: ctx.user.id,
-          filename: ctx.file.name,
-          url: ctx.result.url,
-          size: ctx.file.size,
-        });
-
-        // Send notification
-        await notifyUploadComplete(ctx.user.email, ctx.result);
-      },
-
-      onError: async (ctx, error) => {
-        console.error("Upload failed:", error);
-
-        // Log error
-        await logError({
-          userId: ctx.user?.id,
-          filename: ctx.file?.name,
-          error: error.message,
-        });
-      },
-    },
-  }
-);
+export const router = createUploadRouter({
+  imageUpload: uploadSchema({
+    image: { maxSize: "4MB", maxCount: 10 },
+  })
+    .onUploadComplete(async ({ files, metadata }) => {
+      // Process uploaded images
+      for (const file of files) {
+        await generateThumbnail(file.url);
+        await updateDatabase(file.key, metadata.userId);
+      }
+    })
+    .onUploadError(async ({ error, metadata }) => {
+      // Log errors and notify admins
+      console.error("Upload failed:", error);
+      await notifyAdmins(`Upload failed for user ${metadata.userId}`);
+    }),
+});
 ```
 
 ## Type Safety Features
 
 ### Router Type Export
 
-```typescript
-// Export router type for client use
+Export your router type for end-to-end type safety:
+
+```typescript title="lib/upload.ts"
+export const router = createUploadRouter({
+  // ... your configuration
+});
+
 export type AppRouter = typeof router;
 
-// Use in client
-import type { AppRouter } from "@/app/api/upload/route";
-const upload = createUploadClient<AppRouter>();
+// Extract individual endpoint types
+export type ImageUploadType = AppRouter["imageUpload"];
+export type DocumentUploadType = AppRouter["documentUpload"];
 ```
 
 ### Custom Context Types
 
+Define custom context types for your middleware:
+
 ```typescript
 interface CustomContext {
-  user: {
-    id: string;
-    role: "admin" | "user";
-    canUpload: boolean;
-  };
-  organization?: {
-    id: string;
-    plan: "free" | "pro" | "enterprise";
-  };
+  userId: string;
+  userRole: "admin" | "user" | "guest";
+  organizationId?: string;
 }
 
-const router = createS3Router<CustomContext>({
-  // Your routes with full context typing
+export const router = createUploadRouter({
+  upload: uploadSchema({
+    image: { maxSize: "4MB", maxCount: 5 },
+  }).middleware(async ({ req }): Promise<CustomContext> => {
+    // Your auth logic here
+    return {
+      userId: "user_123",
+      userRole: "user",
+    };
+  }),
 });
 ```
-
-### Validation Schemas
-
-```typescript
-import { z } from "zod";
-
-const router = createS3Router({
-  documents: s3.file().validate(
-    z.object({
-      category: z.enum(["invoice", "receipt", "contract"]),
-      urgent: z.boolean().optional(),
-    })
-  ),
-});
-```
-
-## Environment-Based Configuration
-
-<Tabs items={['Development', 'Staging', 'Production']}>
-<Tab value="Development">
-```typescript
-// config/upload.dev.ts
-export const uploadConfig = {
-  provider: 'local',
-  path: 'uploads/dev',
-  maxSize: '50MB',
-  security: {
-    requireAuth: false,
-    rateLimit: false
-  },
-  processing: {
-    enabled: false
-  }
-}
-```
-</Tab>
-<Tab value="Staging">
-```typescript
-// config/upload.staging.ts
-export const uploadConfig = {
-  provider: 's3',
-  bucket: 'myapp-staging-uploads',
-  path: 'uploads/{environment}',
-  maxSize: '25MB',
-  security: {
-    requireAuth: true,
-    rateLimit: {
-      max: 20,
-      windowMs: 60000
-    }
-  },
-  processing: {
-    enabled: true,
-    image: {
-      autoOptimize: true
-    }
-  }
-}
-```
-</Tab>
-<Tab value="Production">
-```typescript
-// config/upload.prod.ts
-export const uploadConfig = {
-  provider: 's3',
-  bucket: process.env.AWS_S3_BUCKET_NAME,
-  path: 'uploads/{year}/{month}',
-  maxSize: '10MB',
-  security: {
-    requireAuth: true,
-    rateLimit: {
-      max: 10,
-      windowMs: 60000
-    },
-    virus: {
-      enabled: true
-    }
-  },
-  processing: {
-    enabled: true,
-    image: {
-      autoOptimize: true,
-      generateThumbnails: true,
-      formats: ['webp', 'avif']
-    }
-  },
-  monitoring: {
-    enabled: true,
-    provider: 'datadog'
-  }
-}
-```
-</Tab>
-</Tabs>
 
 ## Real-World Examples
 
 ### E-commerce Product Images
 
 ```typescript
-const router = createS3Router({
-  productImages: s3
-    .image()
-    .maxSize("5MB")
-    .accept([".jpg", ".png", ".webp"])
-    .dimensions({ minWidth: 800, minHeight: 600 })
-    .path("products/{productId}/images")
-    .metadata({ category: "product" })
-    .middleware(requireMerchantAuth)
-    .processing({
-      thumbnails: ["small", "medium", "large"],
-      format: "webp",
-      quality: 0.85,
+export const ecommerceRouter = createUploadRouter({
+  productImages: uploadSchema({
+    image: {
+      maxSize: "5MB",
+      maxCount: 8,
+      processing: {
+        resize: { width: 1200, height: 1200 },
+        formats: ["webp", "jpeg"],
+        quality: 85,
+      },
+    },
+  })
+    .middleware(async ({ req }) => {
+      const vendorId = await getVendorId(req);
+      return { vendorId, category: "products" };
+    })
+    .onUploadComplete(async ({ files, metadata }) => {
+      // Update product catalog
+      await updateProductImages(metadata.vendorId, files);
     }),
 });
 ```
@@ -479,71 +503,106 @@ const router = createS3Router({
 ### Document Management System
 
 ```typescript
-const router = createS3Router({
-  contracts: s3
-    .file()
-    .accept([".pdf"])
-    .maxSize("50MB")
-    .path("legal/contracts/{year}")
-    .middleware(requireLegalAccess)
-    .encrypt(true)
-    .retention(7 * 365), // 7 years
+export const docsRouter = createUploadRouter({
+  contracts: uploadSchema({
+    pdf: { maxSize: "25MB", maxCount: 1 },
+  }).middleware(async ({ req }) => {
+    const { userId, companyId } = await validateContractUpload(req);
+    return { userId, companyId, confidential: true };
+  }),
 
-  invoices: s3
-    .file()
-    .accept([".pdf", ".csv", ".xlsx"])
-    .maxSize("25MB")
-    .path("finance/invoices/{month}")
-    .middleware(requireFinanceAccess)
-    .audit(true),
+  proposals: uploadSchema({
+    pdf: { maxSize: "50MB", maxCount: 3 },
+    docx: { maxSize: "25MB", maxCount: 5 },
+  }).middleware(async ({ req }) => {
+    const { userId, projectId } = await validateProposalUpload(req);
+    return { userId, projectId };
+  }),
 });
 ```
 
 ### Social Media Platform
 
 ```typescript
-const router = createS3Router({
-  avatars: s3
-    .image()
-    .maxSize("2MB")
-    .dimensions({ width: 500, height: 500 })
-    .path("users/{userId}/avatar")
-    .processing({
-      crop: "square",
-      format: "webp",
-      quality: 0.9,
-    }),
+export const socialRouter = createUploadRouter({
+  profilePicture: uploadSchema({
+    image: {
+      maxSize: "2MB",
+      maxCount: 1,
+      processing: {
+        resize: { width: 400, height: 400 },
+        format: "webp",
+      },
+    },
+  }),
 
-  posts: s3
-    .image()
-    .maxSize("10MB")
-    .maxFiles(10)
-    .path("posts/{postId}/images")
-    .middleware(requireAuth)
-    .processing({
-      thumbnails: ["thumbnail", "medium"],
-      watermark: true,
-    }),
+  postMedia: uploadSchema({
+    image: { maxSize: "8MB", maxCount: 4 },
+    video: { maxSize: "100MB", maxCount: 1 },
+  }).middleware(async ({ req }) => {
+    const userId = await authenticateUser(req);
+    return { userId, postType: "media" };
+  }),
 });
 ```
 
-## Best Practices
+## Security Best Practices
 
-<Callout type="success">
-  **Performance**: Use path patterns like `{year}/{month}` to distribute files
-  and improve S3 performance.
+<Callout type="warning">
+  **Important:** Always implement proper authentication and file validation in
+  production environments.
 </Callout>
 
-<Callout type="warn">
-  **Security**: Always validate file content, not just extensions. Enable virus
-  scanning for production.
-</Callout>
+### Content Type Validation
 
-<Callout type="info">
-  **Cost**: Use lifecycle rules and compression to optimize storage costs.
-  Monitor upload patterns.
-</Callout>
+```typescript
+export const router = createUploadRouter({
+  secureUpload: uploadSchema({
+    image: {
+      maxSize: "4MB",
+      maxCount: 5,
+      mimeTypes: ["image/jpeg", "image/png", "image/webp"], // Explicit whitelist
+    },
+  }).middleware(async ({ req, files }) => {
+    // Additional security checks
+    for (const file of files) {
+      // Validate file headers match content type
+      const isValidImage = await validateImageFile(file);
+      if (!isValidImage) {
+        throw new Error("Invalid image file");
+      }
+    }
+
+    return { userId: await getUserId(req) };
+  }),
+});
+```
+
+### Rate Limiting
+
+```typescript
+import { ratelimit } from "@/lib/ratelimit";
+
+export const router = createUploadRouter({
+  upload: uploadSchema({
+    any: { maxSize: "10MB", maxCount: 3 },
+  }).middleware(async ({ req }) => {
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+
+    const { success } = await ratelimit.limit(ip);
+    if (!success) {
+      throw new Error("Rate limit exceeded");
+    }
+
+    return { ip };
+  }),
+});
+```
 
 ---
 
-**Next**: Learn how to configure the [client options](/docs/api/configuration/client-options) for your upload components.
+<Callout type="success">
+  **Next Steps:** Now that you have your router configured, learn how to
+  [configure your client](/docs/api/configuration/client-options) for the best
+  developer experience.
+</Callout>

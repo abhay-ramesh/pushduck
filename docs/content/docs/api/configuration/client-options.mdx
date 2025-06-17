@@ -1,652 +1,830 @@
 ---
-title: Client Options
-description: Configure your upload client with type-safe options and advanced features
+title: Client Configuration
+description: Configure your upload client for the best developer experience with enhanced type inference
 ---
 
 import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+import { TypeTable } from "fumadocs-ui/components/type-table";
 
-# Client Options
+# Client Configuration
 
-Configure your **upload client** with type-safe options, custom behaviors, and advanced features. The client automatically inherits types from your server router for complete type safety.
+The upload client provides multiple APIs to suit different needs: **property-based access** for enhanced type safety, and **hook-based access** for familiar React patterns.
 
 <Callout type="info">
-  All client options are **fully typed** based on your server router. You get
-  autocomplete, validation, and compile-time error checking out of the box.
+  This guide focuses on the **enhanced client API** with property-based access.
+  This provides the best developer experience with full TypeScript inference and
+  eliminates string literals.
 </Callout>
 
-## Basic Client Setup
+## Client Setup Structure
 
-Create a type-safe upload client:
+Organize your client configuration for maximum reusability:
 
-```typescript
-// lib/upload-client.ts
-import { createUploadClient } from "next-s3-uploader";
-import type { Router } from "@/app/api/s3-upload/route";
+<Files>
+  <Folder name="lib" defaultOpen>
+    <File name="upload.ts" />
+    <File name="upload-client.ts" />
+  </Folder>
+  <Folder name="components">
+    <File name="upload-form.tsx" />
+    <File name="file-uploader.tsx" />
+  </Folder>
+  <Folder name="hooks">
+    <File name="use-upload.ts" />
+  </Folder>
+</Files>
 
-export const upload = createUploadClient<Router>({
-  baseUrl: "/api/s3-upload",
-  timeout: 30000,
-  retryAttempts: 3,
-});
+## Basic Client Configuration
 
-// Export individual upload methods for convenience
-export const { imageUpload, documentUpload, gallery } = upload;
-```
+<Steps>
+  <Step>
+    **Import your router types**
+    
+    Start by importing the router type from your server configuration:
 
-**What you get:**
+    ```typescript title="lib/upload-client.ts"
+    import { createUploadClient } from 'next-s3-uploader/client'
+    import type { AppRouter } from './upload'
 
-- ✅ Full TypeScript inference from server router
-- ✅ Automatic retry and error handling
-- ✅ Progress tracking and status management
-- ✅ Built-in request/response transformation
+    export const upload = createUploadClient<AppRouter>({
+      endpoint: '/api/upload'
+    })
+    ```
+
+  </Step>
+
+  <Step>
+    **Use property-based access**
+    
+    Access your upload endpoints as properties with full type safety:
+
+    ```typescript title="components/upload-form.tsx"
+    import { upload } from '@/lib/upload-client'
+
+    export function ImageUploadForm() {
+      const { uploadFiles, files, isUploading, error } = upload.imageUpload
+      //           ^ Full TypeScript inference from your server router
+
+      const handleUpload = async (selectedFiles: File[]) => {
+        await uploadFiles(selectedFiles)
+      }
+
+      return (
+        <div>
+          <input type="file" onChange={(e) => handleUpload(Array.from(e.target.files || []))} />
+          {files.map(file => (
+            <div key={file.id}>
+              <span>{file.name}</span>
+              <span>{file.status}</span> {/* 'pending' | 'uploading' | 'success' | 'error' */}
+              <progress value={file.progress} max={100} />
+              {file.url && <a href={file.url}>View</a>}
+            </div>
+          ))}
+        </div>
+      )
+    }
+    ```
+
+  </Step>
+
+  <Step>
+    **Handle upload results**
+    
+    Process upload results with full type safety:
+
+    ```typescript
+    const { uploadFiles, files, reset } = upload.documentUpload
+
+    const handleDocumentUpload = async (files: File[]) => {
+      try {
+        const results = await uploadFiles(files)
+        // results is fully typed based on your router configuration
+
+        console.log('Upload successful:', results.map(r => r.url))
+
+        // Reset the upload state
+        reset()
+      } catch (error) {
+        console.error('Upload failed:', error)
+      }
+    }
+    ```
+
+  </Step>
+</Steps>
 
 ## Client Configuration Options
 
-### Base Configuration
-
-```typescript
-import { createUploadClient } from "next-s3-uploader";
-
-const upload = createUploadClient<Router>({
-  // Server endpoint
-  baseUrl: "/api/s3-upload",
-
-  // Request configuration
-  timeout: 30000, // 30 seconds
-  retryAttempts: 3, // Retry failed requests
-  retryDelay: 1000, // Initial retry delay (ms)
-  retryDelayMultiplier: 2, // Exponential backoff
-
-  // Progress reporting
-  progressInterval: 100, // Progress update frequency (ms)
-
-  // Request headers
-  headers: {
-    "X-Client-Version": "2.0",
-    "X-User-Agent": "next-s3-uploader",
-  },
-
-  // Custom fetch implementation
-  fetch: customFetch,
-
-  // Authentication
-  auth: {
-    getToken: () => localStorage.getItem("auth-token"),
-    refreshToken: async () => await refreshAuthToken(),
-  },
-});
-```
-
-### Advanced Options
-
-```typescript
-const upload = createUploadClient<Router>({
-  baseUrl: "/api/s3-upload",
-
-  // Chunk upload configuration
-  chunks: {
-    enabled: true,
-    size: 5 * 1024 * 1024, // 5MB chunks
-    parallel: 3, // Max parallel chunks
-    retryChunkAttempts: 5,
-  },
-
-  // Queue management
-  queue: {
-    concurrency: 3, // Max concurrent uploads
-    prioritize: "newest", // 'newest' | 'oldest' | 'smallest'
-    pauseOnError: false,
-  },
-
-  // Validation
-  validation: {
-    enableClientValidation: true,
-    validateBeforeUpload: true,
-    customValidators: [(file) => file.name.length < 255 || "Filename too long"],
-  },
-
-  // Transformation
-  transform: {
-    image: {
-      autoResize: true,
-      maxWidth: 2000,
-      maxHeight: 2000,
-      quality: 0.85,
-      format: "webp",
+<TypeTable
+  type={{
+    endpoint: {
+      description: "API endpoint URL for your upload router",
+      type: "string",
+      required: true,
     },
+    headers: {
+      description: "Custom headers to include with upload requests",
+      type: "Record<string, string>",
+    },
+    timeout: {
+      description: "Request timeout in milliseconds",
+      type: "number",
+      default: "30000",
+    },
+    retries: {
+      description: "Number of retry attempts for failed uploads",
+      type: "number",
+      default: "3",
+    },
+    onProgress: {
+      description: "Global progress callback for all uploads",
+      type: "(progress: UploadProgress) => void",
+    },
+    onError: {
+      description: "Global error handler for upload failures",
+      type: "(error: UploadError) => void",
+    },
+  }}
+/>
+
+### Advanced Client Configuration
+
+```typescript title="lib/upload-client.ts"
+import { createUploadClient } from "next-s3-uploader/client";
+import type { AppRouter } from "./upload";
+
+export const upload = createUploadClient<AppRouter>({
+  endpoint: "/api/upload",
+
+  // Custom headers (e.g., authentication)
+  headers: {
+    Authorization: `Bearer ${getAuthToken()}`,
+    "X-Client-Version": "1.0.0",
   },
 
-  // Caching
-  cache: {
-    enabled: true,
-    storage: "localStorage", // 'localStorage' | 'sessionStorage' | 'memory'
-    ttl: 3600000, // 1 hour in ms
+  // Upload timeout (30 seconds)
+  timeout: 30000,
+
+  // Retry failed uploads
+  retries: 3,
+
+  // Global progress tracking
+  onProgress: (progress) => {
+    console.log(`Upload progress: ${progress.percentage}%`);
+  },
+
+  // Global error handling
+  onError: (error) => {
+    console.error("Upload error:", error);
+    // Send to error tracking service
+    trackError(error);
   },
 });
 ```
 
 ## Upload Method Options
 
-Each upload method accepts additional options for fine-grained control:
+Each upload method accepts configuration options:
 
-### Basic Upload Options
-
-```typescript
-const { uploadFiles } = upload.imageUpload();
-
-// Upload with custom options
-await uploadFiles(files, {
-  // Override global settings
-  timeout: 60000,
-  retryAttempts: 5,
-
-  // Custom metadata
-  metadata: {
-    category: "profile",
-    source: "mobile-app",
-  },
-
-  // Custom path variables
-  pathVariables: {
-    userId: user.id,
-    timestamp: Date.now(),
-  },
-
-  // Progress callback
-  onProgress: (progress, file) => {
-    console.log(`${file.name}: ${progress}%`);
-  },
-
-  // Success callback
-  onSuccess: (result, file) => {
-    console.log(`Uploaded: ${result.url}`);
-  },
-
-  // Error callback
-  onError: (error, file) => {
-    console.error(`Failed: ${file.name}`, error);
-  },
-});
-```
-
-### Advanced Upload Options
-
-```typescript
-await uploadFiles(files, {
-  // Pause/resume support
-  pausable: true,
-
-  // Custom validation
-  validate: async (file) => {
-    const isDuplicate = await checkForDuplicate(file.name);
-    if (isDuplicate) {
-      throw new Error("File already exists");
-    }
-  },
-
-  // File transformation
-  transform: {
-    resize: { width: 800, height: 600 },
-    quality: 0.9,
-    format: "webp",
-  },
-
-  // Upload strategy
-  strategy: "chunk", // 'direct' | 'chunk' | 'resumable'
-
-  // Conditional upload
-  condition: (file) => file.size < 10 * 1024 * 1024, // Only < 10MB
-
-  // Custom headers for this upload
-  headers: {
-    "X-Upload-Source": "drag-drop",
-    "X-User-ID": user.id,
-  },
-});
-```
-
-## Hook-Based API
-
-Use the hook-based API for reactive upload management:
-
-### Basic Hook Usage
-
-```typescript
-"use client";
-
-import { upload } from "@/lib/upload-client";
-
-export function ImageUploader() {
-  const {
-    // Upload methods
-    uploadFiles,
-    uploadFromUrl,
-    cancel,
-    pause,
-    resume,
-
-    // State
-    files,
-    uploadedFiles,
-    isUploading,
-    progress,
-    error,
-
-    // Utils
-    reset,
-    removeFile,
-  } = upload.imageUpload({
-    // Hook options
-    autoUpload: false,
-    maxFiles: 5,
-    onComplete: (results) => {
-      console.log("All uploads complete:", results);
+<TypeTable
+  type={{
+    onProgress: {
+      description: "Progress callback for this specific upload",
+      type: "(progress: UploadProgress) => void",
     },
-  });
+    onSuccess: {
+      description: "Success callback when upload completes",
+      type: "(results: UploadResult[]) => void",
+    },
+    onError: {
+      description: "Error callback for this upload",
+      type: "(error: UploadError) => void",
+    },
+    metadata: {
+      description: "Custom metadata to include with upload",
+      type: "Record<string, any>",
+    },
+    abortSignal: {
+      description: "AbortSignal to cancel the upload",
+      type: "AbortSignal",
+    },
+  }}
+/>
 
-  return (
-    <div>
-      <input
-        type="file"
-        multiple
-        onChange={(e) => uploadFiles(e.target.files)}
-      />
+### Upload Method Examples
 
-      {files.map((file) => (
-        <div key={file.id}>
-          <span>{file.name}</span>
-          <progress value={file.progress} max={100} />
-          {file.status === "error" && (
-            <span className="error">{file.error}</span>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-```
+<Tabs items={["Basic Upload", "With Callbacks", "With Metadata", "Cancellable Upload"]} groupId="upload-methods">
+  <Tab value="Basic Upload">
+    ```typescript
+    const { uploadFiles } = upload.imageUpload
 
-### Advanced Hook Configuration
+    // Simple upload
+    const results = await uploadFiles(selectedFiles)
+    console.log('Uploaded files:', results)
+    ```
 
-```typescript
-const { uploadFiles, files, isUploading } = upload.gallery({
-  // Auto-upload behavior
-  autoUpload: true,
-  autoUploadDelay: 1000, // Delay before auto-upload
+  </Tab>
+  
+  <Tab value="With Callbacks">
+    ```typescript
+    const { uploadFiles } = upload.imageUpload
 
-  // File management
-  maxFiles: 10,
-  maxSize: "5MB",
-  acceptedTypes: ["image/*"],
+    await uploadFiles(selectedFiles, {
+      onProgress: (progress) => {
+        console.log(`Upload ${progress.percentage}% complete`)
+        updateProgressBar(progress.percentage)
+      },
 
-  // Validation
-  validate: (files) => {
-    if (files.length > 10) {
-      throw new Error("Too many files");
+      onSuccess: (results) => {
+        console.log('Upload successful!', results)
+        showSuccessNotification()
+      },
+
+      onError: (error) => {
+        console.error('Upload failed:', error)
+        showErrorNotification(error.message)
+      }
+    })
+    ```
+
+  </Tab>
+  
+  <Tab value="With Metadata">
+    ```typescript
+    const { uploadFiles } = upload.documentUpload
+
+    await uploadFiles(selectedFiles, {
+      metadata: {
+        category: 'contracts',
+        department: 'legal',
+        priority: 'high',
+        tags: ['confidential', 'urgent']
+      }
+    })
+    ```
+
+  </Tab>
+  
+  <Tab value="Cancellable Upload">
+    ```typescript
+    const { uploadFiles } = upload.videoUpload
+    const abortController = new AbortController()
+
+    // Start upload
+    const uploadPromise = uploadFiles(selectedFiles, {
+      abortSignal: abortController.signal,
+      onProgress: (progress) => {
+        if (progress.percentage > 50 && shouldCancel) {
+          abortController.abort()
+        }
+      }
+    })
+
+    // Cancel upload after 10 seconds
+    setTimeout(() => abortController.abort(), 10000)
+
+    try {
+      await uploadPromise
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        console.log('Upload was cancelled')
+      }
     }
-  },
+    ```
 
-  // State management
-  persistState: true, // Persist state across rerenders
-  storageKey: "gallery-uploads",
+  </Tab>
+</Tabs>
 
-  // Callbacks
-  onFileAdd: (file) => console.log("Added:", file.name),
-  onFileRemove: (file) => console.log("Removed:", file.name),
-  onUploadStart: (file) => console.log("Starting:", file.name),
-  onUploadProgress: (file, progress) =>
-    console.log(`${file.name}: ${progress}%`),
-  onUploadComplete: (file, result) => console.log("Complete:", result.url),
-  onUploadError: (file, error) => console.error("Error:", error),
-  onAllComplete: (results) => console.log("All done:", results),
+## Hook-Based API (Alternative)
 
-  // Error handling
-  retryFailedUploads: true,
-  maxRetryAttempts: 3,
+For teams that prefer React hooks, the hook-based API provides a familiar pattern:
 
-  // UI behavior
-  clearOnComplete: false,
-  showProgress: true,
-  enablePreview: true,
-});
-```
+<TypeTable
+  type={{
+    endpoint: {
+      description: "Upload endpoint name from your router",
+      type: "keyof AppRouter",
+      required: true,
+    },
+    onSuccess: {
+      description: "Success callback when upload completes",
+      type: "(results: UploadResult[]) => void",
+    },
+    onError: {
+      description: "Error callback for upload failures",
+      type: "(error: UploadError) => void",
+    },
+    disabled: {
+      description: "Disable the upload functionality",
+      type: "boolean",
+      default: "false",
+    },
+  }}
+/>
+
+### Hook Usage Examples
+
+<Tabs items={["useUpload Hook", "Multiple Endpoints", "Custom Hook"]} groupId="hook-api">
+  <Tab value="useUpload Hook">
+    ```typescript
+    import { useUpload } from 'next-s3-uploader/client'
+    import type { AppRouter } from '@/lib/upload'
+
+    export function ImageUploadComponent() {
+      const { uploadFiles, files, isUploading, error, reset } = useUpload<AppRouter>('imageUpload', {
+        onSuccess: (results) => {
+          console.log('Upload completed:', results)
+        },
+        onError: (error) => {
+          console.error('Upload failed:', error)
+        }
+      })
+
+      return (
+        <div>
+          <input
+            type="file"
+            multiple
+            onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
+            disabled={isUploading}
+          />
+
+          {files.map(file => (
+            <div key={file.id}>
+              <span>{file.name}</span>
+              <progress value={file.progress} max={100} />
+              {file.status === 'error' && <span>Failed: {file.error}</span>}
+              {file.status === 'success' && <a href={file.url}>View</a>}
+            </div>
+          ))}
+
+          <button onClick={reset} disabled={isUploading}>
+            Reset
+          </button>
+        </div>
+      )
+    }
+    ```
+
+  </Tab>
+  
+  <Tab value="Multiple Endpoints">
+    ```typescript
+    export function MultiUploadComponent() {
+      const images = useUpload<AppRouter>('imageUpload')
+      const documents = useUpload<AppRouter>('documentUpload')
+
+      return (
+        <div>
+          <div>
+            <h3>Images</h3>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => images.uploadFiles(Array.from(e.target.files || []))}
+            />
+            {/* Render images.files */}
+          </div>
+
+          <div>
+            <h3>Documents</h3>
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx"
+              onChange={(e) => documents.uploadFiles(Array.from(e.target.files || []))}
+            />
+            {/* Render documents.files */}
+          </div>
+        </div>
+      )
+    }
+    ```
+
+  </Tab>
+  
+  <Tab value="Custom Hook">
+    ```typescript
+    import { useUpload } from 'next-s3-uploader/client'
+    import { useCallback } from 'react'
+    import type { AppRouter } from '@/lib/upload'
+
+    export function useImageUpload() {
+      const upload = useUpload<AppRouter>('imageUpload', {
+        onSuccess: (results) => {
+          // Show success toast
+          toast.success(`Uploaded ${results.length} images`)
+        },
+        onError: (error) => {
+          // Show error toast
+          toast.error(`Upload failed: ${error.message}`)
+        }
+      })
+
+      const uploadImages = useCallback(async (files: File[]) => {
+        // Validate files before upload
+        const validFiles = files.filter(file => {
+          if (file.size > 5 * 1024 * 1024) { // 5MB
+            toast.error(`${file.name} is too large`)
+            return false
+          }
+          return true
+        })
+
+        if (validFiles.length > 0) {
+          await upload.uploadFiles(validFiles)
+        }
+      }, [upload.uploadFiles])
+
+      return {
+        ...upload,
+        uploadImages
+      }
+    }
+    ```
+
+  </Tab>
+</Tabs>
 
 ## Property-Based Client Access
 
-Use property-based access for enhanced type safety:
+The property-based client provides enhanced type inference and eliminates string literals:
+
+### Type Safety Benefits
+
+<Cards>
+  <Card title="Compile-Time Validation" description="Catch errors before runtime">
+    ```typescript
+    const { uploadFiles } = upload.imageUpload
+    //                            ^ TypeScript knows this exists
+    
+    const { uploadFiles: docUpload } = upload.nonExistentEndpoint
+    //                                        ^ TypeScript error!
+    ```
+  </Card>
+  
+  <Card title="IntelliSense Support" description="Full autocomplete for all endpoints">
+    ```typescript
+    upload. // IntelliSense shows: imageUpload, documentUpload, videoUpload
+    //   ^ All your router endpoints are available with autocomplete
+    ```
+  </Card>
+  
+  <Card title="Refactoring Safety" description="Rename endpoints safely across your codebase">
+    ```typescript
+    // If you rename 'imageUpload' to 'images' in your router,
+    // TypeScript will show errors everywhere it's used,
+    // making refactoring safe and easy
+    ```
+  </Card>
+</Cards>
+
+### Enhanced Type Inference
+
+The property-based client provides complete type inference from your server router:
 
 ```typescript
-// Traditional approach
-const { uploadFiles } = useUploadRoute("imageUpload"); // ❌ String literal
+// Server router definition
+export const router = createUploadRouter({
+  profilePictures: uploadSchema({
+    image: { maxSize: "2MB", maxCount: 1 },
+  }).middleware(async ({ req }) => {
+    const userId = await getUserId(req);
+    return { userId, category: "profile" };
+  }),
 
-// Property-based approach
-const { uploadFiles } = upload.imageUpload(); // ✅ Type-safe property access
-```
-
-### Enhanced Client Features
-
-```typescript
-// Multiple route access with type inference
-const imageUploader = upload.imageUpload();
-const documentUploader = upload.documentUpload();
-const galleryUploader = upload.gallery();
-
-// Conditional route access
-const uploader = user.isPro
-  ? upload.highResImages() // Pro feature
-  : upload.standardImages(); // Free tier
-
-// Type-safe options for each route
-const { uploadFiles } = upload.imageUpload({
-  maxFiles: 1, // Inferred from server schema
-  onComplete: (result) => {
-    // result is fully typed based on server response
-    console.log(result.url, result.metadata);
-  },
+  // ... other endpoints
 });
+
+// Client usage with full type inference
+const { uploadFiles, files, isUploading } = upload.profilePictures;
+//      ^ uploadFiles knows it accepts File[]
+//                   ^ files has type UploadFile[]
+//                           ^ isUploading is boolean
+
+// Upload files with inferred return type
+const results = await uploadFiles(selectedFiles);
+//    ^ results is UploadResult[] with your specific metadata shape
 ```
+
+## Framework-Specific Configuration
+
+<Tabs items={["Next.js", "React", "Vue", "Svelte"]} groupId="frameworks">
+  <Tab value="Next.js">
+    ```typescript
+    // app/lib/upload-client.ts
+    import { createUploadClient } from 'next-s3-uploader/client'
+    import type { AppRouter } from './upload'
+
+    export const upload = createUploadClient<AppRouter>({
+      endpoint: '/api/upload',
+      headers: {
+        // Next.js specific headers
+        'x-requested-with': 'next-s3-uploader'
+      }
+    })
+
+    // app/components/upload-form.tsx
+    'use client'
+
+    import { upload } from '@/lib/upload-client'
+
+    export function UploadForm() {
+      const { uploadFiles, files, isUploading } = upload.imageUpload
+
+      // Component implementation...
+    }
+    ```
+
+  </Tab>
+  
+  <Tab value="React">
+    ```typescript
+    // src/lib/upload-client.ts
+    import { createUploadClient } from 'next-s3-uploader/client'
+    import type { AppRouter } from './upload'
+
+    export const upload = createUploadClient<AppRouter>({
+      endpoint: process.env.REACT_APP_UPLOAD_ENDPOINT || '/api/upload'
+    })
+
+    // src/components/UploadForm.tsx
+    import React from 'react'
+    import { upload } from '../lib/upload-client'
+
+    export function UploadForm() {
+      const { uploadFiles, files, isUploading } = upload.imageUpload
+
+      // Component implementation...
+    }
+    ```
+
+  </Tab>
+  
+  <Tab value="Vue">
+    ```typescript
+    // lib/upload-client.ts
+    import { createUploadClient } from '@next-s3-uploader/vue'
+    import type { AppRouter } from './upload'
+
+    export const upload = createUploadClient<AppRouter>({
+      endpoint: '/api/upload'
+    })
+
+    // components/UploadForm.vue
+    <script setup lang="ts">
+    import { upload } from '@/lib/upload-client'
+
+    const { uploadFiles, files, isUploading } = upload.imageUpload
+    // Vue 3 Composition API with full type safety
+    </script>
+    ```
+
+  </Tab>
+  
+  <Tab value="Svelte">
+    ```typescript
+    // lib/upload-client.ts
+    import { uploadStore } from '@next-s3-uploader/svelte'
+    import type { AppRouter } from './upload'
+
+    export const upload = uploadStore<AppRouter>('/api/upload')
+
+    // components/UploadForm.svelte
+    <script lang="ts">
+    import { upload } from '../lib/upload-client'
+
+    // Reactive stores
+    $: ({ files, isUploading } = $upload.imageUpload)
+    </script>
+    ```
+
+  </Tab>
+</Tabs>
 
 ## Error Handling Configuration
 
-Configure comprehensive error handling:
+Configure comprehensive error handling for robust applications:
+
+<TypeTable
+  type={{
+    retryDelays: {
+      description: "Delay between retry attempts in milliseconds",
+      type: "number[]",
+      default: "[1000, 2000, 4000]",
+    },
+    retryCondition: {
+      description: "Custom function to determine if upload should be retried",
+      type: "(error: UploadError, attemptNumber: number) => boolean",
+    },
+    maxConcurrentUploads: {
+      description: "Maximum number of concurrent file uploads",
+      type: "number",
+      default: "3",
+    },
+    chunkSize: {
+      description: "Size of upload chunks for large files",
+      type: "number",
+      default: "5242880",
+    },
+  }}
+/>
+
+### Advanced Error Handling
 
 ```typescript
-const upload = createUploadClient<Router>({
-  baseUrl: "/api/s3-upload",
+export const upload = createUploadClient<AppRouter>({
+  endpoint: "/api/upload",
 
-  // Global error handling
-  onError: (error, context) => {
-    console.error("Upload error:", error);
+  // Custom retry configuration
+  retries: 3,
+  retryDelays: [1000, 2000, 4000], // 1s, 2s, 4s
 
-    // Send to error tracking
-    errorTracking.captureException(error, {
-      extra: {
-        fileName: context.file?.name,
-        fileSize: context.file?.size,
-        uploadRoute: context.route,
-      },
-    });
+  // Custom retry logic
+  retryCondition: (error, attemptNumber) => {
+    // Don't retry client errors (4xx)
+    if (error.status >= 400 && error.status < 500) {
+      return false;
+    }
+
+    // Retry server errors up to 3 times
+    return attemptNumber < 3;
   },
 
-  // Retry configuration
-  retryCondition: (error, attempt) => {
-    // Don't retry validation errors
-    if (error.code === "VALIDATION_ERROR") return false;
+  // Concurrent upload limits
+  maxConcurrentUploads: 2,
 
-    // Don't retry after 3 attempts
-    if (attempt >= 3) return false;
+  // Large file chunking
+  chunkSize: 10 * 1024 * 1024, // 10MB chunks
 
-    // Retry network errors
-    return error.code === "NETWORK_ERROR";
-  },
+  // Global error handler
+  onError: (error) => {
+    // Log to error tracking service
+    if (error.status >= 500) {
+      logError("Server error during upload", error);
+    }
 
-  // Error transformation
-  transformError: (error) => {
-    // Convert server errors to user-friendly messages
+    // Show user-friendly message
     if (error.code === "FILE_TOO_LARGE") {
-      return new Error("File is too large. Please choose a smaller file.");
+      showToast("File is too large. Please choose a smaller file.");
+    } else if (error.code === "NETWORK_ERROR") {
+      showToast("Network error. Please check your connection.");
+    } else {
+      showToast("Upload failed. Please try again.");
     }
-
-    if (error.code === "INVALID_FILE_TYPE") {
-      return new Error(
-        "File type not supported. Please choose a different file."
-      );
-    }
-
-    return error;
   },
 });
 ```
 
 ## Performance Optimization
 
-Optimize client performance for better user experience:
+Configure the client for optimal performance:
+
+### Upload Performance
 
 ```typescript
-const upload = createUploadClient<Router>({
-  baseUrl: "/api/s3-upload",
+export const upload = createUploadClient<AppRouter>({
+  endpoint: "/api/upload",
+
+  // Optimize for performance
+  maxConcurrentUploads: 3, // Balance between speed and resource usage
+  chunkSize: 5 * 1024 * 1024, // 5MB chunks for large files
+  timeout: 60000, // 60 second timeout for large files
+
+  // Compression for images
+  compressImages: {
+    enabled: true,
+    quality: 0.8, // 80% quality
+    maxWidth: 1920, // Resize large images
+    maxHeight: 1080,
+  },
 
   // Connection pooling
   keepAlive: true,
-  maxConnections: 6,
+  maxSockets: 5,
 
-  // Request optimization
-  compression: true,
-  deduplication: true, // Prevent duplicate uploads
-
-  // Preloading
-  preload: {
-    enabled: true,
-    routes: ["imageUpload", "documentUpload"], // Preload common routes
-  },
-
-  // Caching
-  cache: {
-    enabled: true,
-    strategy: "stale-while-revalidate",
-    maxAge: 300000, // 5 minutes
-  },
-
-  // Background uploads
-  background: {
-    enabled: true,
-    persistAcrossReloads: true,
-    syncInterval: 5000, // Sync every 5 seconds
-  },
+  // Progress throttling to avoid UI updates spam
+  progressThrottle: 100, // Update progress every 100ms
 });
 ```
-
-## Framework-Specific Configuration
-
-<Tabs items={['Next.js', 'React', 'Vue', 'Svelte']}>
-<Tab value="Next.js">
-```typescript
-// lib/upload-client.ts
-import { createUploadClient } from 'next-s3-uploader/next'
-
-export const upload = createUploadClient<Router>({
-  baseUrl: '/api/s3-upload',
-  
-  // Next.js specific options
-  router: 'app',                    // 'app' | 'pages'
-  revalidate: ['uploads'],          // Revalidate these paths after upload
-  
-  // Server Components integration
-  serverActions: true,
-  
-  // App Router specific
-  streamingUploads: true,
-  parallelRoutes: true
-})
-```
-</Tab>
-<Tab value="React">
-```typescript
-// lib/upload-client.ts
-import { createUploadClient } from 'next-s3-uploader/react'
-
-export const upload = createUploadClient<Router>({
-  baseUrl: process.env.REACT_APP_UPLOAD_URL,
-  
-  // React specific options
-  suspense: true,
-  concurrent: true,
-  
-  // State management
-  reducer: uploadReducer,
-  middleware: [uploadMiddleware]
-})
-```
-</Tab>
-<Tab value="Vue">
-```typescript
-// lib/upload-client.ts
-import { createUploadClient } from 'next-s3-uploader/vue'
-
-export const upload = createUploadClient<Router>({
-  baseUrl: '/api/s3-upload',
-  
-  // Vue specific options
-  reactive: true,
-  composable: true
-})
-```
-</Tab>
-<Tab value="Svelte">
-```typescript
-// lib/upload-client.ts
-import { createUploadClient } from 'next-s3-uploader/svelte'
-
-export const upload = createUploadClient<Router>({
-  baseUrl: '/api/s3-upload',
-  
-  // Svelte specific options
-  stores: true,
-  reactive: true
-})
-```
-</Tab>
-</Tabs>
 
 ## Real-World Configuration Examples
 
-### E-commerce Platform
+### E-commerce Application
 
 ```typescript
-const upload = createUploadClient<Router>({
-  baseUrl: "/api/uploads",
+export const ecommerceUpload = createUploadClient<EcommerceRouter>({
+  endpoint: "/api/upload",
 
-  // Optimize for product images
-  chunks: {
-    enabled: true,
-    size: 2 * 1024 * 1024, // 2MB chunks for faster uploads
+  headers: {
+    Authorization: `Bearer ${getAuthToken()}`,
+    "X-Store-ID": getStoreId(),
   },
 
-  // Handle high volume
-  queue: {
-    concurrency: 5,
-    prioritize: "smallest", // Upload smaller images first
+  onProgress: (progress) => {
+    // Update global upload progress indicator
+    updateGlobalProgress(progress);
   },
 
-  // Optimize for mobile
-  transform: {
-    image: {
-      autoResize: true,
-      maxWidth: 1200,
-      quality: 0.8,
-      format: "webp",
-    },
-  },
-
-  // Analytics
-  onUploadComplete: (result, file) => {
-    analytics.track("Product Image Uploaded", {
-      fileSize: file.size,
-      fileName: file.name,
-      uploadTime: result.uploadTime,
+  onError: (error) => {
+    // Track upload failures for analytics
+    analytics.track("upload_failed", {
+      error_code: error.code,
+      file_type: error.metadata?.fileType,
+      store_id: getStoreId(),
     });
   },
-});
-```
 
-### Social Media App
-
-```typescript
-const upload = createUploadClient<Router>({
-  baseUrl: "/api/uploads",
-
-  // Optimize for media sharing
-  autoUpload: true,
-
-  // Background uploads for better UX
-  background: {
+  // E-commerce specific settings
+  retries: 2, // Quick retries for better UX
+  maxConcurrentUploads: 5, // Allow multiple product images
+  compressImages: {
     enabled: true,
-    persistAcrossReloads: true,
-  },
-
-  // Real-time progress for stories/posts
-  progressInterval: 50,
-
-  // Handle poor network conditions
-  retryAttempts: 5,
-  retryDelay: 2000,
-
-  // Pre-process for social media
-  transform: {
-    image: {
-      autoResize: true,
-      maxWidth: 1080,
-      quality: 0.85,
-      format: "jpeg",
-    },
-    video: {
-      maxDuration: 60,
-      format: "mp4",
-      quality: "medium",
-    },
+    quality: 0.9, // High quality for product images
   },
 });
-```
 
-### Document Management System
+// Usage in product form
+export function ProductImageUpload() {
+  const { uploadFiles, files, isUploading } = ecommerceUpload.productImages;
 
-```typescript
-const upload = createUploadClient<Router>({
-  baseUrl: "/api/uploads",
-
-  // Security for sensitive documents
-  auth: {
-    getToken: () => authStore.getAccessToken(),
-    refreshToken: () => authStore.refreshToken(),
-  },
-
-  // Large file support
-  chunks: {
-    enabled: true,
-    size: 10 * 1024 * 1024, // 10MB chunks
-    parallel: 2, // Conservative for large files
-  },
-
-  // Validation for compliance
-  validation: {
-    enableClientValidation: true,
-    customValidators: [
-      (file) => file.size < 100 * 1024 * 1024 || "File too large (max 100MB)",
-      (file) =>
-        /\.(pdf|doc|docx)$/i.test(file.name) || "Only documents allowed",
-    ],
-  },
-
-  // Audit trail
-  onUploadComplete: (result, file) => {
-    auditLog.record("DOCUMENT_UPLOADED", {
-      fileName: file.name,
-      fileSize: file.size,
-      userId: user.id,
-      documentUrl: result.url,
+  const handleImageUpload = async (files: File[]) => {
+    await uploadFiles(files, {
+      metadata: {
+        productId: getCurrentProductId(),
+        category: "product-images",
+      },
+      onSuccess: (results) => {
+        updateProductImages(results.map((r) => r.url));
+      },
     });
-  },
-});
+  };
+
+  return (
+    // Upload component implementation
+    <div>{/* Upload UI */}</div>
+  );
+}
 ```
 
-## Best Practices
+### Content Management System
 
-<Callout type="success">
-  **Type Safety**: Always export and use your router type for full TypeScript
-  inference across your application.
-</Callout>
+```typescript
+export const cmsUpload = createUploadClient<CMSRouter>({
+  endpoint: "/api/upload",
 
-<Callout type="warn">
-  **Performance**: Use chunked uploads for files larger than 5MB to improve
-  reliability and user experience.
-</Callout>
+  headers: {
+    Authorization: `Bearer ${getAuthToken()}`,
+    "X-Workspace": getCurrentWorkspace(),
+  },
 
-<Callout type="info">
-  **Error Handling**: Implement comprehensive error handling with user-friendly
-  messages and retry logic.
-</Callout>
+  // CMS-specific configuration
+  timeout: 120000, // 2 minutes for large documents
+  retries: 3,
+  maxConcurrentUploads: 2, // Conservative for large files
+
+  onError: (error) => {
+    // Show contextual error messages
+    if (error.code === "QUOTA_EXCEEDED") {
+      showUpgradeModal();
+    } else if (error.code === "UNAUTHORIZED") {
+      redirectToLogin();
+    }
+  },
+});
+
+// Usage in content editor
+export function MediaLibrary() {
+  const images = cmsUpload.images;
+  const documents = cmsUpload.documents;
+  const videos = cmsUpload.videos;
+
+  return (
+    <div>
+      <MediaUploadTabs>
+        <Tab name="Images">
+          <UploadZone {...images} accept="image/*" />
+        </Tab>
+        <Tab name="Documents">
+          <UploadZone {...documents} accept=".pdf,.doc,.docx" />
+        </Tab>
+        <Tab name="Videos">
+          <UploadZone {...videos} accept="video/*" />
+        </Tab>
+      </MediaUploadTabs>
+    </div>
+  );
+}
+```
 
 ---
 
-**Next**: Learn how to implement [middleware](/docs/api/configuration/middleware) for authentication, validation, and custom processing.
+<Callout type="success">
+  **Ready to upload?** Check out our [complete examples](/docs/examples) to see
+  these configurations in action, or explore our [provider setup
+  guides](/docs/guides/setup/aws-s3) to configure your storage backend.
+</Callout>

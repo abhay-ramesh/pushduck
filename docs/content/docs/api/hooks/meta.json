@@ -1,4 +1,6 @@
 {
     "title": "Hooks",
-    "pages": []
+    "pages": [
+        "use-upload-route"
+    ]
 }

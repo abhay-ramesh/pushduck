@@ -6,6 +6,8 @@ description: Our vision for the future of file uploads in Next.js
 import { Callout } from "fumadocs-ui/components/callout";
 import { Card, Cards } from "fumadocs-ui/components/card";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+import { TypeTable } from "fumadocs-ui/components/type-table";
 
 # Roadmap
 
@@ -37,8 +39,30 @@ We've already solved the core problems that have frustrated developers for years
     title="Interactive CLI Tool"
     description="One command setup for any provider"
   >
-    ```bash npx next-s3-uploader init # Automatically detects your stack and
-    configures everything ```
+    The CLI will automatically detect your project structure and configure everything:
+
+    <Files>
+      <Folder name="your-app" defaultOpen>
+        <Folder name="app">
+          <Folder name="api">
+            <File name="upload/" />
+          </Folder>
+          <File name="layout.tsx" />
+          <File name="page.tsx" />
+        </Folder>
+        <File name=".env.local" />
+        <File name="upload.config.ts" />
+      </Folder>
+    </Files>
+
+    ```bash
+    npx next-s3-uploader init
+    # ✅ Detected Next.js 14 with App Router
+    # ✅ Created upload route at /api/upload
+    # ✅ Added environment variables to .env.local
+    # ✅ Generated type-safe upload config
+    ```
+
   </Card>
 
 {" "}
@@ -48,7 +72,7 @@ We've already solved the core problems that have frustrated developers for years
   description="Configure complex upload flows with a GUI"
 >
   No more YAML or complex configuration files. Build upload pipelines visually
-  and export to code.
+  and export to code with real-time preview of your upload components.
 </Card>
 
   <Card
@@ -56,7 +80,7 @@ We've already solved the core problems that have frustrated developers for years
     description="See your upload UI as you build it"
   >
     Hot-reload your upload components with live preview of validation, progress,
-    and error states.
+    and error states. Perfect for rapid prototyping and design iteration.
   </Card>
 </Cards>
 
@@ -64,6 +88,25 @@ We've already solved the core problems that have frustrated developers for years
 
 <Cards>
   <Card title="Advanced Access Control" description="Role-based permissions and audit trails">
+    <TypeTable
+      type={{
+        permissions: {
+          description: 'Array of permission strings for role-based access',
+          type: 'string[]',
+          default: '[]',
+        },
+        auditLog: {
+          description: 'Enable detailed audit logging for compliance',
+          type: 'boolean',
+          default: 'false',
+        },
+        compliance: {
+          description: 'Compliance framework integration',
+          type: '"SOC2" | "HIPAA" | "GDPR"',
+        },
+      }}
+    />
+
     ```typescript
     const router = createUploadRouter({
       images: uploadSchema({
@@ -73,14 +116,15 @@ We've already solved the core problems that have frustrated developers for years
       })
     })
     ```
+
   </Card>
   
   <Card title="Content Scanning" description="Automatic malware and content policy detection">
-    Built-in integration with leading security providers for automatic threat detection.
+    Built-in integration with leading security providers for automatic threat detection, content moderation, and policy enforcement.
   </Card>
   
   <Card title="Compliance Suite" description="GDPR, HIPAA, and SOC2 compliance helpers">
-    Pre-built compliance workflows and automatic data handling policies.
+    Pre-built compliance workflows and automatic data handling policies with audit trails and data retention management.
   </Card>
 </Cards>
 
@@ -88,6 +132,24 @@ We've already solved the core problems that have frustrated developers for years
 
 <Cards>
   <Card title="Edge Computing" description="Process uploads at the edge globally">
+    <TypeTable
+      type={{
+        processing: {
+          description: 'Image/video processing configuration',
+          type: 'ProcessingConfig',
+        },
+        edge: {
+          description: 'Enable edge processing for faster uploads',
+          type: 'boolean',
+          default: 'false',
+        },
+        regions: {
+          description: 'Specify target regions for processing',
+          type: 'string[]',
+        },
+      }}
+    />
+
     ```typescript
     const router = createUploadRouter({
       images: uploadSchema({
@@ -99,14 +161,15 @@ We've already solved the core problems that have frustrated developers for years
       })
     })
     ```
+
   </Card>
   
   <Card title="Smart Caching" description="Intelligent CDN integration and cache invalidation">
-    Automatic cache warming and smart invalidation strategies for optimal performance.
+    Automatic cache warming and smart invalidation strategies for optimal performance. Includes built-in CDN integration with major providers.
   </Card>
   
   <Card title="Analytics Dashboard" description="Upload metrics, performance insights, and cost optimization">
-    Real-time dashboard showing upload success rates, processing times, and storage costs.
+    Real-time dashboard showing upload success rates, processing times, storage costs, and performance bottlenecks with actionable insights.
   </Card>
 </Cards>
 
@@ -117,25 +180,63 @@ We've already solved the core problems that have frustrated developers for years
     title="Framework Agnostic"
     description="Support for Vue, Svelte, and vanilla JavaScript"
   >
-    ```typescript // Vue 3 import {createUploadClient} from
-    '@next-s3-uploader/vue' // Svelte import {uploadStore} from
-    '@next-s3-uploader/svelte' // Vanilla JS import {UploadClient} from
-    '@next-s3-uploader/core' 
-    ```
+    Complete framework support with the same developer experience:
+
+    <Tabs items={["Vue 3", "Svelte", "Vanilla JS"]} groupId="framework" persist>
+      <Tab value="Vue 3">
+        ```typescript
+        // Vue 3 Composition API
+        import { createUploadClient } from '@next-s3-uploader/vue'
+
+        const upload = createUploadClient<AppRouter>({
+          endpoint: '/api/upload'
+        })
+
+        const { files, uploadFiles, isUploading } = upload.imageUpload
+        ```
+      </Tab>
+
+      <Tab value="Svelte">
+        ```typescript
+        // Svelte stores
+        import { uploadStore } from '@next-s3-uploader/svelte'
+
+        const upload = uploadStore<AppRouter>('/api/upload')
+
+        // Reactive stores for upload state
+        $: ({ files, isUploading } = $upload.imageUpload)
+        ```
+      </Tab>
+
+      <Tab value="Vanilla JS">
+        ```typescript
+        // Pure JavaScript
+        import { UploadClient } from '@next-s3-uploader/core'
+
+        const client = new UploadClient('/api/upload')
+
+        client.upload('imageUpload', files)
+          .on('progress', (progress) => console.log(progress))
+          .on('complete', (urls) => console.log(urls))
+        ```
+      </Tab>
+    </Tabs>
+
   </Card>
 
 {" "}
 
 <Card title="Mobile SDKs" description="React Native and Flutter support">
-  Native mobile SDKs with the same type-safe API you love on the web.
+  Native mobile SDKs with the same type-safe API you love on the web. Full
+  offline support with automatic retry and background uploads.
 </Card>
 
   <Card
     title="AI Integration"
     description="Smart image tagging and content analysis"
   >
-    Automatic alt text generation, content categorization, and duplicate
-    detection.
+    Automatic alt text generation, content categorization, duplicate
+    detection, and smart compression based on content analysis.
   </Card>
 </Cards>
 
@@ -145,7 +246,10 @@ We've already solved the core problems that have frustrated developers for years
 
 Based on community feedback, GitHub issues, and Discord discussions:
 
-<Tabs items={["Most Requested", "Under Discussion", "Long Term"]}>
+<Tabs
+  items={["Most Requested", "Under Discussion", "Long Term"]}
+  groupId="community-requests"
+>
   <Tab value="Most Requested">
     **🔥 High Priority (Next 3 months)** - **Drag & Drop File Manager** - Visual
     file organization and bulk operations - **Video Processing Pipeline** -
@@ -192,17 +296,18 @@ Have an idea or want to prioritize something? Here's how to influence our roadma
 
 <Cards>
   <Card title="GitHub Issues" description="Submit detailed feature requests">
-    Use our feature request template with use cases and expected API design.
+    Use our feature request template with use cases and expected API design. Include code examples and real-world scenarios.
   </Card>
 
 {" "}
 
 <Card title="Discord Polls" description="Vote on monthly feature priorities">
-  Join our Discord server where we run monthly polls on upcoming features.
+  Join our Discord server where we run monthly polls on upcoming features. Your
+  vote directly influences our development priorities.
 </Card>
 
   <Card title="Community Calls" description="Monthly roadmap discussion">
-    First Friday of every month at 10 AM PT - open to all developers.
+    First Friday of every month at 10 AM PT - open to all developers. Share your use cases and help shape the future.
   </Card>
 </Cards>
 
@@ -222,6 +327,39 @@ Have an idea or want to prioritize something? Here's how to influence our roadma
   board](https://github.com/your-org/next-s3-uploader/projects) for real-time
   updates on development progress.
 </Callout>
+
+### Development Structure
+
+Our development process is organized around clear modules:
+
+<Files>
+  <Folder name="packages" defaultOpen>
+    <Folder name="next-s3-uploader">
+      <Folder name="src">
+        <Folder name="client">
+          <File name="upload-client.ts" />
+          <File name="hooks.ts" />
+        </Folder>
+        <Folder name="server">
+          <File name="router.ts" />
+          <File name="providers.ts" />
+        </Folder>
+        <Folder name="types">
+          <File name="index.ts" />
+        </Folder>
+      </Folder>
+    </Folder>
+    <Folder name="cli">
+      <File name="index.ts" />
+      <File name="templates/" />
+    </Folder>
+    <Folder name="integrations">
+      <File name="vue/" />
+      <File name="svelte/" />
+      <File name="react-native/" />
+    </Folder>
+  </Folder>
+</Files>
 
 ### Core Principles
 
