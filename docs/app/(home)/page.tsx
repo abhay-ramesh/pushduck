@@ -1,5 +1,73 @@
+"use client";
+
 import { ArrowRight, Copy, Github, Shield, Upload, Zap } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { codeToHtml } from "shiki";
+
+const codeExample = `import { uploadConfig } from "next-s3-uploader/server";
+
+export const { uploadHandler } = uploadConfig
+  .s3({
+    bucket: process.env.S3_BUCKET!,
+    region: process.env.AWS_REGION!,
+  })
+  .build();`;
+
+function CodeBlock() {
+  const [highlightedCode, setHighlightedCode] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function highlightCode() {
+      try {
+        const html = await codeToHtml(codeExample, {
+          lang: "typescript",
+          themes: {
+            light: "github-light",
+            dark: "github-dark",
+          },
+          defaultColor: false,
+        });
+        setHighlightedCode(html);
+      } catch (error) {
+        console.error("Failed to highlight code:", error);
+        // Fallback to plain text
+        setHighlightedCode(
+          `<pre><code class="flex text-start">${codeExample}</code></pre>`
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    highlightCode();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="p-6 text-left animate-pulse bg-muted">
+        <div className="space-y-2">
+          <div className="w-3/4 h-4 rounded bg-muted-foreground/20"></div>
+          <div className="w-1/2 h-4 rounded bg-muted-foreground/20"></div>
+          <div className="w-5/6 h-4 rounded bg-muted-foreground/20"></div>
+          <div className="w-2/3 h-4 rounded bg-muted-foreground/20"></div>
+          <div className="w-3/5 h-4 rounded bg-muted-foreground/20"></div>
+          <div className="w-1/3 h-4 rounded bg-muted-foreground/20"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <div
+        className="[&_pre]:m-0 [&_pre]:border-none [&_pre]:bg-transparent text-start [&_code]:bg-transparent [&_pre]:p-6"
+        dangerouslySetInnerHTML={{ __html: highlightedCode }}
+      />
+    </div>
+  );
+}
 
 export default function HomePage() {
   return (
@@ -42,6 +110,9 @@ export default function HomePage() {
               <button
                 className="p-1 ml-auto rounded transition-colors hover:bg-background"
                 title="Copy to clipboard"
+                onClick={() => {
+                  navigator.clipboard.writeText("npm install next-s3-uploader");
+                }}
               >
                 <Copy className="w-4 h-4" />
               </button>
@@ -61,63 +132,7 @@ export default function HomePage() {
                   </span>
                 </div>
               </div>
-              <div className="p-6 text-left bg-[#1e1e1e] dark:bg-[#0d1117] overflow-x-auto">
-                <pre className="text-sm leading-relaxed">
-                  <code>
-                    <span className="text-[#569cd6]">import</span>{" "}
-                    <span className="text-[#b5cea8]">&#123;</span>{" "}
-                    <span className="text-[#9cdcfe]">uploadConfig</span>{" "}
-                    <span className="text-[#b5cea8]">&#125;</span>{" "}
-                    <span className="text-[#569cd6]">from</span>{" "}
-                    <span className="text-[#ce9178]">
-                      &quot;next-s3-uploader/server&quot;
-                    </span>
-                    <span className="text-[#b5cea8]">;</span>
-                    {"\n\n"}
-                    <span className="text-[#569cd6]">export</span>{" "}
-                    <span className="text-[#569cd6]">const</span>{" "}
-                    <span className="text-[#b5cea8]">&#123;</span>{" "}
-                    <span className="text-[#9cdcfe]">uploadHandler</span>{" "}
-                    <span className="text-[#b5cea8]">&#125;</span>{" "}
-                    <span className="text-[#569cd6]">=</span>{" "}
-                    <span className="text-[#9cdcfe]">uploadConfig</span>
-                    {"\n  "}
-                    <span className="text-[#b5cea8]">.</span>
-                    <span className="text-[#dcdcaa]">s3</span>
-                    <span className="text-[#b5cea8]">(</span>
-                    <span className="text-[#b5cea8]">&#123;</span>
-                    {"\n    "}
-                    <span className="text-[#9cdcfe]">bucket</span>
-                    <span className="text-[#b5cea8]">:</span>{" "}
-                    <span className="text-[#9cdcfe]">process</span>
-                    <span className="text-[#b5cea8]">.</span>
-                    <span className="text-[#9cdcfe]">env</span>
-                    <span className="text-[#b5cea8]">.</span>
-                    <span className="text-[#9cdcfe]">S3_BUCKET</span>
-                    <span className="text-[#b5cea8]">!</span>
-                    <span className="text-[#b5cea8]">,</span>
-                    {"\n    "}
-                    <span className="text-[#9cdcfe]">region</span>
-                    <span className="text-[#b5cea8]">:</span>{" "}
-                    <span className="text-[#9cdcfe]">process</span>
-                    <span className="text-[#b5cea8]">.</span>
-                    <span className="text-[#9cdcfe]">env</span>
-                    <span className="text-[#b5cea8]">.</span>
-                    <span className="text-[#9cdcfe]">AWS_REGION</span>
-                    <span className="text-[#b5cea8]">!</span>
-                    <span className="text-[#b5cea8]">,</span>
-                    {"\n  "}
-                    <span className="text-[#b5cea8]">&#125;</span>
-                    <span className="text-[#b5cea8]">)</span>
-                    {"\n  "}
-                    <span className="text-[#b5cea8]">.</span>
-                    <span className="text-[#dcdcaa]">build</span>
-                    <span className="text-[#b5cea8]">(</span>
-                    <span className="text-[#b5cea8]">)</span>
-                    <span className="text-[#b5cea8]">;</span>
-                  </code>
-                </pre>
-              </div>
+              <CodeBlock />
             </div>
           </div>
         </div>
