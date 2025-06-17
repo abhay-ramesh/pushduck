@@ -1,0 +1,337 @@
+---
+title: Quick Start
+description: Get file uploads working in your Next.js app in under 2 minutes with our CLI
+---
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+import { Callout } from "fumadocs-ui/components/callout";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+Get **production-ready file uploads** working in your Next.js app in under 2 minutes with our CLI tool. Zero configuration, just one command.
+
+<Callout type="success">
+  **🚀 New!** Use our CLI for instant setup: `npx next-s3-uploader init` - handles everything automatically!
+</Callout>
+    
+### ⚡ Zero-Config CLI Setup
+    
+Get everything set up instantly with our interactive CLI:
+
+```bash
+npx next-s3-uploader init
+```
+
+That's it! The CLI will:
+- ✅ Install dependencies automatically
+- ✅ Set up your chosen provider (AWS S3, Cloudflare R2, etc.)
+- ✅ Create API routes with type safety
+- ✅ Generate example components
+- ✅ Configure environment variables
+- ✅ Create and configure your S3 bucket
+
+**What you get:**
+- Production-ready upload API in `app/api/upload/route.ts`
+- Type-safe upload client in `lib/upload-client.ts`
+- Example components in `components/ui/`
+- Working demo page in `app/upload/page.tsx`
+
+[**📚 Full CLI Documentation →**](/docs/api/cli/cli-setup)
+
+**Example CLI Output:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   🚀 Welcome to Next.js S3 Uploader                         │
+│                                                             │
+│   Let's get your file uploads working in 2 minutes!         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+
+🔍 Detecting your project...
+  ✓ Next.js App Router detected
+  ✓ TypeScript configuration found
+
+? Which cloud storage provider would you like to use?
+❯ AWS S3 (recommended)
+  Cloudflare R2 (S3-compatible, global edge)
+  DigitalOcean Spaces (simple, affordable)
+
+✨ Generated files:
+  ├── app/api/upload/route.ts
+  ├── app/upload/page.tsx
+  ├── components/ui/upload-button.tsx
+  ├── lib/upload-client.ts
+  └── .env.example
+
+🎉 Setup complete! Your uploads are ready.
+```
+
+---
+
+## Step-by-Step CLI Walkthrough
+
+Here's exactly what happens when you run the CLI and how to make the best choices:
+
+<Steps>
+  <Step>
+    ### Project Detection & Validation
+    
+    ```
+    🔍 Detecting your project...
+      ✓ Next.js App Router detected
+      ✓ TypeScript configuration found
+      ✓ No existing upload configuration
+      ✓ Project structure validated
+    ```
+    
+    **What's happening:** The CLI automatically detects your project setup to ensure compatibility.
+    
+    **If you see warnings:**
+    - ⚠️ **Pages Router detected**: Still works, but examples will be for App Router
+    - ⚠️ **No TypeScript**: JavaScript examples will be generated instead
+    - ⚠️ **Existing configuration**: CLI will ask if you want to overwrite
+  </Step>
+
+  <Step>
+    ### Provider Selection
+    
+    ```
+    ? Which cloud storage provider would you like to use?
+    ❯ AWS S3 (recommended)
+      Cloudflare R2 (S3-compatible, global edge)
+      DigitalOcean Spaces (simple, affordable)
+      Google Cloud Storage (enterprise-grade)
+      MinIO (self-hosted, open source)
+      Custom S3-compatible endpoint
+    ```
+    
+    **How to choose:**
+    
+    <Tabs items={["First Time?", "Cost Conscious", "Global Users", "Enterprise"]}>
+      <Tab value="First Time?">
+        **Choose: AWS S3 (recommended)**
+        - Most documentation and tutorials available
+        - Extensive AWS ecosystem integration
+        - Free tier: 5GB storage, 20,000 GET requests
+        - Best for learning and getting started
+      </Tab>
+      
+      <Tab value="Cost Conscious">
+        **Choose: Cloudflare R2**
+        - No egress fees (bandwidth is free)
+        - $0.015/GB storage (cheaper than S3)
+        - Global edge network included
+        - Perfect for high-traffic applications
+      </Tab>
+      
+      <Tab value="Global Users">
+        **Choose: Cloudflare R2**
+        - Global edge network with 200+ locations
+        - Automatic geographic distribution
+        - Faster uploads worldwide
+        - Built-in CDN functionality
+      </Tab>
+      
+      <Tab value="Enterprise">
+        **Choose: Google Cloud Storage**
+        - Enterprise-grade security and compliance
+        - Advanced analytics and monitoring
+        - Integration with Google Cloud ecosystem
+        - Multi-region redundancy options
+      </Tab>
+    </Tabs>
+    
+    **Use arrow keys** to navigate, **Enter** to select.
+  </Step>
+
+  <Step>
+    ### Credential Detection & Setup
+    
+    ```
+    🔧 Setting up AWS S3...
+    
+    🔍 Checking for existing credentials...
+      ✓ Found AWS_ACCESS_KEY_ID
+      ✓ Found AWS_SECRET_ACCESS_KEY
+      ✓ Found AWS_REGION
+      ⚠ AWS_S3_BUCKET_NAME not found
+    ```
+    
+    **What this means:**
+    - ✅ **Found credentials**: CLI detected existing environment variables
+    - ⚠️ **Missing credentials**: You'll be prompted to enter them
+    - ❌ **No credentials**: CLI will guide you through setup
+    
+    **If prompted for credentials:**
+    ```
+    ? Enter your AWS Access Key ID: AKIA...
+    ? Enter your AWS Secret Access Key: [hidden]
+    ? Enter your AWS Region (us-east-1): us-east-1
+    ? Enter your S3 bucket name: my-app-uploads-2024
+    ```
+    
+    **Pro tips:**
+    - Use a **unique bucket name** (globally unique across all AWS)
+    - Choose a **region close to your users**
+    - **Don't have credentials?** Check our [AWS S3 setup guide](/docs/providers/aws-s3)
+  </Step>
+
+  <Step>
+    ### Bucket Creation
+    
+    ```
+    ? Create bucket automatically? (Y/n)
+    ```
+    
+    **Recommended: Yes** - The CLI will:
+    - Create the bucket with proper permissions
+    - Set up CORS configuration for web uploads
+    - Configure public read access for uploaded files
+    - Test the connection to ensure everything works
+    
+    **Choose "No" if:**
+    - You already have a bucket configured
+    - Your organization requires manual bucket creation
+    - You need custom bucket policies
+    
+    **Success looks like:**
+    ```
+    ✅ Created S3 bucket: my-app-uploads-2024
+    ✅ Configured CORS for web uploads
+    ✅ Set up public read permissions
+    ✅ Connection test successful
+    ```
+  </Step>
+
+  <Step>
+    ### API Route Configuration
+    
+    ```
+    ? Where should we create the upload API?
+    ❯ app/api/upload/route.ts (recommended)
+      app/api/s3-upload/route.ts (classic)
+      Custom path
+    ```
+    
+    **Recommendations:**
+    - **`/api/upload`**: Clean, modern route name
+    - **`/api/s3-upload`**: If you want to be explicit about S3
+    - **Custom path**: If you have specific routing requirements
+    
+    **The CLI will create:**
+    - Type-safe API route with validation
+    - Authentication middleware (ready to customize)
+    - Support for multiple upload types (images, documents)
+    - Proper error handling and responses
+  </Step>
+
+  <Step>
+    ### Component Generation
+    
+    ```
+    ? Generate example upload page?
+    ❯ Yes, create app/upload/page.tsx with full example
+      Yes, just add components to components/ui/
+      No, I'll build my own
+    ```
+    
+    **Choose based on your needs:**
+    
+    **Full example page** - Best for:
+    - Learning how the library works
+    - Quick prototyping and testing
+    - Getting a working demo immediately
+    
+    **Components only** - Best for:
+    - Adding uploads to existing pages
+    - Custom UI integration
+    - Building your own demo
+    
+    **No components** - Best for:
+    - Experienced developers
+    - Custom implementation requirements
+    - API-only usage
+  </Step>
+
+  <Step>
+    ### File Generation & Installation
+    
+    ```
+    🛠️ Generating files...
+    
+    ✨ Created files:
+      ├── app/api/upload/route.ts        # Type-safe API endpoint
+      ├── app/upload/page.tsx            # Demo upload page
+      ├── components/ui/upload-button.tsx # Simple upload button
+      ├── components/ui/upload-dropzone.tsx # Drag & drop component
+      ├── lib/upload-client.ts           # Type-safe client
+      └── .env.example                   # Environment template
+    
+    📦 Installing dependencies...
+      ✓ next-s3-uploader
+      ✓ @aws-sdk/client-s3
+      ✓ react-dropzone
+    
+    🎉 Setup complete! Your uploads are ready.
+    ```
+    
+    **What happens:**
+    1. **Files generated** with your specific configuration
+    2. **Dependencies installed** automatically
+    3. **Types generated** for full TypeScript support
+    4. **Environment configured** with your settings
+    
+    **Next steps shown:**
+    ```
+    🚀 Next steps:
+      1. Start your dev server: npm run dev
+      2. Visit: http://localhost:3000/upload
+      3. Try uploading a file!
+      
+    📚 Learn more:
+      • API Reference: /docs/api
+      • Providers: /docs/providers
+      • Examples: /docs/examples
+    ```
+  </Step>
+</Steps>
+
+---
+
+## Common CLI Scenarios
+
+### First-Time Setup (Recommended)
+```bash
+npx next-s3-uploader init
+# Follow prompts, choose AWS S3, let CLI create bucket
+```
+
+### Quick AWS Setup
+```bash
+npx next-s3-uploader init --provider aws
+# Skip provider selection, go straight to AWS
+```
+
+### Cloudflare R2 Setup
+```bash
+npx next-s3-uploader init --provider cloudflare-r2
+# Optimized for R2 with edge configuration
+```
+
+### Components Only
+```bash
+npx next-s3-uploader init --skip-examples
+# Generate API and components, no demo page
+```
+
+### Preview Mode
+```bash
+npx next-s3-uploader init --dry-run
+# See what would be created without making changes
+```
+
+---
+
+<Callout type="info">
+**Need help?** The CLI includes built-in help: `npx next-s3-uploader --help`. For detailed documentation, see our [complete CLI reference](/docs/api/cli/cli-setup).
+</Callout>

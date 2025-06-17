@@ -2,7 +2,8 @@
     "title": "Next S3 Uploader",
     "pages": [
         "index",
-        "quick-start",
+        "getting-started",
+        "providers",
         "guides",
         "api",
         "examples",

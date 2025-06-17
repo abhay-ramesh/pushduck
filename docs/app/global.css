@@ -1,3 +1,219 @@
 @import "tailwindcss";
 @import "fumadocs-ui/css/dusk.css";
 @import "fumadocs-ui/css/preset.css";
+
+/* Enhanced typography and professional styling */
+:root {
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --border-radius-lg: 0.75rem;
+  --border-radius-xl: 1rem;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Enhanced focus states */
+*:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+/* Professional button hover effects */
+.group:hover {
+  transform: translateY(-1px);
+}
+
+/* Enhanced code block styling */
+pre {
+  font-variant-ligatures: normal;
+  font-feature-settings: "liga" 1, "calt" 1;
+}
+
+/* Refined backdrop blur effects */
+.backdrop-blur-sm {
+  backdrop-filter: blur(8px);
+}
+
+/* Professional gradient text */
+.bg-gradient-to-br {
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease-in-out infinite;
+}
+
+@keyframes gradient-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Enhanced shadow system */
+.shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* Professional animation timing */
+.transition-all {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced hover states for interactive elements */
+button:hover,
+a:hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Professional sidebar styling */
+[data-sidebar] {
+  border-right: 1px solid hsl(var(--border) / 0.5);
+}
+
+/* Enhanced navigation */
+nav a {
+  font-weight: var(--font-weight-medium);
+  transition: all 0.2s ease;
+}
+
+nav a:hover {
+  color: hsl(var(--primary));
+}
+
+/* Professional code syntax highlighting adjustments */
+.shiki {
+  border-radius: var(--border-radius-lg);
+}
+
+/* Enhanced mobile responsiveness */
+@media (max-width: 768px) {
+  .text-7xl {
+    font-size: 3.5rem;
+    line-height: 1.1;
+  }
+
+  .text-8xl {
+    font-size: 4rem;
+    line-height: 1.1;
+  }
+}
+
+/* Enhanced Sidebar Navigation */
+[data-sidebar] {
+  --sidebar-width: 280px;
+}
+
+/* Guides section prominence */
+[data-sidebar] [data-folder="Guides"] {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--muted) / 0.3),
+    hsl(var(--muted) / 0.1)
+  );
+  border-radius: var(--border-radius-lg);
+  margin: 0.25rem 0;
+  padding: 0.125rem;
+}
+
+[data-sidebar] [data-folder="Guides"] > button {
+  font-weight: var(--font-weight-semibold);
+  color: hsl(var(--primary));
+}
+
+/* Setup section special styling */
+[data-sidebar] [data-folder="Setup"] {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.1),
+    hsl(var(--primary) / 0.05)
+  );
+  border-radius: var(--border-radius-lg);
+  margin: 0.25rem 0;
+  padding: 0.125rem;
+  border: 1px solid hsl(var(--primary) / 0.2);
+}
+
+[data-sidebar] [data-folder="Setup"] > button {
+  font-weight: var(--font-weight-semibold);
+}
+
+/* CLI Setup special prominence */
+[data-sidebar] a[href*="cli-setup"] {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.15),
+    hsl(var(--primary) / 0.08)
+  );
+  border-radius: var(--border-radius-lg);
+  font-weight: var(--font-weight-semibold);
+  border: 1px solid hsl(var(--primary) / 0.3);
+  position: relative;
+}
+
+[data-sidebar] a[href*="cli-setup"]::before {
+  content: "⚡";
+  margin-right: 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Collapse less important sections by default */
+[data-sidebar] [data-folder="API Reference"],
+[data-sidebar] [data-folder="Examples"] {
+  opacity: 0.8;
+}
+
+[data-sidebar] [data-folder="AI Integration"],
+[data-sidebar] [data-folder="Roadmap"] {
+  opacity: 0.7;
+  font-size: 0.875rem;
+}
+
+/* Enhanced hover states for navigation */
+[data-sidebar] a:hover {
+  background: hsl(var(--muted) / 0.5);
+  transform: translateX(2px);
+}
+
+[data-sidebar] [data-folder] > button:hover {
+  background: hsl(var(--muted) / 0.3);
+}
+
+/* Quick access indicators */
+[data-sidebar] a[href*="quick-start"]::after {
+  content: "🚀";
+  margin-left: auto;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+/* Visual hierarchy improvements */
+[data-sidebar] [data-level="1"] {
+  margin-left: 0.5rem;
+  border-left: 2px solid hsl(var(--border));
+  padding-left: 0.75rem;
+}
+
+[data-sidebar] [data-level="2"] {
+  margin-left: 1rem;
+  border-left: 1px solid hsl(var(--border) / 0.5);
+  padding-left: 0.5rem;
+}
+
+/* Smooth expand/collapse animations */
+[data-sidebar] [data-collapsible] {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Better focus states for keyboard navigation */
+[data-sidebar] a:focus-visible,
+[data-sidebar] button:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: var(--border-radius-lg);
+}

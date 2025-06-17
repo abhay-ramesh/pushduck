@@ -12,6 +12,10 @@ export default function Layout({ children }: { children: ReactNode }) {
         defaultOpenLevel: 1,
         collapsible: false,
       }}
+      nav={{
+        ...baseOptions.nav,
+        transparentMode: "top",
+      }}
     >
       {children}
     </DocsLayout>

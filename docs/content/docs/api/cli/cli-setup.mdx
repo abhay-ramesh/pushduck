@@ -1,0 +1,555 @@
+---
+title: CLI Reference
+description: Complete reference for the next-s3-uploader CLI tool with all commands, options, and examples
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+import { Steps, Step } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { Files, Folder, File } from 'fumadocs-ui/components/files'
+
+<Callout type="info">
+The CLI handles everything: dependency installation, API route creation, provider setup, environment configuration, and example generation. Just run one command and start uploading!
+</Callout>
+
+## Quick Start
+
+<Steps>
+  <Step>
+    **Run the CLI in your Next.js project**
+    
+    ```bash
+    npx next-s3-uploader init
+    ```
+    
+    That's it! The CLI will guide you through the entire setup process.
+  </Step>
+  
+  <Step>
+    **Follow the interactive prompts**
+    
+    The CLI will detect your project and ask a few questions:
+    
+    - Which provider do you want to use? (AWS S3, Cloudflare R2, etc.)
+    - Should we create the bucket automatically?
+    - Where should we put the API routes?
+    - Do you want example components?
+  </Step>
+  
+  <Step>
+    **Start uploading immediately**
+    
+    The CLI generates everything you need:
+    
+    - ✅ API routes with type-safe configuration
+    - ✅ Environment variables setup
+    - ✅ Example upload components  
+    - ✅ TypeScript types
+    - ✅ Provider configuration
+  </Step>
+</Steps>
+
+## What the CLI Does
+
+<Cards>
+  <Card title="Project Detection" description="Automatically detects your Next.js setup">
+    - Detects App Router vs Pages Router
+    - Finds existing TypeScript configuration
+    - Checks for existing upload implementations
+    - Validates project structure
+  </Card>
+  
+  <Card title="Provider Setup" description="Configures your chosen cloud storage provider">
+    - AWS S3, Cloudflare R2, DigitalOcean Spaces
+    - Google Cloud Storage, MinIO
+    - Automatic bucket creation
+    - CORS configuration
+  </Card>
+  
+  <Card title="Code Generation" description="Creates production-ready code">
+    - Type-safe API routes
+    - Upload client configuration
+    - Example components
+    - Environment variable templates
+  </Card>
+  
+  <Card title="Zero Configuration" description="Works out of the box">
+    - Intelligent defaults
+    - Automatic dependency installation
+    - Environment detection
+    - Best practices applied
+  </Card>
+</Cards>
+
+## CLI Commands
+
+### `init` - Initialize Setup
+
+```bash
+npx next-s3-uploader init [options]
+```
+
+**Options:**
+
+- `--provider <type>` - Skip provider selection (aws|cloudflare-r2|digitalocean|minio|gcs)
+- `--skip-examples` - Don't generate example components
+- `--skip-bucket` - Don't create S3 bucket automatically
+- `--api-path <path>` - Custom API route path (default: `/api/upload`)
+- `--dry-run` - Show what would be created without creating
+- `--verbose` - Show detailed output
+
+**Examples:**
+
+<Tabs items={["Quick Setup", "AWS Direct", "Custom API Path", "Components Only"]}>
+  <Tab value="Quick Setup">
+    ```bash
+    # Interactive setup with all prompts
+    npx next-s3-uploader init
+    ```
+  </Tab>
+  
+  <Tab value="AWS Direct">
+    ```bash
+    # Skip provider selection, use AWS S3
+    npx next-s3-uploader init --provider aws
+    ```
+  </Tab>
+  
+  <Tab value="Custom API Path">
+    ```bash
+    # Use custom API route path
+    npx next-s3-uploader init --api-path /api/files
+    ```
+  </Tab>
+  
+  <Tab value="Components Only">
+    ```bash
+    # Generate only components, skip bucket creation
+    npx next-s3-uploader init --skip-bucket --skip-examples
+    ```
+  </Tab>
+</Tabs>
+
+### `add` - Add Upload Route
+
+```bash
+npx next-s3-uploader add
+```
+
+Add new upload routes to existing configuration:
+
+```bash
+# Interactive route builder
+npx next-s3-uploader add
+
+# Example output:
+# ✨ Added imageUpload route for profile pictures
+# ✨ Added documentUpload route for file attachments
+# ✨ Updated router types
+```
+
+### `test` - Test Configuration
+
+```bash
+npx next-s3-uploader test [options]
+```
+
+**Options:**
+
+- `--verbose` - Show detailed test output
+
+Validates your current setup:
+
+```bash
+npx next-s3-uploader test
+
+# Example output:
+# ✅ Environment variables configured
+# ✅ S3 bucket accessible
+# ✅ CORS configuration valid
+# ✅ API routes responding
+# ✅ Types generated correctly
+```
+
+## Interactive Setup Walkthrough
+
+### Step 1: Project Detection
+
+```
+🔍 Detecting your project...
+  ✓ Next.js App Router detected
+  ✓ TypeScript configuration found
+  ✓ No existing upload configuration
+  ✓ Project structure validated
+```
+
+### Step 2: Provider Selection
+
+```
+? Which cloud storage provider would you like to use?
+❯ AWS S3 (recommended)
+  Cloudflare R2 (S3-compatible, global edge)
+  DigitalOcean Spaces (simple, affordable)
+  Google Cloud Storage (enterprise-grade)
+  MinIO (self-hosted, open source)
+  Custom S3-compatible endpoint
+```
+
+### Step 3: Credential Setup
+
+```
+🔧 Setting up AWS S3...
+
+🔍 Checking for existing credentials...
+  ✓ Found AWS_ACCESS_KEY_ID
+  ✓ Found AWS_SECRET_ACCESS_KEY
+  ✓ Found AWS_REGION
+  ⚠ AWS_S3_BUCKET_NAME not found
+
+? Enter your S3 bucket name: my-app-uploads
+? Create bucket automatically? Yes
+```
+
+### Step 4: API Configuration
+
+```
+? Where should we create the upload API?
+❯ app/api/upload/route.ts (recommended)
+  app/api/s3-upload/route.ts (classic)
+  Custom path
+
+? Generate example upload page? 
+❯ Yes, create app/upload/page.tsx with full example
+  Yes, just add components to components/ui/
+  No, I'll build my own
+```
+
+### Step 5: File Generation
+
+```
+🛠️ Generating files...
+
+✨ Created files:
+  ├── app/api/upload/route.ts
+  ├── app/upload/page.tsx
+  ├── components/ui/upload-button.tsx
+  ├── components/ui/upload-dropzone.tsx
+  ├── lib/upload-client.ts
+  └── .env.example
+
+📦 Installing dependencies...
+  ✓ next-s3-uploader
+  ✓ @aws-sdk/client-s3
+  ✓ react-dropzone
+
+🎉 Setup complete! Your uploads are ready.
+```
+
+## Generated Project Structure
+
+After running the CLI, your project will have:
+
+<Files>
+  <Folder name="app" defaultOpen>
+    <Folder name="api">
+      <Folder name="upload">
+        <File name="route.ts" />
+      </Folder>
+    </Folder>
+    <Folder name="upload">
+      <File name="page.tsx" />
+    </Folder>
+  </Folder>
+  <Folder name="components" defaultOpen>
+    <Folder name="ui">
+      <File name="upload-button.tsx" />
+      <File name="upload-dropzone.tsx" />
+      <File name="file-preview.tsx" />
+    </Folder>
+  </Folder>
+  <Folder name="lib">
+    <File name="upload-client.ts" />
+  </Folder>
+  <File name=".env.local" />
+  <File name=".env.example" />
+</Files>
+
+### Generated API Route
+
+```typescript title="app/api/upload/route.ts"
+import { createUploadRouter, uploadSchema } from 'next-s3-uploader/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+
+export const router = createUploadRouter({
+  // Image uploads for profile pictures
+  imageUpload: uploadSchema({
+    image: {
+      maxSize: "5MB",
+      maxCount: 1,
+      formats: ["jpeg", "png", "webp"]
+    }
+  }).middleware(async ({ req }) => {
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user?.id) {
+      throw new Error("Authentication required")
+    }
+    
+    return {
+      userId: session.user.id,
+      folder: `uploads/${session.user.id}`
+    }
+  }),
+
+  // Document uploads
+  documentUpload: uploadSchema({
+    file: {
+      maxSize: "10MB",
+      maxCount: 5,
+      allowedTypes: ["application/pdf", "text/plain", "application/msword"]
+    }
+  }).middleware(async ({ req }) => {
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user?.id) {
+      throw new Error("Authentication required")
+    }
+    
+    return {
+      userId: session.user.id,
+      folder: `documents/${session.user.id}`
+    }
+  })
+})
+
+export type AppRouter = typeof router
+export const { GET, POST } = router
+```
+
+### Generated Upload Client
+
+```typescript title="lib/upload-client.ts"
+import { createUploadClient } from 'next-s3-uploader/client'
+import type { AppRouter } from '@/app/api/upload/route'
+
+export const upload = createUploadClient<AppRouter>({
+  endpoint: '/api/upload'
+})
+```
+
+### Generated Example Page
+
+```typescript title="app/upload/page.tsx"
+import { UploadButton } from '@/components/ui/upload-button'
+import { UploadDropzone } from '@/components/ui/upload-dropzone'
+
+export default function UploadPage() {
+  return (
+    <div className="container mx-auto py-8">
+      <h1 className="text-3xl font-bold mb-8">File Upload Demo</h1>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Profile Picture</h2>
+          <UploadButton uploadType="imageUpload" />
+        </div>
+        
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Documents</h2>
+          <UploadDropzone uploadType="documentUpload" />
+        </div>
+      </div>
+    </div>
+  )
+}
+```
+
+## Environment Variables
+
+The CLI automatically creates `.env.example` and prompts for missing values:
+
+```bash title=".env.example"
+# AWS S3 Configuration
+AWS_ACCESS_KEY_ID=your_access_key_here
+AWS_SECRET_ACCESS_KEY=your_secret_key_here
+AWS_REGION=us-east-1
+AWS_S3_BUCKET_NAME=your-bucket-name
+
+# Next.js Configuration
+NEXTAUTH_SECRET=your_nextauth_secret_here
+NEXTAUTH_URL=http://localhost:3000
+
+# Optional: Custom S3 endpoint (for R2, MinIO, etc.)
+# S3_ENDPOINT=https://your-custom-endpoint.com
+```
+
+## Provider-Specific Setup
+
+<Tabs items={["AWS S3", "Cloudflare R2", "DigitalOcean", "MinIO"]}>
+  <Tab value="AWS S3">
+    ```bash
+    npx next-s3-uploader init --provider aws
+    ```
+    
+    **Required Environment Variables:**
+    - `AWS_ACCESS_KEY_ID`
+    - `AWS_SECRET_ACCESS_KEY`
+    - `AWS_REGION`
+    - `AWS_S3_BUCKET_NAME`
+    
+    **What the CLI does:**
+    - Creates IAM policy for bucket access
+    - Sets up CORS configuration
+    - Configures bucket permissions
+    - Tests connection and permissions
+  </Tab>
+  
+  <Tab value="Cloudflare R2">
+    ```bash
+    npx next-s3-uploader init --provider cloudflare-r2
+    ```
+    
+    **Required Environment Variables:**
+    - `AWS_ACCESS_KEY_ID` (R2 token ID)
+    - `AWS_SECRET_ACCESS_KEY` (R2 secret)
+    - `AWS_REGION=auto`
+    - `AWS_S3_BUCKET_NAME`
+    - `S3_ENDPOINT` (R2 endpoint URL)
+    
+    **What the CLI does:**
+    - Configures R2-specific endpoints
+    - Sets up CORS for web uploads
+    - Validates R2 credentials
+    - Optimizes for global edge performance
+  </Tab>
+  
+  <Tab value="DigitalOcean">
+    ```bash
+    npx next-s3-uploader init --provider digitalocean
+    ```
+    
+    **Required Environment Variables:**
+    - `AWS_ACCESS_KEY_ID` (DO Spaces key)
+    - `AWS_SECRET_ACCESS_KEY` (DO Spaces secret)
+    - `AWS_REGION` (DO region)
+    - `AWS_S3_BUCKET_NAME`
+    - `S3_ENDPOINT` (DO Spaces endpoint)
+    
+    **What the CLI does:**
+    - Configures DigitalOcean Spaces endpoints
+    - Sets up CDN configuration
+    - Validates access permissions
+    - Configures CORS policies
+  </Tab>
+  
+  <Tab value="MinIO">
+    ```bash
+    npx next-s3-uploader init --provider minio
+    ```
+    
+    **Required Environment Variables:**
+    - `AWS_ACCESS_KEY_ID` (MinIO access key)
+    - `AWS_SECRET_ACCESS_KEY` (MinIO secret key)
+    - `AWS_REGION=us-east-1`
+    - `AWS_S3_BUCKET_NAME`
+    - `S3_ENDPOINT` (MinIO server URL)
+    
+    **What the CLI does:**
+    - Configures self-hosted MinIO endpoints
+    - Sets up bucket policies
+    - Validates server connectivity
+    - Configures development-friendly settings
+  </Tab>
+</Tabs>
+
+## Troubleshooting
+
+### CLI Not Found
+
+```bash
+# If you get "command not found"
+npm install -g next-s3-uploader
+
+# Or use npx for one-time usage
+npx next-s3-uploader@latest init
+```
+
+### Permission Errors
+
+```bash
+# If you get permission errors during setup
+sudo npx next-s3-uploader init
+
+# Or fix npm permissions
+npm config set prefix ~/.npm-global
+export PATH=~/.npm-global/bin:$PATH
+```
+
+### Existing Configuration
+
+```bash
+# Force overwrite existing configuration
+npx next-s3-uploader init --force
+
+# Or backup and regenerate
+cp app/api/upload/route.ts app/api/upload/route.ts.backup
+npx next-s3-uploader init
+```
+
+### Bucket Creation Failed
+
+```bash
+# Test your credentials first
+npx next-s3-uploader test
+
+# Skip automatic bucket creation
+npx next-s3-uploader init --skip-bucket
+
+# Create bucket manually, then run:
+npx next-s3-uploader test
+```
+
+## Advanced Usage
+
+### Custom Templates
+
+```bash
+# Use custom file templates
+npx next-s3-uploader init --template enterprise
+
+# Available templates:
+# - default: Basic setup with examples
+# - minimal: Just API routes, no examples  
+# - enterprise: Full security and monitoring
+# - ecommerce: Product images and documents
+```
+
+### Monorepo Support
+
+```bash
+# For monorepos, specify the Next.js app directory
+cd apps/web
+npx next-s3-uploader init
+
+# Or use the --cwd flag
+npx next-s3-uploader init --cwd apps/web
+```
+
+### CI/CD Integration
+
+```bash
+# Non-interactive mode for CI/CD
+npx next-s3-uploader init \
+  --provider aws \
+  --skip-examples \
+  --api-path /api/upload \
+  --no-interactive
+```
+
+---
+
+<Callout type="success">
+**Complete CLI Reference**: This guide covers all CLI commands, options, and use cases. For a quick start, see our [Getting Started guide](/docs/getting-started/cli-setup).
+</Callout>

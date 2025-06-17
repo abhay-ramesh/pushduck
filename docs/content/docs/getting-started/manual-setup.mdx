@@ -1,0 +1,315 @@
+---
+title: Manual Setup
+description: Step-by-step manual setup for developers who prefer full control over configuration
+---
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+import { Callout } from "fumadocs-ui/components/callout";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+## Prerequisites
+
+- Next.js 13+ with App Router
+- An S3-compatible storage provider (we'll use AWS S3 in this guide)
+- Node.js 18+
+
+<Steps>
+
+<Step>
+
+## Install Next.js S3 Uploader
+
+```bash
+npm install next-s3-uploader
+```
+
+<Callout type="info">
+**Using a different package manager?**
+
+<Tabs items={['npm', 'pnpm', 'yarn', 'bun']}>
+  <Tab value="npm">
+    ```bash
+    npm install next-s3-uploader
+    ```
+  </Tab>
+  <Tab value="pnpm">
+    ```bash
+    pnpm add next-s3-uploader
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn add next-s3-uploader
+    ```
+  </Tab>
+  <Tab value="bun">
+    ```bash
+    bun add next-s3-uploader
+    ```
+  </Tab>
+</Tabs>
+</Callout>
+
+</Step>
+
+<Step>
+
+## Set Environment Variables
+
+Create a `.env.local` file in your project root with your S3 credentials:
+
+```dotenv
+# .env.local
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=us-east-1
+AWS_S3_BUCKET_NAME=your-bucket-name
+```
+
+<Callout type="warn">
+  **Don't have S3 credentials yet?** Follow our [AWS S3 setup
+  guide](/docs/guides/setup/aws-s3) to create a bucket and get your credentials
+  in 2 minutes.
+</Callout>
+
+</Step>
+
+<Step>
+
+## Create Your Upload Router
+
+Create an API route to handle file uploads:
+
+```typescript
+// app/api/s3-upload/route.ts
+import { createS3Router, s3 } from "next-s3-uploader/server";
+
+const router = createS3Router({
+  // Define your upload routes with validation
+  imageUpload: s3
+    .image()
+    .maxSize("10MB")
+    .accept([".jpg", ".jpeg", ".png", ".webp"]),
+
+  documentUpload: s3.file().maxSize("50MB").accept([".pdf", ".doc", ".docx"]),
+});
+
+export { router as POST };
+
+// Export the router type for client-side type safety
+export type Router = typeof router;
+```
+
+<Callout type="info">
+  **What's happening here?** - `createS3Router()` creates a type-safe upload
+  handler - `s3.image()` and `s3.file()` provide validation and TypeScript
+  inference - The router automatically handles presigned URLs, validation, and
+  errors - Exporting the type enables full client-side type safety
+</Callout>
+
+</Step>
+
+<Step>
+
+## Create Upload Client
+
+Create a type-safe client for your components:
+
+```typescript
+// lib/upload-client.ts
+import { createUploadClient } from "next-s3-uploader";
+import type { Router } from "@/app/api/s3-upload/route";
+
+// Create a type-safe upload client
+export const upload = createUploadClient<Router>({
+  baseUrl: "/api/s3-upload",
+});
+
+// You can also export specific upload methods
+export const { imageUpload, documentUpload } = upload;
+```
+
+</Step>
+
+<Step>
+
+## Use in Your Components
+
+Now you can use the upload client in any component with full type safety:
+
+```typescript
+// components/image-uploader.tsx
+"use client";
+
+import { upload } from "@/lib/upload-client";
+
+export function ImageUploader() {
+  const { uploadFiles, uploadedFiles, isUploading, progress, error } =
+    upload.imageUpload();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      uploadFiles(Array.from(files));
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center space-x-4">
+        <input
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={handleFileChange}
+          disabled={isUploading}
+          className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+        />
+
+        {isUploading && (
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-gray-600">
+              Uploading... {Math.round(progress)}%
+            </span>
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-sm text-red-600">{error.message}</p>
+        </div>
+      )}
+
+      {uploadedFiles.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {uploadedFiles.map((file) => (
+            <div key={file.key} className="space-y-2">
+              <img
+                src={file.url}
+                alt="Uploaded image"
+                className="w-full h-32 object-cover rounded-lg border"
+              />
+              <p className="text-xs text-gray-500 truncate">{file.name}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+## Add to Your Page
+
+Finally, use your upload component in any page:
+
+```typescript
+// app/page.tsx
+import { ImageUploader } from "@/components/image-uploader";
+
+export default function HomePage() {
+  return (
+    <div className="max-w-2xl mx-auto p-8">
+      <h1 className="text-3xl font-bold mb-8">Upload Images</h1>
+      <ImageUploader />
+    </div>
+  );
+}
+```
+
+</Step>
+
+</Steps>
+
+## 🎉 Congratulations!
+
+You now have **production-ready file uploads** working in your Next.js app! Here's what you accomplished:
+
+- ✅ **Type-safe uploads** with full TypeScript inference
+- ✅ **Automatic validation** for file types and sizes
+- ✅ **Progress tracking** with loading states
+- ✅ **Error handling** with user-friendly messages
+- ✅ **Secure uploads** using presigned URLs
+- ✅ **Multiple file support** with image preview
+
+## What's Next?
+
+Now that you have the basics working, explore these advanced features:
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">🎨 Enhanced UI</h3>
+    <p className="text-sm text-gray-600 mb-3">
+      Add drag & drop, progress bars, and beautiful components
+    </p>
+    <a
+      href="/docs/guides/uploads/images"
+      className="text-blue-600 text-sm hover:underline"
+    >
+      Image Upload Guide →
+    </a>
+  </div>
+
+{" "}
+
+<div className="p-4 border rounded-lg">
+  <h3 className="font-semibold mb-2">🔒 Custom Validation</h3>
+  <p className="text-sm text-gray-600 mb-3">
+    Add authentication, custom metadata, and middleware
+  </p>
+  <a
+    href="/docs/api/configuration"
+    className="text-blue-600 text-sm hover:underline"
+  >
+    Router Configuration →
+  </a>
+</div>
+
+{" "}
+
+<div className="p-4 border rounded-lg">
+  <h3 className="font-semibold mb-2">☁️ Other Providers</h3>
+  <p className="text-sm text-gray-600 mb-3">
+    Switch to Cloudflare R2, DigitalOcean, or MinIO
+  </p>
+  <a
+    href="/docs/guides/setup/cloudflare-r2"
+    className="text-blue-600 text-sm hover:underline"
+  >
+    Provider Setup →
+  </a>
+</div>
+
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">⚡ Enhanced Client</h3>
+    <p className="text-sm text-gray-600 mb-3">
+      Upgrade to property-based access for better DX
+    </p>
+    <a
+      href="/docs/guides/migration/enhanced-client"
+      className="text-blue-600 text-sm hover:underline"
+    >
+      Migration Guide →
+    </a>
+  </div>
+</div>
+
+## Need Help?
+
+- 📖 **Documentation**: Explore our comprehensive [guides](/docs/guides)
+- 💬 **Community**: Join our [Discord community](https://discord.gg/next-s3-uploader)
+- 🐛 **Issues**: Report bugs on [GitHub](https://github.com/your-org/next-s3-uploader)
+- 📧 **Support**: Email us at support@next-s3-uploader.com
+
+<Callout type="info">
+  **Loving Next.js S3 Uploader?** Give us a ⭐ on
+  [GitHub](https://github.com/your-org/next-s3-uploader) and help spread the
+  word!
+</Callout>
+

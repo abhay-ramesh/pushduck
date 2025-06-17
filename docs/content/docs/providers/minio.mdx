@@ -1,0 +1,420 @@
+---
+title: Using MinIO
+description: Set up MinIO for self-hosted S3-compatible object storage
+---
+
+# Using MinIO
+
+Set up MinIO for self-hosted, S3-compatible object storage with full control and privacy.
+
+## Why Choose MinIO?
+
+- **🏠 Self-Hosted**: Complete control over your data and infrastructure
+- **🔗 S3 Compatible**: Drop-in replacement for AWS S3 API
+- **💰 Cost Effective**: No cloud provider fees - just your server costs
+- **🔒 Private**: Keep sensitive data on your own infrastructure
+- **⚡ High Performance**: Optimized for speed and throughput
+
+## 🚀 Quick Start with Docker
+
+### 1. Start MinIO Server
+
+```bash
+# Create data directory
+mkdir -p ~/minio/data
+
+# Start MinIO server
+docker run -d \
+  --name minio \
+  -p 9000:9000 \
+  -p 9001:9001 \
+  -v ~/minio/data:/data \
+  -e "MINIO_ROOT_USER=minioadmin" \
+  -e "MINIO_ROOT_PASSWORD=minioadmin123" \
+  quay.io/minio/minio server /data --console-address ":9001"
+```
+
+### 2. Access MinIO Console
+
+1. Open `http://localhost:9001` in your browser
+2. Login with:
+   - **Username**: `minioadmin`
+   - **Password**: `minioadmin123`
+
+### 3. Create a Bucket
+
+1. Click **"Create Bucket"**
+2. Enter bucket name (e.g., `my-app-uploads`)
+3. Click **"Create Bucket"**
+
+### 4. Create Access Keys
+
+1. Go to **"Identity"** → **"Service Accounts"**
+2. Click **"Create service account"**
+3. Enter a name (e.g., "Upload Service")
+4. Click **"Create"**
+5. **Save your Access Key and Secret Key**
+
+## 🏭 Production Docker Setup
+
+### Docker Compose Configuration
+
+```yaml
+# docker-compose.yml
+version: "3.8"
+
+services:
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000" # API
+      - "9001:9001" # Console
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+volumes:
+  minio_data:
+```
+
+### Environment Variables
+
+```bash
+# .env
+MINIO_ROOT_USER=your-admin-username
+MINIO_ROOT_PASSWORD=your-secure-password-min-8-chars
+```
+
+### Start Production Server
+
+```bash
+docker-compose up -d
+```
+
+## 🌐 Production Deployment
+
+### 1. Reverse Proxy Setup (Nginx)
+
+```nginx
+# /etc/nginx/sites-available/minio
+server {
+    listen 80;
+    server_name uploads.yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:9000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Handle large uploads
+        client_max_body_size 100M;
+    }
+}
+
+# Console (optional - for admin access)
+server {
+    listen 80;
+    server_name minio-console.yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:9001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### 2. SSL/TLS Setup
+
+```bash
+# Install Certbot
+sudo apt install certbot python3-certbot-nginx
+
+# Get SSL certificates
+sudo certbot --nginx -d uploads.yourdomain.com
+sudo certbot --nginx -d minio-console.yourdomain.com
+```
+
+## 🔧 Configure Your App
+
+Add to your `.env.local`:
+
+```bash
+# MinIO Configuration
+AWS_ACCESS_KEY_ID=your_minio_access_key
+AWS_SECRET_ACCESS_KEY=your_minio_secret_key
+AWS_ENDPOINT_URL=http://localhost:9000
+# For production: AWS_ENDPOINT_URL=https://uploads.yourdomain.com
+AWS_REGION=us-east-1
+S3_BUCKET_NAME=my-app-uploads
+
+# Optional: Custom public URL
+MINIO_PUBLIC_URL=https://uploads.yourdomain.com
+```
+
+## 📝 Update Your Upload Configuration
+
+```typescript
+// lib/upload.ts
+import { uploadConfig } from "next-s3-uploader/server";
+
+export const { s3, createS3Handler } = uploadConfig
+  .minio({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    region: process.env.AWS_REGION!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    // Force path-style URLs for MinIO
+    forcePathStyle: true,
+    // Optional: Custom public URL for file access
+    publicUrl: process.env.MINIO_PUBLIC_URL,
+  })
+  .defaults({
+    maxFileSize: "100MB", // MinIO handles large files well
+    acl: "public-read",
+  })
+  .build();
+```
+
+## 🧪 Test Your Setup
+
+```bash
+npx next-s3-uploader test --provider minio
+```
+
+This will verify your MinIO connection and upload a test file.
+
+## ✅ You're Ready!
+
+Your MinIO server is configured! Benefits:
+
+- **Full control** over your data
+- **No cloud fees** - just server costs
+- **High performance** for local/regional traffic
+- **Complete privacy** for sensitive files
+
+## 🔒 Security Configuration
+
+### 1. Bucket Policies
+
+Set up access control for your bucket:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "*"
+      },
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::my-app-uploads/*"
+    }
+  ]
+}
+```
+
+### 2. Access Key Management
+
+Create restricted access keys:
+
+```typescript
+// Service account with limited permissions
+const uploadOnlyPolicy = {
+  Version: "2012-10-17",
+  Statement: [
+    {
+      Effect: "Allow",
+      Action: ["s3:PutObject", "s3:PutObjectAcl", "s3:GetObject"],
+      Resource: "arn:aws:s3:::my-app-uploads/*",
+    },
+  ],
+};
+```
+
+### 3. Network Security
+
+```yaml
+# docker-compose.yml with network isolation
+version: "3.8"
+
+services:
+  minio:
+    # ... other config
+    networks:
+      - minio-network
+    ports:
+      # Only expose what's needed
+      - "127.0.0.1:9000:9000" # Bind to localhost only
+      - "127.0.0.1:9001:9001"
+
+networks:
+  minio-network:
+    driver: bridge
+```
+
+## 📊 Monitoring & Maintenance
+
+### Health Checks
+
+```typescript
+// Add health monitoring
+.hooks({
+  onUploadStart: async () => {
+    // Check MinIO connectivity
+    const isHealthy = await checkMinIOHealth();
+    if (!isHealthy) {
+      throw new Error("MinIO server unavailable");
+    }
+  }
+})
+
+async function checkMinIOHealth() {
+  try {
+    const response = await fetch(`${process.env.AWS_ENDPOINT_URL}/minio/health/live`);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+```
+
+### Backup Strategy
+
+```bash
+# Regular data backups
+#!/bin/bash
+# backup-minio.sh
+
+BACKUP_DIR="/backups/minio/$(date +%Y-%m-%d)"
+mkdir -p $BACKUP_DIR
+
+# Backup MinIO data
+docker run --rm \
+  -v minio_data:/source:ro \
+  -v $BACKUP_DIR:/backup \
+  alpine tar czf /backup/minio-data.tar.gz -C /source .
+
+# Backup configuration
+docker exec minio mc admin config export /backup/
+```
+
+## 🚀 Performance Optimization
+
+### 1. Storage Configuration
+
+```yaml
+# Optimized for performance
+services:
+  minio:
+    # ... other config
+    environment:
+      # Performance tuning
+      MINIO_CACHE: "on"
+      MINIO_CACHE_DRIVES: "/tmp/cache"
+      MINIO_CACHE_QUOTA: "90"
+    volumes:
+      - minio_data:/data
+      - /tmp/minio-cache:/tmp/cache # Fast SSD cache
+```
+
+### 2. Connection Optimization
+
+```typescript
+// Optimize for high throughput
+export const { s3, createS3Handler } = uploadConfig
+  .minio({
+    // ... config
+    maxRetries: 3,
+    retryDelayOptions: {
+      base: 300,
+      customBackoff: (retryCount) => Math.pow(2, retryCount) * 100,
+    },
+    // Connection pooling
+    maxSockets: 25,
+    timeout: 120000,
+  })
+  .build();
+```
+
+## 🔧 Advanced Features
+
+### Multi-Tenant Setup
+
+```typescript
+// Different buckets per tenant
+const createTenantConfig = (tenantId: string) =>
+  uploadConfig
+    .minio({
+      // ... base config
+      bucket: `tenant-${tenantId}-uploads`,
+    })
+    .middleware(async ({ req }) => {
+      const tenant = await getTenantFromRequest(req);
+      return { tenantId: tenant.id };
+    })
+    .build();
+```
+
+### Distributed Setup
+
+```yaml
+# Multi-node MinIO cluster
+version: "3.8"
+
+services:
+  minio1:
+    image: quay.io/minio/minio:latest
+    command: server http://minio{1...4}/data{1...2} --console-address ":9001"
+    # ... configuration
+
+  minio2:
+    image: quay.io/minio/minio:latest
+    command: server http://minio{1...4}/data{1...2} --console-address ":9001"
+    # ... configuration
+
+  # minio3, minio4...
+```
+
+## 🆘 Common Issues
+
+**Connection refused?** → Check MinIO is running and port 9000 is accessible  
+**Access denied?** → Verify access keys and bucket permissions  
+**CORS errors?** → Set bucket policy to allow your domain  
+**Slow uploads?** → Check network connection and server resources  
+**SSL errors?** → Verify certificate configuration for custom domains
+
+## 💡 Use Cases
+
+### Development Environment
+
+- **Local testing** without cloud dependency
+- **Offline development** for air-gapped environments
+- **Cost-free** development and testing
+
+### Production Scenarios
+
+- **Data sovereignty** requirements
+- **High-security** environments
+- **Edge computing** deployments
+- **Hybrid cloud** strategies
+
+---
+
+**Next:** [Upload Your First Image](/guides/uploads/images) or explore [Google Cloud Storage](/guides/setup/google-cloud)
