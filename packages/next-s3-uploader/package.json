@@ -52,7 +52,11 @@
     "prepack": "pnpm build",
     "release:patch": "npm version patch && npm publish",
     "release:minor": "npm version minor && npm publish",
-    "release:major": "npm version major && npm publish"
+    "release:major": "npm version major && npm publish",
+    "maintenance:health": "bash scripts/health-check.sh",
+    "maintenance:deps": "bash scripts/update-deps.sh",
+    "maintenance:security": "pnpm audit && npx audit-ci --moderate",
+    "maintenance:report": "pnpm build:analyze && pnpm size-check"
   },
   "keywords": [
     "nextjs",
