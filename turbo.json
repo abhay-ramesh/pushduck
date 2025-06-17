@@ -12,7 +12,8 @@
       ],
       "outputs": [
         ".next/**",
-        "!.next/cache/**"
+        "!.next/cache/**",
+        "dist/**"
       ]
     },
     "lint": {
@@ -23,6 +24,9 @@
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "postinstall": {
+      "cache": false
     }
   }
 }
