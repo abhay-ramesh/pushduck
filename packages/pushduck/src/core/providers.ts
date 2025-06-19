@@ -3,6 +3,14 @@
  *
  * This provides a clean way to configure different cloud storage providers
  * with environment-based configuration and type-safe initialization.
+ *
+ * Supported Providers:
+ * - AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO
+ *
+ * Future Provider Support:
+ * - Enterprise: Azure Blob, IBM Cloud, Oracle OCI
+ * - Cost-Optimized: Wasabi, Backblaze B2, Storj DCS
+ * - Specialized: Telnyx, Tigris, Cloudian HyperStore
  */
 
 // ========================================
@@ -15,7 +23,12 @@ export interface BaseProviderConfig {
   bucket: string;
   acl?: string;
   customDomain?: string;
+  forcePathStyle?: boolean;
 }
+
+// ========================================
+// TIER 1: Currently Supported Providers
+// ========================================
 
 export interface AWSProviderConfig extends BaseProviderConfig {
   provider: "aws";
@@ -51,6 +64,89 @@ export interface MinIOConfig extends BaseProviderConfig {
   port?: number;
 }
 
+// ========================================
+// TIER 2: Enterprise/Hyperscale Providers
+// ========================================
+
+export interface AzureBlobConfig extends BaseProviderConfig {
+  provider: "azure-blob";
+  accountName: string;
+  accessKeyId: string; // Storage Account Key
+  secretAccessKey: string; // Storage Account Key (same as accessKeyId for Azure)
+  endpoint?: string; // Auto-generated from accountName if not provided
+}
+
+export interface IBMCloudConfig extends BaseProviderConfig {
+  provider: "ibm-cloud";
+  accessKeyId: string;
+  secretAccessKey: string;
+  endpoint: string; // IBM-specific endpoint
+  serviceInstanceId?: string;
+}
+
+export interface OracleOCIConfig extends BaseProviderConfig {
+  provider: "oracle-oci";
+  accessKeyId: string;
+  secretAccessKey: string;
+  endpoint: string; // Oracle-specific endpoint
+  namespace?: string;
+}
+
+// ========================================
+// TIER 3: Cost-Optimized Providers
+// ========================================
+
+export interface WasabiConfig extends BaseProviderConfig {
+  provider: "wasabi";
+  accessKeyId: string;
+  secretAccessKey: string;
+  endpoint?: string; // Default: https://s3.wasabisys.com
+}
+
+export interface BackblazeB2Config extends BaseProviderConfig {
+  provider: "backblaze-b2";
+  accessKeyId: string; // Application Key ID
+  secretAccessKey: string; // Application Key
+  endpoint: string; // Region-specific endpoint
+}
+
+export interface StorjDCSConfig extends BaseProviderConfig {
+  provider: "storj-dcs";
+  accessKeyId: string;
+  secretAccessKey: string;
+  endpoint?: string; // Default: https://gateway.storjshare.io
+}
+
+// ========================================
+// TIER 4: Performance/Specialized Providers
+// ========================================
+
+export interface TelnyxStorageConfig extends BaseProviderConfig {
+  provider: "telnyx-storage";
+  accessKeyId: string;
+  secretAccessKey: string;
+  endpoint: string; // Telnyx-specific endpoint
+}
+
+export interface TigrisDataConfig extends BaseProviderConfig {
+  provider: "tigris-data";
+  accessKeyId: string;
+  secretAccessKey: string;
+  endpoint: string; // e.g., https://fly.storage.tigris.dev
+  region?: "auto";
+}
+
+export interface CloudianHyperStoreConfig extends BaseProviderConfig {
+  provider: "cloudian-hyperstore";
+  accessKeyId: string;
+  secretAccessKey: string;
+  endpoint: string; // Customer-specific endpoint
+}
+
+// ========================================
+// Special Cases
+// ========================================
+
 export interface GoogleCloudStorageConfig extends BaseProviderConfig {
   provider: "gcs";
   projectId: string;
@@ -58,12 +154,38 @@ export interface GoogleCloudStorageConfig extends BaseProviderConfig {
   credentials?: object;
 }
 
+export interface S3CompatibleConfig extends BaseProviderConfig {
+  provider: "s3-compatible";
+  accessKeyId: string;
+  secretAccessKey: string;
+  endpoint: string; // Required for generic S3-compatible providers
+}
+
+// ========================================
+// Union Type for All Providers
+// ========================================
+
 export type ProviderConfig =
+  // Tier 1: Currently Supported
   | AWSProviderConfig
   | CloudflareR2Config
   | DigitalOceanSpacesConfig
   | MinIOConfig
-  | GoogleCloudStorageConfig;
+  // Tier 2: Enterprise/Hyperscale
+  | AzureBlobConfig
+  | IBMCloudConfig
+  | OracleOCIConfig
+  // Tier 3: Cost-Optimized
+  | WasabiConfig
+  | BackblazeB2Config
+  | StorjDCSConfig
+  // Tier 4: Performance/Specialized
+  | TelnyxStorageConfig
+  | TigrisDataConfig
+  | CloudianHyperStoreConfig
+  // Special Cases
+  | GoogleCloudStorageConfig
+  | S3CompatibleConfig;
 
 // ========================================
 // Environment Detection
@@ -88,9 +210,24 @@ function detectProvider(): ProviderConfig["provider"] | null {
     return "minio";
   }
 
+  // Check for Wasabi
+  if (process.env.WASABI_ACCESS_KEY_ID || process.env.WASABI_ENDPOINT) {
+    return "wasabi";
+  }
+
+  // Check for Backblaze B2
+  if (process.env.B2_APPLICATION_KEY_ID || process.env.B2_ENDPOINT) {
+    return "backblaze-b2";
+  }
+
   // Check for Google Cloud Storage
   if (process.env.GOOGLE_CLOUD_PROJECT_ID || process.env.GCS_PROJECT_ID) {
     return "gcs";
+  }
+
+  // Check for generic S3-compatible
+  if (process.env.S3_COMPATIBLE_ENDPOINT) {
+    return "s3-compatible";
   }
 
   // Default to AWS
@@ -344,11 +481,26 @@ export function validateProviderConfig(config: ProviderConfig): {
 
 function getProviderDisplayName(provider: ProviderConfig["provider"]): string {
   const names = {
+    // Tier 1: Currently Supported
     aws: "Amazon S3",
     "cloudflare-r2": "Cloudflare R2",
     "digitalocean-spaces": "DigitalOcean Spaces",
     minio: "MinIO",
+    // Tier 2: Enterprise/Hyperscale
+    "azure-blob": "Azure Blob Storage",
+    "ibm-cloud": "IBM Cloud Object Storage",
+    "oracle-oci": "Oracle Cloud Infrastructure",
+    // Tier 3: Cost-Optimized
+    wasabi: "Wasabi Hot Cloud Storage",
+    "backblaze-b2": "Backblaze B2",
+    "storj-dcs": "Storj DCS",
+    // Tier 4: Performance/Specialized
+    "telnyx-storage": "Telnyx Storage",
+    "tigris-data": "Tigris Data",
+    "cloudian-hyperstore": "Cloudian HyperStore",
+    // Special Cases
     gcs: "Google Cloud Storage",
+    "s3-compatible": "S3-Compatible Provider",
   };
   return names[provider] || provider;
 }

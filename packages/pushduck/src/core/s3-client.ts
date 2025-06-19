@@ -3,6 +3,17 @@
  *
  * This replaces the heavy AWS SDK v3 with a minimal 6.4kB alternative
  * that provides the same functionality with ~99% bundle size reduction
+ *
+ * Supported Providers:
+ * - AWS S3 (native)
+ * - Cloudflare R2 (zero egress)
+ * - DigitalOcean Spaces (simple pricing)
+ * - MinIO (self-hosted)
+ *
+ * Future Provider Support Framework:
+ * - Enterprise: Azure Blob, IBM Cloud, Oracle OCI
+ * - Cost-Optimized: Wasabi, Backblaze B2, Storj DCS
+ * - Specialized: Telnyx, Tigris, Cloudian HyperStore
  */
 
 import { AwsClient } from "aws4fetch";
@@ -27,6 +38,12 @@ interface S3CompatibleConfig {
 
 /**
  * Extracts S3-compatible configuration from provider config
+ *
+ * Provider Implementation Guide:
+ * 1. Add case to switch statement
+ * 2. Configure endpoint, region, and forcePathStyle
+ * 3. Test with aws4fetch client
+ * 4. Update provider types in ./providers.ts
  */
 function getS3CompatibleConfig(config: ProviderConfig): S3CompatibleConfig {
   const baseConfig = {
@@ -38,12 +55,18 @@ function getS3CompatibleConfig(config: ProviderConfig): S3CompatibleConfig {
   };
 
   switch (config.provider) {
+    // ========================================
+    // TIER 1: Currently Supported Providers
+    // ========================================
+
     case "aws":
       return {
         ...baseConfig,
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
         region: config.region,
+        // No endpoint - uses AWS default
+        // forcePathStyle: false (default)
       };
 
     case "cloudflare-r2":
@@ -52,7 +75,7 @@ function getS3CompatibleConfig(config: ProviderConfig): S3CompatibleConfig {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
         region: config.region || "auto", // R2 uses "auto" and aws4fetch handles this correctly
-        endpoint: config.endpoint,
+        endpoint: config.endpoint, // e.g., "https://abc123.r2.cloudflarestorage.com"
         forcePathStyle: true, // R2 requires path-style
       };
 
@@ -62,7 +85,7 @@ function getS3CompatibleConfig(config: ProviderConfig): S3CompatibleConfig {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
         region: config.region || "us-east-1", // Spaces needs AWS region for signing
-        endpoint: config.endpoint,
+        endpoint: config.endpoint, // e.g., "https://nyc3.digitaloceanspaces.com"
         forcePathStyle: false, // Spaces uses virtual hosted-style
       };
 
@@ -72,17 +95,184 @@ function getS3CompatibleConfig(config: ProviderConfig): S3CompatibleConfig {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
         region: config.region || "us-east-1",
-        endpoint: config.endpoint,
+        endpoint: config.endpoint, // e.g., "https://play.min.io" or custom
         forcePathStyle: true, // MinIO requires path-style
       };
 
+    // ========================================
+    // TIER 2: Enterprise/Hyperscale Providers
+    // ========================================
+
+    case "azure-blob":
+      throw new Error(
+        "Azure Blob Storage support coming soon. Azure uses a different authentication model that requires additional implementation."
+      );
+    // TODO: Implement Azure Blob Storage
+    // return {
+    //   ...baseConfig,
+    //   accessKeyId: config.accessKeyId,
+    //   secretAccessKey: config.secretAccessKey,
+    //   region: config.region || "us-east-1",
+    //   endpoint: config.endpoint, // e.g., "https://account.blob.core.windows.net"
+    //   forcePathStyle: true,
+    // };
+
+    case "ibm-cloud":
+      throw new Error(
+        "IBM Cloud Object Storage support coming soon. Requires IBM-specific endpoint configuration."
+      );
+    // TODO: Implement IBM Cloud Object Storage
+    // return {
+    //   ...baseConfig,
+    //   accessKeyId: config.accessKeyId,
+    //   secretAccessKey: config.secretAccessKey,
+    //   region: config.region || "us-south",
+    //   endpoint: config.endpoint, // e.g., "https://s3.us-south.cloud-object-storage.appdomain.cloud"
+    //   forcePathStyle: false,
+    // };
+
+    case "oracle-oci":
+      throw new Error(
+        "Oracle Cloud Infrastructure Object Storage support coming soon."
+      );
+    // TODO: Implement Oracle OCI Object Storage
+    // return {
+    //   ...baseConfig,
+    //   accessKeyId: config.accessKeyId,
+    //   secretAccessKey: config.secretAccessKey,
+    //   region: config.region || "us-ashburn-1",
+    //   endpoint: config.endpoint, // e.g., "https://namespace.compat.objectstorage.region.oraclecloud.com"
+    //   forcePathStyle: false,
+    // };
+
+    // ========================================
+    // TIER 3: Cost-Optimized Providers
+    // ========================================
+
+    case "wasabi":
+      throw new Error(
+        "Wasabi Hot Cloud Storage support coming soon. Single-tier storage with no egress fees."
+      );
+    // TODO: Implement Wasabi
+    // return {
+    //   ...baseConfig,
+    //   accessKeyId: config.accessKeyId,
+    //   secretAccessKey: config.secretAccessKey,
+    //   region: config.region || "us-east-1",
+    //   endpoint: config.endpoint || "https://s3.wasabisys.com", // Default endpoint
+    //   forcePathStyle: true,
+    // };
+
+    case "backblaze-b2":
+      throw new Error(
+        "Backblaze B2 support coming soon. Competitive pricing with free Cloudflare egress."
+      );
+    // TODO: Implement Backblaze B2
+    // return {
+    //   ...baseConfig,
+    //   accessKeyId: config.accessKeyId,
+    //   secretAccessKey: config.secretAccessKey,
+    //   region: config.region || "us-west-000",
+    //   endpoint: config.endpoint, // e.g., "https://s3.us-west-000.backblazeb2.com"
+    //   forcePathStyle: false,
+    // };
+
+    case "storj-dcs":
+      throw new Error(
+        "Storj DCS (Decentralized Cloud Storage) support coming soon. End-to-end encrypted, decentralized storage."
+      );
+    // TODO: Implement Storj DCS
+    // return {
+    //   ...baseConfig,
+    //   accessKeyId: config.accessKeyId,
+    //   secretAccessKey: config.secretAccessKey,
+    //   region: config.region || "global",
+    //   endpoint: config.endpoint || "https://gateway.storjshare.io",
+    //   forcePathStyle: true,
+    // };
+
+    // ========================================
+    // TIER 4: Performance/Specialized Providers
+    // ========================================
+
+    case "telnyx-storage":
+      throw new Error(
+        "Telnyx Storage support coming soon. Global edge network with private backbone."
+      );
+    // TODO: Implement Telnyx Storage
+    // return {
+    //   ...baseConfig,
+    //   accessKeyId: config.accessKeyId,
+    //   secretAccessKey: config.secretAccessKey,
+    //   region: config.region || "us-east-1",
+    //   endpoint: config.endpoint, // Telnyx-specific endpoint
+    //   forcePathStyle: true,
+    // };
+
+    case "tigris-data":
+      throw new Error(
+        "Tigris Data support coming soon. Globally distributed storage with single endpoint."
+      );
+    // TODO: Implement Tigris Data
+    // return {
+    //   ...baseConfig,
+    //   accessKeyId: config.accessKeyId,
+    //   secretAccessKey: config.secretAccessKey,
+    //   region: "auto", // Tigris uses "auto" region
+    //   endpoint: config.endpoint, // e.g., "https://fly.storage.tigris.dev"
+    //   forcePathStyle: true,
+    // };
+
+    case "cloudian-hyperstore":
+      throw new Error(
+        "Cloudian HyperStore support coming soon. On-premises and hybrid cloud object storage."
+      );
+    // TODO: Implement Cloudian HyperStore
+    // return {
+    //   ...baseConfig,
+    //   accessKeyId: config.accessKeyId,
+    //   secretAccessKey: config.secretAccessKey,
+    //   region: config.region || "us-east-1",
+    //   endpoint: config.endpoint, // Customer-specific endpoint
+    //   forcePathStyle: true,
+    // };
+
+    // ========================================
+    // Special Cases
+    // ========================================
+
     case "gcs":
       throw new Error(
-        "Google Cloud Storage is not yet supported with S3-compatible API. Please use AWS S3, Cloudflare R2, DigitalOcean Spaces, or MinIO."
+        "Google Cloud Storage is not S3-compatible for authentication. Use Google Cloud Storage client libraries instead, or consider Google Cloud Storage S3 interoperability (limited compatibility)."
       );
 
+    // ========================================
+    // Generic S3-Compatible Provider
+    // ========================================
+
+    case "s3-compatible":
+      // Generic fallback for any S3-compatible provider
+      if (!config.endpoint) {
+        throw new Error(
+          "Generic S3-compatible provider requires an endpoint URL."
+        );
+      }
+      return {
+        ...baseConfig,
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+        region: config.region || "us-east-1",
+        endpoint: config.endpoint,
+        forcePathStyle: config.forcePathStyle ?? true, // Default to path-style for generic providers
+      };
+
     default:
-      throw new Error(`Unsupported provider: ${(config as any).provider}`);
+      throw new Error(
+        `Unsupported provider: ${(config as any).provider}. ` +
+          `Supported providers: aws, cloudflare-r2, digitalocean-spaces, minio. ` +
+          `Coming soon: wasabi, backblaze-b2, azure-blob, ibm-cloud, oracle-oci, storj-dcs, telnyx-storage, tigris-data, cloudian-hyperstore. ` +
+          `For other providers, use "s3-compatible" with a custom endpoint.`
+      );
   }
 }
 

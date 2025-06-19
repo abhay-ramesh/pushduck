@@ -328,3 +328,259 @@ const newConfig = uploadConfig
 - Zero-config for common setups
 - Intelligent defaults
 - Comprehensive TypeScript support
+
+# S3-Compatible Provider Support
+
+This document outlines the S3-compatible providers supported by pushduck and provides a framework for adding new providers.
+
+## Currently Supported Providers ✅
+
+### Tier 1: Production Ready
+
+- **AWS S3** - The original object storage service
+- **Cloudflare R2** - Zero egress fees, global edge network
+- **DigitalOcean Spaces** - Simple pricing, built-in CDN
+- **MinIO** - Self-hosted, high-performance object storage
+
+## Future Provider Support Framework 🚀
+
+### Tier 2: Enterprise/Hyperscale Providers
+
+- **Azure Blob Storage** - Enterprise integration with Azure ecosystem
+- **IBM Cloud Object Storage** - Enterprise-grade with AI/Watson integration
+- **Oracle Cloud Infrastructure (OCI)** - Enterprise with generous free tier
+
+### Tier 3: Cost-Optimized Providers
+
+- **Wasabi Hot Cloud Storage** - Single tier, no egress fees, 80% cheaper than AWS
+- **Backblaze B2** - Very competitive pricing, free egress via Cloudflare
+- **Storj DCS** - Decentralized storage, end-to-end encryption
+
+### Tier 4: Performance/Specialized Providers
+
+- **Telnyx Storage** - Global edge network, private backbone
+- **Tigris Data** - Globally distributed, single endpoint
+- **Cloudian HyperStore** - On-premises/hybrid deployments
+
+## Provider Implementation Guide
+
+### Step 1: Add Provider Type Definition
+
+Add the provider interface to `src/core/providers.ts`:
+
+```typescript
+export interface NewProviderConfig extends BaseProviderConfig {
+  provider: "new-provider";
+  accessKeyId: string;
+  secretAccessKey: string;
+  endpoint?: string;
+  // Add provider-specific fields
+}
+```
+
+### Step 2: Update Union Type
+
+Add to the `ProviderConfig` union type:
+
+```typescript
+export type ProviderConfig =
+  | AWSProviderConfig
+  | CloudflareR2Config
+  // ... existing providers
+  | NewProviderConfig; // Add here
+```
+
+### Step 3: Add S3 Client Configuration
+
+Add case to `getS3CompatibleConfig()` in `src/core/s3-client.ts`:
+
+```typescript
+case "new-provider":
+  return {
+    ...baseConfig,
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
+    region: config.region || "us-east-1",
+    endpoint: config.endpoint || "https://default.endpoint.com",
+    forcePathStyle: true, // or false, depending on provider
+  };
+```
+
+### Step 4: Add Provider Builder Function
+
+Add to the `providers` object in `src/core/providers.ts`:
+
+```typescript
+newProvider: (config?: Partial<NewProviderConfig>): NewProviderConfig => ({
+  provider: "new-provider",
+  accessKeyId: config?.accessKeyId || process.env.NEW_PROVIDER_ACCESS_KEY_ID || "",
+  secretAccessKey: config?.secretAccessKey || process.env.NEW_PROVIDER_SECRET_ACCESS_KEY || "",
+  endpoint: config?.endpoint || process.env.NEW_PROVIDER_ENDPOINT,
+  bucket: config?.bucket || process.env.NEW_PROVIDER_BUCKET || "",
+  region: config?.region || process.env.NEW_PROVIDER_REGION || "us-east-1",
+  acl: config?.acl || "private",
+  customDomain: config?.customDomain || process.env.NEW_PROVIDER_CUSTOM_DOMAIN,
+}),
+```
+
+### Step 5: Add Validation
+
+Add validation case to `validateProviderConfig()`:
+
+```typescript
+case "new-provider":
+  if (!config.accessKeyId) errors.push("Access Key ID is required");
+  if (!config.secretAccessKey) errors.push("Secret Access Key is required");
+  if (!config.endpoint) errors.push("Endpoint is required");
+  break;
+```
+
+### Step 6: Add Display Name
+
+Add to `getProviderDisplayName()`:
+
+```typescript
+const names = {
+  // ... existing names
+  "new-provider": "New Provider Display Name",
+};
+```
+
+### Step 7: Add Environment Detection (Optional)
+
+Add to `detectProvider()` function:
+
+```typescript
+// Check for New Provider
+if (process.env.NEW_PROVIDER_ACCESS_KEY_ID || process.env.NEW_PROVIDER_ENDPOINT) {
+  return "new-provider";
+}
+```
+
+## Provider Configuration Patterns
+
+### Standard S3-Compatible Pattern
+
+Most providers follow this pattern:
+
+- Access Key ID + Secret Access Key authentication
+- Custom endpoint URL
+- Standard S3 API compatibility
+- Path-style or virtual hosted-style URLs
+
+### Common Configuration Options
+
+```typescript
+interface ProviderConfig {
+  provider: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  region?: string;
+  endpoint?: string;
+  bucket: string;
+  acl?: string;
+  customDomain?: string;
+  forcePathStyle?: boolean;
+}
+```
+
+### Provider-Specific Considerations
+
+#### Path Style vs Virtual Hosted Style
+
+- **Path Style**: `https://endpoint.com/bucket/key`
+- **Virtual Hosted Style**: `https://bucket.endpoint.com/key`
+
+Set `forcePathStyle: true` for providers that require path-style URLs.
+
+#### Region Handling
+
+- Some providers use standard AWS regions (`us-east-1`, `eu-west-1`)
+- Others use custom regions (`auto` for Cloudflare R2, `global` for some providers)
+- Some providers ignore region entirely
+
+#### Authentication
+
+- Most use Access Key ID + Secret Access Key
+- Some have additional authentication parameters
+- Azure uses different authentication model (Account Key)
+
+## Testing New Providers
+
+### Basic Functionality Test
+
+```typescript
+import { createS3Client, generatePresignedUploadUrl } from './src/core/s3-client';
+
+// Test presigned URL generation
+const url = await generatePresignedUploadUrl({
+  key: 'test-file.txt',
+  contentType: 'text/plain'
+});
+
+console.log('Generated URL:', url);
+```
+
+### Integration Test
+
+```typescript
+import { validateS3Connection } from './src/core/s3-client';
+
+const result = await validateS3Connection();
+console.log('Connection valid:', result.success);
+if (!result.success) {
+  console.error('Error:', result.error);
+}
+```
+
+## Provider Documentation Template
+
+When adding a new provider, include:
+
+1. **Provider Overview**: Brief description and key features
+2. **Pricing Model**: Cost structure and any special pricing features
+3. **Setup Instructions**: How to obtain credentials and configure
+4. **Endpoint Configuration**: How to determine the correct endpoint
+5. **Region Support**: Available regions and how to specify them
+6. **Special Features**: Any provider-specific capabilities or limitations
+7. **Environment Variables**: List of supported environment variables
+
+## Generic S3-Compatible Provider
+
+For providers not explicitly supported, use the generic `s3-compatible` provider:
+
+```typescript
+const config = {
+  provider: "s3-compatible",
+  accessKeyId: "your-access-key",
+  secretAccessKey: "your-secret-key",
+  endpoint: "https://your-provider-endpoint.com",
+  bucket: "your-bucket",
+  region: "us-east-1", // or provider-specific region
+  forcePathStyle: true // adjust based on provider requirements
+};
+```
+
+## Contributing
+
+When contributing new provider support:
+
+1. Follow the implementation guide above
+2. Add comprehensive tests
+3. Update documentation
+4. Ensure error messages are helpful
+5. Test with real provider credentials (if possible)
+6. Add example configuration in documentation
+
+## Error Handling
+
+Providers should throw descriptive errors:
+
+```typescript
+case "new-provider":
+  throw new Error(
+    "New Provider support coming soon. Brief description of what's needed for implementation."
+  );
+```
+
+This helps users understand what providers are planned and provides context for future implementation.
