@@ -11,7 +11,7 @@
   "linked": [
     [
       "pushduck",
-      "create-pushduck"
+      "pushduck-cli"
     ]
   ],
   "access": "public",
