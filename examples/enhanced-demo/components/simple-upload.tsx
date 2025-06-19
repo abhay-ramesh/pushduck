@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  formatETA,
-  formatUploadSpeed,
-  useUploadRoute,
-} from "next-s3-uploader/client";
+import { formatETA, formatUploadSpeed, useUploadRoute } from "pushduck/client";
 import { useState } from "react";
 import type { AppS3Router } from "../app/api/s3-upload/route";
 

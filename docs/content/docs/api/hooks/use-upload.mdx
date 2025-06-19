@@ -1,13 +1,3 @@
----
-title: useUpload
-description: React hook for managing file uploads with full type safety and reactive state
----
-
-import { Callout } from "fumadocs-ui/components/callout";
-import { Card, Cards } from "fumadocs-ui/components/card";
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
-import { Steps, Step } from "fumadocs-ui/components/steps";
-import { TypeTable } from "fumadocs-ui/components/type-table";
 
 # useUpload
 
@@ -22,7 +12,7 @@ The `useUpload` hook provides a React-friendly API for managing file uploads wit
 ## Basic Usage
 
 ```typescript
-import { useUpload } from "next-s3-uploader/client";
+import { useUpload } from "pushduck/client";
 import type { AppRouter } from "@/lib/upload";
 
 export function ImageUploader() {
@@ -243,7 +233,7 @@ export function MultiTypeUploader() {
 Create reusable upload hooks for specific use cases:
 
 ```typescript
-import { useUpload } from "next-s3-uploader/client";
+import { useUpload } from "pushduck/client";
 import { useCallback } from "react";
 import { toast } from "sonner";
 
@@ -482,7 +472,7 @@ export function ErrorHandlingUploader() {
 
 ```typescript
 import { useForm } from "react-hook-form";
-import { useUpload } from "next-s3-uploader/client";
+import { useUpload } from "pushduck/client";
 
 interface FormData {
   title: string;
@@ -531,7 +521,7 @@ export function DocumentForm() {
 
 ```typescript
 import { useDropzone } from "react-dropzone";
-import { useUpload } from "next-s3-uploader/client";
+import { useUpload } from "pushduck/client";
 
 export function DragDropUploader() {
   const { uploadFiles, files, isUploading } =

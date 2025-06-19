@@ -1,12 +1,12 @@
 /**
- * Upload Configuration for next-s3-uploader Demo
+ * Upload Configuration for pushduck Demo
  *
  * This file configures the upload client and exports the configured instances.
  * Now simplified - no wrapper function needed! Just call uploadConfig.build()
  * and destructure { s3, createS3Handler, config } directly.
  */
 
-import { uploadConfig } from "next-s3-uploader/server";
+import { uploadConfig } from "pushduck/server";
 
 // ========================================
 // Types

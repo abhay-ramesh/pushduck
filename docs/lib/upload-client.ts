@@ -1,15 +1,15 @@
 /**
  * Enhanced Upload Client with Property-Based Access
- * 
+ *
  * This provides type-safe upload functionality with enhanced developer experience.
  */
 
-import { createUploadClient } from "next-s3-uploader/client";
 import type { AppUploadRouter } from "@/app/api/upload/route";
+import { createUploadClient } from "pushduck/client";
 
 /**
  * Type-safe upload client with property-based access
- * 
+ *
  * Usage:
  * const { uploadFiles, files, isUploading, reset } = upload.imageUpload();
  * const { uploadFiles, files, isUploading, reset } = upload.fileUpload();

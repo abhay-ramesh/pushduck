@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Next S3 Uploader Demo",
-  description: "Demo of the new router architecture for next-s3-uploader",
+  title: "Pushduck Demo",
+  description: "Demo of the new router architecture for pushduck",
 };
 
 export default function RootLayout({

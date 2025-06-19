@@ -1,5 +1,5 @@
 {
-  "name": "@next-s3-uploader/docs",
+  "name": "@pushduck/docs",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -14,7 +14,7 @@
     "fumadocs-ui": "15.5.3",
     "lucide-react": "^0.516.0",
     "next": "15.3.3",
-    "next-s3-uploader": "workspace:*",
+    "pushduck": "workspace:*",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-dropzone": "^14.3.8",

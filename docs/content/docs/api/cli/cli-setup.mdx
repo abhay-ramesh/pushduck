@@ -1,13 +1,3 @@
----
-title: CLI Reference
-description: Complete reference for the next-s3-uploader CLI tool with all commands, options, and examples
----
-
-import { Callout } from 'fumadocs-ui/components/callout'
-import { Card, Cards } from 'fumadocs-ui/components/card'
-import { Steps, Step } from 'fumadocs-ui/components/steps'
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { Files, Folder, File } from 'fumadocs-ui/components/files'
 
 <Callout type="info">
 The CLI handles everything: dependency installation, API route creation, provider setup, environment configuration, and example generation. Just run one command and start uploading!
@@ -20,22 +10,22 @@ Get your file uploads working in under 2 minutes with our zero-configuration CLI
 <Tabs items={["npm", "pnpm", "yarn", "bun"]}>
   <Tab value="npm">
     ```bash
-    npx next-s3-uploader init
+    npx pushduck init
     ```
   </Tab>
   <Tab value="pnpm">
     ```bash
-    pnpm dlx next-s3-uploader init
+    pnpm dlx pushduck init
     ```
   </Tab>
   <Tab value="yarn">
     ```bash
-    yarn dlx next-s3-uploader init
+    yarn dlx pushduck init
     ```
   </Tab>
   <Tab value="bun">
     ```bash
-    bunx next-s3-uploader init
+    bunx pushduck init
     ```
   </Tab>
 </Tabs>
@@ -84,7 +74,7 @@ The CLI will automatically:
 ### `init` - Initialize Setup
 
 ```bash
-npx next-s3-uploader init [options]
+npx pushduck init [options]
 ```
 
 **Options:**
@@ -102,28 +92,28 @@ npx next-s3-uploader init [options]
   <Tab value="Quick Setup">
     ```bash
     # Interactive setup with all prompts
-    npx next-s3-uploader init
+    npx pushduck init
     ```
   </Tab>
   
   <Tab value="AWS Direct">
     ```bash
     # Skip provider selection, use AWS S3
-    npx next-s3-uploader init --provider aws
+    npx pushduck init --provider aws
     ```
   </Tab>
   
   <Tab value="Custom API Path">
     ```bash
     # Use custom API route path
-    npx next-s3-uploader init --api-path /api/files
+    npx pushduck init --api-path /api/files
     ```
   </Tab>
   
   <Tab value="Components Only">
     ```bash
     # Generate only components, skip bucket creation
-    npx next-s3-uploader init --skip-bucket --skip-examples
+    npx pushduck init --skip-bucket --skip-examples
     ```
   </Tab>
 </Tabs>
@@ -131,14 +121,14 @@ npx next-s3-uploader init [options]
 ### `add` - Add Upload Route
 
 ```bash
-npx next-s3-uploader add
+npx pushduck add
 ```
 
 Add new upload routes to existing configuration:
 
 ```bash
 # Interactive route builder
-npx next-s3-uploader add
+npx pushduck add
 
 # Example output:
 # ✨ Added imageUpload route for profile pictures
@@ -149,7 +139,7 @@ npx next-s3-uploader add
 ### `test` - Test Configuration
 
 ```bash
-npx next-s3-uploader test [options]
+npx pushduck test [options]
 ```
 
 **Options:**
@@ -159,7 +149,7 @@ npx next-s3-uploader test [options]
 Validates your current setup:
 
 ```bash
-npx next-s3-uploader test
+npx pushduck test
 
 # Example output:
 # ✅ Environment variables configured
@@ -237,7 +227,7 @@ npx next-s3-uploader test
   └── .env.example
 
 📦 Installing dependencies...
-  ✓ next-s3-uploader
+  ✓ pushduck
   ✓ @aws-sdk/client-s3
   ✓ react-dropzone
 
@@ -276,7 +266,7 @@ After running the CLI, your project will have:
 ### Generated API Route
 
 ```typescript title="app/api/upload/route.ts"
-import { createUploadRouter, uploadSchema } from 'next-s3-uploader/server'
+import { createUploadRouter, uploadSchema } from 'pushduck/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
@@ -329,7 +319,7 @@ export const { GET, POST } = router
 ### Generated Upload Client
 
 ```typescript title="lib/upload-client.ts"
-import { createUploadClient } from 'next-s3-uploader/client'
+import { createUploadClient } from 'pushduck/client'
 import type { AppRouter } from '@/app/api/upload/route'
 
 export const upload = createUploadClient<AppRouter>({
@@ -394,7 +384,7 @@ NEXTAUTH_URL=http://localhost:3000
 <Tabs items={["Cloudflare R2", "AWS S3", "DigitalOcean", "MinIO"]}>
   <Tab value="Cloudflare R2">
     ```bash
-    npx next-s3-uploader init --provider cloudflare-r2
+    npx pushduck init --provider cloudflare-r2
     ```
     
     **What gets configured:**
@@ -406,7 +396,7 @@ NEXTAUTH_URL=http://localhost:3000
   
   <Tab value="AWS S3">
     ```bash
-    npx next-s3-uploader init --provider aws
+    npx pushduck init --provider aws
     ```
     
     **What gets configured:**
@@ -418,7 +408,7 @@ NEXTAUTH_URL=http://localhost:3000
   
   <Tab value="DigitalOcean">
     ```bash
-    npx next-s3-uploader init --provider digitalocean
+    npx pushduck init --provider digitalocean
     ```
     
     **Required Environment Variables:**
@@ -437,7 +427,7 @@ NEXTAUTH_URL=http://localhost:3000
   
   <Tab value="MinIO">
     ```bash
-    npx next-s3-uploader init --provider minio
+    npx pushduck init --provider minio
     ```
     
     **Required Environment Variables:**
@@ -461,17 +451,17 @@ NEXTAUTH_URL=http://localhost:3000
 
 ```bash
 # If you get "command not found"
-npm install -g next-s3-uploader
+npm install -g pushduck
 
 # Or use npx for one-time usage
-npx next-s3-uploader@latest init
+npx pushduck@latest init
 ```
 
 ### Permission Errors
 
 ```bash
 # If you get permission errors during setup
-sudo npx next-s3-uploader init
+sudo npx pushduck init
 
 # Or fix npm permissions
 npm config set prefix ~/.npm-global
@@ -482,24 +472,24 @@ export PATH=~/.npm-global/bin:$PATH
 
 ```bash
 # Force overwrite existing configuration
-npx next-s3-uploader init --force
+npx pushduck init --force
 
 # Or backup and regenerate
 cp app/api/upload/route.ts app/api/upload/route.ts.backup
-npx next-s3-uploader init
+npx pushduck init
 ```
 
 ### Bucket Creation Failed
 
 ```bash
 # Test your credentials first
-npx next-s3-uploader test
+npx pushduck test
 
 # Skip automatic bucket creation
-npx next-s3-uploader init --skip-bucket
+npx pushduck init --skip-bucket
 
 # Create bucket manually, then run:
-npx next-s3-uploader test
+npx pushduck test
 ```
 
 ## Advanced Usage
@@ -508,7 +498,7 @@ npx next-s3-uploader test
 
 ```bash
 # Use custom file templates
-npx next-s3-uploader init --template enterprise
+npx pushduck init --template enterprise
 
 # Available templates:
 # - default: Basic setup with examples
@@ -522,17 +512,17 @@ npx next-s3-uploader init --template enterprise
 ```bash
 # For monorepos, specify the Next.js app directory
 cd apps/web
-npx next-s3-uploader init
+npx pushduck init
 
 # Or use the --cwd flag
-npx next-s3-uploader init --cwd apps/web
+npx pushduck init --cwd apps/web
 ```
 
 ### CI/CD Integration
 
 ```bash
 # Non-interactive mode for CI/CD
-npx next-s3-uploader init \
+npx pushduck init \
   --provider aws \
   --skip-examples \
   --api-path /api/upload \

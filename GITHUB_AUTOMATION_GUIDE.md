@@ -450,9 +450,9 @@ Your NPM packages now have enterprise-grade automation that:
 
 # GitHub Automation Guide
 
-## 🚀 Complete GitHub Integration for next-s3-uploader
+## 🚀 Complete GitHub Integration for pushduck
 
-This guide covers the comprehensive GitHub automation setup for the next-s3-uploader monorepo, including CI/CD, security, and community management.
+This guide covers the comprehensive GitHub automation setup for the pushduck monorepo, including CI/CD, security, and community management.
 
 ## 📁 Repository Structure
 
@@ -557,7 +557,7 @@ Automated dependency updates across the monorepo:
 
 ### Packages Monitored
 
-- `/packages/next-s3-uploader` - Core package
+- `/packages/pushduck` - Core package
 - `/packages/cli` - CLI tool
 - `/` - Workspace root
 - `/apps/docs` - Documentation
@@ -789,4 +789,4 @@ gh repo view --json defaultBranch,hasIssuesEnabled
 
 ---
 
-*This automation setup provides enterprise-grade CI/CD, security, and community management for the next-s3-uploader project.*
+*This automation setup provides enterprise-grade CI/CD, security, and community management for the pushduck project.*

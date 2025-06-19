@@ -36,7 +36,7 @@ export default defineConfig({
   },
   // Better social meta tags
   global: {
-    siteName: "Next S3 Uploader",
+    siteName: "Pushduck",
     description: "The most comprehensive file upload library for Next.js",
     keywords: ["nextjs", "s3", "upload", "aws", "cloudflare", "typescript"],
     author: "Abhay Ramesh",
@@ -44,7 +44,7 @@ export default defineConfig({
     openGraph: {
       type: "website",
       locale: "en_US",
-      siteName: "Next S3 Uploader",
+      siteName: "Pushduck",
     },
   },
 });

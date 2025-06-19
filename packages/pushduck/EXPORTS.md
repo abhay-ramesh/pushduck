@@ -1,10 +1,10 @@
 # Export Structure Guide
 
-This document explains the clean export structure of `next-s3-uploader` and how to import functionality based on your use case.
+This document explains the clean export structure of `pushduck` and how to import functionality based on your use case.
 
 ## 📦 Import Paths
 
-### 1. Main Entry Point (`next-s3-uploader`)
+### 1. Main Entry Point (`pushduck`)
 
 **Use for:** Client-side components and configuration setup
 
@@ -15,7 +15,7 @@ import {
   formatUploadSpeed,
   providers,
   uploadConfig 
-} from 'next-s3-uploader'
+} from 'pushduck'
 ```
 
 **What's included:**
@@ -27,7 +27,7 @@ import {
 - ✅ TypeScript types for client usage
 - ❌ Server-only functionality (schemas, routers, S3 client)
 
-### 2. Server Entry Point (`next-s3-uploader/server`)
+### 2. Server Entry Point (`pushduck/server`)
 
 **Use for:** API routes and server-side functionality
 
@@ -38,7 +38,7 @@ import {
   createS3Router,
   initializeUploadConfig,
   createS3Client 
-} from 'next-s3-uploader/server'
+} from 'pushduck/server'
 ```
 
 **What's included:**
@@ -51,12 +51,12 @@ import {
 - ✅ All server-side TypeScript types
 - ❌ Client-side hooks (would cause server-side errors)
 
-### 3. Client-Only Entry Point (`next-s3-uploader/client`)
+### 3. Client-Only Entry Point (`pushduck/client`)
 
 **Use for:** Explicit client-side imports (optional)
 
 ```typescript
-import { useUploadRoute } from 'next-s3-uploader/client'
+import { useUploadRoute } from 'pushduck/client'
 ```
 
 **What's included:**
@@ -71,10 +71,10 @@ import { useUploadRoute } from 'next-s3-uploader/client'
 
 ```typescript
 // ✅ Correct - use main entry point
-import { useUploadRoute, formatETA } from 'next-s3-uploader'
+import { useUploadRoute, formatETA } from 'pushduck'
 
 // ✅ Also correct - explicit client import
-import { useUploadRoute } from 'next-s3-uploader/client'
+import { useUploadRoute } from 'pushduck/client'
 
 export function FileUpload() {
   const { files, uploadFiles } = useUploadRoute('avatar')
@@ -86,7 +86,7 @@ export function FileUpload() {
 
 ```typescript
 // ✅ Correct - use server entry point
-import { s3, createS3Handler } from 'next-s3-uploader/server'
+import { s3, createS3Handler } from 'pushduck/server'
 
 const s3Router = s3.createRouter({
   avatar: s3.image().max('2MB'),
@@ -100,7 +100,7 @@ export const { GET, POST } = createS3Handler(s3Router)
 
 ```typescript
 // upload.ts (server-side configuration)
-import { initializeUploadConfig, providers } from 'next-s3-uploader/server'
+import { initializeUploadConfig, providers } from 'pushduck/server'
 
 export const { s3, createS3Handler } = initializeUploadConfig({
   provider: providers.aws({
@@ -116,25 +116,25 @@ export const { s3, createS3Handler } = initializeUploadConfig({
 
 ```typescript
 // ❌ This will cause errors
-import { s3, createS3Handler } from 'next-s3-uploader'
-import { createS3Client } from 'next-s3-uploader' // Server-only!
+import { s3, createS3Handler } from 'pushduck'
+import { createS3Client } from 'pushduck' // Server-only!
 ```
 
 ### ❌ Don't import client hooks in API routes
 
 ```typescript
 // ❌ This will cause server-side errors
-import { useUploadRoute } from 'next-s3-uploader/server' // Not available!
+import { useUploadRoute } from 'pushduck/server' // Not available!
 ```
 
 ### ✅ Correct separation
 
 ```typescript
 // Client component
-import { useUploadRoute } from 'next-s3-uploader'
+import { useUploadRoute } from 'pushduck'
 
 // API route  
-import { createS3Handler } from 'next-s3-uploader/server'
+import { createS3Handler } from 'pushduck/server'
 ```
 
 ## 📋 Migration Guide
@@ -143,11 +143,11 @@ import { createS3Handler } from 'next-s3-uploader/server'
 
 ```typescript
 // ❌ Old way (still works but deprecated)
-import { createS3Handler, useUploadRoute } from 'next-s3-uploader'
+import { createS3Handler, useUploadRoute } from 'pushduck'
 
 // ✅ New way - clear separation
-import { useUploadRoute } from 'next-s3-uploader'           // Client
-import { createS3Handler } from 'next-s3-uploader/server'    // Server
+import { useUploadRoute } from 'pushduck'           // Client
+import { createS3Handler } from 'pushduck/server'    // Server
 ```
 
 ### Legacy Support
@@ -165,14 +165,14 @@ Each entry point provides appropriate types:
 
 ```typescript
 // Client types
-import type { S3UploadedFile, S3RouteUploadConfig } from 'next-s3-uploader'
+import type { S3UploadedFile, S3RouteUploadConfig } from 'pushduck'
 
 // Server types  
-import type { S3RouterDefinition, ProviderConfig } from 'next-s3-uploader/server'
+import type { S3RouterDefinition, ProviderConfig } from 'pushduck/server'
 
 // Mixed usage
-import type { S3UploadedFile } from 'next-s3-uploader'
-import type { S3RouterDefinition } from 'next-s3-uploader/server'
+import type { S3UploadedFile } from 'pushduck'
+import type { S3RouterDefinition } from 'pushduck/server'
 ```
 
 This structure ensures you get the right functionality for your environment while maintaining excellent developer experience! 🎉

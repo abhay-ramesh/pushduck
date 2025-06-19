@@ -51,7 +51,7 @@ jobs:
         if: github.event_name == 'pull_request'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./packages/next-s3-uploader/coverage/lcov.info
+          files: ./packages/pushduck/coverage/lcov.info
 
   # 🏗️ Build & Bundle Analysis
   build:
@@ -83,7 +83,7 @@ jobs:
 
       - name: 📊 Bundle size analysis
         run: |
-          cd packages/next-s3-uploader
+          cd packages/pushduck
           pnpm build:analyze
 
       - name: 📈 Bundle size report
@@ -91,7 +91,7 @@ jobs:
         if: github.event_name == 'pull_request'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          directory: packages/next-s3-uploader
+          directory: packages/pushduck
 
   # 🔐 Security Audit
   security:
@@ -167,7 +167,7 @@ jobs:
       - name: 📝 Validate changeset quality
         if: steps.changeset.outputs.has_changeset == 'true'
         run: |
-          cd packages/next-s3-uploader
+          cd packages/pushduck
           pnpm validate-changesets
 
       - name: 💬 Comment on PR if no changeset

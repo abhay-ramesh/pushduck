@@ -1,8 +1,8 @@
 /**
- * next-s3-uploader - Client-side exports
+ * pushduck - Client-side exports
  *
  * This file provides all client-side functionality for React components and hooks.
- * Import server-side functionality from 'next-s3-uploader/server'
+ * Import server-side functionality from 'pushduck/server'
  */
 
 // ========================================

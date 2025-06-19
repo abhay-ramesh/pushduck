@@ -53,7 +53,7 @@ pnpm release
 
 ```
 ---
-"next-s3-uploader": patch
+"pushduck": patch
 ---
 
 Fix memory leak in upload progress tracking
@@ -63,7 +63,7 @@ Fix memory leak in upload progress tracking
 
 ```
 ---
-"next-s3-uploader": minor
+"pushduck": minor
 ---
 
 Add support for custom S3 endpoints and CloudFront integration
@@ -73,7 +73,7 @@ Add support for custom S3 endpoints and CloudFront integration
 
 ```
 ---
-"next-s3-uploader": major
+"pushduck": major
 ---
 
 BREAKING: Remove legacy useS3FileUpload hook, update to new useUploadRoute API
@@ -106,10 +106,10 @@ pnpm release:snapshot   # Beta/test releases
 pnpm changelog:preview  # See what changelog will look like
 ```
 
-### **Package Level (next-s3-uploader)**
+### **Package Level (pushduck)**
 
 ```bash
-cd packages/next-s3-uploader
+cd packages/pushduck
 
 # Changeset workflow
 pnpm release:changeset  # Full workflow: add → version → release
@@ -155,18 +155,18 @@ pnpm release:major
 ```bash
 # 1. Create changeset
 pnpm changeset
-# Select: next-s3-uploader
+# Select: pushduck
 # Type: patch
 # Summary: "Fix memory leak in upload progress tracking"
 
 # 2. Preview what will happen
 pnpm changeset:status
-# Shows: next-s3-uploader will go from 0.2.1 → 0.2.2
+# Shows: pushduck will go from 0.2.1 → 0.2.2
 
 # 3. Generate versions and changelog
 pnpm version-packages
-# Updates: packages/next-s3-uploader/package.json
-# Creates: packages/next-s3-uploader/CHANGELOG.md
+# Updates: packages/pushduck/package.json
+# Creates: packages/pushduck/CHANGELOG.md
 
 # 4. Publish
 pnpm release
@@ -176,13 +176,13 @@ pnpm release
 ### **Generated CHANGELOG.md:**
 
 ```markdown
-# next-s3-uploader
+# pushduck
 
 ## 0.2.2
 
 ### Patch Changes
 
-- [#123](https://github.com/your-username/next-s3-uploader/pull/123) [`abc1234`](https://github.com/your-username/next-s3-uploader/commit/abc1234) - Fix memory leak in upload progress tracking
+- [#123](https://github.com/your-username/pushduck/pull/123) [`abc1234`](https://github.com/your-username/pushduck/commit/abc1234) - Fix memory leak in upload progress tracking
 
 ## 0.2.1
 ...
@@ -197,11 +197,11 @@ pnpm release
 ```json
 {
   "changelog": ["@changesets/changelog-github", {
-    "repo": "YOUR_GITHUB_USERNAME/next-s3-uploader"
+    "repo": "YOUR_GITHUB_USERNAME/pushduck"
   }],
   "access": "public",
   "linked": [
-    ["next-s3-uploader", "create-next-s3-uploader"]
+    ["pushduck", "create-pushduck"]
   ],
   "updateInternalDependencies": "patch",
   "ignore": ["new-api-demo", "eslint-config-custom"],
@@ -219,7 +219,7 @@ pnpm release
 
 ### **Package Linking**
 
-The `linked` configuration ensures that `next-s3-uploader` and `create-next-s3-uploader` always maintain the same version. When you create a changeset for either package, both will be bumped to the same new version automatically.
+The `linked` configuration ensures that `pushduck` and `create-pushduck` always maintain the same version. When you create a changeset for either package, both will be bumped to the same new version automatically.
 
 ---
 
@@ -244,7 +244,7 @@ pnpm release:dry
 
 ```bash
 # Only release specific package
-pnpm changeset publish --filter=next-s3-uploader
+pnpm changeset publish --filter=pushduck
 ```
 
 ---

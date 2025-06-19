@@ -2,7 +2,7 @@
 
 ## 📋 Overview
 
-**Goal**: Transform next-s3-uploader setup from 30+ minutes of manual configuration to 2 minutes of guided automation.
+**Goal**: Transform pushduck setup from 30+ minutes of manual configuration to 2 minutes of guided automation.
 
 **Problem**: Current setup requires manual API route creation, environment configuration, S3 bucket setup, and component building.
 
@@ -14,7 +14,7 @@
 
 ```bash
 # Manual steps developers face today:
-1. npm install next-s3-uploader
+1. npm install pushduck
 2. Create API route manually
 3. Setup environment variables
 4. Configure S3 bucket and permissions  
@@ -26,7 +26,7 @@
 ### After (Target - 2 minutes)
 
 ```bash
-npx next-s3-uploader@latest init
+npx pushduck@latest init
 # Interactive wizard does everything
 # Working upload in 2 minutes
 ```
@@ -36,7 +36,7 @@ npx next-s3-uploader@latest init
 ### Primary Command
 
 ```bash
-npx next-s3-uploader@latest init [options]
+npx pushduck@latest init [options]
 
 Options:
   --provider <type>     Skip provider selection (aws|cloudflare-r2|digitalocean|minio|gcs)
@@ -51,10 +51,10 @@ Options:
 ### Additional Commands
 
 ```bash
-npx next-s3-uploader add route        # Add new upload route
-npx next-s3-uploader test             # Test current configuration
-npx next-s3-uploader update           # Update configuration
-npx next-s3-uploader deploy           # Production deployment help
+npx pushduck add route        # Add new upload route
+npx pushduck test             # Test current configuration
+npx pushduck update           # Update configuration
+npx pushduck deploy           # Production deployment help
 ```
 
 ## 📱 Interactive Flow Design
@@ -64,7 +64,7 @@ npx next-s3-uploader deploy           # Production deployment help
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
-│   🚀 Welcome to Next.js S3 Uploader CLI                   │
+│   🚀 Welcome to Pushduck CLI                   │
 │                                                             │
 │   Transform your file uploads in 2 minutes!                │
 │                                                             │
@@ -107,7 +107,7 @@ Ready to setup file uploads!
    • Integrates with other AWS services
    • Pay-as-you-use pricing
 
-   Need help choosing? https://docs.next-s3-uploader.com/providers/comparison
+   Need help choosing? https://docs.pushduck.com/providers/comparison
 ```
 
 **Implementation Details:**
@@ -184,7 +184,7 @@ S3 Bucket Name: › my-app-uploads-2024
     Skip examples (configuration only)
 
 📦 Installing dependencies...
-  Adding: next-s3-uploader@latest
+  Adding: pushduck@latest
   Adding: react-dropzone (for drag & drop)
   ✓ Dependencies installed
 ```
@@ -225,9 +225,9 @@ Types:      Images, PDFs, Text files
 3. Try uploading a file!
 
 📚 Learn More:
-• Documentation: https://docs.next-s3-uploader.com
-• Examples: https://github.com/next-s3-uploader/examples
-• Discord: https://discord.gg/next-s3-uploader
+• Documentation: https://docs.pushduck.com
+• Examples: https://github.com/pushduck/examples
+• Discord: https://discord.gg/pushduck
 ```
 
 ### Step 6: Verification & Testing
@@ -257,7 +257,7 @@ Your upload system is ready for production.
 ### API Route Template (`app/api/upload/route.ts`)
 
 ```typescript
-import { createS3Handler } from "next-s3-uploader/server";
+import { createS3Handler } from "pushduck/server";
 import { uploadRouter } from "@/lib/upload-config";
 
 // Export the handler for App Router
@@ -275,7 +275,7 @@ import {
   createS3Router, 
   uploadConfig, 
   initializeUploadConfig 
-} from "next-s3-uploader/server";
+} from "pushduck/server";
 
 // Define your upload routes with validation
 const uploadRouter = createS3Router({
@@ -539,7 +539,7 @@ export function FileList({ files, className }: FileListProps) {
 "use client";
 
 import { useState } from "react";
-import { useS3Upload } from "next-s3-uploader";
+import { useS3Upload } from "pushduck";
 import { UploadZone } from "@/components/ui/upload-zone";
 import { FileList } from "@/components/ui/file-list";
 import type { UploadRouter } from "@/lib/upload-config";
@@ -791,7 +791,7 @@ export class AWSSetup implements ProviderSetup {
 - Real-time upload monitoring
 - Performance profiling
 
-This CLI will transform next-s3-uploader from a technical library into a complete developer experience that rivals the best tools in the ecosystem.
+This CLI will transform pushduck from a technical library into a complete developer experience that rivals the best tools in the ecosystem.
 
 ---
 
@@ -807,7 +807,7 @@ This CLI will transform next-s3-uploader from a technical library into a complet
 
 ```bash
 # Step 1: Install package
-npm install next-s3-uploader
+npm install pushduck
 
 # Step 2: Manually create API route
 mkdir -p app/api/s3-upload
@@ -834,7 +834,7 @@ touch upload.ts
 
 ```bash
 # One command setup
-npx next-s3-uploader@latest init
+npx pushduck@latest init
 
 # Interactive wizard handles everything
 # Working upload in 2 minutes
@@ -845,7 +845,7 @@ npx next-s3-uploader@latest init
 ### **1. Initial Command**
 
 ```bash
-npx next-s3-uploader@latest init
+npx pushduck@latest init
 ```
 
 ### **2. Welcome & Detection**
@@ -853,7 +853,7 @@ npx next-s3-uploader@latest init
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
-│   🚀 Welcome to Next.js S3 Uploader                       │
+│   🚀 Welcome to Pushduck                       │
 │                                                             │
 │   Let's get your file uploads working in 2 minutes!        │
 │                                                             │
@@ -879,7 +879,7 @@ npx next-s3-uploader@latest init
 
 ❯ AWS S3
 
-  Need help choosing? https://docs.next-s3-uploader.com/providers
+  Need help choosing? https://docs.pushduck.com/providers
 ```
 
 ### **4. Environment Detection & Setup**
@@ -944,7 +944,7 @@ S3 Bucket name: › my-app-uploads
 📦 Installing dependencies...
 
   Adding to package.json:
-  ✓ next-s3-uploader@latest
+  ✓ pushduck@latest
   ✓ @aws-sdk/client-s3 (for AWS S3)
 
   npm install...
@@ -974,7 +974,7 @@ S3 Bucket name: › my-app-uploads
   2. Visit: http://localhost:3000/upload
   3. Try uploading a file!
 
-📚 Documentation: https://docs.next-s3-uploader.com
+📚 Documentation: https://docs.pushduck.com
 ```
 
 ### **9. First Run Verification**
@@ -995,7 +995,7 @@ S3 Bucket name: › my-app-uploads
 ### **API Route** (`app/api/upload/route.ts`)
 
 ```typescript
-import { createS3Handler } from "next-s3-uploader/server";
+import { createS3Handler } from "pushduck/server";
 import { uploadRouter } from "@/lib/upload-config";
 
 export const { GET, POST } = createS3Handler(uploadRouter);
@@ -1004,7 +1004,7 @@ export const { GET, POST } = createS3Handler(uploadRouter);
 ### **Upload Configuration** (`lib/upload-config.ts`)
 
 ```typescript
-import { createS3Router, uploadConfig, initializeUploadConfig } from "next-s3-uploader/server";
+import { createS3Router, uploadConfig, initializeUploadConfig } from "pushduck/server";
 
 // Configure your upload routes
 const uploadRouter = createS3Router({
@@ -1040,7 +1040,7 @@ export type UploadRouter = typeof uploadRouter;
 ```typescript
 "use client";
 
-import { useS3Upload } from "next-s3-uploader";
+import { useS3Upload } from "pushduck";
 import { UploadZone } from "@/components/ui/upload-zone";
 import type { UploadRouter } from "@/lib/upload-config";
 
@@ -1157,14 +1157,14 @@ S3_BUCKET=my-app-uploads
 ### **Update Command**
 
 ```bash
-npx next-s3-uploader update
+npx pushduck update
 # Updates configuration, adds new features, migrates breaking changes
 ```
 
 ### **Add Route Command**
 
 ```bash
-npx next-s3-uploader add route
+npx pushduck add route
 # Interactive route generator
 # Adds new upload routes to existing configuration
 ```
@@ -1172,14 +1172,14 @@ npx next-s3-uploader add route
 ### **Test Command**
 
 ```bash
-npx next-s3-uploader test
+npx pushduck test
 # Tests S3 connection, permissions, and configuration
 ```
 
 ### **Deploy Command**
 
 ```bash
-npx next-s3-uploader deploy
+npx pushduck deploy
 # Helps with production deployment configuration
 ```
 
@@ -1221,4 +1221,4 @@ npx next-s3-uploader deploy
 4. **Error Recovery**: Help users fix issues automatically
 5. **Educational**: Explain what each step does and why
 
-This CLI would transform next-s3-uploader from "another upload library" to "the easiest way to add file uploads to Next.js" - a true zero-config experience that gets developers from zero to working uploads in under 2 minutes.
+This CLI would transform pushduck from "another upload library" to "the easiest way to add file uploads to Next.js" - a true zero-config experience that gets developers from zero to working uploads in under 2 minutes.

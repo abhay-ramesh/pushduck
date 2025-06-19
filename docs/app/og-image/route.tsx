@@ -74,7 +74,7 @@ export async function GET() {
               display: "flex",
             }}
           >
-            NEXT S3 UPLOADER
+            Pushduck
           </div>
         </div>
 
@@ -148,7 +148,7 @@ export async function GET() {
               display: "flex",
             }}
           >
-            next-s3-uploader.dev
+            pushduck.dev
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-We actively provide security updates for the following versions of next-s3-uploader:
+We actively provide security updates for the following versions of pushduck:
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -12,14 +12,14 @@ We actively provide security updates for the following versions of next-s3-uploa
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in next-s3-uploader, please report it responsibly by following these steps:
+If you discover a security vulnerability in pushduck, please report it responsibly by following these steps:
 
 ### 🔒 Private Disclosure
 
 **DO NOT** create public GitHub issues for security vulnerabilities. Instead, please use one of these secure reporting methods:
 
 1. **GitHub Security Advisories** (Recommended)
-   - Go to the [Security tab](https://github.com/abhay/next-s3-uploader/security/advisories) of this repository
+   - Go to the [Security tab](https://github.com/abhay/pushduck/security/advisories) of this repository
    - Click "Report a vulnerability"
    - Fill out the advisory form with detailed information
 
@@ -59,7 +59,7 @@ We appreciate security researchers who help keep our project safe:
 
 ## Security Best Practices
 
-When using next-s3-uploader in your applications:
+When using pushduck in your applications:
 
 ### 🔐 Server-Side Configuration
 
@@ -88,8 +88,8 @@ When using next-s3-uploader in your applications:
 
 This security policy covers:
 
-- ✅ The core `next-s3-uploader` package
-- ✅ The `create-next-s3-uploader` CLI tool
+- ✅ The core `pushduck` package
+- ✅ The `create-pushduck` CLI tool
 - ✅ Documentation and examples that could lead to insecure implementations
 - ✅ Dependencies that could affect security
 
@@ -97,7 +97,7 @@ This policy does not cover:
 
 - ❌ Issues in your AWS configuration or credentials management
 - ❌ General S3 security best practices (covered by AWS documentation)
-- ❌ Third-party packages used alongside next-s3-uploader
+- ❌ Third-party packages used alongside pushduck
 - ❌ Issues related to your specific implementation
 
 ## Contact

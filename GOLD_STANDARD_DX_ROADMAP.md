@@ -1,10 +1,10 @@
-# 🚀 Gold Standard DX Roadmap for next-s3-uploader
+# 🚀 Gold Standard DX Roadmap for pushduck
 
-> Transforming next-s3-uploader to match the developer experience of Uploadthing, tRPC, Drizzle, Prisma, and Zod
+> Transforming pushduck to match the developer experience of Uploadthing, tRPC, Drizzle, Prisma, and Zod
 
 ## 🎯 Vision
 
-Transform `next-s3-uploader` from a traditional file upload library into a **type-safe, zero-config, schema-first** file upload solution that feels like a natural extension of the TypeScript/Next.js ecosystem.
+Transform `pushduck` from a traditional file upload library into a **type-safe, zero-config, schema-first** file upload solution that feels like a natural extension of the TypeScript/Next.js ecosystem.
 
 ## 📊 Current State vs Gold Standard
 
@@ -71,7 +71,7 @@ const { uploadFiles } = useS3FileUpload({
 **New API**:
 
 ```typescript
-import { s3 } from "next-s3-uploader";
+import { s3 } from "pushduck";
 
 // Schema definition with chaining API
 const uploadSchema = s3.object({
@@ -119,7 +119,7 @@ const { upload, files } = useS3Upload(uploadSchema);
 
 ```typescript
 // app/api/s3/route.ts
-import { createS3Handler, createS3Router } from "next-s3-uploader";
+import { createS3Handler, createS3Router } from "pushduck";
 
 const s3Router = createS3Router({
   // Simple upload route
@@ -209,7 +209,7 @@ cd my-upload-app
 npm run dev  # Everything works immediately
 
 # Option 2: Existing project
-npx next-s3-uploader@latest init
+npx pushduck@latest init
 # Interactive setup wizard:
 # ✓ Choose provider (AWS/MinIO/R2/etc.)
 # ✓ Auto-detect environment variables
@@ -232,7 +232,7 @@ lib/
 └── s3-routes.ts            # Route definitions
 
 .env.local                  # Environment template
-next-s3-uploader.config.ts  # Library configuration
+pushduck.config.ts  # Library configuration
 ```
 
 ---
@@ -245,7 +245,7 @@ next-s3-uploader.config.ts  # Library configuration
 
 ```typescript
 // app/upload/page.tsx - Server Component
-import { S3Upload } from "next-s3-uploader/rsc";
+import { S3Upload } from "pushduck/rsc";
 import { redirect } from "next/navigation";
 
 export default function UploadPage() {
@@ -290,7 +290,7 @@ export default function UploadPage() {
 // app/actions/upload.ts
 "use server";
 
-import { s3Action } from "next-s3-uploader/actions";
+import { s3Action } from "pushduck/actions";
 
 export const uploadAvatar = s3Action
   .input(s3.image().max("2MB"))
@@ -330,7 +330,7 @@ import {
   S3ImagePreview,
   S3FileInput,
   S3UploadButton,
-} from "next-s3-uploader/ui";
+} from "pushduck/ui";
 
 // Comprehensive upload interface
 export function DocumentUploader() {
@@ -385,7 +385,7 @@ import {
   rateLimitMiddleware, 
   virusScanMiddleware,
   imageProcessingMiddleware 
-} from "next-s3-uploader/middleware";
+} from "pushduck/middleware";
 
 const photoUpload = s3.image()
   .max("10MB")
@@ -426,10 +426,10 @@ const photoUpload = s3.image()
 
 ```bash
 # Initialize new project
-npx next-s3-uploader init
+npx pushduck init
 
 # Interactive route generator
-npx next-s3-uploader generate route
+npx pushduck generate route
 # ✓ Route name: documentUpload
 # ✓ File types: PDF, DOCX
 # ✓ Max file size: 10MB
@@ -438,16 +438,16 @@ npx next-s3-uploader generate route
 # ✓ Generate TypeScript types? Yes
 
 # Validate configuration
-npx next-s3-uploader validate
+npx pushduck validate
 
 # Test S3 connection
-npx next-s3-uploader test-connection
+npx pushduck test-connection
 
 # Generate TypeScript types from routes
-npx next-s3-uploader generate types
+npx pushduck generate types
 
 # Deploy and configure S3 bucket
-npx next-s3-uploader deploy --provider aws
+npx pushduck deploy --provider aws
 ```
 
 ### 3.2 Dev Tools and Debugging
@@ -466,7 +466,7 @@ npx next-s3-uploader deploy --provider aws
 // - Error logs with suggestions
 
 // Built-in debugging utilities
-import { debug } from "next-s3-uploader/debug";
+import { debug } from "pushduck/debug";
 
 const { upload } = useS3Upload("documentUpload", {
   debug: process.env.NODE_ENV === "development"
@@ -486,15 +486,15 @@ const { upload } = useS3Upload("documentUpload", {
 
 ```bash
 # Migrate from existing libraries
-npx next-s3-uploader migrate --from uploadthing
-npx next-s3-uploader migrate --from react-dropzone
-npx next-s3-uploader migrate --from next-cloudinary
+npx pushduck migrate --from uploadthing
+npx pushduck migrate --from react-dropzone
+npx pushduck migrate --from next-cloudinary
 
 # Analyze existing code and suggest improvements
-npx next-s3-uploader analyze ./src
+npx pushduck analyze ./src
 
 # Generate migration report
-npx next-s3-uploader migrate --dry-run --report
+npx pushduck migrate --dry-run --report
 ```
 
 ### 3.4 Documentation Overhaul
@@ -548,19 +548,19 @@ docs/
 
 ```typescript
 // Remix integration
-import { S3UploadAction } from "next-s3-uploader/remix";
+import { S3UploadAction } from "pushduck/remix";
 
 export const action = S3UploadAction({
   documentUpload: s3.file().max("10MB")
 });
 
 // SvelteKit integration
-import { s3Handler } from "next-s3-uploader/sveltekit";
+import { s3Handler } from "pushduck/sveltekit";
 
 export const POST = s3Handler(s3Router);
 
 // Astro integration
-import { S3Upload } from "next-s3-uploader/astro";
+import { S3Upload } from "pushduck/astro";
 ```
 
 ### 4.2 Plugin System
@@ -576,9 +576,9 @@ interface S3Plugin {
 }
 
 // Example plugins
-import { imageOptimizationPlugin } from "@next-s3-uploader/plugin-image";
-import { virusScanPlugin } from "@next-s3-uploader/plugin-antivirus";
-import { analyticsPlugin } from "@next-s3-uploader/plugin-analytics";
+import { imageOptimizationPlugin } from "@pushduck/plugin-image";
+import { virusScanPlugin } from "@pushduck/plugin-antivirus";
+import { analyticsPlugin } from "@pushduck/plugin-analytics";
 
 // Configuration
 export default defineS3Config({
@@ -676,7 +676,7 @@ export default defineS3Config({
 
 ## 🎯 Conclusion
 
-This roadmap transforms `next-s3-uploader` from a traditional file upload library into a **modern, type-safe, developer-first** solution that matches the gold standard set by libraries like Uploadthing, tRPC, and Drizzle.
+This roadmap transforms `pushduck` from a traditional file upload library into a **modern, type-safe, developer-first** solution that matches the gold standard set by libraries like Uploadthing, tRPC, and Drizzle.
 
 The key principles driving this transformation:
 

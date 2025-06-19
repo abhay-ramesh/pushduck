@@ -1,11 +1,3 @@
----
-title: createUploadClient
-description: Create a type-safe upload client with enhanced property-based access
----
-
-import { Callout } from "fumadocs-ui/components/callout";
-import { TypeTable } from "fumadocs-ui/components/type-table";
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
 # createUploadClient
 
@@ -73,7 +65,7 @@ type UploadClient<TRouter> = {
 <Tabs items={["Basic", "Advanced", "With Authentication"]}>
   <Tab value="Basic">
     ```typescript
-    import { createUploadClient } from 'next-s3-uploader/client'
+    import { createUploadClient } from 'pushduck/client'
     import type { AppRouter } from '@/lib/upload'
 
     export const upload = createUploadClient<AppRouter>({

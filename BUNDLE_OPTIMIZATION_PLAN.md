@@ -189,7 +189,7 @@ pnpm release:patch     # Automated patch release
 The optimization setup is **ready for testing**! Run:
 
 ```bash
-cd packages/next-s3-uploader
+cd packages/pushduck
 pnpm install
 pnpm build:analyze
 pnpm size-check

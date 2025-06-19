@@ -1,11 +1,11 @@
-# Dependabot configuration for next-s3-uploader
+# Dependabot configuration for pushduck
 # Automates dependency updates across the monorepo
 
 version: 2
 updates:
   # Main package dependencies
   - package-ecosystem: "npm"
-    directory: "/packages/next-s3-uploader"
+    directory: "/packages/pushduck"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -21,7 +21,7 @@ updates:
       include: "scope"
     labels:
       - "dependencies"
-      - "next-s3-uploader"
+      - "pushduck"
 
   # CLI package dependencies
   - package-ecosystem: "npm"

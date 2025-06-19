@@ -56,7 +56,7 @@ body:
       description: Provide examples of how this feature would be used
       placeholder: |
         // Example usage
-        import { newFeature } from 'next-s3-uploader';
+        import { newFeature } from 'pushduck';
 
         const result = newFeature({
           // configuration

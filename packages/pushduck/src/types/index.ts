@@ -1,5 +1,5 @@
 /**
- * Centralized Type Definitions for next-s3-uploader
+ * Centralized Type Definitions for pushduck
  *
  * This file consolidates all type definitions to prevent circular dependencies
  * and provide a single source of truth for types used across the library.

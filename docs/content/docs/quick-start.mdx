@@ -1,18 +1,10 @@
----
-title: Quick Start
-description: Get file uploads working in your Next.js app in under 2 minutes with our CLI
----
-
-import { Step, Steps } from "fumadocs-ui/components/steps";
-import { Callout } from "fumadocs-ui/components/callout";
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
 # Quick Start
 
 Get **production-ready file uploads** working in your Next.js app in under 2 minutes with our CLI tool. Zero configuration, just one command.
 
 <Callout type="success">
-  **🚀 New!** Use our CLI for instant setup: `npx next-s3-uploader init` - handles everything automatically!
+  **🚀 New!** Use our CLI for instant setup: `npx pushduck init` - handles everything automatically!
 </Callout>
 
 ## Choose Your Setup Method
@@ -25,7 +17,7 @@ Get **production-ready file uploads** working in your Next.js app in under 2 min
 Get everything set up instantly with our interactive CLI:
 
 ```bash
-npx next-s3-uploader init
+npx pushduck init
 ```
 
 That's it! The CLI will:
@@ -48,7 +40,7 @@ That's it! The CLI will:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
-│   🚀 Welcome to Next.js S3 Uploader                         │
+│   🚀 Welcome to Pushduck                         │
 │                                                             │
 │   Let's get your file uploads working in 2 minutes!         │
 │                                                             │
@@ -90,10 +82,10 @@ If you prefer to set things up manually or need custom configuration:
 
 <Step>
 
-## Install Next.js S3 Uploader
+## Install Pushduck
 
 ```bash
-npm install next-s3-uploader
+npm install pushduck
 ```
 
 <Callout type="info">
@@ -102,22 +94,22 @@ npm install next-s3-uploader
 <Tabs items={['npm', 'pnpm', 'yarn', 'bun']}>
   <Tab value="npm">
     ```bash
-    npm install next-s3-uploader
+    npm install pushduck
     ```
   </Tab>
   <Tab value="pnpm">
     ```bash
-    pnpm add next-s3-uploader
+    pnpm add pushduck
     ```
   </Tab>
   <Tab value="yarn">
     ```bash
-    yarn add next-s3-uploader
+    yarn add pushduck
     ```
   </Tab>
   <Tab value="bun">
     ```bash
-    bun add next-s3-uploader
+    bun add pushduck
     ```
   </Tab>
 </Tabs>
@@ -155,7 +147,7 @@ Create an API route to handle file uploads:
 
 ```typescript
 // app/api/s3-upload/route.ts
-import { createS3Router, s3 } from "next-s3-uploader/server";
+import { createS3Router, s3 } from "pushduck/server";
 
 const router = createS3Router({
   // Define your upload routes with validation
@@ -190,7 +182,7 @@ Create a type-safe client for your components:
 
 ```typescript
 // lib/upload-client.ts
-import { createUploadClient } from "next-s3-uploader";
+import { createUploadClient } from "pushduck";
 import type { Router } from "@/app/api/s3-upload/route";
 
 // Create a type-safe upload client
@@ -376,13 +368,13 @@ Now that you have the basics working, explore these advanced features:
 ## Need Help?
 
 - 📖 **Documentation**: Explore our comprehensive [guides](/docs/guides)
-- 💬 **Community**: Join our [Discord community](https://discord.gg/next-s3-uploader)
-- 🐛 **Issues**: Report bugs on [GitHub](https://github.com/your-org/next-s3-uploader)
-- 📧 **Support**: Email us at support@next-s3-uploader.com
+- 💬 **Community**: Join our [Discord community](https://discord.gg/pushduck)
+- 🐛 **Issues**: Report bugs on [GitHub](https://github.com/your-org/pushduck)
+- 📧 **Support**: Email us at support@pushduck.com
 
 <Callout type="info">
-  **Loving Next.js S3 Uploader?** Give us a ⭐ on
-  [GitHub](https://github.com/your-org/next-s3-uploader) and help spread the
+  **Loving Pushduck?** Give us a ⭐ on
+  [GitHub](https://github.com/your-org/pushduck) and help spread the
   word!
 </Callout>
 

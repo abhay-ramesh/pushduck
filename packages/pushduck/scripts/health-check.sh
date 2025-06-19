@@ -39,7 +39,7 @@ if [ ! -d "dist" ]; then
 fi
 
 # Create a temporary isolated check for this package only
-print_warning "Checking only direct dependencies of next-s3-uploader package"
+print_warning "Checking only direct dependencies of pushduck package"
 print_status "Production dependencies: @aws-sdk/client-s3, @aws-sdk/s3-request-presigner"
 print_status "Optional dependencies: aws-crt, @aws-sdk/signature-v4-multi-region"
 

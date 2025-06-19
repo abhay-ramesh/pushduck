@@ -1,8 +1,8 @@
 /**
- * next-s3-uploader - Server-side exports
+ * pushduck - Server-side exports
  *
  * This file provides all server-side functionality for API routes and server components.
- * Import client-side functionality from 'next-s3-uploader'
+ * Import client-side functionality from 'pushduck'
  */
 
 // ========================================
@@ -44,7 +44,7 @@ export { s3 } from "./core/upload-config";
 // ========================================
 
 // Modern router (recommended)
-export { createS3Handler, createS3Router, S3Route } from "./core/router-v2";
+export { S3Route, createS3Handler, createS3Router } from "./core/router-v2";
 
 // Router types
 export type { S3Router } from "./types";

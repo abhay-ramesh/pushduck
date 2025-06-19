@@ -153,8 +153,8 @@
 
 ### **📦 Package(s) Affected:**
 
-- [ ] next-s3-uploader
-- [ ] create-next-s3-uploader
+- [ ] pushduck
+- [ ] create-pushduck
 
 ### **🔖 Version Bump Type:**
 
@@ -198,4 +198,4 @@
 
 ## 🙏 **Thank You!**
 
-Thanks for contributing to next-s3-uploader! Your changes help make file uploads easier for everyone. 🚀
+Thanks for contributing to pushduck! Your changes help make file uploads easier for everyone. 🚀

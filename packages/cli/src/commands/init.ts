@@ -27,7 +27,7 @@ export async function initCommand(options: InitOptions = {}) {
     chalk.cyan(`
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
-│   🚀 Welcome to Next.js S3 Uploader                       │
+│   🚀 Welcome to Pushduck                       │
 │                                                             │
 │   Let's get your file uploads working in 2 minutes!        │
 │                                                             │
@@ -265,13 +265,11 @@ export async function initCommand(options: InitOptions = {}) {
       console.log("  2. Visit: http://localhost:3000/upload");
       console.log("  3. Try uploading a file!");
     } else {
-      console.log("  2. Import components from next-s3-uploader");
+      console.log("  2. Import components from pushduck");
       console.log("  3. Build your upload interface!");
     }
 
-    console.log(
-      chalk.cyan("\n📚 Documentation: https://docs.next-s3-uploader.com")
-    );
+    console.log(chalk.cyan("\n📚 Documentation: https://docs.pushduck.com"));
 
     // Step 10: Test configuration
     if (credentials.accessKeyId && credentials.secretAccessKey) {
@@ -293,7 +291,7 @@ export async function initCommand(options: InitOptions = {}) {
         );
         console.log(
           chalk.gray(
-            "You can test your configuration anytime with: npx next-s3-uploader test"
+            "You can test your configuration anytime with: npx pushduck test"
           )
         );
       }
@@ -306,9 +304,7 @@ export async function initCommand(options: InitOptions = {}) {
     }
 
     console.log(
-      chalk.gray(
-        "\nFor help, visit: https://docs.next-s3-uploader.com/troubleshooting"
-      )
+      chalk.gray("\nFor help, visit: https://docs.pushduck.com/troubleshooting")
     );
     process.exit(1);
   }

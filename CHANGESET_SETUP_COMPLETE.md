@@ -24,7 +24,7 @@ Your monorepo now has **professional-grade changelog and release automation** wi
 ### **3. Successfully Tested End-to-End**
 
 - ✅ Created changeset with proper release notes
-- ✅ Generated versions: `next-s3-uploader` 0.2.1 → 0.3.0
+- ✅ Generated versions: `pushduck` 0.2.1 → 0.3.0
 - ✅ Auto-generated comprehensive CHANGELOG.md
 - ✅ Updated package.json versions automatically
 - ✅ Changeset consumed and cleaned up
@@ -33,7 +33,7 @@ Your monorepo now has **professional-grade changelog and release automation** wi
 
 ## 📊 **Test Results**
 
-### **Generated Changelog** (packages/next-s3-uploader/CHANGELOG.md)
+### **Generated Changelog** (packages/pushduck/CHANGELOG.md)
 
 ```markdown
 # Changelog
@@ -62,8 +62,8 @@ Your monorepo now has **professional-grade changelog and release automation** wi
 
 ### **Version Updates**
 
-- **next-s3-uploader**: `0.2.1` → `0.3.0` ✅
-- **create-next-s3-uploader**: `0.1.x` → `0.2.0` ✅
+- **pushduck**: `0.2.1` → `0.3.0` ✅
+- **create-pushduck**: `0.1.x` → `0.2.0` ✅
 
 ---
 
@@ -85,7 +85,7 @@ pnpm version-packages
 pnpm release
 ```
 
-### **Package-Specific (from packages/next-s3-uploader/)**
+### **Package-Specific (from packages/pushduck/)**
 
 ```bash
 # All-in-one release workflow
@@ -107,7 +107,7 @@ pnpm release:snapshot
 ```json
 {
   "changelog": ["@changesets/changelog-github", {
-    "repo": "YOUR_GITHUB_USERNAME/next-s3-uploader"
+    "repo": "YOUR_GITHUB_USERNAME/pushduck"
   }],
   "access": "public",
   "ignore": [
@@ -122,8 +122,8 @@ pnpm release:snapshot
 
 ### **Packages Managed**
 
-- ✅ `next-s3-uploader` (main package)
-- ✅ `create-next-s3-uploader` (CLI package)
+- ✅ `pushduck` (main package)
+- ✅ `create-pushduck` (CLI package)
 - ❌ Apps and configs (ignored for releases)
 
 ---

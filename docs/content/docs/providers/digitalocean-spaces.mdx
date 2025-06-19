@@ -90,7 +90,7 @@ DIGITALOCEAN_CDN_ENDPOINT=https://your-space-name.nyc3.cdn.digitaloceanspaces.co
 
 ```typescript
 // lib/upload.ts
-import { uploadConfig } from "next-s3-uploader/server";
+import { uploadConfig } from "pushduck/server";
 
 export const { s3, createS3Handler } = uploadConfig
   .digitalOceanSpaces({
@@ -111,7 +111,7 @@ export const { s3, createS3Handler } = uploadConfig
 ## 7. Test Your Setup
 
 ```bash
-npx next-s3-uploader test --provider digitalocean
+npx pushduck test --provider digitalocean
 ```
 
 This will verify your Spaces connection and upload a test file.

@@ -2,7 +2,7 @@
 
 ## ✅ **Setup Status: 100% Complete & Production Ready**
 
-Your `next-s3-uploader` package is now fully optimized with enterprise-grade NPM release automation.
+Your `pushduck` package is now fully optimized with enterprise-grade NPM release automation.
 
 ---
 
@@ -29,7 +29,7 @@ Your `next-s3-uploader` package is now fully optimized with enterprise-grade NPM
 ### **One-Command Releases**
 
 ```bash
-cd packages/next-s3-uploader
+cd packages/pushduck
 
 # Patch release (0.2.1 → 0.2.2)
 pnpm release:patch

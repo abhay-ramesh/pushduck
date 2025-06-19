@@ -5,7 +5,7 @@
  * It provides property-based access with enhanced type inference.
  */
 
-import { createUploadClient } from "next-s3-uploader/client";
+import { createUploadClient } from "pushduck/client";
 import type { AppS3Router } from "../app/api/s3-upload/route";
 
 /**

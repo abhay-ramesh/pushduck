@@ -1,6 +1,6 @@
 "use client";
 
-import { formatETA, formatUploadSpeed } from "next-s3-uploader";
+import { formatETA, formatUploadSpeed } from "pushduck";
 
 interface FileListProps {
   files: Array<{

@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BundledTheme, codeToHtml } from "shiki";
 
-const codeExample = `import { uploadConfig } from "next-s3-uploader/server";
+const codeExample = `import { uploadConfig } from "pushduck/server";
 
 export const { uploadHandler } = uploadConfig
   .s3({
@@ -24,10 +24,10 @@ export const { uploadHandler } = uploadConfig
   .build();`;
 
 const packageManagers = [
-  { name: "npm", command: "npm install next-s3-uploader" },
-  { name: "pnpm", command: "pnpm add next-s3-uploader" },
-  { name: "yarn", command: "yarn add next-s3-uploader" },
-  { name: "bun", command: "bun add next-s3-uploader" },
+  { name: "npm", command: "npm install pushduck" },
+  { name: "pnpm", command: "pnpm add pushduck" },
+  { name: "yarn", command: "yarn add pushduck" },
+  { name: "bun", command: "bun add pushduck" },
 ];
 
 const themes = {
@@ -198,7 +198,7 @@ export default function HomePage() {
               <ArrowRight className="ml-2 w-4 h-4" />
             </Link>
             <Link
-              href="https://github.com/abhay-ramesh/next-s3-uploader"
+              href="https://github.com/abhay-ramesh/pushduck"
               className="inline-flex justify-center items-center px-6 py-3 text-base font-medium rounded-lg border transition-colors border-border text-foreground bg-background hover:bg-muted"
             >
               <Github className="mr-2 w-4 h-4" />

@@ -1,11 +1,11 @@
-# Next.js S3 Uploader
+# Pushduck
 
-![npm](https://img.shields.io/npm/dm/next-s3-uploader)
-![npm](https://img.shields.io/npm/v/next-s3-uploader)
-![GitHub](https://img.shields.io/github/license/abhay-ramesh/next-s3-uploader)
-![example workflow](https://github.com/abhay-ramesh/next-s3-uploader/actions/workflows/release.yml/badge.svg)
+![npm](https://img.shields.io/npm/dm/pushduck)
+![npm](https://img.shields.io/npm/v/pushduck)
+![GitHub](https://img.shields.io/github/license/abhay-ramesh/pushduck)
+![example workflow](https://github.com/abhay-ramesh/pushduck/actions/workflows/release.yml/badge.svg)
 
-**Next S3 Uploader** is a powerful utility package for handling file uploads to Amazon S3 or compatible services like MinIO in Next.js applications. It provides a seamless integration with modern features like chunked uploads, progress tracking, and comprehensive error handling.
+**Pushduck** is a powerful utility package for handling file uploads to Amazon S3 or compatible services like MinIO in Next.js applications. It provides a seamless integration with modern features like chunked uploads, progress tracking, and comprehensive error handling.
 
 ## Features
 
@@ -24,13 +24,13 @@
 
 ```bash
 # Using npm
-npm install next-s3-uploader
+npm install pushduck
 
 # Using yarn
-yarn add next-s3-uploader
+yarn add pushduck
 
 # Using pnpm
-pnpm add next-s3-uploader
+pnpm add pushduck
 ```
 
 ## Quick Start
@@ -49,7 +49,7 @@ AWS_BUCKET_NAME=your_bucket_name
 
 ```typescript
 // app/api/s3upload/route.ts
-import { createS3Client, generatePresignedUrls } from 'next-s3-uploader';
+import { createS3Client, generatePresignedUrls } from 'pushduck';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
 // app/upload/page.tsx
 'use client';
 
-import { useS3FileUpload } from 'next-s3-uploader';
+import { useS3FileUpload } from 'pushduck';
 
 export default function UploadPage() {
   const {
@@ -305,6 +305,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- Documentation: [next-s3-uploader.abhayramesh.com](https://next-s3-uploader.abhayramesh.com)
-- Issues: [GitHub Issues](https://github.com/abhay-ramesh/next-s3-uploader/issues)
-- Discussions: [GitHub Discussions](https://github.com/abhay-ramesh/next-s3-uploader/discussions)
+- Documentation: [pushduck.abhayramesh.com](https://pushduck.abhayramesh.com)
+- Issues: [GitHub Issues](https://github.com/abhay-ramesh/pushduck/issues)
+- Discussions: [GitHub Discussions](https://github.com/abhay-ramesh/pushduck/discussions)

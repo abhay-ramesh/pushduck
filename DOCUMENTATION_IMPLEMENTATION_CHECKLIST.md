@@ -1,6 +1,6 @@
-# Next S3 Uploader Documentation Implementation Checklist
+# Pushduck Documentation Implementation Checklist
 
-> **Goal**: Transform next-s3-uploader documentation into a gold standard developer experience that gets users uploading files in under 5 minutes.
+> **Goal**: Transform pushduck documentation into a gold standard developer experience that gets users uploading files in under 5 minutes.
 
 ## 📊 **Progress Overview**
 
@@ -594,4 +594,4 @@
 
 ---
 
-*This checklist serves as the master implementation guide for transforming next-s3-uploader documentation into a gold standard developer experience. Track progress by checking off completed items and updating the progress overview at the top.*
+*This checklist serves as the master implementation guide for transforming pushduck documentation into a gold standard developer experience. Track progress by checking off completed items and updating the progress overview at the top.*

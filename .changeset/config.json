@@ -3,15 +3,15 @@
   "changelog": [
     "@changesets/changelog-github",
     {
-      "repo": "YOUR_GITHUB_USERNAME/next-s3-uploader"
+      "repo": "abhay-ramesh/pushduck"
     }
   ],
   "commit": false,
   "fixed": [],
   "linked": [
     [
-      "next-s3-uploader",
-      "create-next-s3-uploader"
+      "pushduck",
+      "create-pushduck"
     ]
   ],
   "access": "public",

@@ -1,16 +1,8 @@
----
-title: Quick Start
-description: Get file uploads working in your Next.js app in under 2 minutes with our CLI
----
-
-import { Step, Steps } from "fumadocs-ui/components/steps";
-import { Callout } from "fumadocs-ui/components/callout";
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
 Get **production-ready file uploads** working in your Next.js app in under 2 minutes with our CLI tool. Zero configuration, just one command.
 
 <Callout type="success">
-  **🚀 New!** Use our CLI for instant setup: `npx next-s3-uploader init` - handles everything automatically!
+  **🚀 New!** Use our CLI for instant setup: `npx pushduck init` - handles everything automatically!
 </Callout>
     
 ### ⚡ Zero-Config CLI Setup
@@ -20,22 +12,22 @@ Get everything set up instantly with our interactive CLI:
 <Tabs items={["npm", "pnpm", "yarn", "bun"]}>
   <Tab value="npm">
     ```bash
-    npx next-s3-uploader init
+    npx pushduck init
     ```
   </Tab>
   <Tab value="pnpm">
     ```bash
-    pnpm dlx next-s3-uploader init
+    pnpm dlx pushduck init
     ```
   </Tab>
   <Tab value="yarn">
     ```bash
-    yarn dlx next-s3-uploader init
+    yarn dlx pushduck init
     ```
   </Tab>
   <Tab value="bun">
     ```bash
-    bunx next-s3-uploader init
+    bunx pushduck init
     ```
   </Tab>
 </Tabs>
@@ -61,7 +53,7 @@ That's it! The CLI will:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
-│   🚀 Welcome to Next.js S3 Uploader                         │
+│   🚀 Welcome to Pushduck                         │
 │                                                             │
 │   Let's get your file uploads working in 2 minutes!         │
 │                                                             │
@@ -90,7 +82,7 @@ That's it! The CLI will:
   └── .env.example
 
 📦 Installing dependencies with pnpm...
-  ✓ next-s3-uploader
+  ✓ pushduck
   ✓ @aws-sdk/client-s3
   ✓ react-dropzone
 
@@ -312,7 +304,7 @@ Here's exactly what happens when you run the CLI and how to make the best choice
       └── .env.example                   # Environment template
     
     📦 Installing dependencies with pnpm...
-      ✓ next-s3-uploader
+      ✓ pushduck
       ✓ @aws-sdk/client-s3
       ✓ react-dropzone
     
@@ -354,25 +346,25 @@ Here's exactly what happens when you run the CLI and how to make the best choice
 <Tabs items={["npm", "pnpm", "yarn", "bun"]}>
   <Tab value="npm">
     ```bash
-    npx next-s3-uploader init
+    npx pushduck init
     # Follow prompts, choose Cloudflare R2, let CLI create bucket
     ```
   </Tab>
   <Tab value="pnpm">
     ```bash
-    pnpm dlx next-s3-uploader init
+    pnpm dlx pushduck init
     # Follow prompts, choose Cloudflare R2, let CLI create bucket
     ```
   </Tab>
   <Tab value="yarn">
     ```bash
-    yarn dlx next-s3-uploader init
+    yarn dlx pushduck init
     # Follow prompts, choose Cloudflare R2, let CLI create bucket
     ```
   </Tab>
   <Tab value="bun">
     ```bash
-    bunx next-s3-uploader init
+    bunx pushduck init
     # Follow prompts, choose Cloudflare R2, let CLI create bucket
     ```
   </Tab>
@@ -381,33 +373,33 @@ Here's exactly what happens when you run the CLI and how to make the best choice
 ### Quick Cloudflare R2 Setup
 ```bash
 # Works with any package manager
-npx next-s3-uploader init --provider cloudflare-r2
-pnpm dlx next-s3-uploader init --provider cloudflare-r2
-yarn dlx next-s3-uploader init --provider cloudflare-r2
-bunx next-s3-uploader init --provider cloudflare-r2
+npx pushduck init --provider cloudflare-r2
+pnpm dlx pushduck init --provider cloudflare-r2
+yarn dlx pushduck init --provider cloudflare-r2
+bunx pushduck init --provider cloudflare-r2
 ```
 
 ### AWS S3 Setup
 ```bash
 # Skip provider selection, go straight to AWS S3
-npx next-s3-uploader init --provider aws
+npx pushduck init --provider aws
 # Use AWS S3 for existing AWS infrastructure
 ```
 
 ### Components Only
 ```bash
 # Generate API and components, no demo page
-npx next-s3-uploader init --skip-examples
+npx pushduck init --skip-examples
 ```
 
 ### Preview Mode
 ```bash
 # See what would be created without making changes
-npx next-s3-uploader init --dry-run
+npx pushduck init --dry-run
 ```
 
 ---
 
 <Callout type="info">
-**Need help?** The CLI includes built-in help: `npx next-s3-uploader --help`. For detailed documentation, see our [complete CLI reference](/docs/api/cli/cli-setup).
+**Need help?** The CLI includes built-in help: `npx pushduck --help`. For detailed documentation, see our [complete CLI reference](/docs/api/cli/cli-setup).
 </Callout>

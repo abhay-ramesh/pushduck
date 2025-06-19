@@ -1,5 +1,5 @@
 /**
- * Core Schema System for next-s3-uploader
+ * Core Schema System for pushduck
  *
  * This is the foundation of the new gold standard API that provides:
  * - Type-safe, declarative file validation

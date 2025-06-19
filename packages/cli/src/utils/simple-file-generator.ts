@@ -162,7 +162,7 @@ async function createUploadConfig(
   const providerMethod = getProviderMethodName(provider);
   const envVars = getProviderEnvVars(provider);
 
-  const content = `import { uploadConfig } from "next-s3-uploader/server";
+  const content = `import { uploadConfig } from "pushduck/server";
 
 // Initialize upload configuration with simplified one-step process
 const { s3, createS3Handler, config } = uploadConfig
@@ -206,7 +206,7 @@ async function createUploadClient(
  * This provides type-safe upload functionality with enhanced developer experience.
  */
 
-import { createUploadClient } from "next-s3-uploader/client";
+import { createUploadClient } from "pushduck/client";
 import type { AppUploadRouter } from ${routePath};
 
 /**
@@ -306,7 +306,7 @@ export function UploadZone({
   const fileListPath = path.join(rootDir, `components/ui/file-list.${ext}`);
   const fileListContent = `"use client";
 
-import { formatETA, formatUploadSpeed } from "next-s3-uploader";
+import { formatETA, formatUploadSpeed } from "pushduck";
 
 interface FileListProps {
   files: Array<{

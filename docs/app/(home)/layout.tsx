@@ -5,11 +5,11 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "Next.js S3 Uploader - The Complete File Upload Solution",
+  title: "Pushduck - The Complete File Upload Solution",
   description:
     "The most comprehensive file upload library for Next.js. Handle uploads to AWS S3, Cloudflare R2, DigitalOcean Spaces, and more with type-safe APIs.",
   openGraph: {
-    title: "Next.js S3 Uploader - The Complete File Upload Solution",
+    title: "Pushduck - The Complete File Upload Solution",
     description:
       "The most comprehensive file upload library for Next.js. Handle uploads to AWS S3, Cloudflare R2, DigitalOcean Spaces, and more with type-safe APIs.",
     type: "website",
@@ -18,12 +18,12 @@ export const metadata: Metadata = {
       url: `${baseUrl.origin}/og-image`,
       width: 1200,
       height: 630,
-      alt: "Next.js S3 Uploader - The Complete File Upload Solution",
+      alt: "Pushduck - The Complete File Upload Solution",
     },
   },
   twitter: {
     card: "summary_large_image",
-    title: "Next.js S3 Uploader - The Complete File Upload Solution",
+    title: "Pushduck - The Complete File Upload Solution",
     description:
       "The most comprehensive file upload library for Next.js. Handle uploads to AWS S3, Cloudflare R2, DigitalOcean Spaces, and more with type-safe APIs.",
     images: `${baseUrl.origin}/og-image`,

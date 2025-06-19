@@ -2,7 +2,7 @@
 
 ## 📋 **Overview**
 
-This guide covers the complete lifecycle for releasing your `next-s3-uploader` packages, from development to NPM publication with automated changelog generation and quality gates.
+This guide covers the complete lifecycle for releasing your `pushduck` packages, from development to NPM publication with automated changelog generation and quality gates.
 
 ---
 
@@ -44,8 +44,8 @@ How changesets work for your linked packages:
 ```mermaid
 flowchart LR
     A["📝 pnpm changeset"] --> B{Select Packages}
-    B --> C["📦 next-s3-uploader"]
-    B --> D["🛠️ create-next-s3-uploader"]
+    B --> C["📦 pushduck"]
+    B --> D["🛠️ create-pushduck"]
     C --> E["🔗 Linked Packages<br/>Both Selected"]
     D --> E
     E --> F{Choose Type}
@@ -69,7 +69,7 @@ What happens when you run `pnpm version-packages`:
 flowchart TD
     A["📋 pnpm version-packages"] --> B["🔍 Scan Changesets<br/>.changeset/*.md"]
     B --> C["📦 Calculate New Versions<br/>Based on changeset types"]
-    C --> D["📝 Update package.json<br/>next-s3-uploader: 0.3.0 → 0.4.0<br/>create-next-s3-uploader: 0.3.0 → 0.4.0"]
+    C --> D["📝 Update package.json<br/>pushduck: 0.3.0 → 0.4.0<br/>create-pushduck: 0.3.0 → 0.4.0"]
     D --> E["📰 Generate CHANGELOG.md<br/>- Formatted entries<br/>- GitHub PR/commit links<br/>- Professional formatting"]
     E --> F["🗑️ Consume Changesets<br/>Delete .changeset/*.md files"]
     F --> G["✅ Ready for Publication<br/>All files updated"]
@@ -118,8 +118,8 @@ What happens during `pnpm release`:
 flowchart TD
     A["📤 pnpm release"] --> B["🏗️ Build Packages<br/>turbo build --filter=example^..."]
     B --> C["📋 Final Validation<br/>- Check versions<br/>- Verify changelogs<br/>- Confirm build artifacts"]
-    C --> D["📦 Publish next-s3-uploader<br/>npm publish (0.4.0)"]
-    D --> E["🛠️ Publish create-next-s3-uploader<br/>npm publish (0.4.0)"]
+    C --> D["📦 Publish pushduck<br/>npm publish (0.4.0)"]
+    D --> E["🛠️ Publish create-pushduck<br/>npm publish (0.4.0)"]
     E --> F["🏷️ Git Tagging<br/>Create release tags"]
     F --> G["📱 GitHub Release<br/>Create GitHub release<br/>with generated changelog"]
     G --> H["📊 Post-Release<br/>- Monitor downloads<br/>- Check for issues<br/>- Update documentation"]
@@ -138,7 +138,7 @@ flowchart TD
 #### **1. Health Check First**
 
 ```bash
-cd packages/next-s3-uploader
+cd packages/pushduck
 pnpm maintenance:health
 ```
 
@@ -147,7 +147,7 @@ pnpm maintenance:health
 #### **2. Create Changeset**
 
 ```bash
-cd /Users/abhay/Desktop/Code/next-s3-uploader
+cd /Users/abhay/Desktop/Code/pushduck
 pnpm changeset
 ```
 
@@ -190,7 +190,7 @@ pnpm version-packages
 
 ```bash
 # Check the generated changelog
-cat packages/next-s3-uploader/CHANGELOG.md
+cat packages/pushduck/CHANGELOG.md
 
 # Verify versions
 grep "version" packages/*/package.json
@@ -275,8 +275,8 @@ pnpm version-packages && pnpm release
 
 ```bash
 # If you need to unpublish (within 72 hours)
-npm unpublish next-s3-uploader@0.4.0
-npm unpublish create-next-s3-uploader@0.4.0
+npm unpublish pushduck@0.4.0
+npm unpublish create-pushduck@0.4.0
 
 # Then fix and re-release
 pnpm changeset  # Create new changeset
@@ -340,7 +340,7 @@ timeline
 
 ```bash
 # NPM download stats
-npm info next-s3-uploader
+npm info pushduck
 
 # GitHub releases
 gh release list
@@ -387,13 +387,13 @@ pnpm version-packages
 pnpm release
 
 # Monitor
-npm info next-s3-uploader
+npm info pushduck
 ```
 
 ### **Package-Specific Shortcuts**
 
 ```bash
-cd packages/next-s3-uploader
+cd packages/pushduck
 
 # All-in-one release
 pnpm release:changeset
@@ -484,7 +484,7 @@ Let's add bulletproof validation scripts to catch mistakes before they happen:
 
 ### **🛡️ Pre-Release Safety Check**
 
-**Script:** `packages/next-s3-uploader/scripts/pre-release-check.sh`
+**Script:** `packages/pushduck/scripts/pre-release-check.sh`
 
 **What it validates:**
 
@@ -504,13 +504,13 @@ Let's add bulletproof validation scripts to catch mistakes before they happen:
 pnpm pre-release
 
 # From package directory
-cd packages/next-s3-uploader
+cd packages/pushduck
 pnpm pre-release
 ```
 
 ### **📝 Changeset Quality Validator**
 
-**Script:** `packages/next-s3-uploader/scripts/changeset-validator.js`
+**Script:** `packages/pushduck/scripts/changeset-validator.js`
 
 **What it checks:**
 
@@ -576,7 +576,7 @@ flowchart TD
 
 ### **📝 Interactive Release Checklist**
 
-**File:** `packages/next-s3-uploader/scripts/release-checklist.md`
+**File:** `packages/pushduck/scripts/release-checklist.md`
 
 A comprehensive checklist that guides you through each step:
 
@@ -669,7 +669,7 @@ pnpm version-packages
 
 ```bash
 # 1. Check what's already published
-npm view next-s3-uploader versions --json
+npm view pushduck versions --json
 
 # 2. Retry if partial failure
 pnpm release

@@ -1,11 +1,11 @@
 {
-    "name": "create-next-s3-uploader",
+    "name": "create-pushduck",
     "version": "0.3.0",
-    "description": "Zero-config setup CLI for next-s3-uploader",
+    "description": "Zero-config setup CLI for pushduck",
     "main": "dist/index.js",
     "bin": {
-        "create-next-s3-uploader": "./dist/index.js",
-        "next-s3-uploader": "./dist/index.js"
+        "create-pushduck": "./dist/index.js",
+        "pushduck": "./dist/index.js"
     },
     "scripts": {
         "build": "tsup src/index.ts --format cjs --dts --clean --minify",

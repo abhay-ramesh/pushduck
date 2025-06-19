@@ -1,14 +1,3 @@
----
-title: Client Configuration
-description: Configure your upload client for the best developer experience with enhanced type inference
----
-
-import { Callout } from "fumadocs-ui/components/callout";
-import { Card, Cards } from "fumadocs-ui/components/card";
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
-import { Steps, Step } from "fumadocs-ui/components/steps";
-import { File, Folder, Files } from "fumadocs-ui/components/files";
-import { TypeTable } from "fumadocs-ui/components/type-table";
 
 # Client Configuration
 
@@ -47,7 +36,7 @@ Organize your client configuration for maximum reusability:
     Start by importing the router type from your server configuration:
 
     ```typescript title="lib/upload-client.ts"
-    import { createUploadClient } from 'next-s3-uploader/client'
+    import { createUploadClient } from 'pushduck/client'
     import type { AppRouter } from './upload'
 
     export const upload = createUploadClient<AppRouter>({
@@ -154,7 +143,7 @@ Organize your client configuration for maximum reusability:
 ### Advanced Client Configuration
 
 ```typescript title="lib/upload-client.ts"
-import { createUploadClient } from "next-s3-uploader/client";
+import { createUploadClient } from "pushduck/client";
 import type { AppRouter } from "./upload";
 
 export const upload = createUploadClient<AppRouter>({
@@ -331,7 +320,7 @@ For teams that prefer React hooks, the hook-based API provides a familiar patter
 <Tabs items={["useUpload Hook", "Multiple Endpoints", "Custom Hook"]} groupId="hook-api">
   <Tab value="useUpload Hook">
     ```typescript
-    import { useUpload } from 'next-s3-uploader/client'
+    import { useUpload } from 'pushduck/client'
     import type { AppRouter } from '@/lib/upload'
 
     export function ImageUploadComponent() {
@@ -409,7 +398,7 @@ For teams that prefer React hooks, the hook-based API provides a familiar patter
   
   <Tab value="Custom Hook">
     ```typescript
-    import { useUpload } from 'next-s3-uploader/client'
+    import { useUpload } from 'pushduck/client'
     import { useCallback } from 'react'
     import type { AppRouter } from '@/lib/upload'
 
@@ -517,14 +506,14 @@ const results = await uploadFiles(selectedFiles);
   <Tab value="Next.js">
     ```typescript
     // app/lib/upload-client.ts
-    import { createUploadClient } from 'next-s3-uploader/client'
+    import { createUploadClient } from 'pushduck/client'
     import type { AppRouter } from './upload'
 
     export const upload = createUploadClient<AppRouter>({
       endpoint: '/api/upload',
       headers: {
         // Next.js specific headers
-        'x-requested-with': 'next-s3-uploader'
+        'x-requested-with': 'pushduck'
       }
     })
 
@@ -545,7 +534,7 @@ const results = await uploadFiles(selectedFiles);
   <Tab value="React">
     ```typescript
     // src/lib/upload-client.ts
-    import { createUploadClient } from 'next-s3-uploader/client'
+    import { createUploadClient } from 'pushduck/client'
     import type { AppRouter } from './upload'
 
     export const upload = createUploadClient<AppRouter>({
@@ -568,7 +557,7 @@ const results = await uploadFiles(selectedFiles);
   <Tab value="Vue">
     ```typescript
     // lib/upload-client.ts
-    import { createUploadClient } from '@next-s3-uploader/vue'
+    import { createUploadClient } from '@pushduck/vue'
     import type { AppRouter } from './upload'
 
     export const upload = createUploadClient<AppRouter>({
@@ -589,7 +578,7 @@ const results = await uploadFiles(selectedFiles);
   <Tab value="Svelte">
     ```typescript
     // lib/upload-client.ts
-    import { uploadStore } from '@next-s3-uploader/svelte'
+    import { uploadStore } from '@pushduck/svelte'
     import type { AppRouter } from './upload'
 
     export const upload = uploadStore<AppRouter>('/api/upload')

@@ -18,7 +18,7 @@
 
 ```bash
 # Weekly dependency check
-cd packages/next-s3-uploader
+cd packages/pushduck
 pnpm outdated
 pnpm audit
 ```
@@ -110,7 +110,7 @@ Monitor these metrics weekly:
 
    ```bash
    # Check weekly downloads
-   curl "https://api.npmjs.org/downloads/point/last-week/next-s3-uploader"
+   curl "https://api.npmjs.org/downloads/point/last-week/pushduck"
    ```
 
 2. **Bundle Analysis**

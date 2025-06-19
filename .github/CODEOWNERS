@@ -1,4 +1,4 @@
-# Code Owners for next-s3-uploader
+# Code Owners for pushduck
 # This file defines who gets automatically requested for review
 # when specific files or directories are modified
 
@@ -6,10 +6,10 @@
 * @abhay-ramesh
 
 # Core package files - require maintainer review
-packages/next-s3-uploader/src/ @abhay-ramesh
-packages/next-s3-uploader/package.json @abhay-ramesh
-packages/next-s3-uploader/tsconfig.json @abhay-ramesh
-packages/next-s3-uploader/tsup.config.ts @abhay-ramesh
+packages/pushduck/src/ @abhay-ramesh
+packages/pushduck/package.json @abhay-ramesh
+packages/pushduck/tsconfig.json @abhay-ramesh
+packages/pushduck/tsup.config.ts @abhay-ramesh
 
 # CLI package - require maintainer review  
 packages/cli/ @abhay-ramesh
@@ -17,7 +17,7 @@ packages/cli/ @abhay-ramesh
 # Release and automation - require maintainer review
 .changeset/ @abhay-ramesh
 .github/workflows/ @abhay-ramesh
-packages/next-s3-uploader/scripts/ @abhay-ramesh
+packages/pushduck/scripts/ @abhay-ramesh
 RELEASE_LIFECYCLE_GUIDE.md @abhay-ramesh
 GITHUB_AUTOMATION_GUIDE.md @abhay-ramesh
 
@@ -36,5 +36,5 @@ turbo.json @abhay-ramesh
 
 # Security-sensitive files - require security review
 .github/workflows/release.yml @abhay-ramesh
-packages/next-s3-uploader/scripts/pre-release-check.sh @abhay-ramesh
-packages/next-s3-uploader/scripts/health-check.sh @abhay-ramesh
+packages/pushduck/scripts/pre-release-check.sh @abhay-ramesh
+packages/pushduck/scripts/health-check.sh @abhay-ramesh

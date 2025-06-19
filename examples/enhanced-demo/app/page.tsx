@@ -14,9 +14,7 @@ export default function Home() {
       <div className="px-4 mx-auto max-w-6xl">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="mb-2 text-4xl font-bold text-gray-900">
-            🚀 Next S3 Uploader
-          </h1>
+          <h1 className="mb-2 text-4xl font-bold text-gray-900">🚀 Pushduck</h1>
           <p className="mb-4 text-lg text-gray-600">
             Enhanced Type Inference Demo
           </p>

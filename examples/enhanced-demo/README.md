@@ -1,6 +1,6 @@
-# Next S3 Uploader Demo
+# Pushduck Demo
 
-This demo showcases the new **File Router Architecture** (Phase 1.2) of the next-s3-uploader library.
+This demo showcases the new **File Router Architecture** (Phase 1.2) of the pushduck library.
 
 ## 🚀 Features
 
@@ -18,7 +18,7 @@ This demo showcases the new **File Router Architecture** (Phase 1.2) of the next
 Get everything working instantly:
 
 ```bash
-npx next-s3-uploader init
+npx pushduck init
 ```
 
 The CLI will:
@@ -60,7 +60,7 @@ The CLI will:
 
 ```typescript
 // app/api/s3-upload/route.ts
-import { createS3Router, createS3Handler, s3 } from "next-s3-uploader";
+import { createS3Router, createS3Handler, s3 } from "pushduck";
 
 const s3Router = createS3Router({
   imageUpload: s3
@@ -85,7 +85,7 @@ export type S3RouterType = typeof s3Router;
 
 ```typescript
 // components/upload.tsx
-import { useUploadRoute } from "next-s3-uploader";
+import { useUploadRoute } from "pushduck";
 import type { S3RouterType } from "../app/api/s3-upload/route";
 
 export function ImageUpload() {
@@ -108,7 +108,7 @@ export function ImageUpload() {
 
 ## 🎯 What's New
 
-This demo implements **Phase 1.2: File Router Architecture** from the [Gold Standard DX Roadmap](../../packages/next-s3-uploader/GOLD_STANDARD_DX_ROADMAP.md).
+This demo implements **Phase 1.2: File Router Architecture** from the [Gold Standard DX Roadmap](../../packages/pushduck/GOLD_STANDARD_DX_ROADMAP.md).
 
 ### Key Improvements
 
@@ -124,6 +124,6 @@ This demo implements **Phase 1.2: File Router Architecture** from the [Gold Stan
 
 ## 📚 Learn More
 
-- [Gold Standard DX Roadmap](../../packages/next-s3-uploader/GOLD_STANDARD_DX_ROADMAP.md)
-- [Migration Guide](../../packages/next-s3-uploader/MIGRATION_GUIDE.md)
-- [Complete Setup Guide](../../packages/next-s3-uploader/examples/COMPLETE_SETUP_GUIDE.md)
+- [Gold Standard DX Roadmap](../../packages/pushduck/GOLD_STANDARD_DX_ROADMAP.md)
+- [Migration Guide](../../packages/pushduck/MIGRATION_GUIDE.md)
+- [Complete Setup Guide](../../packages/pushduck/examples/COMPLETE_SETUP_GUIDE.md)

@@ -18,7 +18,7 @@ body:
           required: true
         - label: I have read the documentation
           required: true
-        - label: I am using the latest version of next-s3-uploader
+        - label: I am using the latest version of pushduck
           required: true
 
   - type: textarea
@@ -68,7 +68,7 @@ body:
       description: Minimal code that reproduces the issue
       placeholder: |
         // Your code here
-        import { useS3FileUpload } from 'next-s3-uploader';
+        import { useS3FileUpload } from 'pushduck';
 
         export default function MyComponent() {
           // ...
@@ -92,7 +92,7 @@ body:
     id: package-version
     attributes:
       label: 📦 Package Version
-      description: Which version of next-s3-uploader are you using?
+      description: Which version of pushduck are you using?
       options:
         - 0.3.0 (latest)
         - 0.2.1
@@ -197,7 +197,7 @@ body:
     id: config
     attributes:
       label: ⚙️ Configuration
-      description: Your next-s3-uploader configuration (remove sensitive data)
+      description: Your pushduck configuration (remove sensitive data)
       placeholder: |
         // next.config.js or configuration object
         {

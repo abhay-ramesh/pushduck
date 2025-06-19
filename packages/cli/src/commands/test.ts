@@ -18,7 +18,7 @@ export async function testCommand(options: TestOptions = {}) {
 
     if (!projectInfo.hasExistingUpload) {
       console.log(chalk.yellow("⚠ No upload configuration found."));
-      console.log(chalk.gray("Run: npx next-s3-uploader init"));
+      console.log(chalk.gray("Run: npx pushduck init"));
       return;
     }
 

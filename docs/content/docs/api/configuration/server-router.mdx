@@ -1,18 +1,7 @@
----
-title: Server Router Configuration
-description: Complete guide to configuring your upload router with type safety and advanced features
----
-
-import { Callout } from "fumadocs-ui/components/callout";
-import { Card, Cards } from "fumadocs-ui/components/card";
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
-import { Steps, Step } from "fumadocs-ui/components/steps";
-import { File, Folder, Files } from "fumadocs-ui/components/files";
-import { TypeTable } from "fumadocs-ui/components/type-table";
 
 # Server Router Configuration
 
-The server router is the heart of next-s3-uploader. It defines your upload endpoints with complete type safety and validates all uploads against your schema.
+The server router is the heart of pushduck. It defines your upload endpoints with complete type safety and validates all uploads against your schema.
 
 <Callout type="info">
   This guide covers the **enhanced router API** with property-based client
@@ -22,7 +11,7 @@ The server router is the heart of next-s3-uploader. It defines your upload endpo
 
 ## Project Structure
 
-A typical Next.js project with next-s3-uploader follows this structure:
+A typical Next.js project with pushduck follows this structure:
 
 <Files>
   <Folder name="your-app" defaultOpen>
@@ -53,8 +42,8 @@ A typical Next.js project with next-s3-uploader follows this structure:
     Start by creating the API route that will handle your uploads:
 
     ```typescript title="app/api/upload/route.ts"
-    import { createUploadRouter, uploadSchema } from 'next-s3-uploader/server'
-    import { createS3Client } from 'next-s3-uploader/s3'
+    import { createUploadRouter, uploadSchema } from 'pushduck/server'
+    import { createS3Client } from 'pushduck/s3'
 
     const s3 = createS3Client({
       endpoint: process.env.S3_ENDPOINT!,
@@ -92,7 +81,7 @@ A typical Next.js project with next-s3-uploader follows this structure:
     Create a separate file to export your router types for client-side usage:
 
     ```typescript title="lib/upload.ts"
-    import { createUploadRouter, uploadSchema } from 'next-s3-uploader/server'
+    import { createUploadRouter, uploadSchema } from 'pushduck/server'
 
     // Define your router (same as in route.ts)
     export const router = createUploadRouter({
@@ -116,7 +105,7 @@ A typical Next.js project with next-s3-uploader follows this structure:
     Set up your client-side upload client with full type safety:
 
     ```typescript title="lib/upload-client.ts"
-    import { createUploadClient } from 'next-s3-uploader/client'
+    import { createUploadClient } from 'pushduck/client'
     import type { AppRouter } from './upload'
 
     export const upload = createUploadClient<AppRouter>({
@@ -287,7 +276,7 @@ export const { POST, GET } = createUploadRouter(
 Support different storage providers for different upload types:
 
 ```typescript
-import { createS3Client } from "next-s3-uploader/s3";
+import { createS3Client } from "pushduck/s3";
 
 const primaryS3 = createS3Client({
   // Primary S3 config for production files

@@ -4,7 +4,7 @@
 
 ```bash
 # Patch release (bug fixes: 0.2.1 → 0.2.2)
-cd packages/next-s3-uploader
+cd packages/pushduck
 pnpm release:patch
 
 # Minor release (new features: 0.2.1 → 0.3.0)
@@ -57,14 +57,14 @@ git checkout main
 git pull origin main
 
 # 2. Run quality checks
-cd packages/next-s3-uploader
+cd packages/pushduck
 pnpm ci
 
 # 3. Choose release type and run
 pnpm release:patch   # or minor/major
 
 # 4. Create GitHub Release
-# Go to: https://github.com/abhay-ramesh/next-s3-uploader/releases/new
+# Go to: https://github.com/abhay-ramesh/pushduck/releases/new
 # Tag: v0.2.2 (use the new version)
 # Title: "Release v0.2.2"
 # Auto-generate notes or write changelog
@@ -243,8 +243,8 @@ Monitor package health:
 
 ### **NPM Analytics**
 
-- Download stats: <https://npm-stat.com/charts.html?package=next-s3-uploader>
-- Bundle size: <https://bundlephobia.com/package/next-s3-uploader>
+- Download stats: <https://npm-stat.com/charts.html?package=pushduck>
+- Bundle size: <https://bundlephobia.com/package/pushduck>
 
 ### **GitHub Analytics**
 

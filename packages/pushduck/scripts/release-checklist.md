@@ -1,6 +1,6 @@
 # 🚀 Release Checklist
 
-**Package:** next-s3-uploader + create-next-s3-uploader  
+**Package:** pushduck + create-pushduck  
 **Date:** `date +"%Y-%m-%d"`  
 **Preparer:** ________________
 
@@ -92,7 +92,7 @@ pnpm version-packages
 
 ```bash
 # Review changelog
-cat packages/next-s3-uploader/CHANGELOG.md
+cat packages/pushduck/CHANGELOG.md
 
 # Verify versions
 grep "version" packages/*/package.json
@@ -120,11 +120,11 @@ pnpm release
 
 ```bash
 # Verify packages are live
-npm view next-s3-uploader@latest
-npm view create-next-s3-uploader@latest
+npm view pushduck@latest
+npm view create-pushduck@latest
 
 # Test installation
-npm info next-s3-uploader
+npm info pushduck
 ```
 
 - [ ] Packages visible on NPM
@@ -155,8 +155,8 @@ npm info next-s3-uploader
 
 ```bash
 # Check what's published
-npm view next-s3-uploader versions --json
-npm view create-next-s3-uploader versions --json
+npm view pushduck versions --json
+npm view create-pushduck versions --json
 
 # Re-run if partial failure
 pnpm release
@@ -166,8 +166,8 @@ pnpm release
 
 ```bash
 # Unpublish within 72 hours (if needed)
-npm unpublish next-s3-uploader@X.X.X
-npm unpublish create-next-s3-uploader@X.X.X
+npm unpublish pushduck@X.X.X
+npm unpublish create-pushduck@X.X.X
 
 # Create hotfix changeset
 pnpm changeset

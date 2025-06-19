@@ -8,7 +8,7 @@ import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
  * Docs Layout: app/docs/layout.tsx
  */
 export const baseOptions: BaseLayoutProps = {
-  githubUrl: "https://github.com/abhay-ramesh/next-s3-uploader",
+  githubUrl: "https://github.com/abhay-ramesh/pushduck",
   nav: {
     title: (
       <>
@@ -20,7 +20,7 @@ export const baseOptions: BaseLayoutProps = {
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              aria-label="Next S3 Uploader"
+              aria-label="Pushduck"
               className="text-primary"
             >
               {/* Modern S3 Bucket Icon with gradient effect */}
@@ -59,9 +59,7 @@ export const baseOptions: BaseLayoutProps = {
             <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full opacity-60 animate-pulse bg-primary" />
           </div>
           <div className="flex flex-col">
-            <span className="text-lg font-bold tracking-tight">
-              Next S3 Uploader
-            </span>
+            <span className="text-lg font-bold tracking-tight">Pushduck</span>
             <span className="text-xs font-medium tracking-wide text-muted-foreground">
               File uploads made simple
             </span>

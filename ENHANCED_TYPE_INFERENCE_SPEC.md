@@ -1,8 +1,8 @@
-# Enhanced Type Inference Specification for next-s3-uploader
+# Enhanced Type Inference Specification for pushduck
 
 ## Overview
 
-This document outlines the implementation of **template literal types** and **client-side type inference** for next-s3-uploader, achieving full end-to-end type safety similar to tRPC/React Query patterns while maintaining 100% backward compatibility with existing server and client APIs.
+This document outlines the implementation of **template literal types** and **client-side type inference** for pushduck, achieving full end-to-end type safety similar to tRPC/React Query patterns while maintaining 100% backward compatibility with existing server and client APIs.
 
 ## Current State vs Enhanced State
 
@@ -59,7 +59,7 @@ await uploadFiles(files, null, "/api/upload");
 
 ```typescript
 // Import router type and create client
-import { createUploadClient } from "next-s3-uploader/client";
+import { createUploadClient } from "pushduck/client";
 import type { AppRouter } from "@/lib/upload";
 
 const upload = createUploadClient<AppRouter>({
@@ -587,7 +587,7 @@ const { data: uploads } = useQuery({
 ## File Structure
 
 ```
-packages/next-s3-uploader/src/
+packages/pushduck/src/
 ├── client/                    # New client-side package
 │   ├── index.ts              # Main exports
 │   ├── upload-client.ts      # Enhanced client factory
@@ -619,4 +619,4 @@ packages/next-s3-uploader/src/
 - **🛡️ Type Safety**: Eliminates entire classes of runtime errors
 - **📚 Self-Documenting**: Types serve as living documentation
 
-This enhancement transforms next-s3-uploader from a well-typed library to a **gold-standard TypeScript experience** that rivals tRPC and other type-safe libraries, while maintaining perfect backward compatibility.
+This enhancement transforms pushduck from a well-typed library to a **gold-standard TypeScript experience** that rivals tRPC and other type-safe libraries, while maintaining perfect backward compatibility.

@@ -1,10 +1,9 @@
 "use client";
 
 import { upload } from "@/lib/upload-client";
+import { formatETA, formatUploadSpeed } from "pushduck";
 import { useState } from "react";
-import { formatETA, formatUploadSpeed } from "next-s3-uploader";
 import { UploadZone } from "./upload-zone";
-import { FileList } from "./file-list";
 
 interface UploadDemoProps {
   title?: string;
@@ -16,7 +15,7 @@ interface UploadDemoProps {
 
 export function UploadDemo({
   title = "Interactive Upload Demo",
-  description = "Try uploading files to see next-s3-uploader in action",
+  description = "Try uploading files to see pushduck in action",
   showTabs = true,
   defaultTab = "images",
   compact = false,

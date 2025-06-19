@@ -1,12 +1,3 @@
----
-title: Enhanced Client Migration
-description: Migrate from hook-based API to property-based client access for better type safety
----
-
-import { Callout } from "fumadocs-ui/components/callout";
-import { Card, Cards } from "fumadocs-ui/components/card";
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
-import { Steps, Step } from "fumadocs-ui/components/steps";
 
 # Enhanced Client Migration
 
@@ -61,14 +52,14 @@ Upgrade to the new property-based client API for enhanced type safety, better de
   <Step>
     **Install Latest Version**
     
-    Ensure you're using the latest version of next-s3-uploader:
+    Ensure you're using the latest version of pushduck:
     
     ```bash
-    npm install next-s3-uploader@latest
+    npm install pushduck@latest
     # or
-    yarn add next-s3-uploader@latest
+    yarn add pushduck@latest
     # or
-    pnpm add next-s3-uploader@latest
+    pnpm add pushduck@latest
     ```
   </Step>
 
@@ -78,7 +69,7 @@ Upgrade to the new property-based client API for enhanced type safety, better de
     Set up your typed upload client:
     
     ```typescript title="lib/upload-client.ts"
-    import { createUploadClient } from 'next-s3-uploader/client'
+    import { createUploadClient } from 'pushduck/client'
     import type { AppRouter } from './upload' // Your router type
     
     export const upload = createUploadClient<AppRouter>({
@@ -95,7 +86,7 @@ Upgrade to the new property-based client API for enhanced type safety, better de
     <Tabs items={["Before (Hook)", "After (Property)"]}>
       <Tab value="Before (Hook)">
         ```typescript
-        import { useUploadRoute } from 'next-s3-uploader/client'
+        import { useUploadRoute } from 'pushduck/client'
         
         export function ImageUploader() {
           const { uploadFiles, files, isUploading } = useUploadRoute('imageUpload')
@@ -136,7 +127,7 @@ Upgrade to the new property-based client API for enhanced type safety, better de
     
     ```typescript
     // Remove old imports
-    // import { useUploadRoute } from 'next-s3-uploader/client'
+    // import { useUploadRoute } from 'pushduck/client'
     
     // Use new client import
     import { upload } from '@/lib/upload-client'
@@ -151,7 +142,7 @@ Upgrade to the new property-based client API for enhanced type safety, better de
 <Tabs items={["Before", "After"]}>
   <Tab value="Before">
     ```typescript
-    import { useUploadRoute } from 'next-s3-uploader/client'
+    import { useUploadRoute } from 'pushduck/client'
     
     export function DocumentUploader() {
       const { 
@@ -245,7 +236,7 @@ Upgrade to the new property-based client API for enhanced type safety, better de
   <Tab value="Before">
     ```typescript
     import { useForm } from 'react-hook-form'
-    import { useUploadRoute } from 'next-s3-uploader/client'
+    import { useUploadRoute } from 'pushduck/client'
     
     export function ProductForm() {
       const { register, handleSubmit, setValue } = useForm()
@@ -440,7 +431,7 @@ const propertyUpload = upload.imageUpload;
 - **🚀 Better Performance**: Optimized bundle size with tree-shaking
 - **💡 Improved DX**: Full IntelliSense support for all endpoints
 - **🔧 Safe Refactoring**: Rename endpoints without breaking your app
-- **📦 Future-Proof**: Built for the next generation of next-s3-uploader features
+- **📦 Future-Proof**: Built for the next generation of pushduck features
 
 ---
 

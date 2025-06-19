@@ -1,5 +1,5 @@
 /**
- * Fixed File Router Architecture for next-s3-uploader
+ * Fixed File Router Architecture for pushduck
  *
  * This implements the correct upload flow:
  * 1. Client requests presigned URLs

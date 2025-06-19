@@ -6,8 +6,8 @@ Successfully synchronized both packages to the same version:
 
 ### **📦 Current Versions**
 
-- **next-s3-uploader**: `0.3.0` ✅
-- **create-next-s3-uploader**: `0.3.0` ✅
+- **pushduck**: `0.3.0` ✅
+- **create-pushduck**: `0.3.0` ✅
 
 ---
 
@@ -20,7 +20,7 @@ Added `linked` configuration to `.changeset/config.json`:
 ```json
 {
   "linked": [
-    ["next-s3-uploader", "create-next-s3-uploader"]
+    ["pushduck", "create-pushduck"]
   ]
 }
 ```
@@ -42,10 +42,10 @@ When you run `pnpm changeset`, if you select either package, **both will be bump
 
 ```bash
 pnpm changeset
-# Select: next-s3-uploader (any changes)
+# Select: pushduck (any changes)
 # Result: Both packages get bumped together
-# next-s3-uploader: 0.3.0 → 0.4.0
-# create-next-s3-uploader: 0.3.0 → 0.4.0
+# pushduck: 0.3.0 → 0.4.0
+# create-pushduck: 0.3.0 → 0.4.0
 ```
 
 ### **Release Process**
@@ -103,8 +103,8 @@ When you're ready for the next release:
 
 ```bash
 # Your next changeset will bump both:
-# next-s3-uploader: 0.3.0 → 0.4.0 (or 0.3.1)
-# create-next-s3-uploader: 0.3.0 → 0.4.0 (or 0.3.1)
+# pushduck: 0.3.0 → 0.4.0 (or 0.3.1)
+# create-pushduck: 0.3.0 → 0.4.0 (or 0.3.1)
 # 
 # Always perfectly synchronized! ✨
 ```

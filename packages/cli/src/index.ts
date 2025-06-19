@@ -9,7 +9,7 @@ import { testCommand } from "./commands/test";
 const program = new Command();
 
 program
-  .name("next-s3-uploader")
+  .name("pushduck")
   .description("Zero-config setup for Next.js S3 file uploads")
   .version("0.1.0");
 

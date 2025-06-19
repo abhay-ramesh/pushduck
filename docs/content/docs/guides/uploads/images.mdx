@@ -1,13 +1,3 @@
----
-title: Image Uploads
-description: Complete guide to handling image uploads with optimization, validation, and processing
----
-
-import { Callout } from "fumadocs-ui/components/callout";
-import { Card, Cards } from "fumadocs-ui/components/card";
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
-import { TypeTable } from "fumadocs-ui/components/type-table";
-import { Files, Folder, File } from "fumadocs-ui/components/files";
 
 # Image Uploads
 
@@ -24,7 +14,7 @@ Handle image uploads with built-in optimization, validation, and processing feat
 
 ```typescript
 // app/api/upload/route.ts
-import { createUploadRouter, uploadSchema } from "next-s3-uploader/server";
+import { createUploadRouter, uploadSchema } from "pushduck/server";
 
 export const router = createUploadRouter({
   // Basic image upload

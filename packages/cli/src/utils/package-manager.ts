@@ -9,11 +9,11 @@ export async function installDependencies(
   const spinner = ora("Installing dependencies...").start();
 
   try {
-    spinner.text = "Adding next-s3-uploader to package.json...";
+    spinner.text = "Adding pushduck to package.json...";
 
-    // Install next-s3-uploader
+    // Install pushduck
     const installArgs = getInstallArgs(packageManager);
-    await execa(packageManager, [...installArgs, "next-s3-uploader@latest"], {
+    await execa(packageManager, [...installArgs, "pushduck@latest"], {
       cwd,
     });
 
@@ -24,7 +24,7 @@ export async function installDependencies(
     spinner.succeed("Dependencies installed successfully");
 
     console.log(chalk.green("\n📦 Added to package.json:"));
-    console.log("  ✓ next-s3-uploader@latest");
+    console.log("  ✓ pushduck@latest");
     console.log("  ✓ react-dropzone (for drag & drop)");
   } catch (error) {
     spinner.fail("Failed to install dependencies");
@@ -34,7 +34,7 @@ export async function installDependencies(
       chalk.gray(
         `  ${packageManager} ${getInstallArgs(packageManager).join(
           " "
-        )} next-s3-uploader react-dropzone`
+        )} pushduck react-dropzone`
       )
     );
     throw error;

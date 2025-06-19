@@ -1,4 +1,4 @@
-# next-s3-uploader Demo Setup
+# pushduck Demo Setup
 
 This demo shows the new configuration-first approach where everything flows from the `upload.ts` initialization.
 
@@ -33,7 +33,7 @@ DO_SPACES_BUCKET=your-bucket
 The `upload.ts` file initializes the configuration and returns configured instances:
 
 ```typescript
-import { initializeUploadConfig, uploadConfig } from "next-s3-uploader";
+import { initializeUploadConfig, uploadConfig } from "pushduck";
 
 // Initialize and get configured instances
 const { s3, createS3Handler, config } = initializeUploadConfig(

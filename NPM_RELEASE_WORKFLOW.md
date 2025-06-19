@@ -2,7 +2,7 @@
 
 ## ✅ **Current Status: Production Ready**
 
-Your next-s3-uploader package is **fully optimized** and ready for NPM releases with:
+Your pushduck package is **fully optimized** and ready for NPM releases with:
 
 - ✅ Bundle size: 1.83KB client, 5.87KB server (gzipped)
 - ✅ Zero ESLint errors (183 warnings acceptable)
@@ -18,21 +18,21 @@ Your next-s3-uploader package is **fully optimized** and ready for NPM releases 
 ### **Patch Release** (Bug fixes: 0.2.1 → 0.2.2)
 
 ```bash
-cd packages/next-s3-uploader
+cd packages/pushduck
 pnpm release:patch
 ```
 
 ### **Minor Release** (New features: 0.2.1 → 0.3.0)  
 
 ```bash
-cd packages/next-s3-uploader
+cd packages/pushduck
 pnpm release:minor
 ```
 
 ### **Major Release** (Breaking changes: 0.2.1 → 1.0.0)
 
 ```bash
-cd packages/next-s3-uploader
+cd packages/pushduck
 pnpm release:major
 ```
 

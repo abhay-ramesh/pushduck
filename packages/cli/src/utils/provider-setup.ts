@@ -169,7 +169,7 @@ export async function selectProvider(
   console.log(chalk.gray("   • " + selectedInfo.description));
   console.log(
     chalk.gray(
-      "   • Need help choosing? https://docs.next-s3-uploader.com/providers/comparison\n"
+      "   • Need help choosing? https://docs.pushduck.com/providers/comparison\n"
     )
   );
 

@@ -1,8 +1,8 @@
-# Next S3 Uploader Documentation
+# Pushduck Documentation
 
-📚 **Official documentation for Next S3 Uploader**
+📚 **Official documentation for Pushduck**
 
-This is a Fumadocs application providing comprehensive documentation for the Next S3 Uploader library.
+This is a Fumadocs application providing comprehensive documentation for the Pushduck library.
 
 ## 🚀 Development
 
@@ -59,4 +59,4 @@ docs/                        # 🖥️ Full Fumadocs app (root level)
 
 - [Fumadocs Documentation](https://fumadocs.dev) - Learn about Fumadocs
 - [Next.js Documentation](https://nextjs.org/docs) - Next.js features and API
-- [Next S3 Uploader](https://github.com/yourusername/next-s3-uploader) - Main repository
+- [Pushduck](https://github.com/yourusername/pushduck) - Main repository

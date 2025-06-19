@@ -1,13 +1,3 @@
----
-title: Roadmap
-description: Our vision for the future of file uploads in Next.js
----
-
-import { Callout } from "fumadocs-ui/components/callout";
-import { Card, Cards } from "fumadocs-ui/components/card";
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
-import { File, Folder, Files } from "fumadocs-ui/components/files";
-import { TypeTable } from "fumadocs-ui/components/type-table";
 
 # Roadmap
 
@@ -16,7 +6,7 @@ Our mission is simple: **make file uploads in Next.js as straightforward as they
 <Callout type="info">
   This roadmap is community-driven. **Your feedback shapes our priorities.**
   Join our [Discord](https://discord.gg/nextjs-s3-uploader) or open an issue on
-  [GitHub](https://github.com/your-org/next-s3-uploader) to influence what we
+  [GitHub](https://github.com/your-org/pushduck) to influence what we
   build next.
 </Callout>
 
@@ -56,7 +46,7 @@ We've already solved the core problems that have frustrated developers for years
     </Files>
 
     ```bash
-    npx next-s3-uploader init
+    npx pushduck init
     # ✅ Detected Next.js 14 with App Router
     # ✅ Created upload route at /api/upload
     # ✅ Added environment variables to .env.local
@@ -186,7 +176,7 @@ We've already solved the core problems that have frustrated developers for years
       <Tab value="Vue 3">
         ```typescript
         // Vue 3 Composition API
-        import { createUploadClient } from '@next-s3-uploader/vue'
+        import { createUploadClient } from '@pushduck/vue'
 
         const upload = createUploadClient<AppRouter>({
           endpoint: '/api/upload'
@@ -199,7 +189,7 @@ We've already solved the core problems that have frustrated developers for years
       <Tab value="Svelte">
         ```typescript
         // Svelte stores
-        import { uploadStore } from '@next-s3-uploader/svelte'
+        import { uploadStore } from '@pushduck/svelte'
 
         const upload = uploadStore<AppRouter>('/api/upload')
 
@@ -211,7 +201,7 @@ We've already solved the core problems that have frustrated developers for years
       <Tab value="Vanilla JS">
         ```typescript
         // Pure JavaScript
-        import { UploadClient } from '@next-s3-uploader/core'
+        import { UploadClient } from '@pushduck/core'
 
         const client = new UploadClient('/api/upload')
 
@@ -324,7 +314,7 @@ Have an idea or want to prioritize something? Here's how to influence our roadma
 
 <Callout type="info">
   Follow our [GitHub project
-  board](https://github.com/your-org/next-s3-uploader/projects) for real-time
+  board](https://github.com/your-org/pushduck/projects) for real-time
   updates on development progress.
 </Callout>
 
@@ -334,7 +324,7 @@ Our development process is organized around clear modules:
 
 <Files>
   <Folder name="packages" defaultOpen>
-    <Folder name="next-s3-uploader">
+    <Folder name="pushduck">
       <Folder name="src">
         <Folder name="client">
           <File name="upload-client.ts" />
@@ -382,7 +372,7 @@ This roadmap exists because of developers like you. Here's how to shape the futu
 
 ### For Contributors
 
-- **Code contributions** - Check our [contributing guide](https://github.com/your-org/next-s3-uploader/blob/main/CONTRIBUTING.md)
+- **Code contributions** - Check our [contributing guide](https://github.com/your-org/pushduck/blob/main/CONTRIBUTING.md)
 - **Documentation** - Help improve examples and guides
 - **Community support** - Answer questions in Discord and GitHub
 
@@ -390,7 +380,7 @@ This roadmap exists because of developers like you. Here's how to shape the futu
 
 - **Sponsorship** - Support full-time development
 - **Enterprise feedback** - Share your scale challenges
-- **Partnership** - Integrate next-s3-uploader with your platform
+- **Partnership** - Integrate pushduck with your platform
 
 ---
 

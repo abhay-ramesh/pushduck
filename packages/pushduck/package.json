@@ -1,14 +1,14 @@
 {
-  "name": "next-s3-uploader",
+  "name": "pushduck",
   "version": "0.3.0",
   "author": "Abhay Ramesh",
   "license": "MIT",
   "description": "A simple way to upload files to S3 from a Next.js app directory (aws s3, minio, or any s3 compatible service)",
   "repository": {
     "type": "git",
-    "url": "https://github.com/abhay-ramesh/next-s3-uploader.git"
+    "url": "https://github.com/abhay-ramesh/pushduck.git"
   },
-  "homepage": "https://next-s3-uploader.abhayramesh.com",
+  "homepage": "https://pushduck.abhayramesh.com",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "module": "./dist/index.mjs",

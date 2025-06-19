@@ -170,7 +170,7 @@ MINIO_PUBLIC_URL=https://uploads.yourdomain.com
 
 ```typescript
 // lib/upload.ts
-import { uploadConfig } from "next-s3-uploader/server";
+import { uploadConfig } from "pushduck/server";
 
 export const { s3, createS3Handler } = uploadConfig
   .minio({
@@ -194,7 +194,7 @@ export const { s3, createS3Handler } = uploadConfig
 ## 🧪 Test Your Setup
 
 ```bash
-npx next-s3-uploader test --provider minio
+npx pushduck test --provider minio
 ```
 
 This will verify your MinIO connection and upload a test file.

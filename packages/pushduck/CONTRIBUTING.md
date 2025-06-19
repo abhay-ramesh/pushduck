@@ -1,6 +1,6 @@
-# Contributing to Next.js S3 Uploader
+# Contributing to Pushduck
 
-First off, thank you for considering contributing to Next.js S3 Uploader! It's people like you that make it such a great tool.
+First off, thank you for considering contributing to Pushduck! It's people like you that make it such a great tool.
 
 ## Code of Conduct
 
@@ -55,10 +55,10 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 
 ```bash
 # Clone your fork
-git clone https://github.com/your-username/next-s3-uploader.git
+git clone https://github.com/your-username/pushduck.git
 
 # Navigate to the project directory
-cd next-s3-uploader
+cd pushduck
 
 # Install dependencies
 pnpm install
@@ -92,7 +92,7 @@ pnpm test:coverage
 ## Project Structure
 
 ```
-packages/next-s3-uploader/
+packages/pushduck/
 ├── src/
 │   ├── hooks/           # React hooks
 │   ├── utils/           # Utility functions
@@ -112,7 +112,7 @@ packages/next-s3-uploader/
 
 ## Versioning
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/abhay-ramesh/next-s3-uploader/tags).
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/abhay-ramesh/pushduck/tags).
 
 ## Release Process
 
@@ -125,7 +125,7 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 ## Questions?
 
-Feel free to open an issue or join our [GitHub Discussions](https://github.com/abhay-ramesh/next-s3-uploader/discussions).
+Feel free to open an issue or join our [GitHub Discussions](https://github.com/abhay-ramesh/pushduck/discussions).
 
 ## License
 

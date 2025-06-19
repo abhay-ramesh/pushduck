@@ -1,4 +1,4 @@
-No, **next-s3-uploader** is not at the same DX standard as Uploadthing, tRPC, Drizzle, Prisma, or Zod. Here's a detailed comparison:
+No, **pushduck** is not at the same DX standard as Uploadthing, tRPC, Drizzle, Prisma, or Zod. Here's a detailed comparison:
 
 ## Current DX Level: **6/10** 📊
 
@@ -60,7 +60,7 @@ const result = await db
   .leftJoin(posts, eq(users.id, posts.authorId));
 ```
 
-## What next-s3-uploader is Missing
+## What pushduck is Missing
 
 ### 1. **Zero-Config Setup** ❌
 
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
 
 ```typescript
 // Ideal - Uploadthing-inspired
-import { createFileRouter } from "next-s3-uploader";
+import { createFileRouter } from "pushduck";
 
 export const fileRouter = createFileRouter({
   imageUploader: f({ image: { maxFileSize: "4MB" } })
@@ -221,7 +221,7 @@ const { uploadFiles } = useS3Upload("avatarUpload");
 
 ```typescript
 // server/s3-router.ts
-import { createS3Router } from "next-s3-uploader";
+import { createS3Router } from "pushduck";
 
 export const s3Router = createS3Router({
   avatarUpload: {
@@ -290,14 +290,14 @@ npx create-s3-app@latest my-app
 // Auto-generates: API routes, types, config, examples
 
 // Or with existing app
-npx next-s3-uploader@latest init
+npx pushduck@latest init
 ```
 
 ### **5. React Server Components Integration**
 
 ```typescript
 // app/upload/page.tsx
-import { S3Upload } from "next-s3-uploader/rsc";
+import { S3Upload } from "pushduck/rsc";
 
 export default function UploadPage() {
   return (
@@ -317,7 +317,7 @@ export default function UploadPage() {
 
 ```typescript
 // Auto-detection of popular auth providers
-import { withAuth } from "next-s3-uploader/auth";
+import { withAuth } from "pushduck/auth";
 
 export const s3Router = createS3Router({
   // Automatically integrates with:
@@ -395,7 +395,7 @@ const { uploadFiles } = useS3Upload("profileUpload", {
 
 ## **Gold Standard DX Checklist**
 
-| Feature | Uploadthing | tRPC | better-auth | Drizzle | Prisma | next-s3-uploader |
+| Feature | Uploadthing | tRPC | better-auth | Drizzle | Prisma | pushduck |
 |---------|-------------|------|-------------|---------|--------|------------------|
 | Zero Config Setup | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
 | End-to-End Types | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
@@ -409,7 +409,7 @@ const { uploadFiles } = useS3Upload("profileUpload", {
 
 ## **Verdict**: Not Gold Standard Yet
 
-To reach Uploadthing/tRPC/better-auth/Drizzle level DX, next-s3-uploader needs:
+To reach Uploadthing/tRPC/better-auth/Drizzle level DX, pushduck needs:
 
 1. **Complete API redesign** around file routers
 2. **End-to-end type safety** with TypeScript template literal types

@@ -1,6 +1,6 @@
 # Examples
 
-🎯 **Copy-paste ready examples for Next S3 Uploader**
+🎯 **Copy-paste ready examples for Pushduck**
 
 This follows the pattern of popular repositories like Next.js, React, and tRPC.
 

@@ -77,7 +77,7 @@ export async function detectProject(
     (await fs.pathExists(path.join(cwd, "lib/upload-config.js"))) ||
     (await fs.pathExists(path.join(cwd, "upload.ts"))) ||
     (await fs.pathExists(path.join(cwd, "upload.js"))) ||
-    packageJson.dependencies?.["next-s3-uploader"] !== undefined;
+    packageJson.dependencies?.["pushduck"] !== undefined;
 
   return {
     framework: "nextjs",

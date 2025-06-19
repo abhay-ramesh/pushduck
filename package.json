@@ -13,11 +13,11 @@
     "changeset:status": "changeset status",
     "version-packages": "changeset version",
     "docs": "turbo dev --no-cache --continue --filter=docs",
-    "release": "turbo build --filter=next-s3-uploader^... && changeset publish",
-    "release:dry": "turbo build --filter=next-s3-uploader^... && changeset publish --dry-run",
+    "release": "turbo build --filter=pushduck^... && changeset publish",
+    "release:dry": "turbo build --filter=pushduck^... && changeset publish --dry-run",
     "release:snapshot": "changeset version --snapshot && changeset publish --tag snapshot",
     "release:check": "changeset status --verbose",
-    "validate-changesets": "cd packages/next-s3-uploader && pnpm validate-changesets",
+    "validate-changesets": "cd packages/pushduck && pnpm validate-changesets",
     "changelog:preview": "changeset status --output=changelog.md"
   },
   "devDependencies": {
@@ -28,5 +28,5 @@
     "turbo": "^2.5.4"
   },
   "packageManager": "pnpm@9.0.6",
-  "name": "next-s3-uploader"
+  "name": "pushduck"
 }

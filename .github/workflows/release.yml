@@ -41,13 +41,13 @@ jobs:
       - name: 🛡️ Run comprehensive safety check
         id: safety
         run: |
-          cd packages/next-s3-uploader
+          cd packages/pushduck
           chmod +x scripts/pre-release-check.sh
           ./scripts/pre-release-check.sh
 
       - name: 📝 Validate changesets
         run: |
-          cd packages/next-s3-uploader
+          cd packages/pushduck
           chmod +x scripts/changeset-validator.js
           node scripts/changeset-validator.js
 
@@ -132,7 +132,7 @@ jobs:
       - name: 📊 Get release info
         id: release-info
         run: |
-          MAIN_VERSION=$(node -p "require('./packages/next-s3-uploader/package.json').version")
+          MAIN_VERSION=$(node -p "require('./packages/pushduck/package.json').version")
           CLI_VERSION=$(node -p "require('./packages/cli/package.json').version")
           echo "main-version=$MAIN_VERSION" >> $GITHUB_OUTPUT
           echo "cli-version=$CLI_VERSION" >> $GITHUB_OUTPUT
@@ -147,24 +147,24 @@ jobs:
           body: |
             ## 📦 Packages Released
 
-            - `next-s3-uploader@${{ steps.release-info.outputs.main-version }}`
-            - `create-next-s3-uploader@${{ steps.release-info.outputs.cli-version }}`
+            - `pushduck@${{ steps.release-info.outputs.main-version }}`
+            - `create-pushduck@${{ steps.release-info.outputs.cli-version }}`
 
             ## 📝 Changelog
 
-            See [CHANGELOG.md](./packages/next-s3-uploader/CHANGELOG.md) for detailed changes.
+            See [CHANGELOG.md](./packages/pushduck/CHANGELOG.md) for detailed changes.
 
             ## 📥 Installation
 
             ```bash
-            npm install next-s3-uploader@latest
+            npm install pushduck@latest
             # or
-            npx create-next-s3-uploader@latest
+            npx create-pushduck@latest
             ```
 
             ## 🔗 Links
 
-            - [📚 Documentation](https://next-s3-uploader.vercel.app)
+            - [📚 Documentation](https://pushduck.vercel.app)
             - [🐛 Report Issues](https://github.com/${{ github.repository }}/issues)
             - [💬 Discussions](https://github.com/${{ github.repository }}/discussions)
           draft: false
@@ -201,20 +201,20 @@ jobs:
           sleep 30
 
           # Check main package
-          MAIN_VERSION=$(node -p "require('./packages/next-s3-uploader/package.json').version")
-          if npm view "next-s3-uploader@$MAIN_VERSION" version; then
-            echo "✅ next-s3-uploader@$MAIN_VERSION is live on NPM"
+          MAIN_VERSION=$(node -p "require('./packages/pushduck/package.json').version")
+          if npm view "pushduck@$MAIN_VERSION" version; then
+            echo "✅ pushduck@$MAIN_VERSION is live on NPM"
           else
-            echo "❌ next-s3-uploader@$MAIN_VERSION not found on NPM"
+            echo "❌ pushduck@$MAIN_VERSION not found on NPM"
             exit 1
           fi
 
           # Check CLI package
           CLI_VERSION=$(node -p "require('./packages/cli/package.json').version")
-          if npm view "create-next-s3-uploader@$CLI_VERSION" version; then
-            echo "✅ create-next-s3-uploader@$CLI_VERSION is live on NPM"
+          if npm view "create-pushduck@$CLI_VERSION" version; then
+            echo "✅ create-pushduck@$CLI_VERSION is live on NPM"
           else
-            echo "❌ create-next-s3-uploader@$CLI_VERSION not found on NPM"
+            echo "❌ create-pushduck@$CLI_VERSION not found on NPM"
             exit 1
           fi
 
@@ -222,7 +222,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const mainVersion = require('./packages/next-s3-uploader/package.json').version;
+            const mainVersion = require('./packages/pushduck/package.json').version;
             const cliVersion = require('./packages/cli/package.json').version;
 
             github.rest.repos.createCommitComment({
@@ -232,8 +232,8 @@ jobs:
               body: `## 🎉 Release Successful!
               
               ✅ **Packages Published:**
-              - \`next-s3-uploader@${mainVersion}\`
-              - \`create-next-s3-uploader@${cliVersion}\`
+              - \`pushduck@${mainVersion}\`
+              - \`create-pushduck@${cliVersion}\`
               
               📊 **Release Stats:**
               - Build time: ${{ github.run_id }}

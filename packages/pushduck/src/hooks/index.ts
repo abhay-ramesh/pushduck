@@ -1,5 +1,5 @@
 /**
- * React Hooks for next-s3-uploader
+ * React Hooks for pushduck
  *
  * This directory contains all client-side React hooks for file uploading.
  * All hooks are marked with "use client" and are safe for browser environments.

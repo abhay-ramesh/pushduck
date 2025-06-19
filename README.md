@@ -1,15 +1,15 @@
-# Next.js S3 Uploader
+# Pushduck
 
 ![Next.js S3 File Uploader](Next.js-S3-Uploader.png)
 
-![npm](https://img.shields.io/npm/dm/next-s3-uploader)
-![npm](https://img.shields.io/npm/v/next-s3-uploader)
-![GitHub](https://img.shields.io/github/license/abhay-ramesh/next-s3-uploader)
-![example workflow](https://github.com/abhay-ramesh/next-s3-uploader/actions/workflows/release.yml/badge.svg)
-<!-- ![GitHub last commit](https://img.shields.io/github/last-commit/abhay-ramesh/next-s3-uploader) -->
-<!-- ![GitHub stars](https://img.shields.io/github/stars/abhay-ramesh/next-s3-uploader) -->
+![npm](https://img.shields.io/npm/dm/pushduck)
+![npm](https://img.shields.io/npm/v/pushduck)
+![GitHub](https://img.shields.io/github/license/abhay-ramesh/pushduck)
+![example workflow](https://github.com/abhay-ramesh/pushduck/actions/workflows/release.yml/badge.svg)
+<!-- ![GitHub last commit](https://img.shields.io/github/last-commit/abhay-ramesh/pushduck) -->
+<!-- ![GitHub stars](https://img.shields.io/github/stars/abhay-ramesh/pushduck) -->
 
-**Next S3 Uploader** is a utility package for handling file uploads to Amazon S3 or compatible services like MinIO in a Next.js application. It simplifies the process of integrating secure and scalable cloud storage for your Next.js projects.
+**Pushduck** is a utility package for handling file uploads to Amazon S3 or compatible services like MinIO in a Next.js application. It simplifies the process of integrating secure and scalable cloud storage for your Next.js projects.
 
 ## Features
 
@@ -24,7 +24,7 @@
 ## Repository Structure
 
 ```
-next-s3-uploader/
+pushduck/
 ├── docs/                    # 📚 Documentation (root level)
 ├── examples/                # 💡 Copy-paste ready examples
 │   └── enhanced-demo/       # Complete demo with modern patterns
@@ -32,7 +32,7 @@ next-s3-uploader/
 │   ├── docs-legacy/         # Archived documentation
 │   └── docu/                # New docs development
 └── packages/                # 📦 Core packages
-    ├── next-s3-uploader/    # Main library
+    ├── pushduck/    # Main library
     └── cli/                 # CLI tool for setup
 ```
 
@@ -44,17 +44,17 @@ Install the package using your preferred package manager:
 
 ```bash
 # Using npm
-npm install next-s3-uploader
+npm install pushduck
 ```
 
 ```bash
 # Using yarn
-yarn add next-s3-uploader
+yarn add pushduck
 ```
 
 ```bash
 # Using pnpm
-pnpm add next-s3-uploader
+pnpm add pushduck
 ```
 
 ## Usage
@@ -91,7 +91,7 @@ Import the `useS3FileUpload` hook and use it in your Nextjs component:
 ```jsx
 "use client";
 
-import { useS3FileUpload } from "next-s3-uploader";
+import { useS3FileUpload } from "pushduck";
 
 function UploadPage() {
   const { uploadedFiles, uploadFiles } = useS3FileUpload({
@@ -144,7 +144,7 @@ export default UploadPage;
 Use the `createS3Client` and `generatePresignedUrls` functions to create an API route for handling pre-signed URLs:
 
 ```javascript
-import { createS3Client, generatePresignedUrls } from "next-s3-uploader";
+import { createS3Client, generatePresignedUrls } from "pushduck";
 
 export async function POST(req) {
   try {
@@ -326,7 +326,7 @@ const s3Client = createS3Client({
 });
 ```
 
-Certainly! Here are some different example usage scenarios for the `next-s3-uploader` package:
+Certainly! Here are some different example usage scenarios for the `pushduck` package:
 
 ### Basic File Upload
 
@@ -334,7 +334,7 @@ This is the simplest use case where you want to allow users to upload files to y
 
 ```javascript
 // Your API Route
-import { createS3Client, generatePresignedUrls } from "next-s3-uploader";
+import { createS3Client, generatePresignedUrls } from "pushduck";
 
 export async function POST(req: Request) {
     const { keys } = await req.json();
@@ -361,7 +361,7 @@ In this scenario, you might require users to be authenticated before they can up
 
 ```javascript
 // Your API Route (with authentication check)
-import { createS3Client, generatePresignedUrls } from "next-s3-uploader";
+import { createS3Client, generatePresignedUrls } from "pushduck";
 
 export async function POST(req: Request) {
     // Check user authentication here
@@ -395,7 +395,7 @@ In this case, you might want to organize uploaded files into different projects 
 
 ```javascript
 // Your API Route (with project-specific prefix)
-import { createS3Client, generatePresignedUrls } from "next-s3-uploader";
+import { createS3Client, generatePresignedUrls } from "pushduck";
 
 export async function POST(req: Request) {
     const { keys, projectId } = await req.json();
@@ -423,7 +423,7 @@ If you're building an application for an organization or company, you might want
 
 ```javascript
 // Your API Route (with organization-specific prefix)
-import { createS3Client, generatePresignedUrls } from "next-s3-uploader";
+import { createS3Client, generatePresignedUrls } from "pushduck";
 
 export async function POST(req: Request) {
     const { keys, organizationId, departmentId } = await req.json();

@@ -1,6 +1,6 @@
 # Provider System & Upload Configuration
 
-The new provider system in `next-s3-uploader` provides a clean, type-safe way to configure different cloud storage providers with environment-based configuration and better developer experience.
+The new provider system in `pushduck` provides a clean, type-safe way to configure different cloud storage providers with environment-based configuration and better developer experience.
 
 ## Quick Start
 
@@ -10,7 +10,7 @@ Create an `upload.ts` file next to your API route or in your app root:
 
 ```typescript
 // upload.ts
-import { uploadConfig, initializeUploadConfig } from "next-s3-uploader";
+import { uploadConfig, initializeUploadConfig } from "pushduck";
 
 const config = uploadConfig
   .cloudflareR2() // Auto-loads from environment variables
@@ -29,7 +29,7 @@ export default config;
 ```typescript
 // app/api/upload/route.ts
 import "./upload"; // Import to initialize configuration
-import { createS3Handler, s3 } from "next-s3-uploader";
+import { createS3Handler, s3 } from "pushduck";
 
 const s3Router = createS3Router({
   imageUpload: s3.image().max("5MB"),
@@ -43,7 +43,7 @@ export const { GET, POST } = createS3Handler(s3Router);
 
 ```typescript
 // components/upload.tsx
-import { useUploadRoute } from "next-s3-uploader";
+import { useUploadRoute } from "pushduck";
 
 export function UploadComponent() {
   const { uploadFiles, files } = useUploadRoute("imageUpload");
@@ -205,7 +205,7 @@ initializeUploadConfig(config);
 ### Custom Provider Configuration
 
 ```typescript
-import { createUploadConfig, providers } from "next-s3-uploader";
+import { createUploadConfig, providers } from "pushduck";
 
 const customConfig = createUploadConfig()
   .provider(providers.aws({
@@ -220,7 +220,7 @@ const customConfig = createUploadConfig()
 ### Runtime Configuration
 
 ```typescript
-import { getUploadConfig } from "next-s3-uploader";
+import { getUploadConfig } from "pushduck";
 
 // Get the current configuration anywhere in your app
 const config = getUploadConfig();

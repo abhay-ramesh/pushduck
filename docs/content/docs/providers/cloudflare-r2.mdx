@@ -90,7 +90,7 @@ CLOUDFLARE_R2_PUBLIC_URL=https://uploads.yourdomain.com
 
 ```typescript
 // lib/upload.ts
-import { uploadConfig } from "next-s3-uploader/server";
+import { uploadConfig } from "pushduck/server";
 
 export const { s3, createS3Handler } = uploadConfig
   .cloudflareR2({
@@ -111,7 +111,7 @@ export const { s3, createS3Handler } = uploadConfig
 ## 7. Test Your Setup
 
 ```bash
-npx next-s3-uploader test --provider r2
+npx pushduck test --provider r2
 ```
 
 This will verify your R2 connection and upload a test file.

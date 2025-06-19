@@ -1,4 +1,4 @@
-# Next S3 Uploader Documentation Coverage Plan
+# Pushduck Documentation Coverage Plan
 
 ## 📊 **Analysis: Successful Documentation Patterns**
 
@@ -25,7 +25,7 @@
 - **Simple Language**: Avoid jargon, use clear instructions
 - **Visual Hierarchy**: Headings, lists, code blocks, diagrams
 
-## 🎯 **Next S3 Uploader Documentation Strategy**
+## 🎯 **Pushduck Documentation Strategy**
 
 ### **Core Principle: "5-Minute Success"**
 
@@ -345,16 +345,16 @@ This documentation strategy combines the best practices from Better Auth's compr
 
 ## Package Component Coverage Analysis
 
-### 📦 Core Package Structure (`packages/next-s3-uploader/`)
+### 📦 Core Package Structure (`packages/pushduck/`)
 
-#### **Client-Side Exports (`next-s3-uploader`)**
+#### **Client-Side Exports (`pushduck`)**
 
 - ✅ **Enhanced Client**: `createUploadClient()` - Property-based client with type inference
 - ✅ **Hooks**: `useUploadRoute()` - Main upload hook with progress tracking
 - ✅ **Utilities**: `formatETA()`, `formatUploadSpeed()` - File size and time formatting
 - ✅ **Types**: All client-safe TypeScript interfaces
 
-#### **Server-Side Exports (`next-s3-uploader/server`)**
+#### **Server-Side Exports (`pushduck/server`)**
 
 **Configuration & Initialization**
 
@@ -594,7 +594,7 @@ docs/content/docs/
 - ✅ **Support Reduction**: 70% fewer "how do I..." issues
 - ✅ **Framework Integration**: Official Next.js, Nuxt, SvelteKit guides
 
-This comprehensive coverage ensures that every aspect of the `next-s3-uploader` package is properly documented, from basic usage to advanced enterprise patterns, with real-world examples derived from the enhanced demo implementation.
+This comprehensive coverage ensures that every aspect of the `pushduck` package is properly documented, from basic usage to advanced enterprise patterns, with real-world examples derived from the enhanced demo implementation.
 
 ## 🚀 Gold Standard Features to Showcase
 
@@ -708,7 +708,7 @@ import {
   S3UploadButton,
   S3RetryButton,
   S3CancelButton,
-} from "next-s3-uploader/ui";
+} from "pushduck/ui";
 ```
 
 **Component Showcase:**
@@ -770,19 +770,19 @@ const photoUpload = s3.image()
 
 ```bash
 # Zero-config initialization
-npx next-s3-uploader@latest init
+npx pushduck@latest init
 
 # Interactive route generator
-npx next-s3-uploader generate route
+npx pushduck generate route
 
 # Configuration validation
-npx next-s3-uploader validate
+npx pushduck validate
 
 # S3 connection testing
-npx next-s3-uploader test-connection
+npx pushduck test-connection
 
 # Migration from other libraries
-npx next-s3-uploader migrate --from uploadthing
+npx pushduck migrate --from uploadthing
 ```
 
 #### **Development Tools**
@@ -824,11 +824,11 @@ export default defineS3Config({
 
 **Official Plugins:**
 
-- **@next-s3-uploader/plugin-image**: Advanced image processing
-- **@next-s3-uploader/plugin-antivirus**: Virus scanning
-- **@next-s3-uploader/plugin-analytics**: Upload analytics
-- **@next-s3-uploader/plugin-moderation**: Content moderation
-- **@next-s3-uploader/plugin-watermark**: Image watermarking
+- **@pushduck/plugin-image**: Advanced image processing
+- **@pushduck/plugin-antivirus**: Virus scanning
+- **@pushduck/plugin-analytics**: Upload analytics
+- **@pushduck/plugin-moderation**: Content moderation
+- **@pushduck/plugin-watermark**: Image watermarking
 
 **Documentation Needs:**
 
@@ -843,13 +843,13 @@ export default defineS3Config({
 
 ```typescript
 // Remix integration
-import { S3UploadAction } from "next-s3-uploader/remix";
+import { S3UploadAction } from "pushduck/remix";
 
 // SvelteKit integration
-import { s3Handler } from "next-s3-uploader/sveltekit";
+import { s3Handler } from "pushduck/sveltekit";
 
 // Astro integration
-import { S3Upload } from "next-s3-uploader/astro";
+import { S3Upload } from "pushduck/astro";
 ```
 
 **Documentation Needs:**
@@ -981,11 +981,11 @@ docs/content/docs/
 - ✅ **Progressive Disclosure**: Beginner-friendly with advanced depth
 - ✅ **Community Driven**: Templates, recipes, and contributions
 
-This enhanced documentation plan showcases next-s3-uploader as a **gold standard** developer experience that rivals the best libraries in the TypeScript ecosystem, with comprehensive coverage of both current features and the ambitious roadmap ahead.
+This enhanced documentation plan showcases pushduck as a **gold standard** developer experience that rivals the best libraries in the TypeScript ecosystem, with comprehensive coverage of both current features and the ambitious roadmap ahead.
 
 ## Project Overview
 
-This document outlines comprehensive documentation coverage for the **@next-s3-uploader** monorepo, focusing on creating gold standard developer experience through clear, practical, and comprehensive documentation.
+This document outlines comprehensive documentation coverage for the **@pushduck** monorepo, focusing on creating gold standard developer experience through clear, practical, and comprehensive documentation.
 
 ## Better Auth Documentation Analysis
 
@@ -1043,7 +1043,7 @@ export const auth = betterAuth({
 2. **Zero-to-Success Path**
    - 2-minute quickstart with celebration milestone
    - Framework tabs (Next.js App Router, Pages Router, Remix, etc.)
-   - Copy-paste CLI command: `npx @next-s3-uploader/cli init`
+   - Copy-paste CLI command: `npx @pushduck/cli init`
    - Working demo within 5 minutes
 
 3. **Code-First Documentation**

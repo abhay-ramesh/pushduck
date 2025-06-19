@@ -1,7 +1,7 @@
 "use client";
 
 import { upload } from "@/lib/upload-client";
-import { formatETA, formatUploadSpeed } from "next-s3-uploader";
+import { formatETA, formatUploadSpeed } from "pushduck";
 import React, { useState } from "react";
 
 export function PropertyBasedImageUpload() {

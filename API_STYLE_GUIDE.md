@@ -2,7 +2,7 @@
 
 ## Overview
 
-`next-s3-uploader` offers multiple API styles to accommodate different development preferences, project requirements, and team structures. This guide helps you choose the right pattern for your specific needs.
+`pushduck` offers multiple API styles to accommodate different development preferences, project requirements, and team structures. This guide helps you choose the right pattern for your specific needs.
 
 ## 🚀 Available API Styles
 
@@ -177,7 +177,7 @@ const { uploadFiles, files } = upload.documentUpload;
 
 ```typescript
 // components/image-upload.tsx
-import { useUploadRoute } from "next-s3-uploader";
+import { useUploadRoute } from "pushduck";
 import type { AppRouter } from "@/app/api/upload/route";
 
 const { uploadFiles, files } = useUploadRoute<AppRouter>("imageUpload");
@@ -206,14 +206,14 @@ const { uploadFiles, files } = useUploadRoute<AppRouter>("imageUpload");
 
 ```typescript
 // The legacy hook has been removed - migrate to useUploadRoute
-- import { useS3FileUpload } from "next-s3-uploader";
+- import { useS3FileUpload } from "pushduck";
 - const { uploadedFiles, uploadFiles, reset } = useS3FileUpload({
 -   multiple: true,
 -   maxFiles: 10,
 -   maxFileSize: 10 * 1024 * 1024,
 - });
 
-+ import { useUploadRoute } from "next-s3-uploader";
++ import { useUploadRoute } from "pushduck";
 + const { files, uploadFiles, reset } = useUploadRoute("routeName");
 ```
 
@@ -227,7 +227,7 @@ export const upload = createUploadClient<AppRouter>({
 });
 
 // Step 2: Update imports
-- import { useUploadRoute } from "next-s3-uploader";
+- import { useUploadRoute } from "pushduck";
 - const { uploadFiles, files } = useUploadRoute<AppRouter>("imageUpload");
 + import { upload } from "@/lib/upload-client";
 + const { uploadFiles, files } = upload.imageUpload;
