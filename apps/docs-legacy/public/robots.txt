@@ -1,9 +1,0 @@
-# *
-User-agent: *
-Allow: /
-
-# Host
-Host: https://next-s3-uploader.abhayramesh.com
-
-# Sitemaps
-Sitemap: https://next-s3-uploader.abhayramesh.com/sitemap.xml
