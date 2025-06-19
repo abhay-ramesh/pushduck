@@ -77,10 +77,6 @@
     "@aws-sdk/client-s3": "^3.427.0",
     "@aws-sdk/s3-request-presigner": "^3.427.0"
   },
-  "optionalDependencies": {
-    "@aws-sdk/signature-v4-multi-region": "^3.425.0",
-    "aws-crt": "^1.18.0"
-  },
   "devDependencies": {
     "@size-limit/preset-small-lib": "^11.0.1",
     "@testing-library/react": "^14.0.0",
@@ -131,7 +127,6 @@
       "gzip": true,
       "ignore": [
         "@aws-sdk/*",
-        "aws-crt",
         "next",
         "react"
       ]
@@ -143,7 +138,6 @@
       "gzip": true,
       "ignore": [
         "@aws-sdk/*",
-        "aws-crt",
         "next"
       ]
     },
@@ -154,7 +148,6 @@
       "gzip": true,
       "ignore": [
         "@aws-sdk/*",
-        "aws-crt",
         "next",
         "react"
       ]
