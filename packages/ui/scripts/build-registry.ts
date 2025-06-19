@@ -55,7 +55,7 @@ async function buildRegistryItem(item: RegistryItem): Promise<any> {
     const content = await readFile(fullPath);
 
     files.push({
-      name: path.basename(file.path),
+      path: path.basename(file.path),
       content,
       type: file.type,
       target: file.target,

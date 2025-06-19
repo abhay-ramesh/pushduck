@@ -1,9 +1,9 @@
 import chalk from "chalk";
 import { Command } from "commander";
-import { detectPackageManager } from "detect-package-manager";
+import detectPackageManager from "detect-package-manager";
 import * as fs from "fs/promises";
 import inquirer from "inquirer";
-import fetch from "node-fetch";
+// Use native fetch for Node.js 18+
 import ora from "ora";
 import * as path from "path";
 
@@ -56,7 +56,7 @@ export async function addComponentCommand(componentName?: string) {
           throw new Error(`Failed to fetch registry: ${response.statusText}`);
         }
 
-        const registry: Registry = await response.json();
+        const registry: Registry = (await response.json()) as Registry;
         spinner.stop();
 
         const { selectedComponent } = await inquirer.prompt([
@@ -74,7 +74,11 @@ export async function addComponentCommand(componentName?: string) {
         componentName = selectedComponent;
       } catch (error) {
         spinner.fail("Failed to fetch component registry");
-        console.error(chalk.red(`Error: ${error.message}`));
+        console.error(
+          chalk.red(
+            `Error: ${error instanceof Error ? error.message : "Unknown error"}`
+          )
+        );
         process.exit(1);
       }
     }
