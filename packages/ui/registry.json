@@ -1,0 +1,102 @@
+{
+    "$schema": "https://ui.shadcn.com/schema/registry.json",
+    "name": "pushduck",
+    "homepage": "https://pushduck.dev",
+    "items": [
+        {
+            "name": "upload-dropzone",
+            "type": "registry:component",
+            "title": "Upload Dropzone",
+            "description": "A drag-and-drop file upload zone with support for multiple files, file type validation, and size limits.",
+            "files": [
+                {
+                    "path": "registry/default/upload-dropzone/upload-dropzone.tsx",
+                    "type": "registry:component"
+                }
+            ],
+            "dependencies": [
+                "pushduck",
+                "lucide-react"
+            ],
+            "registryDependencies": [
+                "button",
+                "progress"
+            ]
+        },
+        {
+            "name": "file-list",
+            "type": "registry:component",
+            "title": "File List",
+            "description": "Display a list of files with upload progress, status indicators, and actions.",
+            "files": [
+                {
+                    "path": "registry/default/file-list/file-list.tsx",
+                    "type": "registry:component"
+                }
+            ],
+            "dependencies": [
+                "pushduck",
+                "lucide-react"
+            ],
+            "registryDependencies": [
+                "button",
+                "progress"
+            ]
+        },
+        {
+            "name": "progress-bar",
+            "type": "registry:component",
+            "title": "Progress Bar",
+            "description": "Upload progress indicator with status states and customizable styling.",
+            "files": [
+                {
+                    "path": "registry/default/progress-bar/progress-bar.tsx",
+                    "type": "registry:component"
+                }
+            ],
+            "dependencies": [
+                "pushduck"
+            ]
+        },
+        {
+            "name": "upload-button",
+            "type": "registry:component",
+            "title": "Upload Button",
+            "description": "Simple file upload button with built-in file input and upload handling.",
+            "files": [
+                {
+                    "path": "registry/default/upload-button/upload-button.tsx",
+                    "type": "registry:component"
+                }
+            ],
+            "dependencies": [
+                "pushduck",
+                "lucide-react"
+            ],
+            "registryDependencies": [
+                "button"
+            ]
+        },
+        {
+            "name": "upload-demo",
+            "type": "registry:block",
+            "title": "Complete Upload Demo",
+            "description": "Full-featured upload interface combining dropzone, file list, and progress indicators.",
+            "files": [
+                {
+                    "path": "registry/default/upload-demo/upload-demo.tsx",
+                    "type": "registry:component"
+                }
+            ],
+            "dependencies": [
+                "pushduck",
+                "lucide-react"
+            ],
+            "registryDependencies": [
+                "upload-dropzone",
+                "file-list",
+                "upload-button"
+            ]
+        }
+    ]
+}

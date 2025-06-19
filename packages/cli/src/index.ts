@@ -2,6 +2,7 @@
 
 import chalk from "chalk";
 import { Command } from "commander";
+import { addComponentCommand } from "./commands/add-component";
 import { addRouteCommand } from "./commands/add-route";
 import { initCommand } from "./commands/init";
 import { testCommand } from "./commands/test";
@@ -34,9 +35,18 @@ program
   .action(testCommand);
 
 program
-  .command("add")
+  .command("add-route")
   .description("Add a new upload route to existing configuration")
   .action(addRouteCommand);
+
+program
+  .command("add [component]")
+  .description("Add a UI component from the pushduck registry")
+  .option("--registry <url>", "Custom registry URL")
+  .option("--path <path>", "Installation path")
+  .action(async (component, options) => {
+    await addComponentCommand(component);
+  });
 
 // Handle unknown commands
 program.on("command:*", () => {

@@ -1,0 +1,62 @@
+{
+    "name": "@pushduck/ui",
+    "version": "0.1.0",
+    "description": "React UI components for pushduck - File upload components you can copy and paste into your apps",
+    "author": "Abhay Ramesh",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/abhay-ramesh/pushduck.git",
+        "directory": "packages/ui"
+    },
+    "homepage": "https://pushduck.dev",
+    "keywords": [
+        "react",
+        "components",
+        "ui",
+        "file-upload",
+        "s3",
+        "nextjs",
+        "tailwind",
+        "typescript",
+        "pushduck",
+        "shadcn",
+        "registry"
+    ],
+    "scripts": {
+        "build": "pnpm build:registry",
+        "build:registry": "tsx scripts/build-registry.ts",
+        "dev": "tsx scripts/build-registry.ts --watch",
+        "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+        "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
+        "type-check": "tsc --noEmit"
+    },
+    "files": [
+        "public/r/**/*",
+        "registry.json",
+        "README.md"
+    ],
+    "dependencies": {
+        "lucide-react": "^0.516.0",
+        "pushduck": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "@types/react": "^18.2.0",
+        "@types/react-dom": "^18.2.0",
+        "eslint": "^8.49.0",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "tailwindcss": "^3.3.0",
+        "tsx": "^4.0.0",
+        "typescript": "^5.2.0"
+    },
+    "peerDependencies": {
+        "react": ">=18.0.0",
+        "react-dom": ">=18.0.0",
+        "tailwindcss": ">=3.0.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}
