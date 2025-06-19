@@ -24,9 +24,9 @@
         "registry"
     ],
     "scripts": {
+        "dev": "npx shadcn@canary build",
         "build": "pnpm build:registry",
         "build:registry": "npx shadcn@canary build",
-        "dev": "tsx scripts/build-registry.ts --watch",
         "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
         "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
         "type-check": "tsc --noEmit"
