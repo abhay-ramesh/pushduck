@@ -1,0 +1,40 @@
+# Code Owners for next-s3-uploader
+# This file defines who gets automatically requested for review
+# when specific files or directories are modified
+
+# Global fallback - repository maintainers
+* @abhay-ramesh
+
+# Core package files - require maintainer review
+packages/next-s3-uploader/src/ @abhay-ramesh
+packages/next-s3-uploader/package.json @abhay-ramesh
+packages/next-s3-uploader/tsconfig.json @abhay-ramesh
+packages/next-s3-uploader/tsup.config.ts @abhay-ramesh
+
+# CLI package - require maintainer review  
+packages/cli/ @abhay-ramesh
+
+# Release and automation - require maintainer review
+.changeset/ @abhay-ramesh
+.github/workflows/ @abhay-ramesh
+packages/next-s3-uploader/scripts/ @abhay-ramesh
+RELEASE_LIFECYCLE_GUIDE.md @abhay-ramesh
+GITHUB_AUTOMATION_GUIDE.md @abhay-ramesh
+
+# Documentation - can be reviewed by docs team
+*.md
+docs/
+apps/docs/
+README.md
+
+# Configuration files - require maintainer review
+package.json @abhay-ramesh
+pnpm-lock.yaml @abhay-ramesh
+pnpm-workspace.yaml @abhay-ramesh
+turbo.json @abhay-ramesh
+.gitignore @abhay-ramesh
+
+# Security-sensitive files - require security review
+.github/workflows/release.yml @abhay-ramesh
+packages/next-s3-uploader/scripts/pre-release-check.sh @abhay-ramesh
+packages/next-s3-uploader/scripts/health-check.sh @abhay-ramesh
