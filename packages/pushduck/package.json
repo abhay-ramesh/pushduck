@@ -1,6 +1,6 @@
 {
   "name": "pushduck",
-  "version": "0.3.0",
+  "version": "0.1.0",
   "author": "Abhay Ramesh",
   "license": "MIT",
   "description": "A simple way to upload files to S3 from a Next.js app directory (aws s3, minio, or any s3 compatible service)",

@@ -1,6 +1,6 @@
 {
     "name": "create-pushduck",
-    "version": "0.3.0",
+    "version": "0.1.0",
     "description": "Zero-config setup CLI for pushduck",
     "main": "dist/index.js",
     "bin": {

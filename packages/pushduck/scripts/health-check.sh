@@ -5,7 +5,7 @@
 
 set -e  # Exit on any error
 
-echo "🔍 Running Next-S3-Uploader Health Check..."
+echo "🔍 Running pushduck Health Check..."
 echo "=================================================="
 
 # Colors for output

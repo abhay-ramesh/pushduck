@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Initial public release as pushduck
 - Chunked file upload support
 - Private bucket support
 - File validation (type and size)
@@ -16,12 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Progress tracking with time estimation
 - Comprehensive error handling with retries
 - TypeScript type definitions
-- Jest testing setup
+- Testing setup with Vitest
 - ESLint and Prettier configuration
 - Comprehensive documentation
 
 ### Changed
 
+- Package renamed from next-s3-uploader to pushduck
 - Improved S3 client configuration
 - Enhanced error handling
 - Better TypeScript support
@@ -34,29 +36,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Error handling in edge cases
 - TypeScript type issues
 
-## [0.2.1] - 2023-11-21
+## [0.1.0] - 2024-12-17
 
 ### Added
 
-- Initial public release
-- Basic file upload functionality
-- Support for AWS S3 and MinIO
-- Progress tracking
-- Basic error handling
-
-### Changed
-
-- Updated dependencies
-- Improved documentation
-
-### Fixed
-
-- Minor bug fixes
-
-## [0.1.0] - 2023-10-19
-
-### Added
-
-- Initial beta release
-- Basic S3 upload functionality
-- Simple progress tracking
+- Initial release of pushduck (migrated from next-s3-uploader)
+- Complete S3 file upload functionality
+- Support for AWS S3, MinIO, and S3-compatible services
+- Progress tracking with real-time updates
+- Comprehensive error handling
+- TypeScript support
+- Next.js App Router integration
+- Client and server components
+- Multi-provider support (AWS S3, Cloudflare R2, DigitalOcean Spaces, Google Cloud)
+- CLI tool for quick setup

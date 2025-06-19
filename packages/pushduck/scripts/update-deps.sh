@@ -5,7 +5,7 @@
 
 set -e
 
-echo "🔄 Next-S3-Uploader Dependency Update"
+echo "🔄 pushduck Dependency Update"
 echo "====================================="
 
 # Colors

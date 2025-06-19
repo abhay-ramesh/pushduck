@@ -94,7 +94,7 @@ body:
       label: 📦 Package Version
       description: Which version of pushduck are you using?
       options:
-        - 0.3.0 (latest)
+        - 0.1.0 (latest)
         - 0.2.1
         - 0.2.0
         - 0.1.x
