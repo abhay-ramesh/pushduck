@@ -5,7 +5,7 @@ Zero-configuration setup for Next.js file uploads. Get production-ready S3 uploa
 ## Quick Start
 
 ```bash
-npx pushduck init
+npx @pushduck/cli@latest init
 ```
 
 That's it! The CLI will guide you through setting up:
@@ -21,7 +21,7 @@ That's it! The CLI will guide you through setting up:
 ### `init` - Initialize Your Project
 
 ```bash
-npx pushduck init [options]
+npx @pushduck/cli@latest init [options]
 ```
 
 **Options:**
@@ -37,22 +37,22 @@ npx pushduck init [options]
 
 ```bash
 # Interactive setup with all prompts
-npx pushduck init
+npx @pushduck/cli@latest init
 
 # Use AWS S3 directly, skip examples
-npx pushduck init --provider aws --skip-examples
+npx @pushduck/cli@latest init --provider aws --skip-examples
 
 # Custom API path  
-npx pushduck init --api-path /api/files
+npx @pushduck/cli@latest init --api-path /api/files
 
 # Preview without creating files
-npx pushduck init --dry-run
+npx @pushduck/cli@latest init --dry-run
 ```
 
 ### `add` - Add Upload Routes
 
 ```bash
-npx pushduck add
+npx @pushduck/cli@latest add
 ```
 
 Add new upload routes to your existing configuration. Interactive route builder helps you:
@@ -65,7 +65,7 @@ Add new upload routes to your existing configuration. Interactive route builder 
 ### `test` - Validate Setup
 
 ```bash
-npx pushduck test [--verbose]
+npx @pushduck/cli@latest test [--verbose]
 ```
 
 Validates your current configuration:
@@ -186,16 +186,16 @@ Each provider has tailored setup:
 
 ```bash
 # AWS S3 with automatic IAM policy creation
-npx pushduck init --provider aws
+npx @pushduck/cli@latest init --provider aws
 
 # Cloudflare R2 with edge optimization
-npx pushduck init --provider cloudflare-r2
+npx @pushduck/cli@latest init --provider cloudflare-r2
 
 # DigitalOcean Spaces with CDN setup
-npx pushduck init --provider digitalocean
+npx @pushduck/cli@latest init --provider digitalocean
 
 # MinIO for local development
-npx pushduck init --provider minio
+npx @pushduck/cli@latest init --provider minio
 ```
 
 ## Interactive Setup Flow
@@ -254,14 +254,14 @@ The CLI provides a guided setup experience:
 npm install -g pushduck
 
 # Or use npx for one-time usage  
-npx pushduck@latest init
+npx @pushduck/cli@latest@latest init
 ```
 
 ### Permission Errors
 
 ```bash
 # If you get permission errors during setup
-sudo npx pushduck init
+sudo npx @pushduck/cli@latest init
 
 # Or fix npm permissions
 npm config set prefix ~/.npm-global
@@ -272,13 +272,13 @@ export PATH=~/.npm-global/bin:$PATH
 
 ```bash
 # Test your credentials first
-npx pushduck test
+npx @pushduck/cli@latest test
 
 # Skip automatic bucket creation
-npx pushduck init --skip-bucket
+npx @pushduck/cli@latest init --skip-bucket
 
 # Create bucket manually, then run:
-npx pushduck test
+npx @pushduck/cli@latest test
 ```
 
 ## Advanced Usage
@@ -287,7 +287,7 @@ npx pushduck test
 
 ```bash
 # For CI/CD environments
-npx pushduck init \
+npx @pushduck/cli@latest init \
   --provider aws \
   --skip-examples \
   --api-path /api/upload \
@@ -298,10 +298,10 @@ npx pushduck init \
 
 ```bash
 # Use enterprise template with security features
-npx pushduck init --template enterprise
+npx @pushduck/cli@latest init --template enterprise
 
 # Use minimal template for existing projects
-npx pushduck init --template minimal
+npx @pushduck/cli@latest init --template minimal
 ```
 
 ### Monorepo Support
@@ -309,10 +309,10 @@ npx pushduck init --template minimal
 ```bash
 # For monorepos, specify the Next.js app directory
 cd apps/web
-npx pushduck init
+npx @pushduck/cli@latest init
 
 # Or use the --cwd flag
-npx pushduck init --cwd apps/web
+npx @pushduck/cli@latest init --cwd apps/web
 ```
 
 ## Contributing

@@ -10,7 +10,7 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 Get **production-ready file uploads** working in your Next.js app in under 2 minutes with our CLI tool. Zero configuration, just one command.
 
 <Callout type="success">
-  **🚀 New!** Use our CLI for instant setup: `npx pushduck init` - handles everything automatically!
+  **🚀 New!** Use our CLI for instant setup: `npx @pushduck/cli@latest init` - handles everything automatically!
 </Callout>
     
 ### ⚡ Zero-Config CLI Setup
@@ -20,7 +20,7 @@ Get everything set up instantly with our interactive CLI:
 <Tabs items={["npm", "pnpm", "yarn", "bun"]}>
   <Tab value="npm">
     ```bash
-    npx pushduck init
+    npx @pushduck/cli@latest init
     ```
   </Tab>
   <Tab value="pnpm">
@@ -61,7 +61,7 @@ That's it! The CLI will:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
-│   🚀 Welcome to Pushduck                         │
+│   🚀 Welcome to Pushduck                                    │
 │                                                             │
 │   Let's get your file uploads working in 2 minutes!         │
 │                                                             │
@@ -354,7 +354,7 @@ Here's exactly what happens when you run the CLI and how to make the best choice
 <Tabs items={["npm", "pnpm", "yarn", "bun"]}>
   <Tab value="npm">
     ```bash
-    npx pushduck init
+    npx @pushduck/cli@latest init
     # Follow prompts, choose Cloudflare R2, let CLI create bucket
     ```
   </Tab>
@@ -381,7 +381,7 @@ Here's exactly what happens when you run the CLI and how to make the best choice
 ### Quick Cloudflare R2 Setup
 ```bash
 # Works with any package manager
-npx pushduck init --provider cloudflare-r2
+npx @pushduck/cli@latest init --provider cloudflare-r2
 pnpm dlx pushduck init --provider cloudflare-r2
 yarn dlx pushduck init --provider cloudflare-r2
 bunx pushduck init --provider cloudflare-r2
@@ -390,24 +390,24 @@ bunx pushduck init --provider cloudflare-r2
 ### AWS S3 Setup
 ```bash
 # Skip provider selection, go straight to AWS S3
-npx pushduck init --provider aws
+npx @pushduck/cli@latest init --provider aws
 # Use AWS S3 for existing AWS infrastructure
 ```
 
 ### Components Only
 ```bash
 # Generate API and components, no demo page
-npx pushduck init --skip-examples
+npx @pushduck/cli@latest init --skip-examples
 ```
 
 ### Preview Mode
 ```bash
 # See what would be created without making changes
-npx pushduck init --dry-run
+npx @pushduck/cli@latest init --dry-run
 ```
 
 ---
 
 <Callout type="info">
-**Need help?** The CLI includes built-in help: `npx pushduck --help`. For detailed documentation, see our [complete CLI reference](/docs/api/cli/cli-setup).
+**Need help?** The CLI includes built-in help: `npx @pushduck/cli@latest --help`. For detailed documentation, see our [complete CLI reference](/docs/api/cli/cli-setup).
 </Callout>

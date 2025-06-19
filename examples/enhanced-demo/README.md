@@ -18,7 +18,7 @@ This demo showcases the new **File Router Architecture** (Phase 1.2) of the push
 Get everything working instantly:
 
 ```bash
-npx pushduck init
+npx @pushduck/cli@latest init
 ```
 
 The CLI will:

@@ -20,7 +20,7 @@ Get your file uploads working in under 2 minutes with our zero-configuration CLI
 <Tabs items={["npm", "pnpm", "yarn", "bun"]}>
   <Tab value="npm">
     ```bash
-    npx pushduck init
+    npx @pushduck/cli@latest init
     ```
   </Tab>
   <Tab value="pnpm">
@@ -84,7 +84,7 @@ The CLI will automatically:
 ### `init` - Initialize Setup
 
 ```bash
-npx pushduck init [options]
+npx @pushduck/cli@latest init [options]
 ```
 
 **Options:**
@@ -102,28 +102,28 @@ npx pushduck init [options]
   <Tab value="Quick Setup">
     ```bash
     # Interactive setup with all prompts
-    npx pushduck init
+    npx @pushduck/cli@latest init
     ```
   </Tab>
   
   <Tab value="AWS Direct">
     ```bash
     # Skip provider selection, use AWS S3
-    npx pushduck init --provider aws
+    npx @pushduck/cli@latest init --provider aws
     ```
   </Tab>
   
   <Tab value="Custom API Path">
     ```bash
     # Use custom API route path
-    npx pushduck init --api-path /api/files
+    npx @pushduck/cli@latest init --api-path /api/files
     ```
   </Tab>
   
   <Tab value="Components Only">
     ```bash
     # Generate only components, skip bucket creation
-    npx pushduck init --skip-bucket --skip-examples
+    npx @pushduck/cli@latest init --skip-bucket --skip-examples
     ```
   </Tab>
 </Tabs>
@@ -131,14 +131,14 @@ npx pushduck init [options]
 ### `add` - Add Upload Route
 
 ```bash
-npx pushduck add
+npx @pushduck/cli@latest add
 ```
 
 Add new upload routes to existing configuration:
 
 ```bash
 # Interactive route builder
-npx pushduck add
+npx @pushduck/cli@latest add
 
 # Example output:
 # ✨ Added imageUpload route for profile pictures
@@ -149,7 +149,7 @@ npx pushduck add
 ### `test` - Test Configuration
 
 ```bash
-npx pushduck test [options]
+npx @pushduck/cli@latest test [options]
 ```
 
 **Options:**
@@ -159,7 +159,7 @@ npx pushduck test [options]
 Validates your current setup:
 
 ```bash
-npx pushduck test
+npx @pushduck/cli@latest test
 
 # Example output:
 # ✅ Environment variables configured
@@ -394,7 +394,7 @@ NEXTAUTH_URL=http://localhost:3000
 <Tabs items={["Cloudflare R2", "AWS S3", "DigitalOcean", "MinIO"]}>
   <Tab value="Cloudflare R2">
     ```bash
-    npx pushduck init --provider cloudflare-r2
+    npx @pushduck/cli@latest init --provider cloudflare-r2
     ```
     
     **What gets configured:**
@@ -406,7 +406,7 @@ NEXTAUTH_URL=http://localhost:3000
   
   <Tab value="AWS S3">
     ```bash
-    npx pushduck init --provider aws
+    npx @pushduck/cli@latest init --provider aws
     ```
     
     **What gets configured:**
@@ -418,7 +418,7 @@ NEXTAUTH_URL=http://localhost:3000
   
   <Tab value="DigitalOcean">
     ```bash
-    npx pushduck init --provider digitalocean
+    npx @pushduck/cli@latest init --provider digitalocean
     ```
     
     **Required Environment Variables:**
@@ -437,7 +437,7 @@ NEXTAUTH_URL=http://localhost:3000
   
   <Tab value="MinIO">
     ```bash
-    npx pushduck init --provider minio
+    npx @pushduck/cli@latest init --provider minio
     ```
     
     **Required Environment Variables:**
@@ -464,14 +464,14 @@ NEXTAUTH_URL=http://localhost:3000
 npm install -g pushduck
 
 # Or use npx for one-time usage
-npx pushduck@latest init
+npx @pushduck/cli@latest@latest init
 ```
 
 ### Permission Errors
 
 ```bash
 # If you get permission errors during setup
-sudo npx pushduck init
+sudo npx @pushduck/cli@latest init
 
 # Or fix npm permissions
 npm config set prefix ~/.npm-global
@@ -482,24 +482,24 @@ export PATH=~/.npm-global/bin:$PATH
 
 ```bash
 # Force overwrite existing configuration
-npx pushduck init --force
+npx @pushduck/cli@latest init --force
 
 # Or backup and regenerate
 cp app/api/upload/route.ts app/api/upload/route.ts.backup
-npx pushduck init
+npx @pushduck/cli@latest init
 ```
 
 ### Bucket Creation Failed
 
 ```bash
 # Test your credentials first
-npx pushduck test
+npx @pushduck/cli@latest test
 
 # Skip automatic bucket creation
-npx pushduck init --skip-bucket
+npx @pushduck/cli@latest init --skip-bucket
 
 # Create bucket manually, then run:
-npx pushduck test
+npx @pushduck/cli@latest test
 ```
 
 ## Advanced Usage
@@ -508,7 +508,7 @@ npx pushduck test
 
 ```bash
 # Use custom file templates
-npx pushduck init --template enterprise
+npx @pushduck/cli@latest init --template enterprise
 
 # Available templates:
 # - default: Basic setup with examples
@@ -522,17 +522,17 @@ npx pushduck init --template enterprise
 ```bash
 # For monorepos, specify the Next.js app directory
 cd apps/web
-npx pushduck init
+npx @pushduck/cli@latest init
 
 # Or use the --cwd flag
-npx pushduck init --cwd apps/web
+npx @pushduck/cli@latest init --cwd apps/web
 ```
 
 ### CI/CD Integration
 
 ```bash
 # Non-interactive mode for CI/CD
-npx pushduck init \
+npx @pushduck/cli@latest init \
   --provider aws \
   --skip-examples \
   --api-path /api/upload \

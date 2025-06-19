@@ -27,9 +27,9 @@ export async function initCommand(options: InitOptions = {}) {
     chalk.cyan(`
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
-│   🚀 Welcome to Pushduck                       │
+│   🚀 Welcome to Pushduck                                    │
 │                                                             │
-│   Let's get your file uploads working in 2 minutes!        │
+│   Let's get your file uploads working in 2 minutes!         │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 `)
@@ -291,7 +291,7 @@ export async function initCommand(options: InitOptions = {}) {
         );
         console.log(
           chalk.gray(
-            "You can test your configuration anytime with: npx pushduck test"
+            "You can test your configuration anytime with: npx @pushduck/cli test"
           )
         );
       }
