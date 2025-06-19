@@ -201,7 +201,7 @@ If you want to keep the directory structure clean:
 
 ```bash
 # In packages/
-mv cli pushduck-cli
+mv cli @pushduck/cli
 # Or keep it as cli, both work fine
 ```
 
@@ -212,7 +212,7 @@ Update `pnpm-workspace.yaml` if you renamed the directory:
 ```yaml
 packages:
   - "packages/*"
-  - "packages/pushduck-cli"  # if renamed
+  - "packages/@pushduck/cli"  # if renamed
 ```
 
 Update `turbo.json` references:

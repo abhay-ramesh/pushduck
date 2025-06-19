@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to pushduck CLI will be documented in this file.
+All notable changes to @pushduck/cli will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial release of pushduck CLI (migrated from create-next-s3-uploader)
+- Initial release of @pushduck/cli (migrated from create-next-s3-uploader)
 - Zero-config setup for pushduck
 - Support for Next.js projects
 - Provider configuration (AWS S3, Cloudflare R2, DigitalOcean Spaces, Google Cloud, MinIO)

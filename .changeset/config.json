@@ -11,7 +11,7 @@
   "linked": [
     [
       "pushduck",
-      "pushduck-cli"
+      "@pushduck/cli"
     ]
   ],
   "access": "public",
