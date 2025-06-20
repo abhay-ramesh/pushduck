@@ -44,7 +44,7 @@ export { s3 } from "./core/upload-config";
 // ========================================
 
 // Modern router (recommended)
-export { S3Route, createS3Handler, createS3Router } from "./core/router-v2";
+export { createS3Handler, createS3Router, S3Route } from "./core/router-v2";
 
 // Router types
 export type { S3Router } from "./types";
@@ -57,12 +57,33 @@ export type { S3Router } from "./types";
 export {
   checkFileExists,
   createS3Client,
+  fileExistsWithInfo,
   generateFileKey,
+  generatePresignedDownloadUrl,
   generatePresignedUploadUrl,
   generatePresignedUploadUrls,
+  getFileContentType,
+  // Metadata operations
+  getFileInfo,
+  getFileLastModified,
+  getFileMetadata,
+  getFilesInfo,
+  getFileSize,
   getFileUrl,
+  listDirectories,
+  // List operations
+  listFiles,
+  listFilesByDate,
+  listFilesByExtension,
+  listFilesBySize,
+  listFilesPaginated,
+  listFilesPaginatedGenerator,
+  listFilesWithPrefix,
   resetS3Client,
+  setFileMetadata,
   uploadFileToS3,
+  validateFile,
+  validateFiles,
   validateS3Connection,
 } from "./core/s3-client";
 
@@ -111,11 +132,20 @@ export type {
 
 // S3 client types
 export type {
+  // List operation types
+  FileInfo,
+  // Metadata operation types
+  FileInfoResult,
   FileKeyOptions,
+  FileValidationResult,
+  ListFilesOptions,
+  ListFilesResult,
+  PaginatedListOptions,
   PresignedUrlOptions,
   PresignedUrlResult,
   ProgressCallback,
   UploadProgress,
+  ValidationRules,
 } from "./core/s3-client";
 
 // Legacy config types removed - use modern provider config types instead

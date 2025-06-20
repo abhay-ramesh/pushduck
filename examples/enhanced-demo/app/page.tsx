@@ -1,4 +1,8 @@
 import {
+  FileManagementDemo,
+  PaginatedFileList,
+} from "../components/file-management-demo";
+import {
   PropertyBasedDocumentUpload,
   PropertyBasedImageUpload,
 } from "../components/property-based-upload";
@@ -16,15 +20,29 @@ export default function Home() {
         <div className="mb-8 text-center">
           <h1 className="mb-2 text-4xl font-bold text-gray-900">🚀 Pushduck</h1>
           <p className="mb-4 text-lg text-gray-600">
-            Enhanced Type Inference Demo
+            Complete S3 File Management Demo
           </p>
           <div className="flex flex-col gap-2 items-center">
             <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full">
-              ✅ Property-Based Client with Type Inference
+              ✅ List Files & Metadata Operations
             </div>
             <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-blue-800 bg-blue-100 rounded-full">
-              🌐 Connected to Cloudflare R2
+              🌐 Connected to S3-Compatible Storage
             </div>
+            <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-purple-800 bg-purple-100 rounded-full">
+              🔧 Real S3 API Implementation
+            </div>
+          </div>
+        </div>
+
+        {/* File Management Demo */}
+        <div className="mb-8">
+          <h2 className="mb-4 text-2xl font-semibold text-gray-900">
+            📁 File Management & Metadata Operations
+          </h2>
+          <div className="space-y-6">
+            <FileManagementDemo userId="demo-user" />
+            <PaginatedFileList userId="demo-user" />
           </div>
         </div>
 
@@ -51,84 +69,176 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Features */}
+        {/* API Operations Reference */}
         <div className="p-6 bg-white rounded-lg border shadow-md">
           <h2 className="mb-4 text-2xl font-semibold text-gray-900">
-            🎯 Enhanced Type Inference Features
+            🔧 S3 Operations Reference
           </h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="space-y-3">
-              <div className="flex gap-3 items-start">
-                <span className="text-lg text-green-500">✓</span>
-                <div>
-                  <h3 className="font-medium text-gray-900">
-                    Property-Based Access
-                  </h3>
-                  <p className="text-sm text-gray-600">
+              <h3 className="text-lg font-medium text-gray-800">
+                List Operations
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex gap-3 items-start">
+                  <span className="text-green-500">✓</span>
+                  <div>
                     <code className="px-1 text-xs bg-gray-100 rounded">
-                      upload.imageUpload
-                    </code>{" "}
-                    - Direct property access eliminates string literals and
-                    typos
-                  </p>
+                      listFiles()
+                    </code>
+                    <p className="text-gray-600">
+                      Basic file listing with filtering
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-3 items-start">
-                <span className="text-lg text-green-500">✓</span>
-                <div>
-                  <h3 className="font-medium text-gray-900">
-                    Template Literal Types
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Full TypeScript inference from server router to client hooks
-                  </p>
+                <div className="flex gap-3 items-start">
+                  <span className="text-green-500">✓</span>
+                  <div>
+                    <code className="px-1 text-xs bg-gray-100 rounded">
+                      listFilesPaginated()
+                    </code>
+                    <p className="text-gray-600">
+                      Pagination support for large datasets
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-3 items-start">
-                <span className="text-lg text-green-500">✓</span>
-                <div>
-                  <h3 className="font-medium text-gray-900">
-                    Zero Runtime Overhead
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Compile-time type safety with no performance impact
-                  </p>
+                <div className="flex gap-3 items-start">
+                  <span className="text-green-500">✓</span>
+                  <div>
+                    <code className="px-1 text-xs bg-gray-100 rounded">
+                      listFilesByExtension()
+                    </code>
+                    <p className="text-gray-600">
+                      Filter by file type (.jpg, .pdf, etc.)
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-green-500">✓</span>
+                  <div>
+                    <code className="px-1 text-xs bg-gray-100 rounded">
+                      listFilesBySize()
+                    </code>
+                    <p className="text-gray-600">Filter by file size ranges</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-green-500">✓</span>
+                  <div>
+                    <code className="px-1 text-xs bg-gray-100 rounded">
+                      listDirectories()
+                    </code>
+                    <p className="text-gray-600">
+                      List common prefixes (directories)
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
+
             <div className="space-y-3">
-              <div className="flex gap-3 items-start">
-                <span className="text-lg text-green-500">✓</span>
-                <div>
-                  <h3 className="font-medium text-gray-900">
-                    Enhanced IntelliSense
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Autocomplete shows available routes and methods from your
-                    API
-                  </p>
+              <h3 className="text-lg font-medium text-gray-800">
+                Metadata Operations
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex gap-3 items-start">
+                  <span className="text-green-500">✓</span>
+                  <div>
+                    <code className="px-1 text-xs bg-gray-100 rounded">
+                      getFileInfo()
+                    </code>
+                    <p className="text-gray-600">
+                      Comprehensive file information
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-green-500">✓</span>
+                  <div>
+                    <code className="px-1 text-xs bg-gray-100 rounded">
+                      getFilesInfo()
+                    </code>
+                    <p className="text-gray-600">Batch metadata retrieval</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-green-500">✓</span>
+                  <div>
+                    <code className="px-1 text-xs bg-gray-100 rounded">
+                      validateFile()
+                    </code>
+                    <p className="text-gray-600">
+                      File validation against rules
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-green-500">✓</span>
+                  <div>
+                    <code className="px-1 text-xs bg-gray-100 rounded">
+                      setFileMetadata()
+                    </code>
+                    <p className="text-gray-600">Custom metadata management</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-green-500">✓</span>
+                  <div>
+                    <code className="px-1 text-xs bg-gray-100 rounded">
+                      fileExistsWithInfo()
+                    </code>
+                    <p className="text-gray-600">
+                      Check existence with metadata
+                    </p>
+                  </div>
                 </div>
               </div>
-              <div className="flex gap-3 items-start">
-                <span className="text-lg text-green-500">✓</span>
-                <div>
-                  <h3 className="font-medium text-gray-900">
-                    Backward Compatible
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Works alongside existing hooks - migrate at your own pace
-                  </p>
-                </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Features */}
+        <div className="p-6 mt-8 bg-white rounded-lg border shadow-md">
+          <h2 className="mb-4 text-2xl font-semibold text-gray-900">
+            🎯 Complete S3 Operations
+          </h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="space-y-3">
+              <h3 className="text-lg font-medium text-gray-800">
+                ✅ Upload Operations
+              </h3>
+              <div className="space-y-1 text-sm text-gray-600">
+                <div>• Presigned URL generation</div>
+                <div>• Direct server uploads</div>
+                <div>• Progress tracking</div>
+                <div>• Multi-file batching</div>
+                <div>• Custom metadata</div>
               </div>
-              <div className="flex gap-3 items-start">
-                <span className="text-lg text-green-500">✓</span>
-                <div>
-                  <h3 className="font-medium text-gray-900">tRPC-Style DX</h3>
-                  <p className="text-sm text-gray-600">
-                    Familiar developer experience inspired by modern type-safe
-                    libraries
-                  </p>
-                </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-lg font-medium text-gray-800">
+                ✅ List & Browse
+              </h3>
+              <div className="space-y-1 text-sm text-gray-600">
+                <div>• Directory-like listing</div>
+                <div>• Pagination support</div>
+                <div>• Filter by type/size/date</div>
+                <div>• Async generators</div>
+                <div>• Sorting options</div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-lg font-medium text-gray-800">
+                ✅ Metadata & Info
+              </h3>
+              <div className="space-y-1 text-sm text-gray-600">
+                <div>• File size, type, dates</div>
+                <div>• Custom metadata CRUD</div>
+                <div>• Batch operations</div>
+                <div>• File validation</div>
+                <div>• Existence checking</div>
               </div>
             </div>
           </div>
@@ -137,56 +247,83 @@ export default function Home() {
         {/* Code Example */}
         <div className="p-6 mt-8 text-white bg-gray-900 rounded-lg">
           <h3 className="mb-4 text-lg font-semibold">
-            📝 Property-Based Client Usage
+            📝 Real S3 API Usage Examples
           </h3>
           <pre className="overflow-x-auto text-sm">
-            <code>{`// Create typed client from your server router
-const upload = createUploadClient<AppRouter>({ endpoint: "/api/upload" });
+            <code>{`// List user files with metadata
+const files = await listFilesWithPrefix("users/123/", {
+  maxFiles: 100,
+  includeMetadata: true,
+  sortBy: "modified",
+  sortOrder: "desc"
+});
 
-// Property-based access - no string literals!
-const { uploadFiles, files, isUploading } = upload.imageUpload;
-//            ^ Full TypeScript inference  
-//                      ^ Type-safe property access
+// Get comprehensive file information
+const fileInfo = await getFileInfo("users/123/avatar.jpg");
+console.log({
+  size: fileInfo.size,
+  contentType: fileInfo.contentType,
+  lastModified: fileInfo.lastModified,
+  customMetadata: fileInfo.metadata
+});
 
-// Upload with complete type safety
-await uploadFiles(selectedFiles);
+// Batch operations for efficiency
+const filesInfo = await getFilesInfo([
+  "users/123/avatar.jpg",
+  "users/123/document.pdf",
+  "users/123/report.docx"
+]);
 
-// Each file gets individual tracking with proper types
-files.map(file => (
-  <div key={file.id}>
-    <span>{file.name}</span>
-    <span>{file.status}</span> {/* 'pending' | 'uploading' | 'success' | 'error' */}
-    <progress value={file.progress} max={100} />
-    {file.url && <a href={file.url}>View</a>}
-  </div>
-));`}</code>
+// Filter files by criteria
+const images = await listFilesByExtension("jpg", "users/123/");
+const largeFiles = await listFilesBySize(5000000, undefined, "users/123/");
+const recentFiles = await listFilesByDate(
+  new Date("2024-01-01"),
+  new Date(),
+  "users/123/"
+);
+
+// Paginated listing for large datasets
+const result = await listFilesPaginated({
+  prefix: "users/123/",
+  pageSize: 50,
+  continuationToken: nextPageToken
+});
+
+// File validation
+const validation = await validateFile("users/123/avatar.jpg", {
+  maxSize: 5000000,
+  allowedTypes: ["image/jpeg", "image/png"],
+  requiredExtensions: ["jpg", "jpeg", "png"]
+});`}</code>
           </pre>
         </div>
 
         {/* Demo Instructions */}
         <div className="p-4 mt-6 bg-blue-50 rounded-lg border border-blue-200">
           <h4 className="mb-2 font-medium text-blue-800">
-            🎮 Try the Enhanced Demo
+            🎮 Try the Complete Demo
           </h4>
           <ul className="space-y-1 text-sm text-blue-700">
             <li>
-              • <strong>Property-Based Client:</strong> Top section uses the new
-              <code className="px-1 ml-1 text-xs bg-blue-100 rounded">
-                upload.imageUpload
-              </code>{" "}
-              syntax
+              • <strong>File Management:</strong> Top section demonstrates list
+              files, metadata operations, and filtering
             </li>
             <li>
-              • <strong>Hook-Based Original:</strong> Bottom section shows the
-              traditional approach for comparison
+              • <strong>Pagination:</strong> Shows how to handle large datasets
+              efficiently with continuation tokens
             </li>
             <li>
-              • <strong>Type Safety:</strong> Notice the enhanced IntelliSense
-              and compile-time validation
+              • <strong>Real API:</strong> Uses actual S3 operations from
+              pushduck server package
             </li>
             <li>
-              • <strong>Zero Changes:</strong> Same underlying functionality,
-              better developer experience
+              • <strong>Multi-Provider:</strong> Works with AWS S3, Cloudflare
+              R2, DigitalOcean Spaces, MinIO
+            </li>
+            <li>
+              • <strong>Type Safety:</strong> Full TypeScript support with
+              comprehensive interfaces
             </li>
           </ul>
         </div>

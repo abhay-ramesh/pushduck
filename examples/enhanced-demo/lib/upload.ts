@@ -42,7 +42,11 @@ const { s3, createS3Handler, config } = uploadConfig
     acl: "public-read", // Make uploaded files publicly accessible
   })
   .security({
-    allowedOrigins: ["http://localhost:3000", "https://your-domain.com"],
+    allowedOrigins: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "https://your-domain.com",
+    ],
     rateLimiting: {
       maxUploads: 10,
       windowMs: 60000, // 1 minute

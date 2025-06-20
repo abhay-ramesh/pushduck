@@ -393,6 +393,50 @@ export interface PresignedUrlResult {
 }
 
 /**
+ * Generates a presigned URL for downloading/viewing a file from S3
+ */
+export async function generatePresignedDownloadUrl(
+  key: string,
+  expiresIn: number = 3600
+): Promise<string> {
+  const awsClient = createS3Client();
+  const config = getS3CompatibleConfig(getUploadConfig().provider);
+
+  try {
+    const s3Url = buildS3Url(key, config);
+    const url = new URL(s3Url);
+
+    // Add expiration as query parameter
+    url.searchParams.set("X-Amz-Expires", expiresIn.toString());
+
+    // Create a signed request for GET operation (download/view)
+    const signedRequest = await awsClient.sign(
+      new Request(url.toString(), {
+        method: "GET",
+      }),
+      {
+        aws: { signQuery: true },
+      }
+    );
+
+    if (config.debug) {
+      console.log(`🔗 Generated presigned download URL for ${key}:`);
+      console.log(`   Signed URL: ${signedRequest.url}`);
+      console.log(`   Expires in: ${expiresIn} seconds`);
+    }
+
+    return signedRequest.url;
+  } catch (error) {
+    console.error("Failed to generate presigned download URL:", error);
+    throw new Error(
+      `Failed to generate presigned download URL: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+}
+
+/**
  * Generates a presigned URL for uploading a file to S3
  */
 export async function generatePresignedUploadUrl(
@@ -691,4 +735,696 @@ export async function validateS3Connection(): Promise<{
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
+}
+
+// ========================================
+// List Operations
+// ========================================
+
+export interface ListFilesOptions {
+  prefix?: string;
+  maxFiles?: number; // Default 1000
+  includeMetadata?: boolean; // Include size, modified date, etc.
+  sortBy?: "key" | "size" | "modified";
+  sortOrder?: "asc" | "desc";
+}
+
+export interface PaginatedListOptions extends ListFilesOptions {
+  pageSize?: number; // Default 100
+  continuationToken?: string; // For pagination
+}
+
+export interface FileInfo {
+  key: string;
+  url: string; // Public URL
+  size: number; // Bytes
+  contentType: string;
+  lastModified: Date;
+  etag: string;
+  metadata?: Record<string, string>; // Custom metadata
+}
+
+export interface ListFilesResult {
+  files: FileInfo[];
+  continuationToken?: string; // For pagination
+  isTruncated: boolean;
+  totalCount?: number;
+}
+
+/**
+ * Lists files in the bucket with optional filtering and pagination
+ */
+export async function listFiles(
+  options: ListFilesOptions = {}
+): Promise<FileInfo[]> {
+  const result = await listFilesPaginated({
+    ...options,
+    pageSize: options.maxFiles || 1000,
+  });
+  return result.files;
+}
+
+/**
+ * Lists files with pagination support
+ */
+export async function listFilesPaginated(
+  options: PaginatedListOptions = {}
+): Promise<ListFilesResult> {
+  const awsClient = createS3Client();
+  const config = getS3CompatibleConfig(getUploadConfig().provider);
+
+  const {
+    prefix = "",
+    pageSize = 100,
+    maxFiles = 1000,
+    includeMetadata = true,
+    sortBy = "key",
+    sortOrder = "asc",
+    continuationToken,
+  } = options;
+
+  try {
+    // Build list objects URL
+    const bucketUrl = config.endpoint
+      ? `${config.endpoint}/${config.bucket}`
+      : `https://${config.bucket}.s3.${config.region}.amazonaws.com/`;
+
+    const url = new URL(bucketUrl);
+    url.searchParams.set("list-type", "2"); // Use ListObjectsV2
+
+    if (prefix) {
+      url.searchParams.set("prefix", prefix);
+    }
+
+    const limit = Math.min(pageSize, maxFiles);
+    url.searchParams.set("max-keys", limit.toString());
+
+    if (continuationToken) {
+      url.searchParams.set("continuation-token", continuationToken);
+    }
+
+    const response = await awsClient.fetch(url.toString(), {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to list files: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const xmlText = await response.text();
+    const files = parseListObjectsResponse(xmlText, config, includeMetadata);
+
+    // Parse pagination info
+    const isTruncated = xmlText.includes("<IsTruncated>true</IsTruncated>");
+    const nextContinuationToken = extractXmlValue(
+      xmlText,
+      "NextContinuationToken"
+    );
+
+    // Sort files if requested
+    const sortedFiles = sortFiles(files, sortBy, sortOrder);
+
+    if (config.debug) {
+      console.log(
+        `📋 Listed ${files.length} files with prefix: ${prefix || "(none)"}`
+      );
+    }
+
+    return {
+      files: sortedFiles,
+      continuationToken: nextContinuationToken || undefined,
+      isTruncated,
+      totalCount: files.length,
+    };
+  } catch (error) {
+    console.error("Failed to list files:", error);
+    throw new Error(
+      `Failed to list files: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+}
+
+/**
+ * Lists files with a specific prefix (directory-like listing)
+ */
+export async function listFilesWithPrefix(
+  prefix: string,
+  options: ListFilesOptions = {}
+): Promise<FileInfo[]> {
+  return listFiles({ ...options, prefix });
+}
+
+/**
+ * Lists files by file extension
+ */
+export async function listFilesByExtension(
+  extension: string,
+  prefix?: string
+): Promise<FileInfo[]> {
+  const files = await listFiles({ prefix, maxFiles: 10000 });
+  const ext = extension.startsWith(".") ? extension : `.${extension}`;
+  return files.filter((file) =>
+    file.key.toLowerCase().endsWith(ext.toLowerCase())
+  );
+}
+
+/**
+ * Lists files by size range
+ */
+export async function listFilesBySize(
+  minSize?: number,
+  maxSize?: number,
+  prefix?: string
+): Promise<FileInfo[]> {
+  const files = await listFiles({
+    prefix,
+    maxFiles: 10000,
+    includeMetadata: true,
+  });
+  return files.filter((file) => {
+    if (minSize !== undefined && file.size < minSize) return false;
+    if (maxSize !== undefined && file.size > maxSize) return false;
+    return true;
+  });
+}
+
+/**
+ * Lists files by date range
+ */
+export async function listFilesByDate(
+  fromDate?: Date,
+  toDate?: Date,
+  prefix?: string
+): Promise<FileInfo[]> {
+  const files = await listFiles({
+    prefix,
+    maxFiles: 10000,
+    includeMetadata: true,
+  });
+  return files.filter((file) => {
+    if (fromDate && file.lastModified < fromDate) return false;
+    if (toDate && file.lastModified > toDate) return false;
+    return true;
+  });
+}
+
+/**
+ * Lists directories (common prefixes) in a bucket
+ */
+export async function listDirectories(prefix: string = ""): Promise<string[]> {
+  const awsClient = createS3Client();
+  const config = getS3CompatibleConfig(getUploadConfig().provider);
+
+  try {
+    const bucketUrl = config.endpoint
+      ? `${config.endpoint}/${config.bucket}`
+      : `https://${config.bucket}.s3.${config.region}.amazonaws.com/`;
+
+    const url = new URL(bucketUrl);
+    url.searchParams.set("list-type", "2");
+    url.searchParams.set("delimiter", "/");
+
+    if (prefix) {
+      url.searchParams.set(
+        "prefix",
+        prefix.endsWith("/") ? prefix : `${prefix}/`
+      );
+    }
+
+    const response = await awsClient.fetch(url.toString(), {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to list directories: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const xmlText = await response.text();
+    return parseCommonPrefixes(xmlText);
+  } catch (error) {
+    console.error("Failed to list directories:", error);
+    throw new Error(
+      `Failed to list directories: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+}
+
+/**
+ * Generator function for paginated file listing (handles large datasets efficiently)
+ */
+export async function* listFilesPaginatedGenerator(
+  options: PaginatedListOptions = {}
+): AsyncGenerator<FileInfo[]> {
+  let continuationToken: string | undefined = options.continuationToken;
+  let hasMore = true;
+
+  while (hasMore) {
+    const result = await listFilesPaginated({
+      ...options,
+      continuationToken,
+    });
+
+    yield result.files;
+
+    hasMore = result.isTruncated;
+    continuationToken = result.continuationToken;
+  }
+}
+
+// ========================================
+// Metadata Operations
+// ========================================
+
+export interface FileInfoResult {
+  key: string;
+  info: FileInfo | null;
+  error?: string;
+}
+
+export interface FileValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  info: FileInfo;
+}
+
+export interface ValidationRules {
+  maxSize?: number;
+  minSize?: number;
+  allowedTypes?: string[];
+  requiredExtensions?: string[];
+  customValidators?: ((info: FileInfo) => boolean | string)[];
+}
+
+/**
+ * Gets comprehensive file information
+ */
+export async function getFileInfo(key: string): Promise<FileInfo> {
+  const awsClient = createS3Client();
+  const config = getS3CompatibleConfig(getUploadConfig().provider);
+
+  try {
+    const s3Url = buildS3Url(key, config);
+    const response = await awsClient.fetch(s3Url, {
+      method: "HEAD",
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error(`File not found: ${key}`);
+      }
+      throw new Error(
+        `Failed to get file info: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const size = parseInt(response.headers.get("content-length") || "0");
+    const contentType =
+      response.headers.get("content-type") || "application/octet-stream";
+    const lastModified = new Date(
+      response.headers.get("last-modified") || Date.now()
+    );
+    const etag = response.headers.get("etag")?.replace(/"/g, "") || "";
+
+    // Extract custom metadata (x-amz-meta-* headers)
+    const metadata: Record<string, string> = {};
+    response.headers.forEach((value, name) => {
+      if (name.startsWith("x-amz-meta-")) {
+        const metaKey = name.substring(11); // Remove 'x-amz-meta-' prefix
+        metadata[metaKey] = value;
+      }
+    });
+
+    const fileInfo: FileInfo = {
+      key,
+      url: getFileUrl(key),
+      size,
+      contentType,
+      lastModified,
+      etag,
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+    };
+
+    if (config.debug) {
+      console.log(`📄 Retrieved file info for ${key}:`, {
+        size: `${(size / 1024).toFixed(1)}KB`,
+        contentType,
+        lastModified: lastModified.toISOString(),
+      });
+    }
+
+    return fileInfo;
+  } catch (error) {
+    console.error(`Failed to get file info for ${key}:`, error);
+    throw new Error(
+      `Failed to get file info: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+}
+
+/**
+ * Gets file information for multiple files efficiently
+ */
+export async function getFilesInfo(keys: string[]): Promise<FileInfoResult[]> {
+  const results = await Promise.allSettled(
+    keys.map(async (key) => {
+      try {
+        const info = await getFileInfo(key);
+        return { key, info, error: undefined };
+      } catch (error) {
+        return {
+          key,
+          info: null,
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    })
+  );
+
+  return results.map((result, index) => {
+    if (result.status === "fulfilled") {
+      return result.value;
+    } else {
+      return {
+        key: keys[index],
+        info: null,
+        error:
+          result.reason instanceof Error
+            ? result.reason.message
+            : "Unknown error",
+      };
+    }
+  });
+}
+
+/**
+ * Gets just the file size
+ */
+export async function getFileSize(key: string): Promise<number> {
+  const info = await getFileInfo(key);
+  return info.size;
+}
+
+/**
+ * Gets just the file content type
+ */
+export async function getFileContentType(key: string): Promise<string> {
+  const info = await getFileInfo(key);
+  return info.contentType;
+}
+
+/**
+ * Gets just the file last modified date
+ */
+export async function getFileLastModified(key: string): Promise<Date> {
+  const info = await getFileInfo(key);
+  return info.lastModified;
+}
+
+/**
+ * Gets custom metadata for a file
+ */
+export async function getFileMetadata(
+  key: string
+): Promise<Record<string, string>> {
+  const info = await getFileInfo(key);
+  return info.metadata || {};
+}
+
+/**
+ * Sets custom metadata for a file (requires copying the object)
+ */
+export async function setFileMetadata(
+  key: string,
+  metadata: Record<string, string>
+): Promise<void> {
+  const awsClient = createS3Client();
+  const config = getS3CompatibleConfig(getUploadConfig().provider);
+
+  try {
+    const s3Url = buildS3Url(key, config);
+
+    // Prepare headers for metadata
+    const headers: Record<string, string> = {
+      "x-amz-copy-source": `/${config.bucket}/${key}`,
+      "x-amz-metadata-directive": "REPLACE",
+    };
+
+    // Add custom metadata as headers
+    Object.entries(metadata).forEach(([metaKey, value]) => {
+      headers[`x-amz-meta-${metaKey}`] = value;
+    });
+
+    const response = await awsClient.fetch(s3Url, {
+      method: "PUT",
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to set metadata: ${response.status} ${response.statusText}`
+      );
+    }
+
+    if (config.debug) {
+      console.log(`🏷️ Set metadata for ${key}:`, metadata);
+    }
+  } catch (error) {
+    console.error(`Failed to set metadata for ${key}:`, error);
+    throw new Error(
+      `Failed to set metadata: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+}
+
+/**
+ * Checks if file exists and returns info if it does
+ */
+export async function fileExistsWithInfo(
+  key: string
+): Promise<FileInfo | null> {
+  try {
+    return await getFileInfo(key);
+  } catch (error) {
+    // If file doesn't exist, return null instead of throwing
+    if (error instanceof Error && error.message.includes("File not found")) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Validates a file against specified rules
+ */
+export async function validateFile(
+  key: string,
+  rules: ValidationRules
+): Promise<FileValidationResult> {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  try {
+    const info = await getFileInfo(key);
+
+    // Size validation
+    if (rules.maxSize !== undefined && info.size > rules.maxSize) {
+      errors.push(
+        `File size ${info.size} bytes exceeds maximum ${rules.maxSize} bytes`
+      );
+    }
+    if (rules.minSize !== undefined && info.size < rules.minSize) {
+      errors.push(
+        `File size ${info.size} bytes is below minimum ${rules.minSize} bytes`
+      );
+    }
+
+    // Content type validation
+    if (rules.allowedTypes && !rules.allowedTypes.includes(info.contentType)) {
+      errors.push(
+        `Content type ${info.contentType} is not allowed. Allowed types: ${rules.allowedTypes.join(", ")}`
+      );
+    }
+
+    // Extension validation
+    if (rules.requiredExtensions) {
+      const fileExtension = info.key.split(".").pop()?.toLowerCase() || "";
+      const normalizedExtensions = rules.requiredExtensions.map((ext) =>
+        ext.startsWith(".") ? ext.substring(1).toLowerCase() : ext.toLowerCase()
+      );
+
+      if (!normalizedExtensions.includes(fileExtension)) {
+        errors.push(
+          `File extension .${fileExtension} is not allowed. Required extensions: ${rules.requiredExtensions.join(", ")}`
+        );
+      }
+    }
+
+    // Custom validators
+    if (rules.customValidators) {
+      for (const validator of rules.customValidators) {
+        const result = validator(info);
+        if (result === false) {
+          errors.push("Custom validation failed");
+        } else if (typeof result === "string") {
+          errors.push(result);
+        }
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      warnings,
+      info,
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      errors: [error instanceof Error ? error.message : "Unknown error"],
+      warnings,
+      info: {} as FileInfo, // Placeholder since we couldn't get real info
+    };
+  }
+}
+
+/**
+ * Validates multiple files against specified rules
+ */
+export async function validateFiles(
+  keys: string[],
+  rules: ValidationRules
+): Promise<FileValidationResult[]> {
+  const results = await Promise.allSettled(
+    keys.map((key) => validateFile(key, rules))
+  );
+
+  return results.map((result, index) => {
+    if (result.status === "fulfilled") {
+      return result.value;
+    } else {
+      return {
+        valid: false,
+        errors: [
+          result.reason instanceof Error
+            ? result.reason.message
+            : "Unknown error",
+        ],
+        warnings: [],
+        info: {} as FileInfo,
+      };
+    }
+  });
+}
+
+// ========================================
+// Helper Functions
+// ========================================
+
+/**
+ * Parses S3 ListObjects XML response into FileInfo array
+ */
+function parseListObjectsResponse(
+  xmlText: string,
+  config: S3CompatibleConfig,
+  includeMetadata: boolean
+): FileInfo[] {
+  const files: FileInfo[] = [];
+
+  // Simple XML parsing for <Contents> elements
+  const contentsRegex = /<Contents>(.*?)<\/Contents>/gs;
+  let match;
+
+  while ((match = contentsRegex.exec(xmlText)) !== null) {
+    const contentXml = match[1];
+
+    const key = extractXmlValue(contentXml, "Key");
+    const size = parseInt(extractXmlValue(contentXml, "Size") || "0");
+    const lastModified = new Date(
+      extractXmlValue(contentXml, "LastModified") || Date.now()
+    );
+    const etag = extractXmlValue(contentXml, "ETag")?.replace(/"/g, "") || "";
+
+    if (key) {
+      files.push({
+        key,
+        url: getFileUrl(key),
+        size,
+        contentType: "application/octet-stream", // Will be filled by HEAD request if includeMetadata
+        lastModified,
+        etag,
+      });
+    }
+  }
+
+  return files;
+}
+
+/**
+ * Parses common prefixes (directories) from S3 XML response
+ */
+function parseCommonPrefixes(xmlText: string): string[] {
+  const prefixes: string[] = [];
+  const prefixRegex =
+    /<CommonPrefixes>.*?<Prefix>(.*?)<\/Prefix>.*?<\/CommonPrefixes>/gs;
+  let match;
+
+  while ((match = prefixRegex.exec(xmlText)) !== null) {
+    const prefix = match[1];
+    if (prefix) {
+      prefixes.push(prefix);
+    }
+  }
+
+  return prefixes;
+}
+
+/**
+ * Extracts value from XML element
+ */
+function extractXmlValue(xml: string, tagName: string): string | null {
+  const regex = new RegExp(`<${tagName}>(.*?)</${tagName}>`, "s");
+  const match = xml.match(regex);
+  return match ? match[1] : null;
+}
+
+/**
+ * Sorts files by specified criteria
+ */
+function sortFiles(
+  files: FileInfo[],
+  sortBy: "key" | "size" | "modified",
+  sortOrder: "asc" | "desc"
+): FileInfo[] {
+  const sorted = [...files].sort((a, b) => {
+    let comparison = 0;
+
+    switch (sortBy) {
+      case "key":
+        comparison = a.key.localeCompare(b.key);
+        break;
+      case "size":
+        comparison = a.size - b.size;
+        break;
+      case "modified":
+        comparison = a.lastModified.getTime() - b.lastModified.getTime();
+        break;
+    }
+
+    return sortOrder === "desc" ? -comparison : comparison;
+  });
+
+  return sorted;
 }
