@@ -64,6 +64,43 @@ export { createStorage, StorageInstance } from "./core/storage/storage-api";
 export { createS3Client, resetS3Client } from "./core/storage/client";
 
 // ========================================
+// UTILITIES & HEALTH CHECKS
+// ========================================
+
+// Error handling
+export {
+  createConfigError,
+  createFileError,
+  createNetworkError,
+  createS3Error,
+  isConfigError,
+  isFileError,
+  isPushduckError,
+  isS3Error,
+  PushduckError,
+  wrapAsync,
+} from "./core/types/errors";
+
+// Performance monitoring
+export {
+  endOperation,
+  metrics,
+  recordOperation,
+  startOperation,
+  trackOperation,
+} from "./core/utils/metrics";
+
+// Health checks
+export {
+  getHealthReport,
+  healthChecker,
+  runHealthCheck,
+} from "./core/utils/health-check";
+
+// Logging
+export { logger } from "./core/utils/logger";
+
+// ========================================
 // TYPES & INTERFACES
 // ========================================
 
@@ -121,5 +158,18 @@ export type {
   UploadProgress,
   ValidationRules,
 } from "./core/storage";
+
+// Utility types
+export type {
+  PushduckErrorCode,
+  PushduckErrorContext,
+  PushduckResult,
+} from "./core/types/errors";
+
+export type { AggregatedMetrics, OperationMetrics } from "./core/utils/metrics";
+
+export type { HealthCheck, HealthCheckResult } from "./core/utils/health-check";
+
+export type { LogLevel } from "./core/utils/logger";
 
 // Legacy config types removed - use modern provider config types instead

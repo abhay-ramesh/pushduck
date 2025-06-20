@@ -19,6 +19,8 @@
 import { AwsClient } from "aws4fetch";
 import { getUploadConfig } from "../config";
 import type { ProviderConfig } from "../providers/providers";
+import { createConfigError, createS3Error } from "../types/errors";
+import { logger } from "../utils/logger";
 
 // ========================================
 // Configuration Helper
@@ -294,8 +296,13 @@ export function createS3Client(): AwsClient {
   const config = getS3CompatibleConfig(uploadConfig.provider);
 
   if (!config.accessKeyId || !config.secretAccessKey || !config.bucket) {
-    throw new Error(
-      "Missing required S3 configuration. Please check your upload configuration."
+    throw createConfigError(
+      "Missing required S3 configuration. Please check your upload configuration.",
+      {
+        operation: "create-s3-client",
+        provider: uploadConfig.provider.provider,
+        bucket: config.bucket,
+      }
     );
   }
 
@@ -328,7 +335,7 @@ export function createS3Client(): AwsClient {
   awsClientInstance = new AwsClient(clientConfig);
 
   if (config.debug) {
-    console.log("🔧 AWS Client created:", {
+    logger.s3Operation("client-created", {
       region: config.region,
       endpoint: config.endpoint || "default",
       bucket: config.bucket,
@@ -420,18 +427,27 @@ export async function generatePresignedDownloadUrl(
     );
 
     if (config.debug) {
-      console.log(`🔗 Generated presigned download URL for ${key}:`);
-      console.log(`   Signed URL: ${signedRequest.url}`);
-      console.log(`   Expires in: ${expiresIn} seconds`);
+      logger.presignedUrl(key, {
+        signedUrl: signedRequest.url,
+        expiresIn,
+      });
     }
 
     return signedRequest.url;
   } catch (error) {
-    console.error("Failed to generate presigned download URL:", error);
-    throw new Error(
+    logger.error("Failed to generate presigned download URL", error, {
+      operation: "generate-presigned-download-url",
+      key,
+    });
+    throw createS3Error(
       `Failed to generate presigned download URL: ${
         error instanceof Error ? error.message : "Unknown error"
-      }`
+      }`,
+      {
+        operation: "generate-presigned-download-url",
+        key,
+        originalError: error instanceof Error ? error : undefined,
+      }
     );
   }
 }
@@ -465,14 +481,15 @@ export async function generatePresignedUploadUrl(
     );
 
     if (config.debug) {
-      console.log(`🔗 Generated presigned URL for ${options.key}:`);
-      console.log(`   Original URL: ${s3Url}`);
-      console.log(`   Signed URL: ${signedRequest.url}`);
-      console.log(`   Config:`, {
-        region: config.region,
-        endpoint: config.endpoint,
-        bucket: config.bucket,
-        forcePathStyle: config.forcePathStyle,
+      logger.presignedUrl(options.key, {
+        originalUrl: s3Url,
+        signedUrl: signedRequest.url,
+        config: {
+          region: config.region,
+          endpoint: config.endpoint,
+          bucket: config.bucket,
+          forcePathStyle: config.forcePathStyle,
+        },
       });
     }
 
@@ -481,11 +498,19 @@ export async function generatePresignedUploadUrl(
       key: options.key,
     };
   } catch (error) {
-    console.error("Failed to generate presigned URL:", error);
-    throw new Error(
+    logger.error("Failed to generate presigned URL", error, {
+      operation: "generate-presigned-upload-url",
+      key: options.key,
+    });
+    throw createS3Error(
       `Failed to generate presigned URL: ${
         error instanceof Error ? error.message : "Unknown error"
-      }`
+      }`,
+      {
+        operation: "generate-presigned-upload-url",
+        key: options.key,
+        originalError: error instanceof Error ? error : undefined,
+      }
     );
   }
 }
@@ -689,7 +714,7 @@ export async function uploadFileToS3(
     }
 
     if (config.debug) {
-      console.log(`✅ File uploaded successfully: ${key}`);
+      logger.fileOperation("upload-success", key);
     }
 
     return getFileUrl(key);
@@ -847,9 +872,9 @@ export async function listFilesPaginated(
     const sortedFiles = sortFiles(files, sortBy, sortOrder);
 
     if (config.debug) {
-      console.log(
-        `📋 Listed ${files.length} files with prefix: ${prefix || "(none)"}`
-      );
+      logger.fileOperation("list-files", prefix || "(none)", {
+        count: files.length,
+      });
     }
 
     return {
@@ -1074,7 +1099,7 @@ export async function getFileInfo(key: string): Promise<FileInfo> {
     };
 
     if (config.debug) {
-      console.log(`📄 Retrieved file info for ${key}:`, {
+      logger.fileOperation("get-file-info", key, {
         size: `${(size / 1024).toFixed(1)}KB`,
         contentType,
         lastModified: lastModified.toISOString(),
@@ -1197,7 +1222,7 @@ export async function setFileMetadata(
     }
 
     if (config.debug) {
-      console.log(`🏷️ Set metadata for ${key}:`, metadata);
+      logger.fileOperation("set-metadata", key, metadata);
     }
   } catch (error) {
     console.error(`Failed to set metadata for ${key}:`, error);

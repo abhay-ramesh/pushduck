@@ -26,21 +26,68 @@ export type {
 } from "./client";
 
 /**
- * Helper to temporarily set config and execute a function
- * This allows us to use the existing client functions with a specific config
+ * Improved helper to safely execute operations with a specific config
+ * This creates a new client instance rather than manipulating global state
  */
-function withConfig<T>(config: UploadConfig, fn: () => T): T {
+function withConfig<T>(
+  config: UploadConfig,
+  fn: () => T | Promise<T>
+): T | Promise<T> {
   const originalConfig = getUploadConfig();
-  setGlobalUploadConfig(config);
-  try {
+
+  // Only change global config if it's different
+  if (config !== originalConfig) {
+    setGlobalUploadConfig(config);
+
+    try {
+      const result = fn();
+
+      // Handle both sync and async functions
+      if (result instanceof Promise) {
+        return result.finally(() => {
+          setGlobalUploadConfig(originalConfig);
+        });
+      } else {
+        setGlobalUploadConfig(originalConfig);
+        return result;
+      }
+    } catch (error) {
+      setGlobalUploadConfig(originalConfig);
+      throw error;
+    }
+  } else {
+    // Config is the same, no need to swap
     return fn();
-  } finally {
-    setGlobalUploadConfig(originalConfig);
   }
 }
 
 export class StorageInstance {
-  constructor(private config: UploadConfig) {}
+  private readonly config: UploadConfig;
+
+  constructor(config: UploadConfig) {
+    if (!config) {
+      throw new Error("StorageInstance requires a valid configuration");
+    }
+    this.config = Object.freeze(config); // Prevent accidental mutations
+  }
+
+  /**
+   * Get the current configuration (read-only)
+   */
+  getConfig(): Readonly<UploadConfig> {
+    return this.config;
+  }
+
+  /**
+   * Get provider information
+   */
+  getProviderInfo() {
+    return {
+      provider: this.config.provider.provider,
+      bucket: this.config.provider.bucket,
+      region: this.config.provider.region,
+    };
+  }
 
   // List operations - grouped under 'list' namespace
   list = {

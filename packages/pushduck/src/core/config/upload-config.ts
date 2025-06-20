@@ -19,6 +19,7 @@ import {
   S3ObjectSchema,
 } from "../schema";
 import { createStorage, type StorageInstance } from "../storage/storage-api";
+import { logger } from "../utils/logger";
 
 // ========================================
 // Smart Schema Builders (for upload-config)
@@ -178,10 +179,9 @@ export class UploadConfigBuilder {
     // Set global configuration
     globalUploadConfig = config;
 
-    console.log(
-      "📦 Upload configuration initialized with provider:",
-      config.provider.provider
-    );
+    logger.configInit(config.provider.provider, {
+      provider: config.provider.provider,
+    });
 
     // Create storage instance
     const storage = createStorage(config);
@@ -263,6 +263,7 @@ export const uploadConfig = {
 // ========================================
 
 let globalUploadConfig: UploadConfig | null = null;
+let configInitialized = false;
 
 /**
  * Upload initialization result with configured instances
@@ -294,17 +295,35 @@ export function getUploadConfig(): UploadConfig {
 }
 
 /**
- * Set the global upload configuration
+ * Set the global upload configuration with validation
  */
 export function setGlobalUploadConfig(config: UploadConfig | null): void {
+  if (config) {
+    const validation = validateUploadConfig(config);
+    if (!validation.valid) {
+      throw new Error(
+        `Invalid upload configuration: ${validation.errors.join(", ")}`
+      );
+    }
+  }
+
   globalUploadConfig = config;
+  configInitialized = config !== null;
+}
+
+/**
+ * Check if configuration is initialized
+ */
+export function isConfigInitialized(): boolean {
+  return configInitialized;
 }
 
 /**
  * Reset global configuration (useful for testing)
  */
-function resetUploadConfig(): void {
+export function resetUploadConfig(): void {
   globalUploadConfig = null;
+  configInitialized = false;
 }
 
 // ========================================

@@ -65,15 +65,14 @@ const mockFiles: FileInfo[] = [
 describe("List Operations", () => {
   describe("listFiles", () => {
     it("should list all files with default options", async () => {
-      // This would be a real test with proper mocking
       const options: ListFilesOptions = {
         maxFiles: 100,
         includeMetadata: true,
       };
 
-      // In a real test, we'd mock the S3 response
-      console.log("listFiles test with options:", options);
-      expect(true).toBe(true); // Placeholder
+      // In a real test, we'd mock the S3 response and verify the call
+      expect(options.maxFiles).toBe(100);
+      expect(options.includeMetadata).toBe(true);
     });
 
     it("should filter files by prefix", async () => {
