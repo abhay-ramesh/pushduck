@@ -19,30 +19,56 @@ interface FileGalleryProps {
   userId?: string;
 }
 
+// File type icons
+const getFileIcon = (contentType: string, fileName: string) => {
+  if (contentType.startsWith("image/")) return "🖼️";
+  if (contentType === "application/pdf") return "📄";
+  if (contentType.includes("document") || contentType.includes("word"))
+    return "📝";
+  if (contentType.includes("spreadsheet") || contentType.includes("excel"))
+    return "📊";
+  if (
+    contentType.includes("presentation") ||
+    contentType.includes("powerpoint")
+  )
+    return "📈";
+  if (contentType.startsWith("video/")) return "🎥";
+  if (contentType.startsWith("audio/")) return "🎵";
+  if (contentType.includes("zip") || contentType.includes("rar")) return "🗜️";
+  if (fileName.endsWith(".txt")) return "📄";
+  if (fileName.endsWith(".json")) return "📋";
+  return "📁";
+};
+
+// File type colors
+const getFileTypeColor = (contentType: string) => {
+  if (contentType.startsWith("image/")) return "text-blue-600 bg-blue-50";
+  if (contentType === "application/pdf") return "text-red-600 bg-red-50";
+  if (contentType.includes("document")) return "text-indigo-600 bg-indigo-50";
+  if (contentType.includes("spreadsheet")) return "text-green-600 bg-green-50";
+  if (contentType.startsWith("video/")) return "text-purple-600 bg-purple-50";
+  if (contentType.startsWith("audio/")) return "text-pink-600 bg-pink-50";
+  return "text-gray-600 bg-gray-50";
+};
+
 export function FileManagementDemo({ userId = "demo-user" }: FileGalleryProps) {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState<"all" | "images" | "documents">("all");
+  const [filter, setFilter] = useState<
+    "all" | "images" | "documents" | "videos" | "audio"
+  >("all");
   const [sortBy, setSortBy] = useState<"name" | "size" | "date">("date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-  const [stats, setStats] = useState({
-    totalFiles: 0,
-    totalSize: 0,
-    imageCount: 0,
-    documentCount: 0,
-  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
-  // Simulate API calls to the new list operations
   const fetchFiles = async () => {
     setLoading(true);
     try {
-      // Call the actual API route we created
-      // First try with no prefix to see all files, then filter if needed
       const response = await fetch(
         `/api/files?operation=list&userId=${userId}&noPrefix=true`,
-        {
-          method: "GET",
-        }
+        { method: "GET" }
       );
 
       if (!response.ok) {
@@ -52,124 +78,19 @@ export function FileManagementDemo({ userId = "demo-user" }: FileGalleryProps) {
       }
 
       const data = await response.json();
-
       if (!data.success) {
         throw new Error(data.error || "API call failed");
       }
 
-      // Use real data from S3
       const realFiles = (data.files || []).map((file: any) => ({
         ...file,
-        lastModified: new Date(file.lastModified), // Convert string to Date object
+        lastModified: new Date(file.lastModified),
       }));
       setFiles(realFiles);
-
-      // Calculate stats from real data
-      const imageFiles = realFiles.filter((f: FileInfo) =>
-        f.contentType.startsWith("image/")
-      );
-      const documentFiles = realFiles.filter(
-        (f: FileInfo) =>
-          f.contentType === "application/pdf" ||
-          f.contentType.includes("document") ||
-          f.contentType === "text/plain"
-      );
-
-      setStats({
-        totalFiles: realFiles.length,
-        totalSize: realFiles.reduce(
-          (sum: number, file: FileInfo) => sum + file.size,
-          0
-        ),
-        imageCount: imageFiles.length,
-        documentCount: documentFiles.length,
-      });
-
-      console.log(
-        `✅ Loaded ${realFiles.length} files from S3 for user ${userId}`
-      );
     } catch (error) {
-      console.error("Failed to fetch files from S3:", error);
-
-      // Fall back to mock data if API fails (for demo purposes)
-      console.log("📝 Falling back to mock data for demo...");
-
-      // For demo purposes, we'll simulate the data structure
-      const mockFiles: FileInfo[] = [
-        {
-          key: `users/${userId}/avatar.jpg`,
-          url: `https://demo-bucket.s3.amazonaws.com/users/${userId}/avatar.jpg`,
-          size: 1024000,
-          contentType: "image/jpeg",
-          lastModified: new Date("2024-01-15T10:00:00Z"),
-          etag: "abc123",
-          metadata: {
-            "user-id": userId,
-            "upload-source": "web-app",
-            category: "profile",
-          },
-        },
-        {
-          key: `users/${userId}/document.pdf`,
-          url: `https://demo-bucket.s3.amazonaws.com/users/${userId}/document.pdf`,
-          size: 2048000,
-          contentType: "application/pdf",
-          lastModified: new Date("2024-01-16T10:00:00Z"),
-          etag: "def456",
-          metadata: {
-            "user-id": userId,
-            "upload-source": "web-app",
-            category: "documents",
-          },
-        },
-        {
-          key: `users/${userId}/profile.png`,
-          url: `https://demo-bucket.s3.amazonaws.com/users/${userId}/profile.png`,
-          size: 512000,
-          contentType: "image/png",
-          lastModified: new Date("2024-01-17T10:00:00Z"),
-          etag: "ghi789",
-          metadata: {
-            "user-id": userId,
-            "upload-source": "mobile-app",
-            category: "profile",
-          },
-        },
-        {
-          key: `users/${userId}/report.docx`,
-          url: `https://demo-bucket.s3.amazonaws.com/users/${userId}/report.docx`,
-          size: 3072000,
-          contentType:
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          lastModified: new Date("2024-01-18T10:00:00Z"),
-          etag: "jkl012",
-          metadata: {
-            "user-id": userId,
-            "upload-source": "web-app",
-            category: "work",
-          },
-        },
-      ];
-
-      setFiles(mockFiles);
-
-      // Calculate stats
-      const imageFiles = mockFiles.filter((f) =>
-        f.contentType.startsWith("image/")
-      );
-      const documentFiles = mockFiles.filter(
-        (f) =>
-          f.contentType === "application/pdf" ||
-          f.contentType.includes("document") ||
-          f.contentType === "text/plain"
-      );
-
-      setStats({
-        totalFiles: mockFiles.length,
-        totalSize: mockFiles.reduce((sum, file) => sum + file.size, 0),
-        imageCount: imageFiles.length,
-        documentCount: documentFiles.length,
-      });
+      console.error("Failed to fetch files:", error);
+      // Fallback to empty array for now
+      setFiles([]);
     } finally {
       setLoading(false);
     }
@@ -182,53 +103,56 @@ export function FileManagementDemo({ userId = "demo-user" }: FileGalleryProps) {
   // Filter and sort files
   const filteredFiles = files
     .filter((file) => {
+      // Search filter
+      if (searchQuery) {
+        const fileName = file.key.split("/").pop()?.toLowerCase() || "";
+        if (!fileName.includes(searchQuery.toLowerCase())) return false;
+      }
+
+      // Type filter
       if (filter === "all") return true;
       if (filter === "images") return file.contentType.startsWith("image/");
       if (filter === "documents")
         return (
           file.contentType === "application/pdf" ||
-          file.contentType.includes("document") ||
-          file.contentType === "text/plain"
+          file.contentType.includes("document")
         );
+      if (filter === "videos") return file.contentType.startsWith("video/");
+      if (filter === "audio") return file.contentType.startsWith("audio/");
       return true;
     })
     .sort((a, b) => {
+      let comparison = 0;
       switch (sortBy) {
         case "name":
-          return a.key.localeCompare(b.key);
+          comparison = a.key.localeCompare(b.key);
+          break;
         case "size":
-          return b.size - a.size;
+          comparison = a.size - b.size;
+          break;
         case "date":
-          const aTime =
-            a.lastModified instanceof Date ? a.lastModified.getTime() : 0;
-          const bTime =
-            b.lastModified instanceof Date ? b.lastModified.getTime() : 0;
-          return bTime - aTime;
-        default:
-          return 0;
+          comparison = a.lastModified.getTime() - b.lastModified.getTime();
+          break;
       }
+      return sortOrder === "desc" ? -comparison : comparison;
     });
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes";
+    if (bytes === 0) return "0 B";
     const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
-  const formatDate = (date: Date | string) => {
-    const dateObj = date instanceof Date ? date : new Date(date);
-    if (isNaN(dateObj.getTime())) {
-      return "Invalid Date";
-    }
+  const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("en-US", {
-      year: "numeric",
       month: "short",
       day: "numeric",
+      year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    }).format(dateObj);
+    }).format(date);
   };
 
   const handleFileSelect = (fileKey: string) => {
@@ -240,11 +164,11 @@ export function FileManagementDemo({ userId = "demo-user" }: FileGalleryProps) {
   };
 
   const handleSelectAll = () => {
-    if (selectedFiles.length === filteredFiles.length) {
-      setSelectedFiles([]);
-    } else {
-      setSelectedFiles(filteredFiles.map((f) => f.key));
-    }
+    setSelectedFiles(
+      selectedFiles.length === filteredFiles.length
+        ? []
+        : filteredFiles.map((file) => file.key)
+    );
   };
 
   const handleDeleteSelected = async () => {
@@ -259,27 +183,15 @@ export function FileManagementDemo({ userId = "demo-user" }: FileGalleryProps) {
     try {
       setLoading(true);
 
-      // Call the delete API
       const response = await fetch(
         `/api/files?operation=files&keys=${selectedFiles.join(",")}`,
-        {
-          method: "DELETE",
-        }
+        { method: "DELETE" }
       );
 
       const result = await response.json();
 
       if (result.success) {
-        // Show success message
-        alert(
-          `Successfully deleted ${result.result.deleted.length} file(s).${
-            result.result.errors.length > 0
-              ? ` ${result.result.errors.length} file(s) failed to delete.`
-              : ""
-          }`
-        );
-
-        // Clear selection and refresh the file list
+        alert(`Successfully deleted ${result.result.deleted.length} file(s).`);
         setSelectedFiles([]);
         await fetchFiles();
       } else {
@@ -301,29 +213,21 @@ export function FileManagementDemo({ userId = "demo-user" }: FileGalleryProps) {
     const confirmed = confirm(
       `Are you sure you want to delete "${fileName}"? This action cannot be undone.`
     );
-
     if (!confirmed) return;
 
     try {
       setLoading(true);
 
-      // Call the delete API for single file
       const response = await fetch(
         `/api/files?operation=file&key=${encodeURIComponent(fileKey)}`,
-        {
-          method: "DELETE",
-        }
+        { method: "DELETE" }
       );
 
       const result = await response.json();
 
       if (result.success) {
         alert(`Successfully deleted "${fileName}"`);
-
-        // Remove from selection if it was selected
         setSelectedFiles((prev) => prev.filter((key) => key !== fileKey));
-
-        // Refresh the file list
         await fetchFiles();
       } else {
         throw new Error(result.error || "Delete operation failed");
@@ -340,600 +244,331 @@ export function FileManagementDemo({ userId = "demo-user" }: FileGalleryProps) {
     }
   };
 
+  const handleDownload = async (fileKey: string, fileName: string) => {
+    try {
+      const response = await fetch("/api/presigned", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          operation: "get-download-url",
+          key: fileKey,
+          expiresIn: 3600,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const link = document.createElement("a");
+          link.href = data.url;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      }
+    } catch (error) {
+      console.error("Download failed:", error);
+      alert("Failed to download file");
+    }
+  };
+
+  const stats = {
+    totalFiles: filteredFiles.length,
+    totalSize: filteredFiles.reduce((sum, file) => sum + file.size, 0),
+    selectedCount: selectedFiles.length,
+  };
+
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-800">
-            📁 File Management Demo
-          </h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Demonstrates list files and metadata operations from pushduck
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={fetchFiles}
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300"
-          >
-            {loading ? "Loading..." : "Refresh"}
-          </button>
-
-          <button
-            onClick={async () => {
-              try {
-                const response = await fetch(
-                  "/api/debug?operation=analyze-structure"
-                );
-                const data = await response.json();
-                console.log("🔍 Bucket structure analysis:", data);
-                alert(
-                  `Bucket analysis complete! Check console for details.\n\nFound ${
-                    data.analysis?.totalFiles || 0
-                  } files in ${
-                    data.analysis?.totalDirectories || 0
-                  } directories.`
-                );
-              } catch (error) {
-                console.error("Debug failed:", error);
-                alert("Debug failed - check console for details");
-              }
-            }}
-            className="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm"
-          >
-            Debug
-          </button>
-
-          <button
-            onClick={async () => {
-              try {
-                const response = await fetch("/api/debug?operation=list-all");
-                const data = await response.json();
-                console.log("📋 All files in bucket:", data);
-                alert(
-                  `Found ${
-                    data.count || 0
-                  } files total. Check console for full list.`
-                );
-              } catch (error) {
-                console.error("List all failed:", error);
-                alert("List all failed - check console for details");
-              }
-            }}
-            className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
-          >
-            List All
-          </button>
-        </div>
-      </div>
-
-      {/* Stats Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="text-2xl font-bold text-blue-800">
-            {stats.totalFiles}
-          </div>
-          <div className="text-sm text-blue-600">Total Files</div>
-        </div>
-        <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-          <div className="text-2xl font-bold text-green-800">
-            {formatFileSize(stats.totalSize)}
-          </div>
-          <div className="text-sm text-green-600">Total Size</div>
-        </div>
-        <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-          <div className="text-2xl font-bold text-purple-800">
-            {stats.imageCount}
-          </div>
-          <div className="text-sm text-purple-600">Images</div>
-        </div>
-        <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-          <div className="text-2xl font-bold text-orange-800">
-            {stats.documentCount}
-          </div>
-          <div className="text-sm text-orange-600">Documents</div>
-        </div>
-      </div>
-
-      {/* Filters and Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Filter:</label>
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as any)}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm"
-            >
-              <option value="all">All Files</option>
-              <option value="images">Images Only</option>
-              <option value="documents">Documents Only</option>
-            </select>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">Files</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              {stats.totalFiles} files • {formatFileSize(stats.totalSize)}
+              {stats.selectedCount > 0 && ` • ${stats.selectedCount} selected`}
+            </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">
-              Sort by:
-            </label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm"
-            >
-              <option value="date">Date Modified</option>
-              <option value="name">Name</option>
-              <option value="size">Size</option>
-            </select>
-          </div>
-        </div>
+          <div className="flex items-center gap-3">
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  viewMode === "list"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                List
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  viewMode === "grid"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Grid
+              </button>
+            </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSelectAll}
-            className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-          >
-            {selectedFiles.length === filteredFiles.length
-              ? "Deselect All"
-              : "Select All"}
-          </button>
-
-          {selectedFiles.length > 0 && (
+            {/* Actions */}
             <button
-              onClick={handleDeleteSelected}
-              className="px-3 py-1 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
+              onClick={fetchFiles}
+              disabled={loading}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
             >
-              Delete Selected ({selectedFiles.length})
+              {loading ? "Loading..." : "Refresh"}
             </button>
-          )}
+
+            {selectedFiles.length > 0 && (
+              <button
+                onClick={handleDeleteSelected}
+                disabled={loading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                Delete ({selectedFiles.length})
+              </button>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* API Usage Examples */}
-      <div className="mb-6 p-4 bg-gray-900 text-white rounded-lg">
-        <h3 className="text-lg font-semibold mb-3">🔧 API Usage Examples</h3>
-        <div className="space-y-2 text-sm font-mono">
-          <div className="text-gray-300">// List all user files</div>
-          <div className="text-green-400">
-            const files = await listFilesWithPrefix("users/{userId}/");
+        {/* Search and Filters */}
+        <div className="flex items-center gap-4 mt-4">
+          <div className="flex-1 max-w-md">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg
+                  className="h-4 w-4 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search files..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
           </div>
 
-          <div className="text-gray-300 mt-3">// Filter by file type</div>
-          <div className="text-green-400">
-            const images = await listFilesByExtension("jpg", "users/{userId}/");
-          </div>
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as any)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All files</option>
+            <option value="images">Images</option>
+            <option value="documents">Documents</option>
+            <option value="videos">Videos</option>
+            <option value="audio">Audio</option>
+          </select>
 
-          <div className="text-gray-300 mt-3">// Get file metadata</div>
-          <div className="text-green-400">
-            const info = await getFileInfo("users/{userId}/avatar.jpg");
-          </div>
-
-          <div className="text-gray-300 mt-3">// Batch operations</div>
-          <div className="text-green-400">
-            const results = await getFilesInfo(selectedFileKeys);
-          </div>
+          <select
+            value={`${sortBy}-${sortOrder}`}
+            onChange={(e) => {
+              const [sort, order] = e.target.value.split("-");
+              setSortBy(sort as any);
+              setSortOrder(order as any);
+            }}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="date-desc">Newest first</option>
+            <option value="date-asc">Oldest first</option>
+            <option value="name-asc">Name A-Z</option>
+            <option value="name-desc">Name Z-A</option>
+            <option value="size-desc">Largest first</option>
+            <option value="size-asc">Smallest first</option>
+          </select>
         </div>
       </div>
 
       {/* File List */}
-      <div className="space-y-3">
+      <div className="px-6 py-4">
         {loading ? (
-          <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-2 text-gray-600">Loading files...</p>
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-gray-600">Loading files...</span>
           </div>
         ) : filteredFiles.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <p>No files found</p>
+          <div className="text-center py-12">
+            <svg
+              className="mx-auto h-12 w-12 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">
+              No files found
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {searchQuery
+                ? "Try adjusting your search or filters"
+                : "Upload some files to get started"}
+            </p>
           </div>
         ) : (
-          filteredFiles.map((file) => (
-            <div
-              key={file.key}
-              className={`p-4 border rounded-lg transition-colors ${
-                selectedFiles.includes(file.key)
-                  ? "bg-blue-50 border-blue-300"
-                  : "bg-white border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3 flex-1">
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            {/* Table Header */}
+            <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
+              <div className="flex items-center">
+                <div className="flex items-center">
                   <input
                     type="checkbox"
-                    checked={selectedFiles.includes(file.key)}
-                    onChange={() => handleFileSelect(file.key)}
-                    className="mt-1"
+                    checked={
+                      selectedFiles.length === filteredFiles.length &&
+                      filteredFiles.length > 0
+                    }
+                    onChange={handleSelectAll}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
+                  <span className="ml-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Name
+                  </span>
+                </div>
+                <div className="flex-1"></div>
+                <div className="hidden sm:block text-xs font-medium text-gray-500 uppercase tracking-wider w-20 text-right">
+                  Size
+                </div>
+                <div className="hidden md:block text-xs font-medium text-gray-500 uppercase tracking-wider w-32 text-right ml-6">
+                  Modified
+                </div>
+                <div className="w-24 text-right">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </span>
+                </div>
+              </div>
+            </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-2xl">
-                        {file.contentType.startsWith("image/")
-                          ? "🖼️"
-                          : file.contentType === "application/pdf"
-                          ? "📄"
-                          : file.contentType.includes("document")
-                          ? "📝"
-                          : "📄"}
-                      </span>
-                      <h3 className="font-medium text-gray-900 truncate">
-                        {file.key.split("/").pop()}
-                      </h3>
-                      <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-                        {file.contentType}
-                      </span>
-                    </div>
+            {/* File Rows */}
+            <div className="divide-y divide-gray-200">
+              {filteredFiles.map((file) => {
+                const fileName = file.key.split("/").pop() || file.key;
+                const isSelected = selectedFiles.includes(file.key);
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
-                      <div>
-                        <span className="font-medium">Size:</span>{" "}
+                return (
+                  <div
+                    key={file.key}
+                    className={`px-6 py-4 hover:bg-gray-50 transition-colors ${
+                      isSelected ? "bg-blue-50" : ""
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <div className="flex items-center flex-1 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleFileSelect(file.key)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+
+                        <div className="ml-3 flex items-center min-w-0 flex-1">
+                          <div className="flex-shrink-0">
+                            <span className="text-2xl">
+                              {getFileIcon(file.contentType, fileName)}
+                            </span>
+                          </div>
+
+                          <div className="ml-3 min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {fileName}
+                            </p>
+                            <div className="flex items-center mt-1">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getFileTypeColor(
+                                  file.contentType
+                                )}`}
+                              >
+                                {file.contentType.split("/")[0]}
+                              </span>
+                              <span className="ml-2 text-xs text-gray-500 sm:hidden">
+                                {formatFileSize(file.size)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="hidden sm:block text-sm text-gray-900 w-20 text-right">
                         {formatFileSize(file.size)}
                       </div>
-                      <div>
-                        <span className="font-medium">Modified:</span>{" "}
+
+                      <div className="hidden md:block text-sm text-gray-500 w-32 text-right ml-6">
                         {formatDate(file.lastModified)}
                       </div>
-                      <div>
-                        <span className="font-medium">ETag:</span>{" "}
-                        {file.etag.substring(0, 8)}...
+
+                      <div className="flex items-center justify-end w-24 space-x-2">
+                        <button
+                          onClick={() => handleDownload(file.key, fileName)}
+                          className="text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Download"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteSingle(file.key, fileName)}
+                          disabled={loading}
+                          className="text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                          title="Delete"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
                       </div>
                     </div>
-
-                    {file.metadata && Object.keys(file.metadata).length > 0 && (
-                      <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
-                        <div className="font-medium text-gray-700 mb-1">
-                          Metadata:
-                        </div>
-                        <div className="space-y-1">
-                          {Object.entries(file.metadata).map(([key, value]) => (
-                            <div key={key} className="flex">
-                              <span className="font-medium text-gray-600 w-24">
-                                {key}:
-                              </span>
-                              <span className="text-gray-800">{value}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
-                </div>
-
-                <div className="flex items-center gap-2 ml-4">
-                  <button
-                    onClick={async () => {
-                      try {
-                        // Generate presigned URL for viewing
-                        const response = await fetch("/api/presigned", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            operation: "get-download-url",
-                            key: file.key,
-                            expiresIn: 3600, // 1 hour
-                          }),
-                        });
-
-                        if (response.ok) {
-                          const data = await response.json();
-                          if (data.success) {
-                            // Open the presigned URL in a new tab
-                            window.open(data.url, "_blank");
-                          } else {
-                            throw new Error(data.error);
-                          }
-                        } else {
-                          throw new Error(
-                            `API call failed: ${response.status}`
-                          );
-                        }
-                      } catch (error) {
-                        console.error(
-                          "Failed to generate presigned URL:",
-                          error
-                        );
-                        alert(
-                          "Failed to generate secure view URL. This file may be in a private bucket."
-                        );
-                      }
-                    }}
-                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    View
-                  </button>
-                  <button
-                    onClick={async () => {
-                      try {
-                        // Generate presigned URL for downloading
-                        const response = await fetch("/api/presigned", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            operation: "get-download-url",
-                            key: file.key,
-                            expiresIn: 3600, // 1 hour
-                          }),
-                        });
-
-                        if (response.ok) {
-                          const data = await response.json();
-                          if (data.success) {
-                            // Create a temporary download link
-                            const link = document.createElement("a");
-                            link.href = data.url;
-                            link.download =
-                              file.key.split("/").pop() || "download";
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          } else {
-                            throw new Error(data.error);
-                          }
-                        } else {
-                          throw new Error(
-                            `API call failed: ${response.status}`
-                          );
-                        }
-                      } catch (error) {
-                        console.error(
-                          "Failed to generate download URL:",
-                          error
-                        );
-                        alert(
-                          "Failed to generate secure download URL. This file may be in a private bucket."
-                        );
-                      }
-                    }}
-                    className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
-                  >
-                    Download
-                  </button>
-
-                  <button
-                    onClick={async () => {
-                      try {
-                        // Call the real getFileInfo API
-                        const response = await fetch("/api/files", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            operation: "get-file-info",
-                            key: file.key,
-                          }),
-                        });
-
-                        if (response.ok) {
-                          const data = await response.json();
-                          if (data.success) {
-                            console.log("✅ Real S3 file info:", data.fileInfo);
-                            alert(
-                              `Real S3 file info retrieved! Check console for details.\n\nSize: ${(
-                                data.fileInfo.size / 1024
-                              ).toFixed(1)}KB\nType: ${
-                                data.fileInfo.contentType
-                              }\nModified: ${new Date(
-                                data.fileInfo.lastModified
-                              ).toLocaleString()}`
-                            );
-                          } else {
-                            throw new Error(data.error);
-                          }
-                        } else {
-                          throw new Error(
-                            `API call failed: ${response.status}`
-                          );
-                        }
-                      } catch (error) {
-                        console.log("📝 Using demo data - file info:", file);
-                        alert(
-                          `Demo mode: File info logged to console.\n\nIn a real app with S3 configured, this would call getFileInfo("${file.key}")`
-                        );
-                      }
-                    }}
-                    className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700"
-                  >
-                    Info
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      handleDeleteSingle(
-                        file.key,
-                        file.key.split("/").pop() || file.key
-                      )
-                    }
-                    disabled={loading}
-                    className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-300"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
+                );
+              })}
             </div>
-          ))
+          </div>
         )}
-      </div>
-
-      {/* Developer Notes */}
-      <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-        <h4 className="font-medium text-yellow-800 mb-2">
-          🔧 Implementation Notes
-        </h4>
-        <ul className="text-sm text-yellow-700 space-y-1">
-          <li>
-            • This demo shows the data structure returned by the new list
-            operations
-          </li>
-          <li>
-            • In a real app, you'd call these functions from API routes, not
-            directly in components
-          </li>
-          <li>
-            • The metadata operations provide rich file information for building
-            file managers
-          </li>
-          <li>
-            • Batch operations like `getFilesInfo()` are efficient for multiple
-            files
-          </li>
-          <li>
-            • All operations work with any S3-compatible provider (AWS, R2,
-            Spaces, MinIO)
-          </li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-// Additional component showing pagination example
-export function PaginatedFileList({ userId = "demo-user" }: FileGalleryProps) {
-  const [files, setFiles] = useState<FileInfo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const pageSize = 10;
-
-  const loadPage = async (page: number) => {
-    setLoading(true);
-    try {
-      // Call the actual pagination API
-      const response = await fetch(
-        `/api/files?operation=list-paginated&userId=${userId}&pageSize=${pageSize}&page=${page}`,
-        {
-          method: "GET",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `API call failed: ${response.status} ${response.statusText}`
-        );
-      }
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || "API call failed");
-      }
-
-      // Use real paginated data from S3
-      const realFiles = (data.files || []).map((file: any) => ({
-        ...file,
-        lastModified: new Date(file.lastModified), // Convert string to Date object
-      }));
-      setFiles(realFiles);
-      setHasMore(data.isTruncated || false);
-
-      console.log(
-        `✅ Loaded page ${page} with ${realFiles.length} files from S3`
-      );
-    } catch (error) {
-      console.error("Failed to load page from S3:", error);
-
-      // Fall back to mock pagination if API fails
-      console.log("📝 Falling back to mock pagination for demo...");
-
-      // Mock pagination
-      const allFiles: FileInfo[] = Array.from({ length: 25 }, (_, i) => ({
-        key: `users/${userId}/file-${i + 1}.jpg`,
-        url: `https://demo-bucket.s3.amazonaws.com/users/${userId}/file-${
-          i + 1
-        }.jpg`,
-        size: Math.floor(Math.random() * 5000000) + 100000,
-        contentType: i % 2 === 0 ? "image/jpeg" : "application/pdf",
-        lastModified: new Date(
-          Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000
-        ),
-        etag: `etag-${i + 1}`,
-        metadata: {
-          "user-id": userId,
-          "file-index": (i + 1).toString(),
-        },
-      }));
-
-      const startIndex = (page - 1) * pageSize;
-      const pageFiles = allFiles.slice(startIndex, startIndex + pageSize);
-
-      setFiles(pageFiles);
-      setHasMore(startIndex + pageSize < allFiles.length);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadPage(currentPage);
-  }, [currentPage]);
-
-  return (
-    <div className="p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-xl font-semibold text-gray-800 mb-4">
-        📄 Paginated File List Demo
-      </h2>
-
-      <div className="mb-4 p-3 bg-blue-50 rounded border border-blue-200">
-        <div className="text-sm text-blue-800">
-          <strong>Pagination API Example:</strong>
-          <code className="block mt-1 text-xs bg-blue-100 p-2 rounded">
-            {`const result = await listFilesPaginated({
-  prefix: "users/${userId}/",
-  pageSize: ${pageSize},
-  continuationToken: "${currentPage > 1 ? "next-page-token" : "undefined"}"
-});`}
-          </code>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-          <p className="mt-2 text-gray-600">Loading page {currentPage}...</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {files.map((file) => (
-            <div
-              key={file.key}
-              className="flex items-center justify-between p-3 border rounded"
-            >
-              <div>
-                <div className="font-medium text-gray-900">
-                  {file.key.split("/").pop()}
-                </div>
-                <div className="text-sm text-gray-500">
-                  {file.contentType} • {(file.size / 1024 / 1024).toFixed(2)} MB
-                </div>
-              </div>
-              <div className="text-sm text-gray-500">
-                {new Date(file.lastModified).toLocaleDateString()}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Pagination Controls */}
-      <div className="flex items-center justify-between mt-6 pt-4 border-t">
-        <div className="text-sm text-gray-600">
-          Page {currentPage} • Showing {files.length} files
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1 || loading}
-            className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <button
-            onClick={() => setCurrentPage((p) => p + 1)}
-            disabled={!hasMore || loading}
-            className="px-3 py-1 text-sm bg-blue-600 text-white rounded disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
       </div>
     </div>
   );

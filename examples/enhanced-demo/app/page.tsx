@@ -1,7 +1,4 @@
-import {
-  FileManagementDemo,
-  PaginatedFileList,
-} from "../components/file-management-demo";
+import { FileManagementDemo } from "../components/file-management-demo";
 import {
   PropertyBasedDocumentUpload,
   PropertyBasedImageUpload,
@@ -37,13 +34,7 @@ export default function Home() {
 
         {/* File Management Demo */}
         <div className="mb-8">
-          <h2 className="mb-4 text-2xl font-semibold text-gray-900">
-            📁 File Management & Metadata Operations
-          </h2>
-          <div className="space-y-6">
-            <FileManagementDemo userId="demo-user" />
-            <PaginatedFileList userId="demo-user" />
-          </div>
+          <FileManagementDemo userId="demo-user" />
         </div>
 
         {/* Property-Based Upload Components (Enhanced) */}
