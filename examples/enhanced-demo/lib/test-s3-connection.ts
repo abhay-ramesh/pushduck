@@ -5,14 +5,14 @@
  * Run with: npx tsx lib/test-s3-connection.ts
  */
 
-import { getFileInfo, listFiles, validateS3Connection } from "pushduck/server";
+import { storage } from "./upload";
 
 async function testS3Connection() {
   console.log("🔧 Testing S3 connection...");
 
   try {
     // Test connection
-    const connectionResult = await validateS3Connection();
+    const connectionResult = await storage.validation.connection();
     if (connectionResult.success) {
       console.log("✅ S3 connection successful!");
     } else {
@@ -22,7 +22,7 @@ async function testS3Connection() {
 
     // Test listing files
     console.log("\n📋 Testing file listing...");
-    const files = await listFiles({ maxFiles: 5 });
+    const files = await storage.list.files({ maxFiles: 5 });
     console.log(`Found ${files.length} files:`);
 
     files.forEach((file, index) => {
@@ -35,7 +35,7 @@ async function testS3Connection() {
     // Test getting file info for the first file
     if (files.length > 0) {
       console.log("\n📄 Testing file info...");
-      const fileInfo = await getFileInfo(files[0].key);
+      const fileInfo = await storage.metadata.getInfo(files[0].key);
       console.log("File info:", fileInfo);
     }
 

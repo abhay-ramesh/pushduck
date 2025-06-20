@@ -21,7 +21,7 @@ export {
   createUploadConfig,
   getUploadConfig,
   uploadConfig,
-} from "./core/upload-config";
+} from "./core/config/upload-config";
 
 // ========================================
 // SCHEMA BUILDERS
@@ -37,55 +37,31 @@ export {
 } from "./core/schema";
 
 // Main s3 builder instance
-export { s3 } from "./core/upload-config";
+export { s3 } from "./core/config/upload-config";
 
 // ========================================
 // ROUTER SYSTEM
 // ========================================
 
 // Modern router (recommended)
-export { createS3Handler, createS3Router, S3Route } from "./core/router-v2";
+export {
+  createS3Handler,
+  createS3Router,
+  S3Route,
+} from "./core/router/router-v2";
 
 // Router types
 export type { S3Router } from "./types";
 
 // ========================================
-// S3 CLIENT & UTILITIES
+// STORAGE API
 // ========================================
 
-// S3 client functionality
-export {
-  checkFileExists,
-  createS3Client,
-  fileExistsWithInfo,
-  generateFileKey,
-  generatePresignedDownloadUrl,
-  generatePresignedUploadUrl,
-  generatePresignedUploadUrls,
-  getFileContentType,
-  // Metadata operations
-  getFileInfo,
-  getFileLastModified,
-  getFileMetadata,
-  getFilesInfo,
-  getFileSize,
-  getFileUrl,
-  listDirectories,
-  // List operations
-  listFiles,
-  listFilesByDate,
-  listFilesByExtension,
-  listFilesBySize,
-  listFilesPaginated,
-  listFilesPaginatedGenerator,
-  listFilesWithPrefix,
-  resetS3Client,
-  setFileMetadata,
-  uploadFileToS3,
-  validateFile,
-  validateFiles,
-  validateS3Connection,
-} from "./core/s3-client";
+// Object-style storage API (recommended)
+export { createStorage, StorageInstance } from "./core/storage/storage-api";
+
+// Low-level S3 client (advanced usage)
+export { createS3Client, resetS3Client } from "./core/storage/client";
 
 // ========================================
 // TYPES & INTERFACES
@@ -106,7 +82,7 @@ export type {
 export type {
   UploadConfigBuilder,
   UploadInitResult,
-} from "./core/upload-config";
+} from "./core/config/upload-config";
 
 // Router types
 export type {
@@ -121,7 +97,7 @@ export type {
   S3MiddlewareContext,
   S3RouteContext,
   S3RouterDefinition,
-} from "./core/router-v2";
+} from "./core/router/router-v2";
 
 // Schema types
 export type {
@@ -130,11 +106,9 @@ export type {
   S3FileConstraints,
 } from "./core/schema";
 
-// S3 client types
+// Storage types (shared across storage API and client)
 export type {
-  // List operation types
   FileInfo,
-  // Metadata operation types
   FileInfoResult,
   FileKeyOptions,
   FileValidationResult,
@@ -146,6 +120,6 @@ export type {
   ProgressCallback,
   UploadProgress,
   ValidationRules,
-} from "./core/s3-client";
+} from "./core/storage";
 
 // Legacy config types removed - use modern provider config types instead

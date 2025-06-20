@@ -9,15 +9,16 @@ import {
   providers,
   validateProviderConfig,
   type ProviderConfig,
-} from "./providers";
-import type { S3Router } from "./router-v2";
-import { createS3Handler, createS3Router, S3Route } from "./router-v2";
+} from "../providers";
+import type { S3Router } from "../router/router-v2";
+import { createS3Handler, createS3Router, S3Route } from "../router/router-v2";
 import {
   S3FileConstraints,
   S3FileSchema,
   S3ImageSchema,
   S3ObjectSchema,
-} from "./schema";
+} from "../schema";
+import { createStorage, type StorageInstance } from "../storage/storage-api";
 
 // ========================================
 // Smart Schema Builders (for upload-config)
@@ -182,8 +183,12 @@ export class UploadConfigBuilder {
       config.provider.provider
     );
 
+    // Create storage instance
+    const storage = createStorage(config);
+
     return {
       config,
+      storage,
       s3,
       createS3Handler,
     };
@@ -264,6 +269,7 @@ let globalUploadConfig: UploadConfig | null = null;
  */
 export interface UploadInitResult {
   config: UploadConfig;
+  storage: StorageInstance;
   s3: typeof s3;
   createS3Handler: typeof createS3Handler;
 }
@@ -285,6 +291,13 @@ export function getUploadConfig(): UploadConfig {
     );
   }
   return globalUploadConfig;
+}
+
+/**
+ * Set the global upload configuration
+ */
+export function setGlobalUploadConfig(config: UploadConfig | null): void {
+  globalUploadConfig = config;
 }
 
 /**

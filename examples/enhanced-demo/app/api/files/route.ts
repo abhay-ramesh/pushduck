@@ -6,32 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import {
-  // Basic operations
-  checkFileExists,
-  fileExistsWithInfo,
-  getFileContentType,
-  // Metadata operations
-  getFileInfo,
-  getFileMetadata,
-  getFilesInfo,
-  getFileSize,
-  listDirectories,
-  // List operations
-  listFiles,
-  listFilesByDate,
-  listFilesByExtension,
-  listFilesBySize,
-  listFilesPaginated,
-  listFilesPaginatedGenerator,
-  listFilesWithPrefix,
-  setFileMetadata,
-  validateFile,
-  validateFiles,
-} from "pushduck/server";
-
-// Import the upload configuration to ensure it's initialized
-import "../../../lib/upload";
+import { storage } from "../../../lib/upload";
 
 // GET /api/files - List files with various options
 export async function GET(request: NextRequest) {
@@ -53,7 +28,7 @@ export async function GET(request: NextRequest) {
         const listPrefix =
           prefix || (searchParams.get("noPrefix") ? "" : `users/${userId}/`);
 
-        const files = await listFiles({
+        const files = await storage.list.files({
           prefix: listPrefix,
           maxFiles: 100,
           includeMetadata: true,
@@ -72,7 +47,7 @@ export async function GET(request: NextRequest) {
         });
 
       case "list-paginated":
-        const paginatedResult = await listFilesPaginated({
+        const paginatedResult = await storage.list.paginated({
           prefix: prefix || `users/${userId}/`,
           pageSize,
           continuationToken: searchParams.get("continuationToken") || undefined,
@@ -87,13 +62,11 @@ export async function GET(request: NextRequest) {
         });
 
       case "list-with-prefix":
-        const prefixFiles = await listFilesWithPrefix(
-          prefix || `users/${userId}/`,
-          {
-            maxFiles: 50,
-            includeMetadata: true,
-          }
-        );
+        const prefixFiles = await storage.list.files({
+          prefix: prefix || `users/${userId}/`,
+          maxFiles: 50,
+          includeMetadata: true,
+        });
 
         return NextResponse.json({
           success: true,
@@ -110,7 +83,7 @@ export async function GET(request: NextRequest) {
           );
         }
 
-        const extensionFiles = await listFilesByExtension(
+        const extensionFiles = await storage.list.byExtension(
           extension,
           prefix || `users/${userId}/`
         );
@@ -123,7 +96,7 @@ export async function GET(request: NextRequest) {
         });
 
       case "list-by-size":
-        const sizeFiles = await listFilesBySize(
+        const sizeFiles = await storage.list.bySize(
           minSize ? parseInt(minSize) : undefined,
           maxSize ? parseInt(maxSize) : undefined,
           prefix || `users/${userId}/`
@@ -140,7 +113,7 @@ export async function GET(request: NextRequest) {
         const fromDate = searchParams.get("fromDate");
         const toDate = searchParams.get("toDate");
 
-        const dateFiles = await listFilesByDate(
+        const dateFiles = await storage.list.byDate(
           fromDate ? new Date(fromDate) : undefined,
           toDate ? new Date(toDate) : undefined,
           prefix || `users/${userId}/`
@@ -154,7 +127,9 @@ export async function GET(request: NextRequest) {
         });
 
       case "list-directories":
-        const directories = await listDirectories(prefix || `users/${userId}/`);
+        const directories = await storage.list.directories(
+          prefix || `users/${userId}/`
+        );
 
         return NextResponse.json({
           success: true,
@@ -165,7 +140,7 @@ export async function GET(request: NextRequest) {
       // Paginated generator example (for very large datasets)
       case "list-generator":
         const generatorFiles = [];
-        const generator = listFilesPaginatedGenerator({
+        const generator = storage.list.paginatedGenerator({
           prefix: prefix || `users/${userId}/`,
           pageSize: 10,
         });
@@ -219,7 +194,7 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const fileInfo = await getFileInfo(key);
+        const fileInfo = await storage.metadata.getInfo(key);
         return NextResponse.json({
           success: true,
           fileInfo,
@@ -233,8 +208,8 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const exists = await checkFileExists(key);
-        const existsWithInfo = await fileExistsWithInfo(key);
+        const exists = await storage.validation.exists(key);
+        const existsWithInfo = await storage.validation.existsWithInfo(key);
 
         return NextResponse.json({
           success: true,
@@ -250,7 +225,7 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const size = await getFileSize(key);
+        const size = await storage.metadata.getSize(key);
         return NextResponse.json({
           success: true,
           size,
@@ -265,7 +240,7 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const contentType = await getFileContentType(key);
+        const contentType = await storage.metadata.getContentType(key);
         return NextResponse.json({
           success: true,
           contentType,
@@ -279,7 +254,7 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const fileMetadata = await getFileMetadata(key);
+        const fileMetadata = await storage.metadata.getInfo(key);
         return NextResponse.json({
           success: true,
           metadata: fileMetadata,
@@ -293,7 +268,7 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        await setFileMetadata(key, metadata);
+        await storage.metadata.setCustom(key, metadata);
         return NextResponse.json({
           success: true,
           message: "Metadata updated successfully",
@@ -308,14 +283,14 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const filesInfo = await getFilesInfo(keys);
+        const filesInfo = await storage.metadata.getBatch(keys);
         return NextResponse.json({
           success: true,
           filesInfo,
           summary: {
             total: keys.length,
-            successful: filesInfo.filter((f) => f.info !== null).length,
-            failed: filesInfo.filter((f) => f.info === null).length,
+            successful: filesInfo.filter((f: any) => f.info !== null).length,
+            failed: filesInfo.filter((f: any) => f.info === null).length,
           },
         });
 
@@ -331,7 +306,10 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const validationResult = await validateFile(key, validationRules);
+        const validationResult = await storage.validation.validateFile(
+          key,
+          validationRules
+        );
         return NextResponse.json({
           success: true,
           validation: validationResult,
@@ -348,14 +326,17 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const validationResults = await validateFiles(keys, validationRules);
+        const validationResults = await storage.validation.validateFiles(
+          keys,
+          validationRules
+        );
         return NextResponse.json({
           success: true,
           validations: validationResults,
           summary: {
             total: keys.length,
-            valid: validationResults.filter((v) => v.valid).length,
-            invalid: validationResults.filter((v) => !v.valid).length,
+            valid: validationResults.filter((v: any) => v.valid).length,
+            invalid: validationResults.filter((v: any) => !v.valid).length,
           },
         });
 
@@ -365,7 +346,8 @@ export async function POST(request: NextRequest) {
         const userPrefix = `users/${userId}/`;
 
         // Get all user files
-        const userFiles = await listFilesWithPrefix(userPrefix, {
+        const userFiles = await storage.list.files({
+          prefix: userPrefix,
           maxFiles: 1000,
           includeMetadata: true,
         });

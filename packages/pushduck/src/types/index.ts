@@ -96,7 +96,7 @@ export interface TypedRouteHook<
 // ========================================
 
 // Import S3Router type before using it
-import type { S3Router } from "../core/router-v2";
+import type { S3Router } from "../core/router/router-v2";
 
 // Re-export for external use
 export type { S3Router };

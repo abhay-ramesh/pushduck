@@ -8,7 +8,7 @@
  * - Transform pipeline support
  */
 
-import { S3Route } from "./router-v2";
+import { S3Route } from "./router/router-v2";
 
 // ========================================
 // Core Types

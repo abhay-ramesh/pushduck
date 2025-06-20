@@ -9,13 +9,13 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getUploadConfig } from "../config/upload-config";
+import { InferS3Input, InferS3Output, S3Schema } from "../schema";
 import {
   generateFileKey,
   generatePresignedUploadUrl,
   getFileUrl,
-} from "./s3-client";
-import { InferS3Input, InferS3Output, S3Schema } from "./schema";
-import { getUploadConfig } from "./upload-config";
+} from "../storage/client";
 
 // ========================================
 // Core Router Types

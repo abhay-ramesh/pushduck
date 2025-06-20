@@ -12,7 +12,7 @@ import {
   type FileInfo,
   type ListFilesOptions,
   type ValidationRules,
-} from "./s3-client";
+} from "./storage/client";
 
 // Mock the upload config
 vi.mock("./upload-config", () => ({

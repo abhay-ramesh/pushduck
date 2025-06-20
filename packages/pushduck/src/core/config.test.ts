@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createS3Client } from "./s3-client";
+import { createS3Client } from "./storage/client";
 
 // Simple unit tests for core functionality
 describe("Package Core Functionality", () => {

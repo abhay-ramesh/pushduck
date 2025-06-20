@@ -17,8 +17,8 @@
  */
 
 import { AwsClient } from "aws4fetch";
-import type { ProviderConfig } from "./providers";
-import { getUploadConfig } from "./upload-config";
+import { getUploadConfig } from "../config";
+import type { ProviderConfig } from "../providers/providers";
 
 // ========================================
 // Configuration Helper

@@ -28,7 +28,7 @@ interface UploadMetadata {
 // ========================================
 
 // Configure and initialize upload client directly
-const { s3, createS3Handler, config } = uploadConfig
+const { s3, createS3Handler, config, storage } = uploadConfig
   .cloudflareR2({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -82,7 +82,7 @@ console.log(
 );
 
 // Export the configured instances - these are bound to the configuration above
-export { createS3Handler, s3 };
+export { createS3Handler, s3, storage };
 
 // ========================================
 // Alternative Configurations

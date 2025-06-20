@@ -4,10 +4,8 @@
  * Generates presigned URLs for viewing and downloading files from private S3 buckets
  */
 
+import { storage } from "@/lib/upload";
 import { NextRequest, NextResponse } from "next/server";
-
-// Import the upload configuration to ensure it's initialized
-import "../../../lib/upload";
 
 export async function POST(request: NextRequest) {
   try {
@@ -115,8 +113,5 @@ async function generatePresignedDownloadUrl(
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
-  // Use the new dedicated download URL function
-  const { generatePresignedDownloadUrl } = await import("pushduck/server");
-
-  return await generatePresignedDownloadUrl(key, expiresIn);
+  return await storage.download.presignedUrl(key, expiresIn);
 }

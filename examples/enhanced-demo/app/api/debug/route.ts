@@ -5,14 +5,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import {
-  listDirectories,
-  listFiles,
-  validateS3Connection,
-} from "pushduck/server";
 
 // Import the upload configuration to ensure it's initialized
 import "../../../lib/upload";
+import { storage } from "../../../lib/upload";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -22,7 +18,7 @@ export async function GET(request: NextRequest) {
     switch (operation) {
       case "connection":
         // Test the S3 connection
-        const connectionResult = await validateS3Connection();
+        const connectionResult = await storage.validation.exists("test.txt");
         return NextResponse.json({
           success: true,
           connection: connectionResult,
@@ -30,7 +26,7 @@ export async function GET(request: NextRequest) {
 
       case "list-all":
         // List ALL files in the bucket (no prefix filter)
-        const allFiles = await listFiles({
+        const allFiles = await storage.list.files({
           maxFiles: 50, // Limit to avoid overwhelming response
           includeMetadata: true,
           sortBy: "key",
@@ -46,7 +42,7 @@ export async function GET(request: NextRequest) {
 
       case "list-directories":
         // List all top-level directories
-        const directories = await listDirectories("");
+        const directories = await storage.list.directories("");
 
         return NextResponse.json({
           success: true,
@@ -58,11 +54,11 @@ export async function GET(request: NextRequest) {
       case "analyze-structure":
         // Get both files and directories to understand structure
         const [files, dirs] = await Promise.all([
-          listFiles({
+          storage.list.files({
             maxFiles: 100,
             includeMetadata: true,
           }),
-          listDirectories(""),
+          storage.list.directories(""),
         ]);
 
         // Analyze the file structure
