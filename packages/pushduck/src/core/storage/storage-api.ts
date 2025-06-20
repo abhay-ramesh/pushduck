@@ -11,6 +11,9 @@ import * as client from "./client";
 
 // Types re-export for convenience
 export type {
+  DeleteByPrefixResult,
+  DeleteError,
+  DeleteFilesResult,
   FileInfo,
   FileInfoResult,
   FileKeyOptions,
@@ -188,6 +191,23 @@ export class StorageInstance {
 
     connection: () =>
       withConfig(this.config, () => client.validateS3Connection()),
+  };
+
+  // Delete operations - grouped under 'delete' namespace
+  delete = {
+    file: (key: string) =>
+      withConfig(this.config, () => client.deleteFile(key)),
+
+    files: (keys: string[]) =>
+      withConfig(this.config, () => client.deleteFiles(keys)),
+
+    byPrefix: (
+      prefix: string,
+      options?: { dryRun?: boolean; maxFiles?: number }
+    ) =>
+      withConfig(this.config, () =>
+        client.deleteFilesByPrefix(prefix, options)
+      ),
   };
 }
 

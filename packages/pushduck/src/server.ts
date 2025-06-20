@@ -145,6 +145,9 @@ export type {
 
 // Storage types (shared across storage API and client)
 export type {
+  DeleteByPrefixResult,
+  DeleteError,
+  DeleteFilesResult,
   FileInfo,
   FileInfoResult,
   FileKeyOptions,

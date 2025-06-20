@@ -250,17 +250,94 @@ export function FileManagementDemo({ userId = "demo-user" }: FileGalleryProps) {
   const handleDeleteSelected = async () => {
     if (selectedFiles.length === 0) return;
 
-    // In a real app, this would call the delete API:
-    // await fetch('/api/files/delete', {
-    //   method: 'POST',
-    //   body: JSON.stringify({ keys: selectedFiles })
-    // });
-
-    console.log("Would delete files:", selectedFiles);
-    alert(
-      `Would delete ${selectedFiles.length} files in a real implementation`
+    const confirmed = confirm(
+      `Are you sure you want to delete ${selectedFiles.length} file(s)? This action cannot be undone.`
     );
-    setSelectedFiles([]);
+
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+
+      // Call the delete API
+      const response = await fetch(
+        `/api/files?operation=files&keys=${selectedFiles.join(",")}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Show success message
+        alert(
+          `Successfully deleted ${result.result.deleted.length} file(s).${
+            result.result.errors.length > 0
+              ? ` ${result.result.errors.length} file(s) failed to delete.`
+              : ""
+          }`
+        );
+
+        // Clear selection and refresh the file list
+        setSelectedFiles([]);
+        await fetchFiles();
+      } else {
+        throw new Error(result.error || "Delete operation failed");
+      }
+    } catch (error) {
+      console.error("Delete failed:", error);
+      alert(
+        `Failed to delete files: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSingle = async (fileKey: string, fileName: string) => {
+    const confirmed = confirm(
+      `Are you sure you want to delete "${fileName}"? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+
+      // Call the delete API for single file
+      const response = await fetch(
+        `/api/files?operation=file&key=${encodeURIComponent(fileKey)}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`Successfully deleted "${fileName}"`);
+
+        // Remove from selection if it was selected
+        setSelectedFiles((prev) => prev.filter((key) => key !== fileKey));
+
+        // Refresh the file list
+        await fetchFiles();
+      } else {
+        throw new Error(result.error || "Delete operation failed");
+      }
+    } catch (error) {
+      console.error("Delete failed:", error);
+      alert(
+        `Failed to delete "${fileName}": ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -656,6 +733,19 @@ export function FileManagementDemo({ userId = "demo-user" }: FileGalleryProps) {
                     className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700"
                   >
                     Info
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      handleDeleteSingle(
+                        file.key,
+                        file.key.split("/").pop() || file.key
+                      )
+                    }
+                    disabled={loading}
+                    className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-300"
+                  >
+                    Delete
                   </button>
                 </div>
               </div>

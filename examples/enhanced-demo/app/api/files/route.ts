@@ -138,9 +138,9 @@ export async function GET(request: NextRequest) {
         });
 
       // Paginated generator example (for very large datasets)
-      case "list-generator":
+      case "list-generator": {
         const generatorFiles = [];
-        const generator = storage.list.paginatedGenerator({
+        const generator = await storage.list.paginatedGenerator({
           prefix: prefix || `users/${userId}/`,
           pageSize: 10,
         });
@@ -159,6 +159,70 @@ export async function GET(request: NextRequest) {
           count: generatorFiles.length,
           note: "Generator collected first 3 pages only (demo limit)",
         });
+      }
+
+      case "directories": {
+        const prefix = searchParams.get("prefix") || undefined;
+        const directories = await storage.list.directories(prefix);
+        return NextResponse.json({ success: true, directories });
+      }
+
+      case "get-info":
+        const key = searchParams.get("key");
+        if (!key) {
+          return NextResponse.json(
+            { success: false, error: "Key parameter is required" },
+            { status: 400 }
+          );
+        }
+
+        const info = await storage.metadata.getInfo(key);
+        return NextResponse.json({ success: true, info });
+
+      case "get-batch-info":
+        const keysParam = searchParams.get("keys");
+        if (!keysParam) {
+          return NextResponse.json(
+            { success: false, error: "Keys parameter is required" },
+            { status: 400 }
+          );
+        }
+
+        const keys = keysParam.split(",");
+        const results = await storage.metadata.getBatch(keys);
+        return NextResponse.json({ success: true, results });
+
+      case "check-exists":
+        const keyExists = searchParams.get("key");
+        if (!keyExists) {
+          return NextResponse.json(
+            { success: false, error: "Key parameter is required" },
+            { status: 400 }
+          );
+        }
+
+        const exists = await storage.validation.exists(keyExists);
+        return NextResponse.json({ success: true, exists });
+
+      case "validate":
+        const keyValidate = searchParams.get("key");
+        const maxSizeValidate = searchParams.get("maxSize")
+          ? parseInt(searchParams.get("maxSize")!)
+          : undefined;
+        const allowedTypes = searchParams.get("allowedTypes")?.split(",");
+
+        if (!keyValidate) {
+          return NextResponse.json(
+            { success: false, error: "Key parameter is required" },
+            { status: 400 }
+          );
+        }
+
+        const validation = await storage.validation.validateFile(keyValidate, {
+          maxSize: maxSizeValidate,
+          allowedTypes,
+        });
+        return NextResponse.json({ success: true, validation });
 
       default:
         return NextResponse.json(
@@ -415,6 +479,92 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error("File metadata operation failed:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/files - Delete files with various options
+export async function DELETE(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const operation = searchParams.get("operation") || "file";
+
+  try {
+    switch (operation) {
+      case "file": {
+        const key = searchParams.get("key");
+        if (!key) {
+          return NextResponse.json(
+            { success: false, error: "Key parameter is required" },
+            { status: 400 }
+          );
+        }
+
+        await storage.delete.file(key);
+        return NextResponse.json({
+          success: true,
+          message: `File ${key} deleted successfully`,
+        });
+      }
+
+      case "files": {
+        const keysParam = searchParams.get("keys");
+        if (!keysParam) {
+          return NextResponse.json(
+            { success: false, error: "Keys parameter is required" },
+            { status: 400 }
+          );
+        }
+
+        const keys = keysParam.split(",");
+        const result = await storage.delete.files(keys);
+        return NextResponse.json({
+          success: true,
+          result,
+          message: `Deleted ${result.deleted.length} files, ${result.errors.length} errors`,
+        });
+      }
+
+      case "by-prefix": {
+        const prefix = searchParams.get("prefix");
+        const dryRun = searchParams.get("dryRun") === "true";
+        const maxFiles = searchParams.get("maxFiles")
+          ? parseInt(searchParams.get("maxFiles")!)
+          : undefined;
+
+        if (!prefix) {
+          return NextResponse.json(
+            { success: false, error: "Prefix parameter is required" },
+            { status: 400 }
+          );
+        }
+
+        const result = await storage.delete.byPrefix(prefix, {
+          dryRun,
+          maxFiles,
+        });
+        return NextResponse.json({
+          success: true,
+          result,
+          message: dryRun
+            ? `Would delete ${result.filesFound} files with prefix ${prefix}`
+            : `Deleted ${result.deleted.length} files with prefix ${prefix}, ${result.errors.length} errors`,
+        });
+      }
+
+      default:
+        return NextResponse.json(
+          { success: false, error: `Unknown delete operation: ${operation}` },
+          { status: 400 }
+        );
+    }
+  } catch (error) {
+    console.error("Delete API error:", error);
     return NextResponse.json(
       {
         success: false,

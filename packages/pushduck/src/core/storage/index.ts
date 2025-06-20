@@ -8,6 +8,9 @@ export { createS3Client, resetS3Client } from "./client";
 
 // Types (shared across all APIs)
 export type {
+  DeleteByPrefixResult,
+  DeleteError,
+  DeleteFilesResult,
   FileInfo,
   FileInfoResult,
   FileKeyOptions,

@@ -1453,3 +1453,311 @@ function sortFiles(
 
   return sorted;
 }
+
+// ========================================
+// DELETE OPERATIONS
+// ========================================
+
+/**
+ * Delete a single file from S3
+ */
+export async function deleteFile(key: string): Promise<void> {
+  const awsClient = createS3Client();
+  const uploadConfig = getUploadConfig();
+  const config = uploadConfig.provider;
+
+  try {
+    const s3Config = getS3CompatibleConfig(config);
+    const url = buildS3Url(key, s3Config);
+
+    const response = await awsClient.fetch(url, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        // File doesn't exist - this is not necessarily an error
+        logger.warn("File not found during delete", {
+          operation: "delete-file",
+          key,
+          status: response.status,
+        });
+        return;
+      }
+
+      throw createS3Error(
+        `Failed to delete file: ${response.status} ${response.statusText}`,
+        {
+          operation: "delete-file",
+          key,
+          statusCode: response.status,
+        }
+      );
+    }
+
+    if (s3Config.debug) {
+      logger.fileOperation("delete-success", key);
+    }
+  } catch (error) {
+    logger.error("Failed to delete file", error, {
+      operation: "delete-file",
+      key,
+    });
+
+    throw createS3Error(
+      `Failed to delete file: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`,
+      {
+        operation: "delete-file",
+        key,
+        originalError: error instanceof Error ? error : undefined,
+      }
+    );
+  }
+}
+
+/**
+ * Delete multiple files from S3 in a batch operation
+ */
+export async function deleteFiles(keys: string[]): Promise<DeleteFilesResult> {
+  if (keys.length === 0) {
+    return { deleted: [], errors: [] };
+  }
+
+  const awsClient = createS3Client();
+  const uploadConfig = getUploadConfig();
+  const config = uploadConfig.provider;
+
+  try {
+    const s3Config = getS3CompatibleConfig(config);
+
+    // S3 batch delete supports up to 1000 objects per request
+    const batchSize = 1000;
+    const batches: string[][] = [];
+
+    for (let i = 0; i < keys.length; i += batchSize) {
+      batches.push(keys.slice(i, i + batchSize));
+    }
+
+    const results: DeleteFilesResult = { deleted: [], errors: [] };
+
+    for (const batch of batches) {
+      const batchResult = await deleteBatch(awsClient, s3Config, batch);
+      results.deleted.push(...batchResult.deleted);
+      results.errors.push(...batchResult.errors);
+    }
+
+    if (s3Config.debug) {
+      logger.fileOperation("batch-delete", "multiple", {
+        total: keys.length,
+        deleted: results.deleted.length,
+        errors: results.errors.length,
+      });
+    }
+
+    return results;
+  } catch (error) {
+    logger.error("Failed to delete files batch", error, {
+      operation: "delete-files-batch",
+      count: keys.length,
+    });
+
+    throw createS3Error(
+      `Failed to delete files: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`,
+      {
+        operation: "delete-files-batch",
+        originalError: error instanceof Error ? error : undefined,
+      }
+    );
+  }
+}
+
+/**
+ * Delete all files with a specific prefix (like deleting a "folder")
+ */
+export async function deleteFilesByPrefix(
+  prefix: string,
+  options: { dryRun?: boolean; maxFiles?: number } = {}
+): Promise<DeleteByPrefixResult> {
+  const { dryRun = false, maxFiles = 10000 } = options;
+
+  try {
+    // First, list all files with the prefix
+    const files = await listFiles({ prefix, maxFiles });
+
+    if (files.length === 0) {
+      return {
+        filesFound: 0,
+        deleted: [],
+        errors: [],
+        dryRun,
+      };
+    }
+
+    const keys = files.map((file) => file.key);
+
+    if (dryRun) {
+      return {
+        filesFound: files.length,
+        deleted: keys,
+        errors: [],
+        dryRun: true,
+      };
+    }
+
+    // Actually delete the files
+    const deleteResult = await deleteFiles(keys);
+
+    return {
+      filesFound: files.length,
+      deleted: deleteResult.deleted,
+      errors: deleteResult.errors,
+      dryRun: false,
+    };
+  } catch (error) {
+    logger.error("Failed to delete files by prefix", error, {
+      operation: "delete-by-prefix",
+      prefix,
+    });
+
+    throw createS3Error(
+      `Failed to delete files by prefix: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`,
+      {
+        operation: "delete-by-prefix",
+        prefix,
+        originalError: error instanceof Error ? error : undefined,
+      }
+    );
+  }
+}
+
+/**
+ * Helper function to delete a batch of files using S3's batch delete API
+ */
+async function deleteBatch(
+  awsClient: AwsClient,
+  config: S3CompatibleConfig,
+  keys: string[]
+): Promise<DeleteFilesResult> {
+  // Create XML payload for batch delete
+  const deleteXml = `<?xml version="1.0" encoding="UTF-8"?>
+<Delete>
+  ${keys.map((key) => `<Object><Key>${escapeXml(key)}</Key></Object>`).join("")}
+</Delete>`;
+
+  // Build base URL and add delete query parameter
+  const baseUrl = config.endpoint
+    ? `${config.endpoint.replace(/\/$/, "")}/${config.bucket}`
+    : `https://${config.bucket}.s3.amazonaws.com`;
+  const url = `${baseUrl}/?delete`;
+
+  const response = await awsClient.fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/xml",
+      "Content-MD5": await calculateMD5(deleteXml),
+    },
+    body: deleteXml,
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Batch delete failed: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const responseText = await response.text();
+  return parseBatchDeleteResponse(responseText);
+}
+
+/**
+ * Parse S3 batch delete response XML
+ */
+function parseBatchDeleteResponse(xmlText: string): DeleteFilesResult {
+  const deleted: string[] = [];
+  const errors: DeleteError[] = [];
+
+  // Parse deleted objects
+  const deletedMatches = xmlText.match(/<Deleted>[\s\S]*?<\/Deleted>/g) || [];
+  for (const match of deletedMatches) {
+    const key = extractXmlValue(match, "Key");
+    if (key) {
+      deleted.push(key);
+    }
+  }
+
+  // Parse errors
+  const errorMatches = xmlText.match(/<Error>[\s\S]*?<\/Error>/g) || [];
+  for (const match of errorMatches) {
+    const key = extractXmlValue(match, "Key");
+    const code = extractXmlValue(match, "Code");
+    const message = extractXmlValue(match, "Message");
+
+    if (key) {
+      errors.push({
+        key,
+        code: code || "UnknownError",
+        message: message || "Unknown error occurred",
+      });
+    }
+  }
+
+  return { deleted, errors };
+}
+
+/**
+ * Calculate MD5 hash for S3 batch delete request
+ */
+async function calculateMD5(content: string): Promise<string> {
+  if (typeof crypto !== "undefined" && crypto.subtle) {
+    // Browser environment
+    const encoder = new TextEncoder();
+    const data = encoder.encode(content);
+    const hashBuffer = await crypto.subtle.digest("MD5", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return btoa(String.fromCharCode.apply(null, hashArray));
+  } else {
+    // Node.js environment - dynamic import to avoid bundling issues
+    const { createHash } = await import("crypto");
+    return createHash("md5").update(content).digest("base64");
+  }
+}
+
+/**
+ * Escape XML special characters
+ */
+function escapeXml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// ========================================
+// DELETE OPERATION TYPES
+// ========================================
+
+export interface DeleteFilesResult {
+  deleted: string[];
+  errors: DeleteError[];
+}
+
+export interface DeleteError {
+  key: string;
+  code: string;
+  message: string;
+}
+
+export interface DeleteByPrefixResult {
+  filesFound: number;
+  deleted: string[];
+  errors: DeleteError[];
+  dryRun: boolean;
+}
