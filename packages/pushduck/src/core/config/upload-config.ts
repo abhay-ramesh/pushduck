@@ -83,7 +83,10 @@ export interface UploadConfig {
     metadata?: Record<string, any>;
   };
   paths?: {
+    // Global prefix - forms the base of all file paths
     prefix?: string;
+    // Global key generation - used as foundation for hierarchical paths
+    // Route-level paths will be nested within this structure
     generateKey?: (
       file: { name: string; type: string },
       metadata: any

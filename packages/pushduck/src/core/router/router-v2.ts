@@ -52,6 +52,37 @@ export type S3LifecycleHook<T = any> = (
 ) => Promise<void> | void;
 
 // ========================================
+// Hierarchical Path Configuration Types
+// ========================================
+
+export interface PathContext<TMetadata = any> {
+  file: { name: string; type: string };
+  metadata: TMetadata;
+  globalConfig: {
+    prefix?: string;
+    generateKey?: (
+      file: { name: string; type: string },
+      metadata: any
+    ) => string;
+  };
+  routeName: string;
+}
+
+export interface S3RoutePathConfig<TMetadata = any> {
+  // Route-level prefix gets nested under global prefix
+  // Final path: {globalPrefix}/{routePrefix}/{generated}
+  prefix?: string;
+
+  // Route-level key generation function
+  // Receives global config context for composition
+  generateKey?: (ctx: PathContext<TMetadata>) => string;
+
+  // Simple suffix that gets appended to global paths
+  // Final path: {globalPath}/{suffix}
+  suffix?: string;
+}
+
+// ========================================
 // Route Configuration
 // ========================================
 
@@ -72,6 +103,12 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
       ],
     };
     return new S3Route(this.schema, newConfig);
+  }
+
+  // Hierarchical path configuration
+  paths(paths: S3RoutePathConfig<TMetadata>): this {
+    this.config.paths = { ...this.config.paths, ...paths };
+    return this;
   }
 
   // Lifecycle hooks
@@ -111,6 +148,7 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
 
 interface S3RouteConfig<TMetadata = any> {
   middleware?: S3Middleware<any, any>[];
+  paths?: S3RoutePathConfig<TMetadata>;
   onUploadStart?: S3LifecycleHook<TMetadata>;
   onUploadProgress?: (
     ctx: S3LifecycleContext<TMetadata> & { progress: number }
@@ -119,6 +157,80 @@ interface S3RouteConfig<TMetadata = any> {
   onUploadError?: (
     ctx: S3LifecycleContext<TMetadata> & { error: Error }
   ) => Promise<void> | void;
+}
+
+// ========================================
+// Hierarchical Path Generation Logic
+// ========================================
+
+function generateHierarchicalPath<TMetadata>(
+  file: { name: string; type: string },
+  metadata: TMetadata,
+  routeName: string,
+  routeConfig: S3RoutePathConfig<TMetadata> | undefined,
+  globalConfig:
+    | {
+        prefix?: string;
+        generateKey?: (
+          file: { name: string; type: string },
+          metadata: any
+        ) => string;
+      }
+    | undefined
+): string {
+  // Build path context for route-level functions
+  const pathContext: PathContext<TMetadata> = {
+    file,
+    metadata,
+    globalConfig: globalConfig || {},
+    routeName,
+  };
+
+  // If route has custom generateKey, use it with full context
+  if (routeConfig?.generateKey) {
+    return routeConfig.generateKey(pathContext);
+  }
+
+  // Build hierarchical path: global + route components
+  const pathParts: string[] = [];
+
+  // 1. Start with global prefix (if any)
+  const globalPrefix = globalConfig?.prefix || "uploads";
+  pathParts.push(globalPrefix);
+
+  // 2. Add route-level prefix (if any)
+  if (routeConfig?.prefix) {
+    pathParts.push(routeConfig.prefix);
+  }
+
+  // 3. Generate the file path
+  let filePath: string;
+
+  if (globalConfig?.generateKey) {
+    // Use global generateKey for the file part
+    filePath = globalConfig.generateKey(file, metadata);
+    // Remove global prefix if it was added by global generateKey to avoid duplication
+    if (filePath.startsWith(globalPrefix + "/")) {
+      filePath = filePath.substring(globalPrefix.length + 1);
+    }
+  } else {
+    // Use default generation for the file part
+    filePath = generateFileKey({
+      originalName: file.name,
+      userId: (metadata as any)?.userId || (metadata as any)?.user?.id,
+      prefix: "", // Don't add prefix here, we're building it hierarchically
+    });
+  }
+
+  pathParts.push(filePath);
+
+  // 4. Add route-level suffix (if any)
+  if (routeConfig?.suffix) {
+    pathParts.push(routeConfig.suffix);
+  }
+
+  // Join all parts and clean up any double slashes
+  return pathParts.join("/").replace(/\/+/g, "/");
 }
 
 // ========================================
@@ -152,6 +264,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     }
 
     const routeConfig = route._getConfig();
+    const uploadConfig = getUploadConfig();
     const results: PresignedUrlResponse[] = [];
 
     for (const file of files) {
@@ -180,11 +293,14 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           await routeConfig.onUploadStart({ file, metadata });
         }
 
-        // 4. Generate file key and presigned URL
-        const key = generateFileKey({
-          originalName: file.name,
-          userId: metadata.userId || metadata.user?.id,
-        });
+        // 4. Generate hierarchical file key
+        const key = generateHierarchicalPath(
+          { name: file.name, type: file.type },
+          metadata,
+          String(routeName),
+          routeConfig.paths,
+          uploadConfig.paths
+        );
 
         const presignedResult = await generatePresignedUploadUrl({
           key,
@@ -354,10 +470,8 @@ export function createS3Handler<TRoutes extends S3RouterDefinition>(
       const body = await req.json();
 
       if (action === "presign") {
-        // Generate presigned URLs
         const { files } = body;
-
-        if (!files || !Array.isArray(files)) {
+        if (!Array.isArray(files)) {
           return NextResponse.json(
             { error: "Files array is required" },
             { status: 400 }
@@ -370,15 +484,10 @@ export function createS3Handler<TRoutes extends S3RouterDefinition>(
           files
         );
 
-        return NextResponse.json({
-          success: true,
-          results,
-        });
+        return NextResponse.json({ results });
       } else if (action === "complete") {
-        // Handle upload completion
         const { completions } = body;
-
-        if (!completions || !Array.isArray(completions)) {
+        if (!Array.isArray(completions)) {
           return NextResponse.json(
             { error: "Completions array is required" },
             { status: 400 }
@@ -391,10 +500,7 @@ export function createS3Handler<TRoutes extends S3RouterDefinition>(
           completions
         );
 
-        return NextResponse.json({
-          success: true,
-          results,
-        });
+        return NextResponse.json({ results });
       } else {
         return NextResponse.json(
           { error: `Unknown action: ${action}` },
@@ -402,10 +508,11 @@ export function createS3Handler<TRoutes extends S3RouterDefinition>(
         );
       }
     } catch (error) {
-      console.error("S3 Router Error:", error);
+      const err = error instanceof Error ? error : new Error("Unknown error");
+      console.error("S3 Handler Error:", err);
       return NextResponse.json(
         {
-          error: error instanceof Error ? error.message : "Upload failed",
+          error: err.message,
           details: process.env.NODE_ENV === "development" ? error : undefined,
         },
         { status: 500 }
@@ -415,11 +522,9 @@ export function createS3Handler<TRoutes extends S3RouterDefinition>(
 
   async function GET(req: NextRequest): Promise<NextResponse> {
     // Return route information for debugging/introspection
-    const routeNames = router.getRouteNames();
+    const routes = router.getRouteNames();
     return NextResponse.json({
-      routes: routeNames,
-      info: "S3 Router endpoints",
-      actions: ["presign", "complete"],
+      routes: routes.map((name) => ({ name, type: "s3-upload" })),
     });
   }
 
@@ -427,7 +532,7 @@ export function createS3Handler<TRoutes extends S3RouterDefinition>(
 }
 
 // ========================================
-// Type Utilities for End-to-End Type Safety
+// Type Inference Utilities
 // ========================================
 
 export type InferRouterRoutes<T> =
@@ -442,7 +547,6 @@ export type InferRouteOutput<T> =
 export type InferRouteMetadata<T> =
   T extends S3Route<any, infer TMetadata> ? TMetadata : never;
 
-// Helper type for getting route by name from router
 export type GetRoute<TRouter, TRouteName> =
   TRouter extends S3Router<infer TRoutes>
     ? TRouteName extends keyof TRoutes

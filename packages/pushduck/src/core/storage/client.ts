@@ -612,10 +612,19 @@ export interface FileKeyOptions {
  * Generates a unique file key for S3 storage
  */
 export function generateFileKey(options: FileKeyOptions): string {
+  // Get upload config to use as defaults if available
+  let configPrefix = "uploads";
+  try {
+    const uploadConfig = getUploadConfig();
+    configPrefix = uploadConfig.paths?.prefix || "uploads";
+  } catch {
+    // Config not initialized, use hardcoded default
+  }
+
   const {
     originalName,
     userId = "anonymous",
-    prefix = "uploads",
+    prefix = configPrefix,
     preserveExtension = true,
     addTimestamp = true,
     addRandomId = true,
