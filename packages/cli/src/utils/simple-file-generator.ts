@@ -75,7 +75,7 @@ async function createApiRoute(
 
   if (router === "app") {
     filePath = path.join(rootDir, `app${apiPath}/route.${ext}`);
-    content = `import { s3, createS3Handler } from "@/lib/upload-config";
+    content = `import { s3 } from "@/lib/upload-config"; 
 
 // Define upload routes with proper validation and lifecycle hooks  
 const uploadRouter = s3.createRouter({
@@ -125,11 +125,11 @@ const uploadRouter = s3.createRouter({
 export type AppUploadRouter = typeof uploadRouter;
 
 // Export the HTTP handlers
-export const { GET, POST } = createS3Handler(uploadRouter);
+export const { GET, POST } = uploadRouter.handlers;
 `;
   } else {
     filePath = path.join(rootDir, `pages${apiPath}.${ext}`);
-    content = `import { s3, createS3Handler } from "../lib/upload-config";
+    content = `import { s3 } from "../lib/upload-config";
 
 const uploadRouter = s3.createRouter({
   imageUpload: s3.image().max("5MB").formats(["jpeg", "jpg", "png", "webp"]),
@@ -138,8 +138,7 @@ const uploadRouter = s3.createRouter({
 
 export type AppUploadRouter = typeof uploadRouter;
 
-const handler = createS3Handler(uploadRouter);
-export default handler;
+export const { GET, POST } = uploadRouter.handlers;
 `;
   }
 
@@ -165,7 +164,7 @@ async function createUploadConfig(
   const content = `import { uploadConfig } from "pushduck/server";
 
 // Initialize upload configuration with simplified one-step process
-const { s3, createS3Handler, config } = uploadConfig
+const { s3, config } = uploadConfig
   .${providerMethod}({
     ${envVars}
   })
@@ -175,7 +174,7 @@ const { s3, createS3Handler, config } = uploadConfig
   })
   .build();
 
-export { s3, createS3Handler, config };
+export { s3, config };
 `;
 
   await fs.writeFile(filePath, content);

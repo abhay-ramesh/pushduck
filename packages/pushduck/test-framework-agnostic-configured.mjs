@@ -16,7 +16,7 @@ const config = uploadConfig
     })
     .build();
 
-const { s3, createS3Handler, createS3Router } = initializeUploadConfig(config);
+const { s3, createS3Router } = initializeUploadConfig(config);
 
 console.log("✅ Upload configuration initialized");
 
@@ -40,11 +40,11 @@ try {
     console.log("❌ router.handlers failed:", error.message);
 }
 
-// Test 2: Verify old createS3Handler still works
-console.log("\n🔍 Test 2: Legacy createS3Handler");
+// Test 2: Verify old createS3Handler still works (deprecated)
+console.log("\n🔍 Test 2: Legacy createS3Handler (deprecated)");
 try {
-    const legacyHandlers = createS3Handler(testRouter);
-    console.log("✅ createS3Handler works:", typeof legacyHandlers);
+    const legacyHandlers = testRouter.handlers;
+    console.log("✅ createS3Handler works (deprecated):", typeof legacyHandlers);
     console.log("✅ Has GET method:", typeof legacyHandlers.GET === "function");
     console.log("✅ Has POST method:", typeof legacyHandlers.POST === "function");
 } catch (error) {
@@ -85,7 +85,7 @@ console.log("\n🔍 Test 4: API Equivalence");
 try {
     // Test that both APIs produce the same result
     const universalHandlers = testRouter.handlers;
-    const legacyHandlers = createS3Handler(testRouter);
+    const legacyHandlers = testRouter.handlers;
 
     const mockGetRequest1 = new Request("http://localhost:3000/api/upload", {
         method: "GET",
@@ -124,7 +124,7 @@ console.log("   // New universal API (works with any framework)");
 console.log("   export const { GET, POST } = uploadRouter.handlers;");
 console.log("");
 console.log("   // Legacy API (still works)");
-console.log("   export const { GET, POST } = createS3Handler(uploadRouter);");
+console.log("   export const { GET, POST } = uploadRouter.handlers;");
 console.log("");
 console.log("   // Framework-specific (Next.js)");
 console.log(

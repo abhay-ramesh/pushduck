@@ -30,7 +30,6 @@ Ensure your file upload system is production-ready with this comprehensive check
     
     ```typescript
     // ✅ Secure endpoint
-    import { createS3Handler } from "pushduck/server";
     import { s3 } from "@/lib/upload";
     
     const s3Router = s3.createRouter({
@@ -44,7 +43,7 @@ Ensure your file upload system is production-ready with this comprehensive check
         })
     })
     
-    export const { GET, POST } = createS3Handler(s3Router);
+    export const { GET, POST } = s3Router.handlers;
     ```
   </Step>
 

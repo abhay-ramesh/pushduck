@@ -15,7 +15,7 @@ The `storage` instance comes from your upload configuration, not created separat
 // lib/upload.ts
 import { uploadConfig } from 'pushduck/server'
 
-const { storage, s3, createS3Handler, config } = uploadConfig
+const { storage, s3, config } = uploadConfig
   .cloudflareR2({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,

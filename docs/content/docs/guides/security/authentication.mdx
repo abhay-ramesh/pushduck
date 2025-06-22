@@ -23,7 +23,6 @@ Secure your file upload endpoints with robust authentication and authorization m
 ### NextAuth.js Integration
 
 ```typescript
-import { createS3Handler } from "pushduck/server";
 import { s3 } from "@/lib/upload";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -47,7 +46,7 @@ const s3Router = s3.createRouter({
     }),
 });
 
-export const { GET, POST } = createS3Handler(s3Router);
+export const { GET, POST } = s3Router.handlers;
 ```
 
 ### JWT Token Validation

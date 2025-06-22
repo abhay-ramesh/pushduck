@@ -29,7 +29,7 @@ The server-side API remains **exactly the same** - all existing code continues t
 
 ```typescript
 // lib/upload.ts - UNCHANGED
-const { s3, createS3Handler } = initializeUploadConfig(uploadConfig.build());
+const { s3 } = initializeUploadConfig(uploadConfig.build());
 
 // app/api/upload/route.ts - UNCHANGED  
 const router = s3.createRouter({
@@ -37,7 +37,7 @@ const router = s3.createRouter({
   documentUpload: s3.file().max("10MB").formats(["pdf", "docx"]),
 });
 
-export const { GET, POST } = createS3Handler(router);
+export const { GET, POST } = router.handlers;
 ```
 
 ### Client Side (Enhanced with Type Inference)
@@ -574,7 +574,7 @@ const { data: uploads } = useQuery({
 
 - ✅ `useS3FileUpload()` hook unchanged
 - ✅ Server router API unchanged  
-- ✅ `createS3Handler()` unchanged
+- ✅ `createS3Handler()` unchanged (deprecated)
 - ✅ All existing types exported
 - ✅ No breaking changes to any public APIs
 

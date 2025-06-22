@@ -11,7 +11,7 @@ import {
   type ProviderConfig,
 } from "../providers";
 import type { S3Router } from "../router/router-v2";
-import { createS3Handler, createS3Router, S3Route } from "../router/router-v2";
+import { createS3Router, S3Route } from "../router/router-v2";
 import {
   S3FileConstraints,
   S3FileSchema,
@@ -193,7 +193,6 @@ export class UploadConfigBuilder {
       config,
       storage,
       s3,
-      createS3Handler,
     };
   }
 }
@@ -275,7 +274,6 @@ export interface UploadInitResult {
   config: UploadConfig;
   storage: StorageInstance;
   s3: typeof s3;
-  createS3Handler: typeof createS3Handler;
 }
 
 // initializeUploadConfig removed - use uploadConfig.build() directly
@@ -290,8 +288,8 @@ export function getUploadConfig(): UploadConfig {
         "Please explicitly initialize with a provider:\n" +
         "1. Create an upload.ts file:\n" +
         "   export const config = uploadConfig.aws({ ... }).build();\n" +
-        "   export const { s3, createS3Handler } = initializeUploadConfig(config);\n\n" +
-        "2. Or call initializeUploadConfig() manually with your provider configuration."
+        "   export const { s3 } = config;\n\n" +
+        "2. Or call uploadConfig.build() directly with your provider configuration."
     );
   }
   return globalUploadConfig;

@@ -172,7 +172,7 @@ MINIO_PUBLIC_URL=https://uploads.yourdomain.com
 // lib/upload.ts
 import { uploadConfig } from "pushduck/server";
 
-export const { s3, createS3Handler } = uploadConfig
+export const { s3,  } = uploadConfig
   .minio({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -338,7 +338,7 @@ services:
 
 ```typescript
 // Optimize for high throughput
-export const { s3, createS3Handler } = uploadConfig
+export const { s3,  } = uploadConfig
   .minio({
     // ... config
     maxRetries: 3,

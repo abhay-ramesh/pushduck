@@ -16,7 +16,7 @@ const config = uploadConfig
     })
     .build();
 
-const { s3, createS3Handler, createS3Router } = initializeUploadConfig(config);
+const { s3, createS3Router } = initializeUploadConfig(config);
 
 // Create a test router
 const testRouter = createS3Router({

@@ -371,7 +371,7 @@ This documentation strategy combines the best practices from Better Auth's compr
 
 **Router System**
 
-- ✅ **Modern Router**: `createS3Router()`, `createS3Handler()`, `S3Route`
+- ✅ **Modern Router**: `createS3Router()`, `S3Route`
 - ✅ **Lifecycle Hooks**: `onUploadStart`, `onUploadProgress`, `onUploadComplete`, `onUploadError`
 - ✅ **Type Inference**: Full TypeScript inference from server to client
 

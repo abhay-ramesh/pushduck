@@ -1,7 +1,7 @@
 import { uploadConfig } from "pushduck/server";
 
 // Initialize upload configuration with simplified one-step process
-const { s3, createS3Handler, config } = uploadConfig
+const { s3, config } = uploadConfig
   .cloudflareR2({
     accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
     bucket: process.env.R2_BUCKET!,
@@ -12,4 +12,4 @@ const { s3, createS3Handler, config } = uploadConfig
   })
   .build();
 
-export { config, createS3Handler, s3 };
+export { config, s3 };

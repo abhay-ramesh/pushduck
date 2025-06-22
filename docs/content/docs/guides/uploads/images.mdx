@@ -24,7 +24,6 @@ Handle image uploads with built-in optimization, validation, and processing feat
 
 ```typescript
 // app/api/upload/route.ts
-import { createS3Handler } from "pushduck/server";
 import { s3 } from "@/lib/upload";
 
 const s3Router = s3.createRouter({
@@ -42,7 +41,7 @@ const s3Router = s3.createRouter({
 });
 
 export type AppS3Router = typeof s3Router;
-export const { GET, POST } = createS3Handler(s3Router);
+export const { GET, POST } = s3Router.handlers;
 ```
 
 ### Client Implementation

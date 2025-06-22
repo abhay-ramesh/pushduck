@@ -92,7 +92,7 @@ CLOUDFLARE_R2_PUBLIC_URL=https://uploads.yourdomain.com
 // lib/upload.ts
 import { uploadConfig } from "pushduck/server";
 
-export const { s3, createS3Handler } = uploadConfig
+export const { s3,  } = uploadConfig
   .cloudflareR2({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -157,7 +157,7 @@ Integrate with Cloudflare Workers for server-side processing:
 
 ```typescript
 // Advanced R2 setup with Workers
-export const { s3, createS3Handler } = uploadConfig
+export const { s3,  } = uploadConfig
   .cloudflareR2({
     // ... basic config
     workerScript: "image-transform", // Optional: Transform images on upload

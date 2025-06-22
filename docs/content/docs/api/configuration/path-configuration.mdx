@@ -60,7 +60,7 @@ Configure the base structure that all uploads will use:
 ```typescript title="lib/upload.ts"
 import { uploadConfig } from "pushduck/server";
 
-const { s3, createS3Handler } = uploadConfig
+const { s3 } = uploadConfig
   .cloudflareR2({
     // ... provider config
   })
@@ -87,7 +87,7 @@ const { s3, createS3Handler } = uploadConfig
 Extend the global foundation with route-specific organization:
 
 ```typescript title="app/api/upload/route.ts"
-import { createS3Handler, s3 } from "@/lib/upload";
+import { s3 } from "@/lib/upload";
 
 const s3Router = s3.createRouter({
   // Images: uploads/images/{userId}/{timestamp}/{randomId}/photo.jpg
@@ -194,7 +194,7 @@ Override the default structure for specific use cases:
 Organize files by environment for clean separation:
 
 ```typescript title="lib/upload.ts"
-const { s3, createS3Handler } = uploadConfig
+const { s3 } = uploadConfig
   .cloudflareR2({
     // ... provider config
   })
@@ -486,17 +486,14 @@ const sanitizePathSegment = (input: string) => {
 
 ```typescript
 // Old way - simple prefix only
-export const { POST, GET } = createS3Handler(
-  { /* routes */ },
-  { s3, pathPrefix: "uploads/" }
-);
+export const { POST, GET } = s3Router.handlers;
 ```
 
 ### After (Hierarchical)
 
 ```typescript
 // New way - hierarchical configuration
-const { s3, createS3Handler } = uploadConfig
+const { s3 } = uploadConfig
   .cloudflareR2({ /* config */ })
   .paths({
     prefix: "uploads",

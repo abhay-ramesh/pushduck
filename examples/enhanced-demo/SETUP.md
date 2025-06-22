@@ -36,7 +36,7 @@ The `upload.ts` file initializes the configuration and returns configured instan
 import { initializeUploadConfig, uploadConfig } from "pushduck";
 
 // Initialize and get configured instances
-const { s3, createS3Handler, config } = initializeUploadConfig(
+const { s3,  config } = initializeUploadConfig(
   uploadConfig
     .auto() // Auto-detects provider from env vars
     .defaults({ maxFileSize: "10MB" })
@@ -45,7 +45,7 @@ const { s3, createS3Handler, config } = initializeUploadConfig(
 );
 
 // Export the configured instances
-export { s3, createS3Handler };
+export { s3 }; 
 ```
 
 ### 3. API Route (`app/api/s3-upload/route.ts`)
@@ -53,7 +53,7 @@ export { s3, createS3Handler };
 The API route imports the pre-configured instances:
 
 ```typescript
-import { createS3Handler, s3 } from "../../../upload";
+import { s3 } from "../../../upload";
 
 const s3Router = s3.createRouter({
   imageUpload: s3.image().max("5MB").formats(["jpeg", "png"]),
@@ -61,8 +61,7 @@ const s3Router = s3.createRouter({
 });
 
 // Uses the configuration from upload.ts automatically!
-const handlers = createS3Handler(s3Router);
-export const { GET, POST } = handlers;
+export const { GET, POST } = s3Router.handlers;
 ```
 
 ## 🎯 Key Benefits
@@ -79,7 +78,7 @@ Change providers by updating environment variables or the config:
 
 ```typescript
 // Explicit provider configuration
-const { s3, createS3Handler } = initializeUploadConfig(
+const { s3 } = initializeUploadConfig(
   uploadConfig
     .cloudflareR2() // or .aws(), .digitalOceanSpaces(), .minio()
     .defaults({ maxFileSize: "10MB" })

@@ -1,6 +1,6 @@
-import { s3, createS3Handler } from "@/lib/upload-config";
+import { s3 } from "@/lib/upload-config";
 
-// Define upload routes with proper validation and lifecycle hooks  
+// Define upload routes with proper validation and lifecycle hooks
 const uploadRouter = s3.createRouter({
   // Image upload route with size and format validation
   imageUpload: s3
@@ -20,16 +20,11 @@ const uploadRouter = s3.createRouter({
       console.log(`✅ Image upload complete: ${file.name} -> ${url}`, metadata);
     }),
 
-  // File upload route  
+  // File upload route
   fileUpload: s3
     .file()
     .max("10MB")
-    .types([
-      "application/pdf",
-      "application/msword", 
-      "text/plain",
-      "image/*"
-    ])
+    .types(["application/pdf", "application/msword", "text/plain", "image/*"])
     .middleware(async ({ file, metadata }) => {
       console.log("Processing file upload:", file.name);
       return {
@@ -48,4 +43,4 @@ const uploadRouter = s3.createRouter({
 export type AppUploadRouter = typeof uploadRouter;
 
 // Export the HTTP handlers
-export const { GET, POST } = createS3Handler(uploadRouter);
+export const { GET, POST } = uploadRouter.handlers;

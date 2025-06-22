@@ -60,7 +60,7 @@ The CLI will:
 
 ```typescript
 // app/api/s3-upload/route.ts
-import { createS3Router, createS3Handler, s3 } from "pushduck";
+import { createS3Router, s3 } from "pushduck";
 
 const s3Router = createS3Router({
   imageUpload: s3
@@ -77,7 +77,7 @@ const s3Router = createS3Router({
     }),
 });
 
-export const { GET, POST } = createS3Handler(s3Router);
+export const { GET, POST } = s3Router.handlers;
 export type S3RouterType = typeof s3Router;
 ```
 

@@ -29,14 +29,14 @@ export default config;
 ```typescript
 // app/api/upload/route.ts
 import "./upload"; // Import to initialize configuration
-import { createS3Handler, s3 } from "pushduck";
+import { s3 } from "pushduck";
 
 const s3Router = createS3Router({
   imageUpload: s3.image().max("5MB"),
   documentUpload: s3.file().max("10MB"),
 });
 
-export const { GET, POST } = createS3Handler(s3Router);
+export const { GET, POST } = s3Router.handlers;
 ```
 
 ### 3. Use in Components

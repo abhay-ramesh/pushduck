@@ -9,7 +9,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { toNextJsHandler } from "../../adapters/nextjs";
+
 import { getUploadConfig } from "../config/upload-config";
 import { createUniversalHandler } from "../handler/universal-handler";
 import { InferS3Input, InferS3Output, S3Schema } from "../schema";
@@ -446,13 +446,6 @@ export function createS3Router<TRoutes extends S3RouterDefinition>(
   routes: TRoutes
 ): S3Router<TRoutes> {
   return new S3Router(routes);
-}
-
-export function createS3Handler<TRoutes extends S3RouterDefinition>(
-  router: S3Router<TRoutes>
-) {
-  // Use the new universal handlers with Next.js adapter
-  return toNextJsHandler(router.handlers);
 }
 
 // ========================================

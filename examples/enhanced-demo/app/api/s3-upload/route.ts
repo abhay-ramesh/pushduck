@@ -1,7 +1,7 @@
 /**
  * S3 Upload API Route
  *
- * This route uses the s3 instance and createS3Handler from upload.ts
+ * This route uses the s3 instance from upload.ts
  * which automatically includes the configured provider and settings.
  */
 

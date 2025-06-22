@@ -92,7 +92,7 @@ DIGITALOCEAN_CDN_ENDPOINT=https://your-space-name.nyc3.cdn.digitaloceanspaces.co
 // lib/upload.ts
 import { uploadConfig } from "pushduck/server";
 
-export const { s3, createS3Handler } = uploadConfig
+export const { s3,  } = uploadConfig
   .digitalOceanSpaces({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -223,7 +223,7 @@ For sensitive files:
 
 ```typescript
 // Configure private access
-export const { s3, createS3Handler } = uploadConfig
+export const { s3,  } = uploadConfig
   .digitalOceanSpaces({
     // ... config
     acl: "private", // Files not publicly accessible

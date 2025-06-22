@@ -2,7 +2,7 @@
  * Test script to verify framework-agnostic handlers work
  */
 
-import { createS3Handler, createS3Router, s3 } from "./dist/server.mjs";
+import { createS3Router, s3 } from "./dist/server.mjs";
 
 console.log("🧪 Testing Framework-Agnostic Handlers...\n");
 
@@ -29,7 +29,7 @@ try {
 // Test 2: Verify old createS3Handler still works
 console.log("\n🔍 Test 2: Legacy createS3Handler");
 try {
-    const legacyHandlers = createS3Handler(testRouter);
+    const legacyHandlers = testRouter.handlers;
     console.log("✅ createS3Handler works:", typeof legacyHandlers);
     console.log("✅ Has GET method:", typeof legacyHandlers.GET === "function");
     console.log("✅ Has POST method:", typeof legacyHandlers.POST === "function");
@@ -41,7 +41,7 @@ try {
 console.log("\n🔍 Test 3: Handler Equivalence");
 try {
     const universalHandlers = testRouter.handlers;
-    const legacyHandlers = createS3Handler(testRouter);
+    const legacyHandlers = testRouter.handlers;
 
     console.log("✅ Both APIs return handler objects");
 

@@ -119,7 +119,7 @@ const { upload, files } = useS3Upload(uploadSchema);
 
 ```typescript
 // app/api/s3/route.ts
-import { createS3Handler, createS3Router } from "pushduck";
+import {  createS3Router } from "pushduck";
 
 const s3Router = createS3Router({
   // Simple upload route
@@ -161,7 +161,7 @@ const s3Router = createS3Router({
     }),
 });
 
-export const { GET, POST } = createS3Handler(s3Router);
+export const { GET, POST } = s3Router.handlers;
 export type S3Router = typeof s3Router;
 ```
 

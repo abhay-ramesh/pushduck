@@ -107,7 +107,7 @@ graph TD
         end
         
         subgraph "Handler Creation"
-            P[createS3Handler] --> Q[GET Handler]
+            P[createS3Handler] --> Q[GET Handler]   (deprecated)
             P --> R[POST Handler]
             Q --> S[Route Introspection]
             R --> T[Request Processing]
@@ -273,7 +273,7 @@ graph TB
             R --> S[config: UploadConfig]
             R --> T[storage: StorageInstance]  
             R --> U[s3: Schema Builder]
-            R --> V[createS3Handler: Function]
+            R --> V[createS3Handler: Function]  (deprecated)
         end
         
         subgraph "Schema Builder (s3)"
@@ -333,7 +333,7 @@ graph TD
 ```mermaid
 graph LR
     subgraph "Current Next.js-Only Handler"
-        A[createS3Handler] --> B[NextRequest/NextResponse]
+        A[createS3Handler] --> B[NextRequest/NextResponse]  (deprecated)
         B --> C[Next.js Specific Logic]
         C --> D[GET/POST Handlers]
     end
@@ -355,7 +355,7 @@ graph LR
     end
     
     subgraph "Migration Path"
-        Q[Current Usage] --> R[export const GET POST = createS3Handler]
+        Q[Current Usage] --> R[export const GET POST = createS3Handler]  (deprecated)
         S[New Usage] --> T[export const GET POST = uploadRouter.handlers]
         S --> U[export const GET POST = toNextJsHandler uploadRouter.handlers]
         

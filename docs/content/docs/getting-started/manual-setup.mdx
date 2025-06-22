@@ -93,7 +93,7 @@ First, create your upload configuration:
 import { uploadConfig } from "pushduck/server";
 
 // Configure your S3-compatible storage
-export const { s3, createS3Handler, storage } = uploadConfig
+export const { s3, storage } = uploadConfig  
   .cloudflareR2({
     accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
     secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
@@ -115,7 +115,6 @@ Create an API route to handle file uploads:
 
 ```typescript
 // app/api/s3-upload/route.ts
-import { createS3Handler } from "pushduck/server";
 import { s3 } from "@/lib/upload";
 
 const s3Router = s3.createRouter({
@@ -128,7 +127,7 @@ const s3Router = s3.createRouter({
   documentUpload: s3.file().max("50MB").types(["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]),
 });
 
-export const { GET, POST } = createS3Handler(s3Router);
+export const { GET, POST } = s3Router.handlers;
 
 // Export the router type for client-side type safety
 export type Router = typeof s3Router;

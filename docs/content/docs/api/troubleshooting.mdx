@@ -113,7 +113,7 @@ const uploadRouter = s3.createRouter({
 
 ```typescript
 // app/api/upload/route.ts
-export const { GET, POST } = createS3Handler(uploadRouter);
+export const { GET, POST } = uploadRouter.handlers;
 export type AppRouter = typeof uploadRouter; // ✅ Export the type
 
 // lib/upload-client.ts

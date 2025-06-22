@@ -34,7 +34,7 @@ import {
 ```typescript
 import { 
   s3,
-  createS3Handler,
+  
   createS3Router,
   initializeUploadConfig,
   createS3Client 
@@ -44,7 +44,7 @@ import {
 **What's included:**
 
 - ✅ Schema builders (`s3.file()`, `s3.image()`, `s3.object()`)
-- ✅ Router system (`createS3Handler`, `createS3Router`)
+- ✅ Router system (`createS3Router`)  (createS3Handler is deprecated)
 - ✅ S3 client functionality (`createS3Client`, `uploadFileToS3`)
 - ✅ Configuration initialization (`initializeUploadConfig`)
 - ✅ Provider system (`providers`, `validateProviderConfig`)
@@ -86,14 +86,14 @@ export function FileUpload() {
 
 ```typescript
 // ✅ Correct - use server entry point
-import { s3, createS3Handler } from 'pushduck/server'
+import { s3 } from 'pushduck/server' 
 
 const s3Router = s3.createRouter({
   avatar: s3.image().max('2MB'),
   documents: s3.file().max('10MB')
 })
 
-export const { GET, POST } = createS3Handler(s3Router)
+export const { GET, POST } = s3Router.handlers
 ```
 
 ### Configuration Setup
@@ -102,7 +102,7 @@ export const { GET, POST } = createS3Handler(s3Router)
 // upload.ts (server-side configuration)
 import { initializeUploadConfig, providers } from 'pushduck/server'
 
-export const { s3, createS3Handler } = initializeUploadConfig({
+export const { s3 } = initializeUploadConfig({
   provider: providers.aws({
     region: 'us-east-1',
     bucket: 'my-bucket'
@@ -116,7 +116,7 @@ export const { s3, createS3Handler } = initializeUploadConfig({
 
 ```typescript
 // ❌ This will cause errors
-import { s3, createS3Handler } from 'pushduck'
+import { s3 } from 'pushduck'
 import { createS3Client } from 'pushduck' // Server-only!
 ```
 
@@ -134,7 +134,7 @@ import { useUploadRoute } from 'pushduck/server' // Not available!
 import { useUploadRoute } from 'pushduck'
 
 // API route  
-import { createS3Handler } from 'pushduck/server'
+import { s3 } from 'pushduck/server'
 ```
 
 ## 📋 Migration Guide
@@ -143,11 +143,11 @@ import { createS3Handler } from 'pushduck/server'
 
 ```typescript
 // ❌ Old way (still works but deprecated)
-import { createS3Handler, useUploadRoute } from 'pushduck'
+import {  useUploadRoute } from 'pushduck'
 
 // ✅ New way - clear separation
 import { useUploadRoute } from 'pushduck'           // Client
-import { createS3Handler } from 'pushduck/server'    // Server
+import { s3 } from 'pushduck/server'    // Server
 ```
 
 ### Legacy Support

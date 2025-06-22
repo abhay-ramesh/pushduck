@@ -257,11 +257,10 @@ Your upload system is ready for production.
 ### API Route Template (`app/api/upload/route.ts`)
 
 ```typescript
-import { createS3Handler } from "pushduck/server";
 import { uploadRouter } from "@/lib/upload-config";
 
 // Export the handler for App Router
-export const { GET, POST } = createS3Handler(uploadRouter);
+export const { GET, POST } = uploadRouter.handlers;
 
 // Optional: Add custom middleware
 export const runtime = 'nodejs';
@@ -317,14 +316,14 @@ const uploadRouter = createS3Router({
 });
 
 // Initialize the upload system
-const { s3, createS3Handler } = initializeUploadConfig({
+const { s3 } = initializeUploadConfig({
   provider: uploadConfig.aws({
     region: process.env.AWS_REGION!,
     bucket: process.env.S3_BUCKET!,
   }).build()
 });
 
-export { uploadRouter, s3, createS3Handler };
+export { uploadRouter, s3 };
 export type UploadRouter = typeof uploadRouter;
 ```
 
@@ -995,10 +994,9 @@ S3 Bucket name: › my-app-uploads
 ### **API Route** (`app/api/upload/route.ts`)
 
 ```typescript
-import { createS3Handler } from "pushduck/server";
 import { uploadRouter } from "@/lib/upload-config";
 
-export const { GET, POST } = createS3Handler(uploadRouter);
+export const { GET, POST } = uploadRouter.handlers;
 ```
 
 ### **Upload Configuration** (`lib/upload-config.ts`)
@@ -1024,14 +1022,14 @@ const uploadRouter = createS3Router({
 });
 
 // Initialize with your configuration
-const { s3, createS3Handler } = initializeUploadConfig({
+const { s3 } = initializeUploadConfig({
   provider: uploadConfig.aws({
     region: process.env.AWS_REGION!,
     bucket: process.env.S3_BUCKET!,
   }).build()
 });
 
-export { uploadRouter, s3, createS3Handler };
+export { uploadRouter, s3 };
 export type UploadRouter = typeof uploadRouter;
 ```
 

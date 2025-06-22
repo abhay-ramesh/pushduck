@@ -53,7 +53,6 @@ A typical Next.js project with pushduck follows this structure:
     Start by creating the API route that will handle your uploads:
 
     ```typescript title="app/api/upload/route.ts"
-    import { createS3Handler } from 'pushduck/server'
     import { s3 } from '@/lib/upload'
 
     const s3Router = s3.createRouter({
@@ -73,7 +72,7 @@ A typical Next.js project with pushduck follows this structure:
         .count(1)
     })
 
-    export const { POST, GET } = createS3Handler(s3Router)
+    export const { POST, GET } = s3Router.handlers
     ```
 
   </Step>
@@ -87,7 +86,7 @@ A typical Next.js project with pushduck follows this structure:
     import { uploadConfig } from 'pushduck/server'
 
     // Configure upload with provider and settings
-    const { s3, createS3Handler, storage } = uploadConfig
+    const { s3, storage } = uploadConfig
       .cloudflareR2({
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -105,7 +104,7 @@ A typical Next.js project with pushduck follows this structure:
     })
 
     // Export for use in API routes and client
-    export { s3, createS3Handler, storage }
+    export { s3, storage }
     export type AppS3Router = typeof s3Router
     ```
 
@@ -271,7 +270,7 @@ Configure settings that apply to all upload endpoints:
 
 ```typescript
 // ✅ Modern approach with hierarchical paths
-const { s3, createS3Handler } = uploadConfig
+const { s3 } = uploadConfig
   .cloudflareR2({ /* config */ })
   .paths({
     prefix: "uploads",
@@ -447,7 +446,7 @@ Export your router type for end-to-end type safety:
 ```typescript title="lib/upload.ts"
 import { uploadConfig } from "pushduck/server";
 
-const { s3, createS3Handler } = uploadConfig
+const { s3 } = uploadConfig
   .cloudflareR2({ /* your config */ })
   .build();
 
@@ -455,7 +454,7 @@ const s3Router = s3.createRouter({
   // ... your configuration
 });
 
-export { s3, createS3Handler };
+export { s3 };
 export type AppS3Router = typeof s3Router;
 
 // Extract individual endpoint types

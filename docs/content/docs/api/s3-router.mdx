@@ -37,7 +37,7 @@ const s3Router = s3.createRouter({
 })
 
 // Export the handler
-export const { GET, POST } = createS3Handler(s3Router)
+export const { GET, POST } = s3Router.handlers;
 ```
 
 ## Schema Builders

@@ -13,7 +13,7 @@ The `uploadConfig` builder provides a fluent API for configuring your S3 uploads
 // lib/upload.ts
 import { uploadConfig } from 'pushduck/server'
 
-const { storage, s3, createS3Handler, config } = uploadConfig
+const { storage, s3, config } = uploadConfig 
   .cloudflareR2({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -24,7 +24,7 @@ const { storage, s3, createS3Handler, config } = uploadConfig
   })
   .build()
 
-export { storage, s3, createS3Handler }
+export { storage, s3 }
 ```
 
 ## Provider Configuration
@@ -183,7 +183,7 @@ Add lifecycle hooks for upload events:
 // lib/upload.ts
 import { uploadConfig } from 'pushduck/server'
 
-const { storage, s3, createS3Handler, config } = uploadConfig
+const { storage, s3, config } = uploadConfig
   .cloudflareR2({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -232,7 +232,7 @@ const { storage, s3, createS3Handler, config } = uploadConfig
   })
   .build()
 
-export { storage, s3, createS3Handler }
+export { storage, s3 }
 ```
 
 ## Environment Variables

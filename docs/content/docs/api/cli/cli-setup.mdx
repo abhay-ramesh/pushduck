@@ -276,7 +276,7 @@ After running the CLI, your project will have:
 ### Generated API Route
 
 ```typescript title="app/api/upload/route.ts"
-import { createS3Handler } from 'pushduck/server'
+// No longer needed - use uploadRouter.handlers directly
 import { s3 } from '@/lib/upload'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -322,7 +322,7 @@ const s3Router = s3.createRouter({
 })
 
 export type AppRouter = typeof s3Router
-export const { GET, POST } = createS3Handler(s3Router)
+export const { GET, POST } = s3Router.handlers
 ```
 
 ### Generated Upload Client

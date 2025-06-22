@@ -123,7 +123,7 @@ await imageUpload.uploadFiles(selectedFiles);
     // app/api/upload/route.ts
     import { uploadConfig } from "pushduck/server";
     
-    const { s3, createS3Handler } = uploadConfig
+    const { s3,  } = uploadConfig
       .cloudflareR2({
         accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
         bucket: process.env.R2_BUCKET!,
@@ -157,7 +157,7 @@ await imageUpload.uploadFiles(selectedFiles);
         }),
     });
     
-    export const { GET, POST } = createS3Handler(uploadRouter);
+    export const { GET, POST } = uploadRouter.handlers;
     export type AppRouter = typeof uploadRouter;
     ```
   </Tab>

@@ -3,7 +3,7 @@
  *
  * This file configures the upload client and exports the configured instances.
  * Now simplified - no wrapper function needed! Just call uploadConfig.build()
- * and destructure { s3, createS3Handler, config } directly.
+ * and destructure { s3,  config } directly.
  */
 
 import { uploadConfig } from "pushduck/server";
@@ -28,7 +28,7 @@ interface UploadMetadata {
 // ========================================
 
 // Configure and initialize upload client directly
-const { s3, createS3Handler, config, storage } = uploadConfig
+const { s3, config, storage } = uploadConfig
   .cloudflareR2({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -99,7 +99,7 @@ console.log(
 );
 
 // Export the configured instances - these are bound to the configuration above
-export { createS3Handler, s3, storage };
+export { s3, storage };
 
 // ========================================
 // Alternative Path Configuration Examples
@@ -155,7 +155,7 @@ export { createS3Handler, s3, storage };
 // ========================================
 
 // For AWS S3:
-// const { s3: awsS3, createS3Handler: awsHandler, config: awsConfig } = uploadConfig
+// const { s3: awsS3, config: awsConfig } = uploadConfig
 //   .aws({
 //     region: "us-east-1",
 //     bucket: "my-s3-bucket",
@@ -170,7 +170,7 @@ export { createS3Handler, s3, storage };
 //   .build();
 
 // For DigitalOcean Spaces:
-// const { s3: doS3, createS3Handler: doHandler, config: doConfig } = uploadConfig
+// const { s3: doS3, config: doConfig } = uploadConfig
 //   .digitalOceanSpaces({
 //     region: "nyc3",
 //     bucket: "my-spaces-bucket",
@@ -182,7 +182,7 @@ export { createS3Handler, s3, storage };
 //   .build();
 
 // For MinIO:
-// const { s3: minioS3, createS3Handler: minioHandler, config: minioConfig } = uploadConfig
+// const { s3: minioS3, config: minioConfig } = uploadConfig
 //   .minio({
 //     endpoint: "localhost:9000",
 //     bucket: "my-minio-bucket",
