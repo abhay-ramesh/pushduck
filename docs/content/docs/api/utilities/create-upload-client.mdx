@@ -11,10 +11,23 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
 Creates a type-safe upload client that provides property-based access to your upload endpoints with full TypeScript inference.
 
-<Callout type="info">
-  This utility function is the foundation of the enhanced type inference system.
-  It eliminates string literals and provides compile-time validation.
+<Callout type="success">
+  **Recommended Approach**: This is the preferred way to handle uploads in your React components. It provides enhanced developer experience with property-based access and centralized configuration.
 </Callout>
+
+<Callout type="info">
+  This utility function provides property-based access to your upload routes. You can also use the `useUploadRoute<AppRouter>()` hook if you prefer traditional React patterns.
+</Callout>
+
+## Benefits of This Approach
+
+The structured client approach offers these advantages:
+
+- **🎯 Type Safety**: Complete inference from server router to client
+- **🔍 IntelliSense**: See all available endpoints with autocomplete
+- **🛡️ Refactoring Safety**: Rename routes confidently across your codebase
+- **🚫 No String Literals**: Property-based access eliminates typos
+- **⚡ Centralized Config**: Set up headers, timeouts, and options once
 
 ## Function Signature
 

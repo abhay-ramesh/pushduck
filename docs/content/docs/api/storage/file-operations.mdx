@@ -195,9 +195,9 @@ if (result.exists) {
 ```typescript
 // Validate single file
 const result = await storage.validation.validateFile('image.jpg', {
-  maxSize: 5 * 1024 * 1024,    // 5MB
-  allowedTypes: ['image/jpeg', 'image/png'],
-  minSize: 1024                 // 1KB
+  max: "5MB",
+  types: ['image/jpeg', 'image/png'],
+  min: "1KB"
 })
 
 if (result.valid) {
@@ -209,7 +209,7 @@ if (result.valid) {
 // Validate multiple files
 const results = await storage.validation.validateFiles(
   ['file1.jpg', 'file2.png'],
-  { maxSize: 10 * 1024 * 1024 }
+  { max: "10MB" }
 )
 ```
 
@@ -241,9 +241,9 @@ interface ListFilesOptions {
 }
 
 interface ValidationRules {
-  maxSize?: number
-  minSize?: number
-  allowedTypes?: string[]
+  max?: string | number
+  min?: string | number
+  types?: string[]
   requiredMetadata?: string[]
 }
 ``` 

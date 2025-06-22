@@ -1,6 +1,7 @@
 {
     "title": "Guides",
     "pages": [
+        "client-approaches",
         "uploads",
         "security",
         "migration",

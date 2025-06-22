@@ -155,16 +155,26 @@ Create an API route to handle file uploads:
 
 ```typescript
 // app/api/s3-upload/route.ts
-import { createS3Router, s3 } from "pushduck/server";
+import { uploadConfig } from "pushduck/server";
 
-const router = createS3Router({
+const { s3 } = uploadConfig
+  .cloudflareR2({
+    accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
+    accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY!,
+    bucket: process.env.CLOUDFLARE_BUCKET_NAME!,
+    region: "auto",
+  })
+  .build();
+
+const router = s3.createRouter({
   // Define your upload routes with validation
   imageUpload: s3
     .image()
-    .maxSize("10MB")
-    .accept([".jpg", ".jpeg", ".png", ".webp"]),
+    .max("10MB")
+    .formats(["jpeg", "png", "webp"]),
 
-  documentUpload: s3.file().maxSize("50MB").accept([".pdf", ".doc", ".docx"]),
+  documentUpload: s3.file().max("50MB").types(["application/pdf", "application/msword"]),
 });
 
 export { router as POST };
@@ -186,21 +196,41 @@ export type Router = typeof router;
 
 ## Create Upload Client
 
-Create a type-safe client for your components:
+Create a type-safe client for your components using the **recommended structured approach**:
+
+<Callout type="success">
+  **Recommended**: The structured client provides the best developer experience with property-based access, centralized configuration, and enhanced type safety.
+</Callout>
 
 ```typescript
 // lib/upload-client.ts
-import { createUploadClient } from "pushduck";
+import { createUploadClient } from "pushduck/client";
 import type { Router } from "@/app/api/s3-upload/route";
 
-// Create a type-safe upload client
+// Create a type-safe upload client (recommended)
 export const upload = createUploadClient<Router>({
-  baseUrl: "/api/s3-upload",
+  endpoint: "/api/s3-upload",
 });
-
-// You can also export specific upload methods
-export const { imageUpload, documentUpload } = upload;
 ```
+
+**Why this approach is recommended:**
+- ✅ **Full type inference** from your server router
+- ✅ **Property-based access** - `upload.imageUpload()` instead of strings
+- ✅ **IntelliSense support** - see all available endpoints
+- ✅ **Refactoring safety** - rename routes with confidence
+- ✅ **Centralized config** - set headers, timeouts, and options once
+
+<Callout type="info">
+  **Alternative**: You can also use the hook-based approach if you prefer traditional React patterns:
+  ```typescript
+  // With type parameter (recommended)
+  const { uploadFiles } = useUploadRoute<AppRouter>('imageUpload')
+  
+  // Or without type parameter (also works)
+  const { uploadFiles } = useUploadRoute('imageUpload')
+  ```
+  The structured client is still recommended for most use cases.
+</Callout>
 
 </Step>
 

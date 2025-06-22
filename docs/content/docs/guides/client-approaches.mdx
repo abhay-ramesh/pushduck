@@ -1,0 +1,319 @@
+---
+title: Client-Side Approaches
+description: Compare the structured client vs hook-based approaches for file uploads
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+
+# Client-Side Approaches
+
+Pushduck provides **two ways** to integrate file uploads in your React components. While both approaches provide the same functionality, we recommend the structured client for most use cases.
+
+<Callout type="success">
+  **Recommendation**: Use the **Structured Client** approach for the best developer experience. It provides enhanced type safety, better refactoring support, and centralized configuration.
+</Callout>
+
+## Quick Comparison
+
+<Cards>
+  <Card
+    title="🏆 Structured Client (Recommended)"
+    description="Property-based access with centralized configuration"
+  >
+    ```typescript
+    const upload = createUploadClient<AppRouter>({
+      endpoint: '/api/upload'
+    })
+    
+    const { uploadFiles, files } = upload.imageUpload()
+    ```
+    
+    **Best for**: Most projects - provides superior DX and type safety
+  </Card>
+
+  <Card
+    title="🪝 Hook-Based"
+    description="Traditional React hook pattern"
+  >
+    ```typescript
+    const { uploadFiles, files } = useUploadRoute<AppRouter>('imageUpload')
+    ```
+    
+    **Best for**: Teams that strongly prefer React hooks, component-level control
+  </Card>
+</Cards>
+
+## Detailed Comparison
+
+### Type Safety & Developer Experience
+
+<Tabs items={["Structured Client", "Hook-Based"]}>
+  <Tab value="Structured Client">
+    ```typescript
+    // ✅ Complete type inference from server router
+    const upload = createUploadClient<AppRouter>({
+      endpoint: '/api/upload'
+    })
+    
+    // ✅ Property-based access - no string literals
+    const { uploadFiles, files } = upload.imageUpload()
+    
+    // ✅ IntelliSense shows all available endpoints
+    upload. // <- Shows: imageUpload, documentUpload, videoUpload...
+    
+    // ✅ Compile-time validation
+    upload.nonExistentRoute() // ❌ TypeScript error
+    
+    // ✅ Refactoring safety
+    // Rename routes in router → TypeScript shows all usage locations
+    ```
+    
+    **Benefits:**
+    - 🎯 **Full type inference** from server to client
+    - 🔍 **IntelliSense support** - discover endpoints through IDE
+    - 🛡️ **Refactoring safety** - rename with confidence
+    - 🚫 **No string literals** - eliminates typos
+    - ⚡ **Better DX** - property-based access feels natural
+  </Tab>
+  
+     <Tab value="Hook-Based">
+     ```typescript
+     // ✅ With type parameter - recommended for better type safety
+     const { uploadFiles, files } = useUploadRoute<AppRouter>('imageUpload')
+     
+     // ✅ Without type parameter - also works
+     const { uploadFiles, files } = useUploadRoute('imageUpload')
+     
+     // Type parameter provides compile-time validation
+     const typed = useUploadRoute<AppRouter>('imageUpload') // Route validated
+     const untyped = useUploadRoute('imageUpload') // Any string accepted
+     ```
+     
+     **Characteristics:**
+     - 🪝 **React hook pattern** - familiar to React developers
+     - 🔤 **Flexible usage** - works with or without type parameter
+     - 🧩 **Component-level state** - each hook manages its own state
+     - 🎯 **Type safety** - enhanced when using `<AppRouter>`
+     - 🔍 **IDE support** - best with type parameter
+   </Tab>
+</Tabs>
+
+### Code Examples
+
+<Tabs items={["Image Uploader", "Multiple Routes", "With Authentication"]}>
+  <Tab value="Image Uploader">
+    **Structured Client:**
+    ```typescript
+    import { upload } from '@/lib/upload-client'
+    
+    export function ImageUploader() {
+      const { uploadFiles, files, isUploading, error } = upload.imageUpload()
+      
+      return (
+        <div>
+          <input 
+            type="file" 
+            onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
+            disabled={isUploading}
+          />
+          {/* Upload UI */}
+        </div>
+      )
+    }
+    ```
+    
+         **Hook-Based:**
+     ```typescript
+     import { useUploadRoute } from 'pushduck/client'
+     
+     export function ImageUploader() {
+       const { uploadFiles, files, isUploading, error } = useUploadRoute<AppRouter>('imageUpload')
+      
+      return (
+        <div>
+          <input 
+            type="file" 
+            onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
+            disabled={isUploading}
+          />
+          {/* Same upload UI */}
+        </div>
+      )
+    }
+    ```
+  </Tab>
+  
+  <Tab value="Multiple Routes">
+    **Structured Client:**
+    ```typescript
+    export function FileManager() {
+      const images = upload.imageUpload()
+      const documents = upload.documentUpload()
+      const videos = upload.videoUpload()
+      
+      return (
+        <div>
+          <ImageSection {...images} />
+          <DocumentSection {...documents} />
+          <VideoSection {...videos} />
+        </div>
+      )
+    }
+    ```
+    
+         **Hook-Based:**
+     ```typescript
+     export function FileManager() {
+       const images = useUploadRoute<AppRouter>('imageUpload')
+       const documents = useUploadRoute<AppRouter>('documentUpload')
+       const videos = useUploadRoute<AppRouter>('videoUpload')
+      
+      return (
+        <div>
+          <ImageSection {...images} />
+          <DocumentSection {...documents} />
+          <VideoSection {...videos} />
+        </div>
+      )
+    }
+    ```
+  </Tab>
+  
+  <Tab value="With Authentication">
+    **Structured Client:**
+    ```typescript
+    // lib/upload-client.ts
+    export const upload = createUploadClient<AppRouter>({
+      endpoint: '/api/upload',
+      headers: {
+        Authorization: `Bearer ${getAuthToken()}`
+      }
+    })
+    
+    // components/secure-uploader.tsx
+    export function SecureUploader() {
+      const { uploadFiles } = upload.secureUpload()
+      // Authentication handled globally
+    }
+    ```
+    
+         **Hook-Based:**
+     ```typescript
+     export function SecureUploader() {
+       const { uploadFiles } = useUploadRoute<AppRouter>('secureUpload', {
+         headers: {
+           Authorization: `Bearer ${getAuthToken()}`
+         }
+       })
+       // Authentication per hook usage
+     }
+    ```
+  </Tab>
+</Tabs>
+
+## Migration Guide
+
+### From Hook-Based to Structured Client
+
+<Steps>
+  <Step>
+    **Create Upload Client**
+    
+    ```typescript
+    // lib/upload-client.ts
+    import { createUploadClient } from 'pushduck/client'
+    import type { AppRouter } from './upload'
+    
+    export const upload = createUploadClient<AppRouter>({
+      endpoint: '/api/upload'
+    })
+    ```
+  </Step>
+
+  <Step>
+    **Update Component Imports**
+    
+    ```typescript
+    // Before
+    import { useUploadRoute } from 'pushduck/client'
+    
+    // After
+    import { upload } from '@/lib/upload-client'
+    ```
+  </Step>
+
+  <Step>
+    **Replace Hook Calls**
+    
+    ```typescript
+    // Before
+    const { uploadFiles, files } = useUploadRoute('imageUpload')
+    
+    // After
+    const { uploadFiles, files } = upload.imageUpload()
+    ```
+  </Step>
+
+  <Step>
+    **Enjoy Enhanced Type Safety**
+    
+    Your IDE will now show:
+    - ✅ Autocomplete for all available routes
+    - ✅ Type errors for non-existent routes
+    - ✅ Safe refactoring across your codebase
+  </Step>
+</Steps>
+
+## When to Use Each Approach
+
+### Use Structured Client When:
+
+- 🆕 **Starting a new project**
+- 🎯 **Type safety is important** to your team
+- 🔍 **Developer experience matters** - you want IntelliSense and autocomplete
+- 🛡️ **Refactoring safety** - you plan to evolve your upload routes
+- ⚡ **Modern React patterns** - you prefer property-based access
+
+### Use Hook-Based When:
+
+- 🔄 **Migrating existing code** that already uses hooks
+- 👥 **Team strongly prefers** traditional React hook patterns
+- 📦 **Legacy codebase** where gradual migration is preferred
+- 🧩 **Granular control** needed over individual upload state
+- ⏰ **Short-term project** where setup time matters more than maintainability
+
+## Performance Considerations
+
+Both approaches have identical runtime performance:
+
+- **Bundle Size**: No difference - same underlying implementation
+- **Runtime Performance**: Identical - both use the same upload logic
+- **Memory Usage**: Same - both create similar React state
+- **Network Requests**: Identical - same API calls and patterns
+
+The choice is purely about **developer experience** and **type safety**.
+
+## Conclusion
+
+<Callout type="success">
+  **Our Recommendation**: Use the **Structured Client** approach (`createUploadClient`) for most projects. It provides superior developer experience, better refactoring safety, and enhanced type inference.
+</Callout>
+
+<Callout type="info">
+  **Both approaches are supported**: The hook-based approach (`useUploadRoute<AppRouter>`) is fully supported and valid for teams that prefer traditional React patterns.
+</Callout>
+
+**Quick Decision Guide:**
+- **Most projects** → Use `createUploadClient` (recommended)
+- **Strongly prefer React hooks** → Use `useUploadRoute<AppRouter>`
+- **Want best DX and type safety** → Use `createUploadClient`
+- **Need component-level control** → Use `useUploadRoute<AppRouter>`
+
+### Next Steps
+
+- **New Project**: Start with [createUploadClient](/docs/api/utilities/create-upload-client)
+- **Existing Hook Code**: Consider [migrating gradually](/docs/guides/migration/enhanced-client)
+- **Need Help**: Join our [Discord community](https://discord.gg/pushduck) for guidance 

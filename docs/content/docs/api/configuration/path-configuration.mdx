@@ -486,7 +486,7 @@ const sanitizePathSegment = (input: string) => {
 
 ```typescript
 // Old way - simple prefix only
-export const { POST, GET } = createUploadRouter(
+export const { POST, GET } = createS3Handler(
   { /* routes */ },
   { s3, pathPrefix: "uploads/" }
 );

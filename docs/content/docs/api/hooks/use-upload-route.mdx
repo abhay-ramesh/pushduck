@@ -13,8 +13,41 @@ A React hook that provides reactive state management for file uploads with progr
 
 <Callout type="info">
   This hook follows familiar React patterns and is perfect for teams that prefer
-  the traditional hook-based approach over property-based access.
+  the traditional hook-based approach. Both this and `createUploadClient` are equally valid ways to handle uploads.
 </Callout>
+
+## When to Use This Hook
+
+Use `useUploadRoute` when:
+
+- 🪝 **Prefer React hooks** - familiar pattern for React developers
+- 🧩 **Granular control** needed over individual upload state
+- 🔄 **Component-level state** management preferred
+- 👥 **Team preference** for hook-based patterns
+
+## Alternative Approach
+
+You can also use the structured client approach:
+
+```typescript
+// Hook-based approach
+import { useUploadRoute } from 'pushduck/client'
+
+const { uploadFiles, files } = useUploadRoute<AppRouter>('imageUpload')
+```
+
+```typescript
+// Structured client approach
+import { createUploadClient } from 'pushduck/client'
+
+const upload = createUploadClient<AppRouter>({
+  endpoint: '/api/upload'
+})
+
+const { uploadFiles, files } = upload.imageUpload()
+```
+
+Both approaches provide the same functionality and type safety - choose what feels more natural for your team.
 
 ## Basic Usage
 
@@ -23,8 +56,13 @@ import { useUploadRoute } from "pushduck/client";
 import type { AppRouter } from "@/lib/upload";
 
 export function ImageUploader() {
+  // With type parameter (recommended for better type safety)
   const { uploadFiles, files, isUploading, error, reset } =
     useUploadRoute<AppRouter>("imageUpload");
+    
+  // Or without type parameter (still works)
+  // const { uploadFiles, files, isUploading, error, reset } =
+  //   useUploadRoute("imageUpload");
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
@@ -58,8 +96,15 @@ export function ImageUploader() {
 ## Hook Signature
 
 ```typescript
+// With type parameter (recommended)
 function useUploadRoute<TRouter>(
   route: keyof TRouter,
+  options?: UseUploadOptions
+): UseUploadReturn;
+
+// Without type parameter (also works)
+function useUploadRoute(
+  route: string,
   options?: UseUploadOptions
 ): UseUploadReturn;
 ```
@@ -70,7 +115,7 @@ function useUploadRoute<TRouter>(
   type={{
     route: {
       description: "The upload route name from your router",
-      type: "keyof TRouter",
+      type: "keyof TRouter | string",
       required: true,
     },
     options: {
@@ -79,6 +124,22 @@ function useUploadRoute<TRouter>(
     },
   }}
 />
+
+### Type Parameter Benefits
+
+```typescript
+// ✅ With type parameter - better type safety
+const { uploadFiles } = useUploadRoute<AppRouter>("imageUpload");
+// - Route names are validated at compile time
+// - IntelliSense shows available routes
+// - Typos caught during development
+
+// ✅ Without type parameter - still works
+const { uploadFiles } = useUploadRoute("imageUpload");
+// - Works with any string
+// - Less type safety but more flexible
+// - Good for dynamic route names
+```
 
 ## Options
 
