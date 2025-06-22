@@ -30,15 +30,21 @@ Ensure your file upload system is production-ready with this comprehensive check
     
     ```typescript
     // ✅ Secure endpoint
-    export const router = createUploadRouter({
-      userFiles: uploadSchema({
-        image: { maxSize: "5MB", maxCount: 10 }
-      }).middleware(async ({ req }) => {
-        const session = await getServerSession(req)
-        if (!session) throw new Error("Authentication required")
-        return { userId: session.user.id }
-      })
+    import { createS3Handler } from "pushduck/server";
+    import { s3 } from "@/lib/upload";
+    
+    const s3Router = s3.createRouter({
+      userFiles: s3.image()
+        .max("5MB")
+        .count(10)
+        .middleware(async ({ req, metadata }) => {
+          const session = await getServerSession(req)
+          if (!session) throw new Error("Authentication required")
+          return { ...metadata, userId: session.user.id }
+        })
     })
+    
+    export const { GET, POST } = createS3Handler(s3Router);
     ```
   </Step>
 
@@ -63,13 +69,10 @@ Ensure your file upload system is production-ready with this comprehensive check
     
     ```typescript
     // ✅ Comprehensive validation
-    userPhotos: uploadSchema({
-      image: { 
-        maxSize: "10MB",
-        maxCount: 5,
-        allowedTypes: ["image/jpeg", "image/png", "image/webp"]
-      }
-    })
+    userPhotos: s3.image()
+      .max("10MB")
+      .count(5)
+      .formats(["jpeg", "png", "webp"])
     ```
   </Step>
 
@@ -130,16 +133,17 @@ Ensure your file upload system is production-ready with this comprehensive check
     
     ```typescript
     // ✅ Cache headers configuration
-    export const router = createUploadRouter({
-      publicImages: uploadSchema({
-        image: { maxSize: "5MB", maxCount: 10 }
-      }).afterUpload(async ({ uploadedFiles }) => {
-        // Set cache headers for uploaded files
-        await setCacheHeaders(uploadedFiles, {
-          maxAge: 31536000, // 1 year
-          immutable: true
+    const s3Router = s3.createRouter({
+      publicImages: s3.image()
+        .max("5MB")
+        .count(10)
+        .onUploadComplete(async ({ files }) => {
+          // Set cache headers for uploaded files
+          await setCacheHeaders(files, {
+            maxAge: 31536000, // 1 year
+            immutable: true
+          })
         })
-      })
     })
     ```
   </Step>

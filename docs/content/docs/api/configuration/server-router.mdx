@@ -62,9 +62,9 @@ A typical Next.js project with pushduck follows this structure:
         .max('4MB')
         .count(10)
         .middleware(async ({ req }) => {
-          // Add your authentication logic here
-          return { userId: "user_123" }
-        }),
+        // Add your authentication logic here
+        return { userId: "user_123" }
+      }),
 
       documentUpload: s3
         .file()
@@ -479,12 +479,12 @@ const s3Router = s3.createRouter({
     .max('4MB')
     .count(5)
     .middleware(async ({ req }): Promise<CustomContext> => {
-      // Your auth logic here
-      return {
-        userId: "user_123",
-        userRole: "user",
-      };
-    }),
+    // Your auth logic here
+    return {
+      userId: "user_123",
+      userRole: "user",
+    };
+  }),
 });
 ```
 
@@ -518,9 +518,9 @@ const docsRouter = s3.createRouter({
     .types(['application/pdf'])
     .count(1)
     .middleware(async ({ req }) => {
-      const { userId, companyId } = await validateContractUpload(req);
-      return { userId, companyId, confidential: true };
-    }),
+    const { userId, companyId } = await validateContractUpload(req);
+    return { userId, companyId, confidential: true };
+  }),
 
   proposals: s3.object({
     pdfs: s3.file().max('50MB').types(['application/pdf']).count(3),

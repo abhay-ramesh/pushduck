@@ -137,7 +137,7 @@ const s3Router = s3.createRouter({
     })
     .aspectRatio(16 / 9, { tolerance: 0.1 })
     .middleware(async ({ req, file, metadata }) => {
-      // Custom validation
+    // Custom validation
       const imageMetadata = await getImageMetadata(file);
 
       if (
@@ -151,14 +151,14 @@ const s3Router = s3.createRouter({
         console.warn(
           `Image ${file.name} uses ${imageMetadata.colorProfile} color profile`
         );
-      }
+    }
 
       return { 
         ...metadata,
         userId: await getUserId(req),
         ...imageMetadata
       };
-    }),
+  }),
 });
 ```
 
@@ -172,13 +172,13 @@ const s3Router = s3.createRouter({
     .formats(['jpeg', 'png', 'webp'])
     .dimensions({ maxWidth: 1920, maxHeight: 1080 })
     .onUploadComplete(async ({ file, url, metadata }) => {
-      // Generate multiple sizes
+    // Generate multiple sizes
       await generateImageVariants(file, [
         { name: "thumbnail", width: 150, height: 150, fit: "cover" },
         { name: "medium", width: 800, height: 600, fit: "inside" },
         { name: "large", width: 1920, height: 1080, fit: "inside" },
       ]);
-    }),
+  }),
 });
 ```
 
@@ -216,7 +216,7 @@ const s3Router = s3.createRouter({
 
       // Save variant information to database
       await saveImageVariants(file.key, variants, metadata.userId);
-    }),
+  }),
 });
 
 // Client-side responsive image component
@@ -461,7 +461,7 @@ export function ResponsiveImage({
             medium: getVariantUrl(file.key, 'avatar-medium'),
             large: getVariantUrl(file.key, 'avatar-large')
           })
-        })
+      })
     })
     ```
   </Tab>
@@ -586,33 +586,33 @@ const s3Router = s3.createRouter({
 
       // Return enriched metadata
       return {
-        ...metadata,
+          ...metadata,
         userId,
-        uploadedBy: userId,
-        uploadedAt: new Date(),
-        originalFilename: file.name,
-        fileHash: await calculateFileHash(file),
+          uploadedBy: userId,
+          uploadedAt: new Date(),
+          originalFilename: file.name,
+          fileHash: await calculateFileHash(file),
         ...imageMetadata,
-      };
+        };
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
       // Save detailed image information
-      await saveImageToDatabase({
+        await saveImageToDatabase({
         userId: metadata.userId,
-        s3Key: file.key,
+          s3Key: file.key,
         url: url,
         filename: metadata.originalFilename,
-        size: file.size,
-        dimensions: {
+          size: file.size,
+          dimensions: {
           width: metadata.width,
           height: metadata.height,
-        },
+          },
         format: metadata.format,
         colorProfile: metadata.colorProfile,
         hasTransparency: metadata.hasTransparency,
         exifData: metadata.exif,
         hash: metadata.fileHash,
-      });
+        });
     }),
 });
 ```

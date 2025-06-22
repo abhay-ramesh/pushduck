@@ -276,54 +276,53 @@ After running the CLI, your project will have:
 ### Generated API Route
 
 ```typescript title="app/api/upload/route.ts"
-import { createUploadRouter, uploadSchema } from 'pushduck/server'
+import { createS3Handler } from 'pushduck/server'
+import { s3 } from '@/lib/upload'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
-export const router = createUploadRouter({
+const s3Router = s3.createRouter({
   // Image uploads for profile pictures
-  imageUpload: uploadSchema({
-    image: {
-      maxSize: "5MB",
-      maxCount: 1,
-      formats: ["jpeg", "png", "webp"]
-    }
-  }).middleware(async ({ req }) => {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
-      throw new Error("Authentication required")
-    }
-    
-    return {
-      userId: session.user.id,
-      folder: `uploads/${session.user.id}`
-    }
-  }),
+  imageUpload: s3.image()
+    .max("5MB")
+    .count(1)
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req, metadata }) => {
+      const session = await getServerSession(authOptions)
+      
+      if (!session?.user?.id) {
+        throw new Error("Authentication required")
+      }
+      
+      return {
+        ...metadata,
+        userId: session.user.id,
+        folder: `uploads/${session.user.id}`
+      }
+    }),
 
   // Document uploads
-  documentUpload: uploadSchema({
-    file: {
-      maxSize: "10MB",
-      maxCount: 5,
-      allowedTypes: ["application/pdf", "text/plain", "application/msword"]
-    }
-  }).middleware(async ({ req }) => {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
-      throw new Error("Authentication required")
-    }
-    
-    return {
-      userId: session.user.id,
-      folder: `documents/${session.user.id}`
-    }
-  })
+  documentUpload: s3.file()
+    .max("10MB")
+    .count(5)
+    .types(["application/pdf", "text/plain", "application/msword"])
+    .middleware(async ({ req, metadata }) => {
+      const session = await getServerSession(authOptions)
+      
+      if (!session?.user?.id) {
+        throw new Error("Authentication required")
+      }
+      
+      return {
+        ...metadata,
+        userId: session.user.id,
+        folder: `documents/${session.user.id}`
+      }
+    })
 })
 
-export type AppRouter = typeof router
-export const { GET, POST } = router
+export type AppRouter = typeof s3Router
+export const { GET, POST } = createS3Handler(s3Router)
 ```
 
 ### Generated Upload Client

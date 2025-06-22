@@ -23,26 +23,31 @@ Secure your file upload endpoints with robust authentication and authorization m
 ### NextAuth.js Integration
 
 ```typescript
-import { createUploadRouter, uploadSchema } from "pushduck/server";
+import { createS3Handler } from "pushduck/server";
+import { s3 } from "@/lib/upload";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export const router = createUploadRouter({
-  userFiles: uploadSchema({
-    image: { maxSize: "5MB", maxCount: 10 },
-  }).middleware(async ({ req }) => {
-    const session = await getServerSession(authOptions);
+const s3Router = s3.createRouter({
+  userFiles: s3.image()
+    .max("5MB")
+    .count(10)
+    .middleware(async ({ req, metadata }) => {
+      const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
-      throw new Error("Authentication required");
-    }
+      if (!session?.user?.id) {
+        throw new Error("Authentication required");
+      }
 
-    return {
-      userId: session.user.id,
-      userEmail: session.user.email,
-    };
-  }),
+      return {
+        ...metadata,
+        userId: session.user.id,
+        userEmail: session.user.email,
+      };
+    }),
 });
+
+export const { GET, POST } = createS3Handler(s3Router);
 ```
 
 ### JWT Token Validation
@@ -50,56 +55,61 @@ export const router = createUploadRouter({
 ```typescript
 import jwt from "jsonwebtoken";
 
-export const router = createUploadRouter({
-  protectedUploads: uploadSchema({
-    any: { maxSize: "10MB", maxCount: 5 },
-  }).middleware(async ({ req }) => {
-    const token = req.headers.get("authorization")?.replace("Bearer ", "");
+const s3Router = s3.createRouter({
+  protectedUploads: s3.file()
+    .max("10MB")
+    .count(5)
+    .middleware(async ({ req, metadata }) => {
+      const token = req.headers.get("authorization")?.replace("Bearer ", "");
 
-    if (!token) {
-      throw new Error("Authorization token required");
-    }
+      if (!token) {
+        throw new Error("Authorization token required");
+      }
 
-    try {
-      const payload = jwt.verify(token, process.env.JWT_SECRET!) as any;
+      try {
+        const payload = jwt.verify(token, process.env.JWT_SECRET!) as any;
 
-      return {
-        userId: payload.sub,
-        roles: payload.roles || [],
-      };
-    } catch (error) {
-      throw new Error("Invalid or expired token");
-    }
-  }),
+        return {
+          ...metadata,
+          userId: payload.sub,
+          roles: payload.roles || [],
+        };
+      } catch (error) {
+        throw new Error("Invalid or expired token");
+      }
+    }),
 });
 ```
 
 ### Custom Authentication
 
 ```typescript
-export const router = createUploadRouter({
-  apiKeyUploads: uploadSchema({
-    document: { maxSize: "25MB", maxCount: 1 },
-  }).middleware(async ({ req }) => {
-    const apiKey = req.headers.get("x-api-key");
+const s3Router = s3.createRouter({
+  apiKeyUploads: s3.file()
+    .max("25MB")
+    .count(1)
+    .types(['application/pdf', 'application/msword'])
+    .middleware(async ({ req, metadata }) => {
+      const apiKey = req.headers.get("x-api-key");
 
-    if (!apiKey) {
-      throw new Error("API key required");
-    }
+      if (!apiKey) {
+        throw new Error("API key required");
+      }
 
-    // Validate API key against your database
-    const client = await validateApiKey(apiKey);
+      // Validate API key against your database
+      const client = await validateApiKey(apiKey);
 
-    if (!client) {
-      throw new Error("Invalid API key");
-    }
+      if (!client) {
+        throw new Error("Invalid API key");
+      }
 
-    return {
-      clientId: client.id,
-      plan: client.plan,
-      quotaUsed: client.quotaUsed,
-    };
-  }),
+      return {
+        ...metadata,
+        clientId: client.id,
+        plan: client.plan,
+        quotaUsed: client.quotaUsed,
+      };
+    }),
 });
 ```
 
@@ -129,65 +139,69 @@ export const router = createUploadRouter({
 />
 
 ```typescript
-export const router = createUploadRouter({
-  adminUploads: uploadSchema({
-    any: { maxSize: "100MB", maxCount: 50 },
-  }).middleware(async ({ req }) => {
-    const { userId, roles } = await authenticateUser(req);
+const s3Router = s3.createRouter({
+  adminUploads: s3.file()
+    .max("100MB")
+    .count(50)
+    .middleware(async ({ req, metadata }) => {
+      const { userId, roles } = await authenticateUser(req);
 
-    if (!roles.includes("admin")) {
-      throw new Error("Admin access required");
-    }
+      if (!roles.includes("admin")) {
+        throw new Error("Admin access required");
+      }
 
-    return { userId, roles };
-  }),
+      return { ...metadata, userId, roles };
+    }),
 
-  moderatorUploads: uploadSchema({
-    image: { maxSize: "10MB", maxCount: 20 },
-  }).middleware(async ({ req }) => {
-    const { userId, roles } = await authenticateUser(req);
+  moderatorUploads: s3.image()
+    .max("10MB")
+    .count(20)
+    .middleware(async ({ req, metadata }) => {
+      const { userId, roles } = await authenticateUser(req);
 
-    if (!roles.includes("admin") && !roles.includes("moderator")) {
-      throw new Error("Moderator access required");
-    }
+      if (!roles.includes("admin") && !roles.includes("moderator")) {
+        throw new Error("Moderator access required");
+      }
 
-    return { userId, roles };
-  }),
+      return { ...metadata, userId, roles };
+    }),
 
-  userUploads: uploadSchema({
-    image: { maxSize: "5MB", maxCount: 5 },
-  }).middleware(async ({ req }) => {
-    const { userId } = await authenticateUser(req);
+  userUploads: s3.image()
+    .max("5MB")
+    .count(5)
+    .middleware(async ({ req, metadata }) => {
+      const { userId } = await authenticateUser(req);
 
-    // Basic authentication only
-    return { userId };
-  }),
+      // Basic authentication only
+      return { ...metadata, userId };
+    }),
 });
 ```
 
 ### Resource-Based Authorization
 
 ```typescript
-export const router = createUploadRouter({
-  projectFiles: uploadSchema({
-    any: { maxSize: "25MB", maxCount: 10 },
-  }).middleware(async ({ req }) => {
-    const { userId } = await authenticateUser(req);
-    const projectId = req.url.searchParams.get("projectId");
+const s3Router = s3.createRouter({
+  projectFiles: s3.file()
+    .max("25MB")
+    .count(10)
+    .middleware(async ({ req, metadata }) => {
+      const { userId } = await authenticateUser(req);
+      const projectId = req.url.searchParams.get("projectId");
 
-    if (!projectId) {
-      throw new Error("Project ID required");
-    }
+      if (!projectId) {
+        throw new Error("Project ID required");
+      }
 
-    // Check if user has access to this project
-    const hasAccess = await checkProjectAccess(userId, projectId);
+      // Check if user has access to this project
+      const hasAccess = await checkProjectAccess(userId, projectId);
 
-    if (!hasAccess) {
-      throw new Error("Access denied to this project");
-    }
+      if (!hasAccess) {
+        throw new Error("Access denied to this project");
+      }
 
-    return { userId, projectId };
-  }),
+      return { ...metadata, userId, projectId };
+    }),
 });
 ```
 
