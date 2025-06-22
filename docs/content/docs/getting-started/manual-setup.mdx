@@ -84,28 +84,54 @@ Create a `.env.local` file in your project root with your storage credentials:
 
 <Step>
 
+## Configure Upload Settings
+
+First, create your upload configuration:
+
+```typescript
+// lib/upload.ts
+import { uploadConfig } from "pushduck/server";
+
+// Configure your S3-compatible storage
+export const { s3, createS3Handler, storage } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
+    region: "auto",
+    endpoint: `https://${process.env.CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    bucket: process.env.CLOUDFLARE_R2_BUCKET_NAME!,
+    accountId: process.env.CLOUDFLARE_R2_ACCOUNT_ID!,
+  })
+  .build();
+```
+
+</Step>
+
+<Step>
+
 ## Create Your Upload Router
 
 Create an API route to handle file uploads:
 
 ```typescript
 // app/api/s3-upload/route.ts
-import { createS3Router, s3 } from "pushduck/server";
+import { createS3Handler } from "pushduck/server";
+import { s3 } from "@/lib/upload";
 
-const router = createS3Router({
+const s3Router = s3.createRouter({
   // Define your upload routes with validation
   imageUpload: s3
     .image()
-    .maxSize("10MB")
-    .accept([".jpg", ".jpeg", ".png", ".webp"]),
+    .max("10MB")
+    .formats(["jpg", "jpeg", "png", "webp"]),
 
-  documentUpload: s3.file().maxSize("50MB").accept([".pdf", ".doc", ".docx"]),
+  documentUpload: s3.file().max("50MB").types(["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]),
 });
 
-export { router as POST };
+export const { GET, POST } = createS3Handler(s3Router);
 
 // Export the router type for client-side type safety
-export type Router = typeof router;
+export type Router = typeof s3Router;
 ```
 
 <Callout type="info">

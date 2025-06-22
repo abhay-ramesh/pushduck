@@ -53,35 +53,27 @@ A typical Next.js project with pushduck follows this structure:
     Start by creating the API route that will handle your uploads:
 
     ```typescript title="app/api/upload/route.ts"
-    import { createUploadRouter, uploadSchema } from 'pushduck/server'
-    import { createS3Client } from 'pushduck/s3'
+    import { createS3Handler } from 'pushduck/server'
+    import { s3 } from '@/lib/upload'
 
-    const s3 = createS3Client({
-      endpoint: process.env.S3_ENDPOINT!,
-      accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
-      bucket: process.env.S3_BUCKET!,
-      region: process.env.S3_REGION!,
+    const s3Router = s3.createRouter({
+      imageUpload: s3
+        .image()
+        .max('4MB')
+        .count(10)
+        .middleware(async ({ req }) => {
+          // Add your authentication logic here
+          return { userId: "user_123" }
+        }),
+
+      documentUpload: s3
+        .file()
+        .max('10MB')
+        .types(['application/pdf'])
+        .count(1)
     })
 
-    export const { POST, GET } = createUploadRouter({
-      imageUpload: uploadSchema({
-        image: {
-          maxSize: "4MB",
-          maxCount: 10,
-        }
-      }).middleware(({ req }) => {
-        // Add your authentication logic here
-        return { userId: "user_123" }
-      }),
-
-      documentUpload: uploadSchema({
-        pdf: {
-          maxSize: "10MB",
-          maxCount: 1,
-        }
-      })
-    }, { s3 })
+    export const { POST, GET } = createS3Handler(s3Router)
     ```
 
   </Step>
@@ -92,20 +84,29 @@ A typical Next.js project with pushduck follows this structure:
     Create a separate file to export your router types for client-side usage:
 
     ```typescript title="lib/upload.ts"
-    import { createUploadRouter, uploadSchema } from 'pushduck/server'
+    import { uploadConfig } from 'pushduck/server'
 
-    // Define your router (same as in route.ts)
-    export const router = createUploadRouter({
-      imageUpload: uploadSchema({
-        image: { maxSize: "4MB", maxCount: 10 }
-      }),
-      documentUpload: uploadSchema({
-        pdf: { maxSize: "10MB", maxCount: 1 }
+    // Configure upload with provider and settings
+    const { s3, createS3Handler, storage } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: process.env.AWS_ENDPOINT_URL!,
+        bucket: process.env.S3_BUCKET_NAME!,
+        accountId: process.env.R2_ACCOUNT_ID!,
       })
+      .build()
+
+    // Define your router
+    const s3Router = s3.createRouter({
+      imageUpload: s3.image().max('4MB').count(10),
+      documentUpload: s3.file().max('10MB').types(['application/pdf']).count(1)
     })
 
-    // Export the router type for client usage
-    export type AppRouter = typeof router
+    // Export for use in API routes and client
+    export { s3, createS3Handler, storage }
+    export type AppS3Router = typeof s3Router
     ```
 
   </Step>
@@ -117,9 +118,9 @@ A typical Next.js project with pushduck follows this structure:
 
     ```typescript title="lib/upload-client.ts"
     import { createUploadClient } from 'pushduck/client'
-    import type { AppRouter } from './upload'
+    import type { AppS3Router } from './upload'
 
-    export const upload = createUploadClient<AppRouter>({
+    export const upload = createUploadClient<AppS3Router>({
       endpoint: '/api/upload'
     })
     ```
@@ -129,7 +130,7 @@ A typical Next.js project with pushduck follows this structure:
 
 ## Schema Builder Reference
 
-The `uploadSchema` function provides a fluent API for defining your upload requirements:
+The `s3` schema builders provide a fluent API for defining your upload requirements:
 
 <TypeTable
   type={{
@@ -187,11 +188,11 @@ You can define schemas that accept multiple file types:
 <Tabs items={["Images & Documents", "Mixed Media", "Any Files"]} groupId="file-types">
   <Tab value="Images & Documents">
     ```typescript
-    export const router = createUploadRouter({
-      mixedUpload: uploadSchema({
-        image: { maxSize: "4MB", maxCount: 5 },
-        pdf: { maxSize: "10MB", maxCount: 2 },
-        docx: { maxSize: "5MB", maxCount: 3 }
+    const s3Router = s3.createRouter({
+      mixedUpload: s3.object({
+        images: s3.image().max('4MB').count(5),
+        pdfs: s3.file().max('10MB').types(['application/pdf']).count(2),
+        documents: s3.file().max('5MB').types(['application/vnd.openxmlformats-officedocument.wordprocessingml.document']).count(3)
       })
     })
     ```
@@ -199,23 +200,16 @@ You can define schemas that accept multiple file types:
   
   <Tab value="Mixed Media">
     ```typescript
-    export const router = createUploadRouter({
-      mediaUpload: uploadSchema({
-        image: { 
-          maxSize: "4MB", 
-          maxCount: 10,
-          processing: {
-            resize: { width: 1200, height: 1200 },
-            format: "webp"
-          }
-        },
-        video: { 
-          maxSize: "100MB", 
-          maxCount: 2,
-          processing: {
-            transcode: { format: "mp4", quality: "720p" }
-          }
-        }
+    const s3Router = s3.createRouter({
+      mediaUpload: s3.object({
+        images: s3.image()
+          .max('4MB')
+          .count(10)
+          .formats(['jpeg', 'jpg', 'png', 'webp']),
+        videos: s3.file()
+          .max('100MB')
+          .count(2)
+          .types(['video/mp4', 'video/quicktime', 'video/avi'])
       })
     })
     ```
@@ -223,17 +217,14 @@ You can define schemas that accept multiple file types:
   
   <Tab value="Any Files">
     ```typescript
-    export const router = createUploadRouter({
-      genericUpload: uploadSchema({
-        any: { 
-          maxSize: "50MB", 
-          maxCount: 20,
-          mimeTypes: [
-            "image/*", "video/*", "application/pdf", 
-            "application/msword", "text/plain"
-          ]
-        }
-      })
+    const s3Router = s3.createRouter({
+      genericUpload: s3.file()
+        .max('50MB')
+        .count(20)
+        .types([
+          'image/*', 'video/*', 'application/pdf',
+          'application/msword', 'text/plain'
+        ])
     })
     ```
   </Tab>
@@ -483,16 +474,17 @@ interface CustomContext {
   organizationId?: string;
 }
 
-export const router = createUploadRouter({
-  upload: uploadSchema({
-    image: { maxSize: "4MB", maxCount: 5 },
-  }).middleware(async ({ req }): Promise<CustomContext> => {
-    // Your auth logic here
-    return {
-      userId: "user_123",
-      userRole: "user",
-    };
-  }),
+const s3Router = s3.createRouter({
+  upload: s3.image()
+    .max('4MB')
+    .count(5)
+    .middleware(async ({ req }): Promise<CustomContext> => {
+      // Your auth logic here
+      return {
+        userId: "user_123",
+        userRole: "user",
+      };
+    }),
 });
 ```
 
@@ -501,18 +493,11 @@ export const router = createUploadRouter({
 ### E-commerce Product Images
 
 ```typescript
-export const ecommerceRouter = createUploadRouter({
-  productImages: uploadSchema({
-    image: {
-      maxSize: "5MB",
-      maxCount: 8,
-      processing: {
-        resize: { width: 1200, height: 1200 },
-        formats: ["webp", "jpeg"],
-        quality: 85,
-      },
-    },
-  })
+const ecommerceRouter = s3.createRouter({
+  productImages: s3.image()
+    .max('5MB')
+    .count(8)
+    .formats(['webp', 'jpeg'])
     .middleware(async ({ req }) => {
       const vendorId = await getVendorId(req);
       return { vendorId, category: "products" };
@@ -527,17 +512,19 @@ export const ecommerceRouter = createUploadRouter({
 ### Document Management System
 
 ```typescript
-export const docsRouter = createUploadRouter({
-  contracts: uploadSchema({
-    pdf: { maxSize: "25MB", maxCount: 1 },
-  }).middleware(async ({ req }) => {
-    const { userId, companyId } = await validateContractUpload(req);
-    return { userId, companyId, confidential: true };
-  }),
+const docsRouter = s3.createRouter({
+  contracts: s3.file()
+    .max('25MB')
+    .types(['application/pdf'])
+    .count(1)
+    .middleware(async ({ req }) => {
+      const { userId, companyId } = await validateContractUpload(req);
+      return { userId, companyId, confidential: true };
+    }),
 
-  proposals: uploadSchema({
-    pdf: { maxSize: "50MB", maxCount: 3 },
-    docx: { maxSize: "25MB", maxCount: 5 },
+  proposals: s3.object({
+    pdfs: s3.file().max('50MB').types(['application/pdf']).count(3),
+    documents: s3.file().max('25MB').types(['application/vnd.openxmlformats-officedocument.wordprocessingml.document']).count(5),
   }).middleware(async ({ req }) => {
     const { userId, projectId } = await validateProposalUpload(req);
     return { userId, projectId };
