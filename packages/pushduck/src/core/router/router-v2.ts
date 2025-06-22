@@ -8,8 +8,10 @@
  * 4. Client notifies completion
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { toNextJsHandler } from "../../adapters/nextjs";
 import { getUploadConfig } from "../config/upload-config";
+import { createUniversalHandler } from "../handler/universal-handler";
 import { InferS3Input, InferS3Output, S3Schema } from "../schema";
 import {
   generateFileKey,
@@ -252,6 +254,11 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     return Object.keys(this.routes);
   }
 
+  // Framework-agnostic handlers using Web Standards
+  get handlers() {
+    return createUniversalHandler(this);
+  }
+
   // Generate presigned URLs for upload
   async generatePresignedUrls<K extends keyof TRoutes>(
     routeName: K,
@@ -444,91 +451,8 @@ export function createS3Router<TRoutes extends S3RouterDefinition>(
 export function createS3Handler<TRoutes extends S3RouterDefinition>(
   router: S3Router<TRoutes>
 ) {
-  // Initialize upload configuration from upload.ts
-  const uploadConfig = getUploadConfig();
-
-  async function POST(req: NextRequest): Promise<NextResponse> {
-    try {
-      const url = new URL(req.url);
-      const routeName = url.searchParams.get("route");
-      const action = url.searchParams.get("action") || "presign";
-
-      if (!routeName) {
-        return NextResponse.json(
-          { error: "Route parameter is required" },
-          { status: 400 }
-        );
-      }
-
-      if (!router.getRouteNames().includes(routeName)) {
-        return NextResponse.json(
-          { error: `Route "${routeName}" not found` },
-          { status: 404 }
-        );
-      }
-
-      const body = await req.json();
-
-      if (action === "presign") {
-        const { files } = body;
-        if (!Array.isArray(files)) {
-          return NextResponse.json(
-            { error: "Files array is required" },
-            { status: 400 }
-          );
-        }
-
-        const results = await router.generatePresignedUrls(
-          routeName,
-          req,
-          files
-        );
-
-        return NextResponse.json({ results });
-      } else if (action === "complete") {
-        const { completions } = body;
-        if (!Array.isArray(completions)) {
-          return NextResponse.json(
-            { error: "Completions array is required" },
-            { status: 400 }
-          );
-        }
-
-        const results = await router.handleUploadComplete(
-          routeName,
-          req,
-          completions
-        );
-
-        return NextResponse.json({ results });
-      } else {
-        return NextResponse.json(
-          { error: `Unknown action: ${action}` },
-          { status: 400 }
-        );
-      }
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error("Unknown error");
-      console.error("S3 Handler Error:", err);
-      return NextResponse.json(
-        {
-          error: err.message,
-          details: process.env.NODE_ENV === "development" ? error : undefined,
-        },
-        { status: 500 }
-      );
-    }
-  }
-
-  async function GET(req: NextRequest): Promise<NextResponse> {
-    // Return route information for debugging/introspection
-    const routes = router.getRouteNames();
-    return NextResponse.json({
-      routes: routes.map((name) => ({ name, type: "s3-upload" })),
-    });
-  }
-
-  return { GET, POST };
+  // Use the new universal handlers with Next.js adapter
+  return toNextJsHandler(router.handlers);
 }
 
 // ========================================

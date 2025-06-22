@@ -5,7 +5,7 @@
  * which automatically includes the configured provider and settings.
  */
 
-import { createS3Handler, s3 } from "@/lib/upload";
+import { s3 } from "@/lib/upload";
 
 // Define upload routes with simple, clear path configuration
 const s3Router = s3.createRouter({
@@ -126,5 +126,4 @@ const s3Router = s3.createRouter({
 export type AppS3Router = typeof s3Router;
 
 // Export the HTTP handlers
-const handlers = createS3Handler(s3Router);
-export const { GET, POST } = handlers;
+export const { GET, POST } = s3Router.handlers;

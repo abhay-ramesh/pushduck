@@ -53,6 +53,9 @@ export {
 // Router types
 export type { S3Router } from "./types";
 
+// Framework adapters
+export { toNextJsHandler, toNextJsPagesHandler } from "./adapters";
+
 // ========================================
 // STORAGE API
 // ========================================
