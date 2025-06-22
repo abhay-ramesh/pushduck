@@ -2,6 +2,7 @@ import type {
   Request as ExpressRequest,
   Response as ExpressResponse,
 } from "express";
+import type { UniversalHandler } from "../core/handler/universal-handler";
 
 /**
  * Express Adapter for Universal Handlers
@@ -9,23 +10,22 @@ import type {
  * Converts Web Standard Request/Response handlers to Express middleware format.
  * Works with Express.js applications.
  */
-export function toExpressHandler(handlers: {
-  GET: (request: Request) => Promise<Response>;
-  POST: (request: Request) => Promise<Response>;
-}) {
+export function toExpressHandler(handler: UniversalHandler) {
   return async (req: ExpressRequest, res: ExpressResponse) => {
     try {
       const method = req.method as "GET" | "POST";
 
-      if (!method || !(method in handlers)) {
+      if (!method || (method !== "GET" && method !== "POST")) {
         return res.status(405).json({ error: "Method not allowed" });
       }
 
       // Convert Express Request to Web Request
       const webRequest = convertExpressToWebRequest(req);
 
-      // Call the universal handler
-      const response = await handlers[method](webRequest);
+      // Call the universal handler - can use either approach:
+      // 1. Call specific method: handler.GET(webRequest) or handler.POST(webRequest)
+      // 2. Call handler directly: handler(webRequest) - auto-detects method
+      const response = await handler(webRequest);
 
       // Convert Web Response back to Express Response
       await convertWebResponseToExpress(response, res);

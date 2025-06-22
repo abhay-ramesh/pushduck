@@ -1,0 +1,384 @@
+---
+title: Elysia
+description: TypeScript-first framework with Bun - Web Standards native, no adapter needed!
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+
+# Elysia Integration
+
+Elysia is a TypeScript-first web framework built for Bun with Web Standards support. Since Elysia uses `context.request` as a Web Standard `Request` object, pushduck handlers work directly without any adapters!
+
+<Callout type="info">
+  **Web Standards Native**: Elysia's `context.request` is a Web Standard `Request` object, making pushduck integration seamless with zero overhead.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install dependencies**
+    
+    ```bash
+    bun add elysia pushduck
+    ```
+  </Step>
+
+  <Step>
+    **Configure upload router**
+    
+    ```typescript title="lib/upload.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    const { s3, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: process.env.AWS_ENDPOINT_URL!,
+        bucket: process.env.S3_BUCKET_NAME!,
+        accountId: process.env.R2_ACCOUNT_ID!,
+      })
+      .build();
+
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create Elysia app with upload routes**
+    
+    ```typescript title="server.ts"
+    import { Elysia } from 'elysia';
+    import { uploadRouter } from './lib/upload';
+
+    const app = new Elysia()
+      .all('/api/upload/*', (context) => {
+        const method = context.request.method as 'GET' | 'POST';
+        return uploadRouter.handlers[method](context.request);
+      })
+      .listen(3000);
+
+    console.log(`🦊 Elysia server running on http://localhost:3000`);
+    ```
+  </Step>
+</Steps>
+
+## Basic Integration
+
+### Simple Upload Route
+
+```typescript title="server.ts"
+import { Elysia } from 'elysia';
+import { cors } from '@elysiajs/cors';
+import { uploadRouter } from './lib/upload';
+
+const app = new Elysia()
+  .use(cors())
+  
+  // Direct usage - no adapter needed!
+  .get('/api/upload/*', (context) => uploadRouter.handlers.GET(context.request))
+  .post('/api/upload/*', (context) => uploadRouter.handlers.POST(context.request))
+  
+  // Health check
+  .get('/health', () => ({ status: 'healthy', timestamp: new Date().toISOString() }))
+  
+  .listen(3000);
+
+console.log('🦊 Elysia server running on http://localhost:3000');
+```
+
+### With Authentication
+
+```typescript title="server.ts"
+import { Elysia } from 'elysia';
+import { jwt } from '@elysiajs/jwt';
+import { bearer } from '@elysiajs/bearer';
+import { uploadRouter } from './lib/upload';
+
+const app = new Elysia()
+  .use(jwt({ name: 'jwt', secret: process.env.JWT_SECRET! }))
+  .use(bearer())
+  
+  // Public uploads
+  .get('/api/upload/public/*', (context) => uploadRouter.handlers.GET(context.request))
+  .post('/api/upload/public/*', (context) => uploadRouter.handlers.POST(context.request))
+  
+  // Protected uploads
+  .guard({
+    beforeHandle: async ({ bearer, jwt, set }) => {
+      if (!bearer) {
+        set.status = 401;
+        return { error: 'Authorization required' };
+      }
+
+      const payload = await jwt.verify(bearer);
+      if (!payload) {
+        set.status = 403;
+        return { error: 'Invalid token' };
+      }
+    }
+  })
+  .get('/api/upload/private/*', (context) => uploadRouter.handlers.GET(context.request))
+  .post('/api/upload/private/*', (context) => uploadRouter.handlers.POST(context.request))
+  
+  .listen(3000);
+```
+
+## Advanced Configuration
+
+### Upload Configuration with Elysia Context
+
+```typescript title="lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Authenticated image uploads
+  images: s3
+    .image()
+    .max("5MB")
+    .count(10)
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req }) => {
+      const authHeader = req.headers.get('authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        throw new Error('Authentication required');
+      }
+
+      const token = authHeader.substring(7);
+      const user = await verifyToken(token);
+      
+      return {
+        userId: user.id,
+        userRole: user.role
+      };
+    }),
+
+  // Public uploads
+  public: s3
+    .image()
+    .max("2MB")
+    .count(1)
+    .formats(["jpeg", "png"])
+    // No middleware = public access
+});
+
+async function verifyToken(token: string) {
+  // Your token verification logic
+  return { id: 'user-123', role: 'user' };
+}
+
+export type AppUploadRouter = typeof uploadRouter;
+```
+
+### Complete Elysia Application
+
+```typescript title="server.ts"
+import { Elysia } from 'elysia';
+import { cors } from '@elysiajs/cors';
+import { swagger } from '@elysiajs/swagger';
+import { rateLimit } from 'elysia-rate-limit';
+import { uploadRouter } from './lib/upload';
+
+const app = new Elysia()
+  // Swagger documentation
+  .use(swagger({
+    documentation: {
+      info: {
+        title: 'Upload API',
+        version: '1.0.0',
+        description: 'File upload API built with Elysia and pushduck'
+      }
+    }
+  }))
+  
+  // CORS configuration
+  .use(cors({
+    origin: process.env.NODE_ENV === 'production' 
+      ? ['https://your-domain.com'] 
+      : true,
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }))
+  
+  // Rate limiting
+  .use(rateLimit({
+    max: 100,
+    windowMs: 15 * 60 * 1000, // 15 minutes
+  }))
+  
+  // Health check
+  .get('/health', () => ({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    framework: 'Elysia',
+    runtime: 'Bun'
+  }))
+  
+  // API info
+  .get('/api', () => ({
+    name: 'Elysia Upload API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      upload: '/api/upload/*',
+      docs: '/swagger'
+    },
+    uploadTypes: [
+      'images - Image uploads (5MB max, 10 files)',
+      'public - Public images (2MB max, 1 file)'
+    ]
+  }))
+  
+  // Upload routes - direct integration
+  .get('/api/upload/*', (context) => uploadRouter.handlers.GET(context.request))
+  .post('/api/upload/*', (context) => uploadRouter.handlers.POST(context.request))
+  
+  // Error handling
+  .onError(({ error, set }) => {
+    console.error('Elysia error:', error);
+    
+    set.status = 500;
+    return {
+      error: 'Internal Server Error',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong',
+      timestamp: new Date().toISOString()
+    };
+  })
+  
+  .listen(3000);
+
+console.log('🦊 Elysia server running on http://localhost:3000');
+console.log('📚 API docs available at http://localhost:3000/swagger');
+```
+
+## Deployment with Bun
+
+### Production Server
+
+```typescript title="server.ts"
+import { Elysia } from 'elysia';
+import { uploadRouter } from './lib/upload';
+
+const app = new Elysia()
+  .get('/api/upload/*', (context) => uploadRouter.handlers.GET(context.request))
+  .post('/api/upload/*', (context) => uploadRouter.handlers.POST(context.request))
+  .listen({
+    port: process.env.PORT || 3000,
+    hostname: '0.0.0.0'
+  });
+
+console.log(`🦊 Elysia server running on port ${app.server?.port}`);
+```
+
+### Docker Deployment
+
+```dockerfile title="Dockerfile"
+FROM oven/bun:1 as base
+WORKDIR /usr/src/app
+
+# Install dependencies
+COPY package.json bun.lockb ./
+RUN bun install --frozen-lockfile
+
+# Copy source code
+COPY . .
+
+EXPOSE 3000
+CMD ["bun", "run", "server.ts"]
+```
+
+### Package Configuration
+
+```json title="package.json"
+{
+  "name": "elysia-upload-api",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "bun run --watch server.ts",
+    "start": "bun run server.ts",
+    "build": "bun build server.ts --outdir ./dist --target bun"
+  },
+  "dependencies": {
+    "elysia": "latest",
+    "pushduck": "latest",
+    "@elysiajs/cors": "latest",
+    "@elysiajs/swagger": "latest",
+    "@elysiajs/jwt": "latest",
+    "@elysiajs/bearer": "latest",
+    "elysia-rate-limit": "latest"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  }
+}
+```
+
+## Client Usage
+
+```typescript title="client/upload-client.ts"
+import { createUploadClient } from 'pushduck/client';
+import type { AppUploadRouter } from '../lib/upload';
+
+export const upload = createUploadClient<AppUploadRouter>({
+  endpoint: 'http://localhost:3000/api/upload',
+  headers: {
+    'Authorization': `Bearer ${getAuthToken()}`
+  }
+});
+
+function getAuthToken(): string {
+  return localStorage.getItem('auth-token') || '';
+}
+```
+
+## Performance Benefits
+
+<Cards>
+  <Card title="🚀 Bun Performance" description="Ultra-fast JavaScript runtime">
+    Elysia runs on Bun, providing exceptional performance for file upload operations.
+  </Card>
+  
+  <Card title="⚡ Zero Overhead" description="Direct Web Standards integration">
+    No adapter layer means zero performance overhead - pushduck handlers run directly.
+  </Card>
+  
+  <Card title="📦 TypeScript First" description="Full type safety">
+    Elysia's TypeScript-first design provides excellent developer experience with pushduck.
+  </Card>
+  
+  <Card title="🔧 Built-in Features" description="Rich plugin ecosystem">
+    Swagger docs, JWT auth, CORS, and rate limiting work seamlessly with pushduck.
+  </Card>
+</Cards>
+
+---
+
+<Callout type="success">
+  **Bun + Elysia + Pushduck**: A powerful combination providing ultra-fast file uploads with excellent TypeScript support and zero adapter overhead.
+</Callout> 

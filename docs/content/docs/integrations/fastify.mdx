@@ -1,0 +1,618 @@
+---
+title: Fastify
+description: High-performance Node.js framework integration with pushduck using adapters
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+
+# Fastify Integration
+
+Fastify is a high-performance Node.js web framework that uses custom `request`/`reply` objects. Pushduck provides a simple adapter that converts Web Standard handlers to Fastify handler format.
+
+<Callout type="info">
+  **Legacy API**: Fastify uses `request`/`reply` objects instead of Web Standards, so pushduck provides the `toFastifyHandler` adapter for seamless integration.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install dependencies**
+    
+    ```bash
+    npm install fastify pushduck
+    # or
+    pnpm add fastify pushduck
+    ```
+  </Step>
+
+  <Step>
+    **Configure upload router**
+    
+    ```typescript title="lib/upload.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    const { s3, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: process.env.AWS_ENDPOINT_URL!,
+        bucket: process.env.S3_BUCKET_NAME!,
+        accountId: process.env.R2_ACCOUNT_ID!,
+      })
+      .build();
+
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create Fastify server with upload routes**
+    
+    ```typescript title="server.ts"
+    import Fastify from 'fastify';
+    import { uploadRouter } from './lib/upload';
+    import { toFastifyHandler } from 'pushduck/server';
+
+    const fastify = Fastify({ logger: true });
+
+    // Convert pushduck handlers to Fastify handler
+    fastify.all('/api/upload/*', toFastifyHandler(uploadRouter.handlers));
+
+    const start = async () => {
+      try {
+        await fastify.listen({ port: 3000 });
+        console.log('🚀 Fastify server running on http://localhost:3000');
+      } catch (err) {
+        fastify.log.error(err);
+        process.exit(1);
+      }
+    };
+
+    start();
+    ```
+  </Step>
+</Steps>
+
+## Basic Integration
+
+### Simple Upload Route
+
+```typescript title="server.ts"
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import { uploadRouter } from './lib/upload';
+import { toFastifyHandler } from 'pushduck/server';
+
+const fastify = Fastify({ 
+  logger: {
+    level: 'info',
+    transport: {
+      target: 'pino-pretty'
+    }
+  }
+});
+
+// Register CORS
+await fastify.register(cors, {
+  origin: ['http://localhost:3000', 'https://your-domain.com']
+});
+
+// Upload routes using adapter
+fastify.all('/api/upload/*', toFastifyHandler(uploadRouter.handlers));
+
+// Health check
+fastify.get('/health', async (request, reply) => {
+  return { 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    framework: 'Fastify'
+  };
+});
+
+const start = async () => {
+  try {
+    await fastify.listen({ port: 3000, host: '0.0.0.0' });
+  } catch (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+};
+
+start();
+```
+
+### With Authentication Hook
+
+```typescript title="server.ts"
+import Fastify from 'fastify';
+import jwt from '@fastify/jwt';
+import { uploadRouter } from './lib/upload';
+import { toFastifyHandler } from 'pushduck/server';
+
+const fastify = Fastify({ logger: true });
+
+// Register JWT
+await fastify.register(jwt, {
+  secret: process.env.JWT_SECRET!
+});
+
+// Authentication hook
+fastify.addHook('preHandler', async (request, reply) => {
+  // Only protect upload routes
+  if (request.url.startsWith('/api/upload/private/')) {
+    try {
+      await request.jwtVerify();
+    } catch (err) {
+      reply.send(err);
+    }
+  }
+});
+
+// Public upload routes
+fastify.all('/api/upload/public/*', toFastifyHandler(uploadRouter.handlers));
+
+// Private upload routes (protected by hook)
+fastify.all('/api/upload/private/*', toFastifyHandler(uploadRouter.handlers));
+
+const start = async () => {
+  try {
+    await fastify.listen({ port: 3000 });
+  } catch (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+};
+
+start();
+```
+
+## Advanced Configuration
+
+### Upload Configuration with Fastify Context
+
+```typescript title="lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Profile pictures with authentication
+  profilePicture: s3
+    .image()
+    .max("2MB")
+    .count(1)
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req }) => {
+      const authHeader = req.headers.get('authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        throw new Error('Authentication required');
+      }
+
+      const token = authHeader.substring(7);
+      const user = await verifyJWT(token);
+      
+      return {
+        userId: user.id,
+        userRole: user.role,
+        category: "profile"
+      };
+    }),
+
+  // Document uploads for authenticated users
+  documents: s3
+    .file()
+    .max("10MB")
+    .count(5)
+    .types([
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/plain"
+    ])
+    .middleware(async ({ req }) => {
+      const authHeader = req.headers.get('authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        throw new Error('Authentication required');
+      }
+
+      const token = authHeader.substring(7);
+      const user = await verifyJWT(token);
+      
+      return {
+        userId: user.id,
+        category: "documents"
+      };
+    }),
+
+  // Public uploads (no authentication)
+  publicImages: s3
+    .image()
+    .max("1MB")
+    .count(1)
+    .formats(["jpeg", "png"])
+    // No middleware = public access
+});
+
+async function verifyJWT(token: string) {
+  // Your JWT verification logic
+  const jwt = await import('jsonwebtoken');
+  return jwt.verify(token, process.env.JWT_SECRET!) as any;
+}
+
+export type AppUploadRouter = typeof uploadRouter;
+```
+
+### Complete Fastify Application
+
+```typescript title="server.ts"
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
+import { uploadRouter } from './lib/upload';
+import { toFastifyHandler } from 'pushduck/server';
+
+const fastify = Fastify({
+  logger: {
+    level: process.env.NODE_ENV === 'production' ? 'warn' : 'info',
+    transport: process.env.NODE_ENV !== 'production' ? {
+      target: 'pino-pretty'
+    } : undefined
+  }
+});
+
+// Security middleware
+await fastify.register(helmet, {
+  contentSecurityPolicy: false
+});
+
+// CORS configuration
+await fastify.register(cors, {
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://your-domain.com'] 
+    : true,
+  credentials: true
+});
+
+// Rate limiting
+await fastify.register(rateLimit, {
+  max: 100,
+  timeWindow: '15 minutes',
+  errorResponseBuilder: (request, context) => ({
+    error: 'Rate limit exceeded',
+    message: `Too many requests from ${request.ip}. Try again later.`,
+    retryAfter: Math.round(context.ttl / 1000)
+  })
+});
+
+// Request logging
+fastify.addHook('onRequest', async (request, reply) => {
+  request.log.info({ url: request.url, method: request.method }, 'incoming request');
+});
+
+// Health check endpoint
+fastify.get('/health', async (request, reply) => {
+  return {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    version: process.env.npm_package_version || '1.0.0',
+    framework: 'Fastify'
+  };
+});
+
+// API info endpoint
+fastify.get('/api', async (request, reply) => {
+  return {
+    name: 'Fastify Upload API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      upload: '/api/upload/*'
+    },
+    uploadTypes: [
+      'profilePicture - Single profile picture (2MB max)',
+      'documents - PDF, Word, text files (10MB max, 5 files)',
+      'publicImages - Public images (1MB max)'
+    ]
+  };
+});
+
+// Upload routes with rate limiting
+fastify.register(async function (fastify) {
+  await fastify.register(rateLimit, {
+    max: 50,
+    timeWindow: '15 minutes'
+  });
+  
+  fastify.all('/api/upload/*', toFastifyHandler(uploadRouter.handlers));
+});
+
+// 404 handler
+fastify.setNotFoundHandler(async (request, reply) => {
+  reply.status(404).send({
+    error: 'Not Found',
+    message: `Route ${request.method} ${request.url} not found`,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Error handler
+fastify.setErrorHandler(async (error, request, reply) => {
+  request.log.error(error, 'Fastify error');
+  
+  reply.status(500).send({
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Graceful shutdown
+const gracefulShutdown = () => {
+  fastify.log.info('Shutting down gracefully...');
+  fastify.close().then(() => {
+    fastify.log.info('Server closed');
+    process.exit(0);
+  }).catch((err) => {
+    fastify.log.error(err, 'Error during shutdown');
+    process.exit(1);
+  });
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+
+const start = async () => {
+  try {
+    const port = Number(process.env.PORT) || 3000;
+    const host = process.env.HOST || '0.0.0.0';
+    
+    await fastify.listen({ port, host });
+    fastify.log.info(`🚀 Fastify server running on http://${host}:${port}`);
+    fastify.log.info(`📁 Upload endpoint: http://${host}:${port}/api/upload`);
+  } catch (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+};
+
+start();
+```
+
+## Plugin-Based Architecture
+
+### Upload Plugin
+
+```typescript title="plugins/upload.ts"
+import { FastifyPluginAsync } from 'fastify';
+import { uploadRouter } from '../lib/upload';
+import { toFastifyHandler } from 'pushduck/server';
+
+const uploadPlugin: FastifyPluginAsync = async (fastify) => {
+  // Upload routes
+  fastify.all('/upload/*', toFastifyHandler(uploadRouter.handlers));
+  
+  // Upload status endpoint
+  fastify.get('/upload-status', async (request, reply) => {
+    return {
+      status: 'ready',
+      supportedTypes: ['images', 'documents', 'publicImages'],
+      maxSizes: {
+        profilePicture: '2MB',
+        documents: '10MB',
+        publicImages: '1MB'
+      }
+    };
+  });
+};
+
+export default uploadPlugin;
+```
+
+### Main Server with Plugins
+
+```typescript title="server.ts"
+import Fastify from 'fastify';
+import uploadPlugin from './plugins/upload';
+
+const fastify = Fastify({ logger: true });
+
+// Register upload plugin
+await fastify.register(uploadPlugin, { prefix: '/api' });
+
+const start = async () => {
+  try {
+    await fastify.listen({ port: 3000 });
+  } catch (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+};
+
+start();
+```
+
+## Client Usage
+
+The client-side integration is identical regardless of your backend framework:
+
+```typescript title="client/upload-client.ts"
+import { createUploadClient } from 'pushduck/client';
+import type { AppUploadRouter } from '../lib/upload';
+
+export const upload = createUploadClient<AppUploadRouter>({
+  endpoint: 'http://localhost:3000/api/upload',
+  headers: {
+    'Authorization': `Bearer ${getAuthToken()}`
+  }
+});
+
+function getAuthToken(): string {
+  return localStorage.getItem('auth-token') || '';
+}
+```
+
+```typescript title="client/upload-form.tsx"
+import { upload } from './upload-client';
+
+export function DocumentUploader() {
+  const { uploadFiles, files, isUploading, error } = upload.documents();
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    uploadFiles(selectedFiles);
+  };
+
+  return (
+    <div>
+      <input
+        type="file"
+        multiple
+        accept=".pdf,.doc,.docx,.txt"
+        onChange={handleFileSelect}
+        disabled={isUploading}
+      />
+
+      {error && (
+        <div className="error">
+          Error: {error.message}
+        </div>
+      )}
+
+      {files.map((file) => (
+        <div key={file.id}>
+          <span>{file.name}</span>
+          <progress value={file.progress} max={100} />
+          {file.status === 'success' && (
+            <a href={file.url} target="_blank" rel="noopener noreferrer">
+              Download
+            </a>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Deployment
+
+### Docker Deployment
+
+```dockerfile title="Dockerfile"
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy source code
+COPY . .
+
+# Build TypeScript
+RUN npm run build
+
+EXPOSE 3000
+
+CMD ["npm", "start"]
+```
+
+### Package Configuration
+
+```json title="package.json"
+{
+  "name": "fastify-upload-api",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "fastify": "^4.24.0",
+    "pushduck": "latest",
+    "@fastify/cors": "^8.4.0",
+    "@fastify/helmet": "^11.1.0",
+    "@fastify/rate-limit": "^8.0.0",
+    "@fastify/jwt": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^3.12.7",
+    "typescript": "^5.0.0",
+    "pino-pretty": "^10.2.0"
+  }
+}
+```
+
+### Environment Variables
+
+```bash title=".env"
+# Server Configuration
+PORT=3000
+HOST=0.0.0.0
+NODE_ENV=development
+JWT_SECRET=your-super-secret-jwt-key
+
+# Cloudflare R2 Configuration
+AWS_ACCESS_KEY_ID=your_r2_access_key
+AWS_SECRET_ACCESS_KEY=your_r2_secret_key
+AWS_ENDPOINT_URL=https://your-account-id.r2.cloudflarestorage.com
+S3_BUCKET_NAME=your-bucket-name
+R2_ACCOUNT_ID=your-account-id
+```
+
+## Performance Benefits
+
+<Cards>
+  <Card title="🚀 High Performance" description="Fastify's speed advantage">
+    Fastify is one of the fastest Node.js frameworks, perfect for high-throughput upload APIs.
+  </Card>
+  
+  <Card title="🔧 Plugin Ecosystem" description="Rich plugin architecture">
+    Leverage Fastify's extensive plugin ecosystem alongside pushduck's upload capabilities.
+  </Card>
+  
+  <Card title="📦 TypeScript Support" description="First-class TypeScript">
+    Excellent TypeScript support with full type safety for both Fastify and pushduck.
+  </Card>
+  
+  <Card title="🛡️ Production Ready" description="Enterprise features">
+    Built-in schema validation, logging, and error handling for production deployments.
+  </Card>
+</Cards>
+
+---
+
+<Callout type="success">
+  **Fastify + Pushduck**: High-performance file uploads with Fastify's speed and pushduck's universal design, connected through a simple adapter.
+</Callout> 

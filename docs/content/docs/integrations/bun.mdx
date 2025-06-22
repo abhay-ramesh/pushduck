@@ -1,0 +1,483 @@
+---
+title: Bun Runtime
+description: Ultra-fast JavaScript runtime with native Web Standards support - no adapter needed!
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+
+# Bun Runtime Integration
+
+Bun is an ultra-fast JavaScript runtime with native Web Standards support. Since Bun uses Web Standard `Request` and `Response` objects directly, pushduck handlers work without any adapters!
+
+<Callout type="info">
+  **Web Standards Native**: Bun's `Bun.serve()` uses Web Standard Request/Response objects, making pushduck integration seamless with zero overhead.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install pushduck**
+    
+    ```bash
+    bun add pushduck
+    ```
+  </Step>
+
+  <Step>
+    **Configure upload router**
+    
+    ```typescript title="lib/upload.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    const { s3, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: process.env.AWS_ENDPOINT_URL!,
+        bucket: process.env.S3_BUCKET_NAME!,
+        accountId: process.env.R2_ACCOUNT_ID!,
+      })
+      .build();
+
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create Bun server with upload routes**
+    
+    ```typescript title="server.ts"
+    import { uploadRouter } from './lib/upload';
+
+    Bun.serve({
+      port: 3000,
+      async fetch(request) {
+        const url = new URL(request.url);
+        
+        // Upload routes - direct usage!
+        if (url.pathname.startsWith('/api/upload/')) {
+          const method = request.method as 'GET' | 'POST';
+          return uploadRouter.handlers[method](request);
+        }
+        
+        // Health check
+        if (url.pathname === '/health') {
+          return new Response(JSON.stringify({ 
+            status: 'healthy', 
+            timestamp: new Date().toISOString() 
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        
+        return new Response('Not Found', { status: 404 });
+      }
+    });
+
+    console.log('🥟 Bun server running on http://localhost:3000');
+    ```
+  </Step>
+</Steps>
+
+## Basic Integration
+
+### Simple Upload Server
+
+```typescript title="server.ts"
+import { uploadRouter } from './lib/upload';
+
+const server = Bun.serve({
+  port: 3000,
+  async fetch(request) {
+    const url = new URL(request.url);
+    
+    // CORS headers
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+    };
+    
+    // Handle preflight requests
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
+    
+    // Upload routes
+    if (url.pathname.startsWith('/api/upload/')) {
+      const method = request.method as 'GET' | 'POST';
+      const response = await uploadRouter.handlers[method](request);
+      
+      // Add CORS headers to response
+      Object.entries(corsHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      
+      return response;
+    }
+    
+    // Health check
+    if (url.pathname === '/health') {
+      return new Response(JSON.stringify({ 
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        runtime: 'Bun'
+      }), {
+        headers: { 
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+    
+    return new Response('Not Found', { status: 404 });
+  }
+});
+
+console.log(`🥟 Bun server running on http://localhost:${server.port}`);
+```
+
+### With Authentication
+
+```typescript title="server.ts"
+import { uploadRouter } from './lib/upload';
+
+async function authenticate(request: Request): Promise<{ userId: string } | null> {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return null;
+  }
+  
+  const token = authHeader.substring(7);
+  // Your authentication logic here
+  if (token === 'demo-token') {
+    return { userId: 'demo-user' };
+  }
+  
+  return null;
+}
+
+Bun.serve({
+  port: 3000,
+  async fetch(request) {
+    const url = new URL(request.url);
+    
+    // Public upload routes
+    if (url.pathname.startsWith('/api/upload/public/')) {
+      const method = request.method as 'GET' | 'POST';
+      return uploadRouter.handlers[method](request);
+    }
+    
+    // Private upload routes (require authentication)
+    if (url.pathname.startsWith('/api/upload/private/')) {
+      const user = await authenticate(request);
+      if (!user) {
+        return new Response(JSON.stringify({ error: 'Authentication required' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
+      const method = request.method as 'GET' | 'POST';
+      return uploadRouter.handlers[method](request);
+    }
+    
+    return new Response('Not Found', { status: 404 });
+  }
+});
+```
+
+## Advanced Configuration
+
+### Upload Configuration with Authentication
+
+```typescript title="lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Authenticated image uploads
+  images: s3
+    .image()
+    .max("5MB")
+    .count(10)
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req }) => {
+      const authHeader = req.headers.get('authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        throw new Error('Authentication required');
+      }
+
+      const token = authHeader.substring(7);
+      const user = await verifyToken(token);
+      
+      return {
+        userId: user.id,
+        userRole: user.role
+      };
+    }),
+
+  // Public uploads
+  public: s3
+    .image()
+    .max("2MB")
+    .count(1)
+    .formats(["jpeg", "png"])
+    // No middleware = public access
+});
+
+async function verifyToken(token: string) {
+  // Your token verification logic
+  return { id: 'user-123', role: 'user' };
+}
+
+export type AppUploadRouter = typeof uploadRouter;
+```
+
+### Production Server with Routing
+
+```typescript title="server.ts"
+import { uploadRouter } from './lib/upload';
+
+interface RouteHandler {
+  (request: Request): Promise<Response> | Response;
+}
+
+class Router {
+  private routes = new Map<string, RouteHandler>();
+
+  get(path: string, handler: RouteHandler) {
+    this.routes.set(`GET:${path}`, handler);
+    return this;
+  }
+
+  post(path: string, handler: RouteHandler) {
+    this.routes.set(`POST:${path}`, handler);
+    return this;
+  }
+
+  async handle(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const key = `${request.method}:${url.pathname}`;
+    
+    // Exact match
+    const handler = this.routes.get(key);
+    if (handler) {
+      return handler(request);
+    }
+    
+    // Pattern matching for upload routes
+    if (url.pathname.startsWith('/api/upload/')) {
+      const uploadKey = `${request.method}:/api/upload/*`;
+      const uploadHandler = this.routes.get(uploadKey);
+      if (uploadHandler) {
+        return uploadHandler(request);
+      }
+    }
+    
+    return new Response('Not Found', { status: 404 });
+  }
+}
+
+const router = new Router()
+  .get('/health', () => new Response(JSON.stringify({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    runtime: 'Bun',
+    version: Bun.version
+  }), {
+    headers: { 'Content-Type': 'application/json' }
+  }))
+  
+  .get('/api', () => new Response(JSON.stringify({
+    name: 'Bun Upload API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      upload: '/api/upload/*'
+    },
+    uploadTypes: [
+      'images - Image uploads (5MB max, 10 files)',
+      'public - Public images (2MB max, 1 file)'
+    ]
+  }), {
+    headers: { 'Content-Type': 'application/json' }
+  }))
+  
+  // Upload routes
+  .get('/api/upload/*', (request) => uploadRouter.handlers.GET(request))
+  .post('/api/upload/*', (request) => uploadRouter.handlers.POST(request));
+
+const server = Bun.serve({
+  port: process.env.PORT || 3000,
+  hostname: '0.0.0.0',
+  
+  async fetch(request) {
+    try {
+      return await router.handle(request);
+    } catch (error) {
+      console.error('Server error:', error);
+      return new Response(JSON.stringify({
+        error: 'Internal Server Error',
+        message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong',
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+});
+
+console.log(`🥟 Bun server running on http://localhost:${server.port}`);
+```
+
+## Deployment Options
+
+### Production Deployment
+
+```typescript title="server.ts"
+import { uploadRouter } from './lib/upload';
+
+const server = Bun.serve({
+  port: process.env.PORT || 3000,
+  hostname: '0.0.0.0',
+  
+  async fetch(request) {
+    const url = new URL(request.url);
+    
+    if (url.pathname.startsWith('/api/upload/')) {
+      const method = request.method as 'GET' | 'POST';
+      return uploadRouter.handlers[method](request);
+    }
+    
+    return new Response('Not Found', { status: 404 });
+  },
+  
+  error(error) {
+    console.error('Bun server error:', error);
+    return new Response('Internal Server Error', { status: 500 });
+  }
+});
+
+console.log(`🥟 Production server running on port ${server.port}`);
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('🛑 Shutting down server...');
+  server.stop();
+  process.exit(0);
+});
+```
+
+### Docker Deployment
+
+```dockerfile title="Dockerfile"
+FROM oven/bun:1 as base
+WORKDIR /usr/src/app
+
+# Copy package files
+COPY package.json bun.lockb* ./
+RUN bun install --frozen-lockfile
+
+# Copy source code
+COPY . .
+
+# Set production environment
+ENV NODE_ENV=production
+
+EXPOSE 3000
+
+# Run the server
+CMD ["bun", "run", "server.ts"]
+```
+
+### Package Configuration
+
+```json title="package.json"
+{
+  "name": "bun-upload-server",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "bun run --watch server.ts",
+    "start": "bun run server.ts",
+    "build": "bun build server.ts --outdir ./dist --target bun"
+  },
+  "dependencies": {
+    "pushduck": "latest"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  }
+}
+```
+
+## Client Usage
+
+```typescript title="client/upload-client.ts"
+import { createUploadClient } from 'pushduck/client';
+import type { AppUploadRouter } from '../lib/upload';
+
+export const upload = createUploadClient<AppUploadRouter>({
+  endpoint: 'http://localhost:3000/api/upload',
+  headers: {
+    'Authorization': `Bearer ${getAuthToken()}`
+  }
+});
+
+function getAuthToken(): string {
+  return localStorage.getItem('auth-token') || '';
+}
+```
+
+## Performance Benefits
+
+<Cards>
+  <Card title="🚀 Ultra Performance" description="Fastest JavaScript runtime">
+    Bun provides exceptional performance for file upload operations with minimal overhead.
+  </Card>
+  
+  <Card title="⚡ Zero Overhead" description="Direct Web Standards integration">
+    No framework or adapter layer - pushduck handlers run directly on Bun's Web API.
+  </Card>
+  
+  <Card title="📦 Built-in Everything" description="No external dependencies needed">
+    Bun includes bundler, test runner, and package manager - minimal setup required.
+  </Card>
+  
+  <Card title="🔧 TypeScript Native" description="First-class TypeScript support">
+    Run TypeScript directly without compilation step for rapid development.
+  </Card>
+</Cards>
+
+---
+
+<Callout type="success">
+  **Bun + Pushduck**: The ultimate performance combination - ultra-fast runtime with zero-overhead file uploads using pure Web Standards.
+</Callout> 

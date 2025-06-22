@@ -1,0 +1,591 @@
+---
+title: Next.js
+description: Complete guide to integrating pushduck with Next.js App Router and Pages Router
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+# Next.js Integration
+
+Pushduck provides seamless integration with both Next.js App Router and Pages Router through universal handlers that work with Next.js's Web Standards-based API.
+
+<Callout type="info">
+  **Next.js 13+**: App Router uses Web Standards (Request/Response), so pushduck handlers work directly. Pages Router requires a simple adapter for the legacy req/res API.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install pushduck**
+    
+    ```bash
+    npm install pushduck
+    # or
+    pnpm add pushduck
+    # or
+    yarn add pushduck
+    ```
+  </Step>
+
+  <Step>
+    **Configure your upload router**
+    
+    ```typescript title="lib/upload.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    const { s3, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: process.env.AWS_ENDPOINT_URL!,
+        bucket: process.env.S3_BUCKET_NAME!,
+        accountId: process.env.R2_ACCOUNT_ID!,
+      })
+      .build();
+
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create API route**
+    
+    <Tabs items={["App Router", "Pages Router"]}>
+      <Tab value="App Router">
+        ```typescript title="app/api/upload/route.ts"
+        import { uploadRouter } from '@/lib/upload';
+
+        // Direct usage (recommended)
+        export const { GET, POST } = uploadRouter.handlers;
+        ```
+      </Tab>
+      
+      <Tab value="Pages Router">
+        ```typescript title="pages/api/upload/[...path].ts"
+        import { uploadRouter } from '@/lib/upload';
+        import { toNextJsPagesHandler } from 'pushduck/server';
+
+        export default toNextJsPagesHandler(uploadRouter.handlers);
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+## App Router Integration
+
+Next.js App Router uses Web Standards, making integration seamless:
+
+### Basic API Route
+
+```typescript title="app/api/upload/route.ts"
+import { uploadRouter } from '@/lib/upload';
+
+// Direct usage - works because Next.js App Router uses Web Standards
+export const { GET, POST } = uploadRouter.handlers;
+```
+
+### With Type Safety Adapter
+
+For extra type safety and better IDE support:
+
+```typescript title="app/api/upload/route.ts"
+import { uploadRouter } from '@/lib/upload';
+import { toNextJsHandler } from 'pushduck/server';
+
+// Explicit adapter for enhanced type safety
+export const { GET, POST } = toNextJsHandler(uploadRouter.handlers);
+```
+
+### Advanced Configuration
+
+```typescript title="app/api/upload/route.ts"
+import { uploadConfig } from 'pushduck/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+const uploadRouter = createS3Router({
+  // Profile pictures with authentication
+  profilePicture: s3
+    .image()
+    .max("2MB")
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req }) => {
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.id) {
+        throw new Error("Authentication required");
+      }
+      
+      return {
+        userId: session.user.id,
+        category: "profile"
+      };
+    }),
+
+  // Document uploads for authenticated users
+  documents: s3
+    .file()
+    .max("10MB")
+    .types(["application/pdf", "text/plain", "application/msword"])
+    .middleware(async ({ req }) => {
+      const session = await getServerSession(authOptions);
+      
+      if (!session?.user?.id) {
+        throw new Error("Authentication required");
+      }
+      
+      return {
+        userId: session.user.id,
+        category: "documents"
+      };
+    }),
+
+  // Public image uploads (no auth required)
+  publicImages: s3
+    .image()
+    .max("5MB")
+    .formats(["jpeg", "png", "webp"])
+    // No middleware = publicly accessible
+});
+
+export type AppUploadRouter = typeof uploadRouter;
+export const { GET, POST } = uploadRouter.handlers;
+```
+
+## Pages Router Integration
+
+Pages Router uses the legacy req/res API, so we provide a simple adapter:
+
+### Basic API Route
+
+```typescript title="pages/api/upload/[...path].ts"
+import { uploadRouter } from '@/lib/upload';
+import { toNextJsPagesHandler } from 'pushduck/server';
+
+export default toNextJsPagesHandler(uploadRouter.handlers);
+```
+
+### With Authentication
+
+```typescript title="pages/api/upload/[...path].ts"
+import { uploadConfig } from 'pushduck/server';
+import { toNextJsPagesHandler } from 'pushduck/server';
+import { getSession } from 'next-auth/react';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    // ... your config
+  })
+  .build();
+
+const uploadRouter = createS3Router({
+  imageUpload: s3
+    .image()
+    .max("5MB")
+    .middleware(async ({ req }) => {
+      // Convert Web Request to get session
+      const session = await getSession({ req: req as any });
+      
+      if (!session?.user?.id) {
+        throw new Error("Authentication required");
+      }
+      
+      return {
+        userId: session.user.id
+      };
+    })
+});
+
+export default toNextJsPagesHandler(uploadRouter.handlers);
+```
+
+## Client-Side Usage
+
+The client-side code is identical for both App Router and Pages Router:
+
+### Setup Upload Client
+
+```typescript title="lib/upload-client.ts"
+import { createUploadClient } from 'pushduck/client';
+import type { AppUploadRouter } from './upload';
+
+export const upload = createUploadClient<AppUploadRouter>({
+  endpoint: '/api/upload'
+});
+```
+
+### React Component
+
+```typescript title="components/upload-form.tsx"
+'use client'; // App Router
+// or just regular component for Pages Router
+
+import { upload } from '@/lib/upload-client';
+import { useState } from 'react';
+
+export function UploadForm() {
+  const { uploadFiles, files, isUploading, error } = upload.imageUpload();
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    uploadFiles(selectedFiles);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <input
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={handleFileSelect}
+          disabled={isUploading}
+          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+        />
+      </div>
+
+      {error && (
+        <div className="p-3 text-red-700 bg-red-100 rounded-md">
+          Error: {error.message}
+        </div>
+      )}
+
+      {files.length > 0 && (
+        <div className="space-y-2">
+          {files.map((file) => (
+            <div key={file.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                <p className="text-xs text-gray-500">
+                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+              </div>
+              
+              <div className="flex-1">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${file.progress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {file.status === 'success' ? 'Complete' : `${file.progress}%`}
+                </p>
+              </div>
+              
+              {file.status === 'success' && file.url && (
+                <a 
+                  href={file.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  View
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Project Structure
+
+Here's a recommended project structure for Next.js with pushduck:
+
+<Files>
+  <Folder name="your-nextjs-app" defaultOpen>
+    <Folder name="app" defaultOpen>
+      <Folder name="api">
+        <Folder name="upload" defaultOpen>
+          <File name="route.ts" />
+        </Folder>
+      </Folder>
+      <Folder name="upload">
+        <File name="page.tsx" />
+      </Folder>
+    </Folder>
+    <Folder name="components">
+      <File name="upload-form.tsx" />
+      <File name="file-preview.tsx" />
+    </Folder>
+    <Folder name="lib" defaultOpen>
+      <File name="upload.ts" />
+      <File name="upload-client.ts" />
+    </Folder>
+    <File name=".env.local" />
+  </Folder>
+</Files>
+
+## Complete Example
+
+### Upload Configuration
+
+```typescript title="lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from './auth';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      return `${metadata.userId}/${timestamp}/${randomId}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Profile pictures - single image, authenticated
+  profilePicture: s3
+    .image()
+    .max("2MB")
+    .count(1)
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req }) => {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) throw new Error("Authentication required");
+      return { userId: session.user.id, type: "profile" };
+    }),
+
+  // Gallery images - multiple images, authenticated
+  gallery: s3
+    .image()
+    .max("5MB")
+    .count(10)
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req }) => {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) throw new Error("Authentication required");
+      return { userId: session.user.id, type: "gallery" };
+    }),
+
+  // Documents - various file types, authenticated
+  documents: s3
+    .file()
+    .max("10MB")
+    .count(5)
+    .types([
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/plain"
+    ])
+    .middleware(async ({ req }) => {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) throw new Error("Authentication required");
+      return { userId: session.user.id, type: "documents" };
+    }),
+
+  // Public uploads - no authentication required
+  public: s3
+    .image()
+    .max("1MB")
+    .count(1)
+    .formats(["jpeg", "png"])
+    // No middleware = public access
+});
+
+export type AppUploadRouter = typeof uploadRouter;
+```
+
+### API Route (App Router)
+
+```typescript title="app/api/upload/route.ts"
+import { uploadRouter } from '@/lib/upload';
+
+export const { GET, POST } = uploadRouter.handlers;
+```
+
+### Upload Page
+
+```typescript title="app/upload/page.tsx"
+'use client';
+
+import { upload } from '@/lib/upload-client';
+import { useState } from 'react';
+
+export default function UploadPage() {
+  const [activeTab, setActiveTab] = useState<'profile' | 'gallery' | 'documents'>('profile');
+
+  const profileUpload = upload.profilePicture();
+  const galleryUpload = upload.gallery();
+  const documentsUpload = upload.documents();
+
+  const currentUpload = {
+    profile: profileUpload,
+    gallery: galleryUpload,
+    documents: documentsUpload
+  }[activeTab];
+
+  return (
+    <div className="container mx-auto py-8 max-w-4xl">
+      <h1 className="text-3xl font-bold mb-8">File Upload Demo</h1>
+
+      {/* Tab Navigation */}
+      <div className="flex border-b border-gray-200 mb-6">
+        {[
+          { key: 'profile', label: 'Profile Picture', icon: '👤' },
+          { key: 'gallery', label: 'Gallery', icon: '🖼️' },
+          { key: 'documents', label: 'Documents', icon: '📄' }
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key as any)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 ${
+              activeTab === tab.key
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Upload Interface */}
+      <div className="space-y-6">
+        <input
+          type="file"
+          multiple={activeTab !== 'profile'}
+          accept={activeTab === 'documents' ? '.pdf,.doc,.docx,.txt' : 'image/*'}
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            currentUpload.uploadFiles(files);
+          }}
+          disabled={currentUpload.isUploading}
+          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+        />
+
+        {/* File List */}
+        {currentUpload.files.length > 0 && (
+          <div className="space-y-3">
+            {currentUpload.files.map((file) => (
+              <div key={file.id} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+                
+                <div className="flex-1">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                      style={{ width: `${file.progress}%` }}
+                    />
+                  </div>
+                </div>
+                
+                <div className="text-sm">
+                  {file.status === 'success' && '✅'}
+                  {file.status === 'error' && '❌'}
+                  {file.status === 'uploading' && '⏳'}
+                  {file.status === 'pending' && '⏸️'}
+                </div>
+                
+                {file.status === 'success' && file.url && (
+                  <a 
+                    href={file.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    View
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+## Environment Variables
+
+```bash title=".env.local"
+# Cloudflare R2 Configuration
+AWS_ACCESS_KEY_ID=your_r2_access_key
+AWS_SECRET_ACCESS_KEY=your_r2_secret_key
+AWS_ENDPOINT_URL=https://your-account-id.r2.cloudflarestorage.com
+S3_BUCKET_NAME=your-bucket-name
+R2_ACCOUNT_ID=your-account-id
+
+# Next.js Configuration
+NEXTAUTH_SECRET=your-nextauth-secret
+NEXTAUTH_URL=http://localhost:3000
+```
+
+## Deployment Considerations
+
+<Cards>
+  <Card title="Vercel" description="Works out of the box">
+    - Environment variables configured in dashboard
+    - Edge Runtime compatible
+    - Automatic HTTPS
+  </Card>
+  
+  <Card title="Netlify" description="Serverless functions support">
+    - Configure environment variables
+    - Works with Netlify Functions
+    - CDN integration available
+  </Card>
+  
+  <Card title="Railway/Render" description="Full Node.js support">
+    - Complete Next.js compatibility
+    - Environment variable management
+    - Automatic deployments
+  </Card>
+</Cards>
+
+---
+
+<Callout type="success">
+  **Next.js Ready**: Pushduck works seamlessly with both Next.js App Router and Pages Router, providing the same great developer experience across all Next.js versions.
+</Callout> 

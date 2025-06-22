@@ -1,0 +1,314 @@
+---
+title: Hono
+description: Fast, lightweight file uploads with Hono using Web Standards - no adapter needed!
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+# Hono Integration
+
+Hono is a fast, lightweight web framework built on Web Standards. Since Hono uses `Request` and `Response` objects natively, pushduck handlers work directly without any adapters!
+
+<Callout type="info">
+  **Web Standards Native**: Hono exposes `c.req.raw` as a Web Standard `Request` object, making pushduck integration seamless with zero overhead.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install dependencies**
+    
+    ```bash
+    npm install hono pushduck
+    # or
+    pnpm add hono pushduck
+    # or
+    bun add hono pushduck
+    ```
+  </Step>
+
+  <Step>
+    **Configure upload router**
+    
+    ```typescript title="lib/upload.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    const { s3, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: process.env.AWS_ENDPOINT_URL!,
+        bucket: process.env.S3_BUCKET_NAME!,
+        accountId: process.env.R2_ACCOUNT_ID!,
+      })
+      .build();
+
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create Hono app with upload routes**
+    
+    ```typescript title="app.ts"
+    import { Hono } from 'hono';
+    import { uploadRouter } from './lib/upload';
+
+    const app = new Hono();
+
+    // Direct usage - no adapter needed!
+    app.on(['GET', 'POST'], '/api/upload/*', (c) => {
+      const method = c.req.method as 'GET' | 'POST';
+      return uploadRouter.handlers[method](c.req.raw);
+    });
+
+    export default app;
+    ```
+  </Step>
+</Steps>
+
+## Basic Integration
+
+### Simple Upload Route
+
+```typescript title="app.ts"
+import { Hono } from 'hono';
+import { uploadRouter } from './lib/upload';
+
+const app = new Hono();
+
+// Method 1: Combined handler
+app.on(['GET', 'POST'], '/api/upload/*', (c) => {
+  const method = c.req.method as 'GET' | 'POST';
+  return uploadRouter.handlers[method](c.req.raw);
+});
+
+// Method 2: Separate handlers (more explicit)
+app.get('/api/upload/*', (c) => uploadRouter.handlers.GET(c.req.raw));
+app.post('/api/upload/*', (c) => uploadRouter.handlers.POST(c.req.raw));
+
+export default app;
+```
+
+### With Middleware
+
+```typescript title="app.ts"
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { logger } from 'hono/logger';
+import { uploadRouter } from './lib/upload';
+
+const app = new Hono();
+
+// Global middleware
+app.use('*', logger());
+app.use('*', cors({
+  origin: ['http://localhost:3000', 'https://your-domain.com'],
+  allowMethods: ['GET', 'POST'],
+  allowHeaders: ['Content-Type'],
+}));
+
+// Upload routes
+app.get('/api/upload/*', (c) => uploadRouter.handlers.GET(c.req.raw));
+app.post('/api/upload/*', (c) => uploadRouter.handlers.POST(c.req.raw));
+
+// Health check
+app.get('/health', (c) => c.json({ status: 'ok' }));
+
+export default app;
+```
+
+## Advanced Configuration
+
+### Authentication with Hono
+
+```typescript title="lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+import { verify } from 'hono/jwt';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Private uploads with JWT authentication
+  privateUpload: s3
+    .image()
+    .max("5MB")
+    .middleware(async ({ req }) => {
+      const authHeader = req.headers.get('authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        throw new Error('Authorization required');
+      }
+
+      const token = authHeader.substring(7);
+      
+      try {
+        const payload = await verify(token, process.env.JWT_SECRET!);
+        return {
+          userId: payload.sub as string,
+          userRole: payload.role as string
+        };
+      } catch (error) {
+        throw new Error('Invalid token');
+      }
+    }),
+
+  // Public uploads (no auth)
+  publicUpload: s3
+    .image()
+    .max("2MB")
+    // No middleware = public access
+});
+
+export type AppUploadRouter = typeof uploadRouter;
+```
+
+## Deployment Options
+
+<Tabs items={["Cloudflare Workers", "Bun", "Node.js", "Deno"]}>
+  <Tab value="Cloudflare Workers">
+    ```typescript title="src/index.ts"
+    import { Hono } from 'hono';
+    import { uploadRouter } from './lib/upload';
+
+    const app = new Hono();
+
+    app.get('/api/upload/*', (c) => uploadRouter.handlers.GET(c.req.raw));
+    app.post('/api/upload/*', (c) => uploadRouter.handlers.POST(c.req.raw));
+
+    export default app;
+    ```
+
+    ```toml title="wrangler.toml"
+    name = "my-upload-api"
+    main = "src/index.ts"
+    compatibility_date = "2023-12-01"
+
+    [env.production]
+    vars = { NODE_ENV = "production" }
+    ```
+
+    ```bash
+    # Deploy to Cloudflare Workers
+    npx wrangler deploy
+    ```
+  </Tab>
+  
+  <Tab value="Bun">
+    ```typescript title="server.ts"
+    import { Hono } from 'hono';
+    import { uploadRouter } from './lib/upload';
+
+    const app = new Hono();
+
+    app.get('/api/upload/*', (c) => uploadRouter.handlers.GET(c.req.raw));
+    app.post('/api/upload/*', (c) => uploadRouter.handlers.POST(c.req.raw));
+
+    export default {
+      port: 3000,
+      fetch: app.fetch,
+    };
+    ```
+
+    ```bash
+    # Run with Bun
+    bun run server.ts
+    ```
+  </Tab>
+  
+  <Tab value="Node.js">
+    ```typescript title="server.ts"
+    import { serve } from '@hono/node-server';
+    import { Hono } from 'hono';
+    import { uploadRouter } from './lib/upload';
+
+    const app = new Hono();
+
+    app.get('/api/upload/*', (c) => uploadRouter.handlers.GET(c.req.raw));
+    app.post('/api/upload/*', (c) => uploadRouter.handlers.POST(c.req.raw));
+
+    const port = 3000;
+    console.log(`Server is running on port ${port}`);
+
+    serve({
+      fetch: app.fetch,
+      port
+    });
+    ```
+
+    ```bash
+    # Run with Node.js
+    npm run dev
+    ```
+  </Tab>
+  
+  <Tab value="Deno">
+    ```typescript title="server.ts"
+    import { Hono } from 'hono';
+    import { uploadRouter } from './lib/upload.ts';
+
+    const app = new Hono();
+
+    app.get('/api/upload/*', (c) => uploadRouter.handlers.GET(c.req.raw));
+    app.post('/api/upload/*', (c) => uploadRouter.handlers.POST(c.req.raw));
+
+    Deno.serve(app.fetch);
+    ```
+
+    ```bash
+    # Run with Deno
+    deno run --allow-net --allow-env server.ts
+    ```
+  </Tab>
+</Tabs>
+
+## Performance Benefits
+
+<Cards>
+  <Card title="🚀 Zero Overhead" description="Direct Web Standards integration">
+    No adapter layer means zero performance overhead - pushduck handlers run directly in Hono.
+  </Card>
+  
+  <Card title="⚡ Fast Runtime" description="Hono's lightweight design">
+    Hono is one of the fastest web frameworks, perfect for high-performance upload APIs.
+  </Card>
+  
+  <Card title="🌐 Edge Ready" description="Deploy anywhere">
+    Works on Cloudflare Workers, Bun, Node.js, and Deno with the same code.
+  </Card>
+  
+  <Card title="📦 Small Bundle" description="Minimal dependencies">
+    Hono + pushduck creates incredibly lightweight upload services.
+  </Card>
+</Cards>
+
+---
+
+<Callout type="success">
+  **Perfect Match**: Hono's Web Standards foundation and pushduck's universal design create a powerful, fast, and lightweight file upload solution that works everywhere.
+</Callout> 

@@ -1,0 +1,505 @@
+---
+title: SolidJS Start
+description: Full-stack SolidJS framework with Web Standards support - no adapter needed!
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+
+# SolidJS Start Integration
+
+SolidJS Start is a full-stack SolidJS framework built on Web Standards. Since SolidJS Start provides `event.request` as a Web Standard `Request` object, pushduck handlers work directly without any adapters!
+
+<Callout type="info">
+  **Web Standards Native**: SolidJS Start's `event.request` is a Web Standard `Request` object, making pushduck integration seamless with zero overhead.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install dependencies**
+    
+    ```bash
+    npm install @solidjs/start pushduck
+    # or
+    pnpm add @solidjs/start pushduck
+    ```
+  </Step>
+
+  <Step>
+    **Configure upload router**
+    
+    ```typescript title="src/lib/upload.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    const { s3, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: process.env.AWS_ENDPOINT_URL!,
+        bucket: process.env.S3_BUCKET_NAME!,
+        accountId: process.env.R2_ACCOUNT_ID!,
+      })
+      .build();
+
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create API route**
+    
+    ```typescript title="src/routes/api/upload/[...path].ts"
+    import { APIEvent } from '@solidjs/start/server';
+    import { uploadRouter } from '../../../lib/upload';
+
+    export async function GET(event: APIEvent) {
+      return uploadRouter.handlers.GET(event.request);
+    }
+
+    export async function POST(event: APIEvent) {
+      return uploadRouter.handlers.POST(event.request);
+    }
+    ```
+  </Step>
+</Steps>
+
+## Basic Integration
+
+### Simple API Route
+
+```typescript title="src/routes/api/upload/[...path].ts"
+import { APIEvent } from '@solidjs/start/server';
+import { uploadRouter } from '../../../lib/upload';
+
+// Direct usage - no adapter needed!
+export async function GET(event: APIEvent) {
+  return uploadRouter.handlers.GET(event.request);
+}
+
+export async function POST(event: APIEvent) {
+  return uploadRouter.handlers.POST(event.request);
+}
+```
+
+### With Authentication
+
+```typescript title="src/routes/api/upload/[...path].ts"
+import { APIEvent } from '@solidjs/start/server';
+import { uploadRouter } from '../../../lib/upload';
+import { getSession } from '../../../lib/auth';
+
+export async function GET(event: APIEvent) {
+  // Authentication check
+  const session = await getSession(event);
+  if (!session) {
+    return new Response(JSON.stringify({ error: 'Authentication required' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+  
+  return uploadRouter.handlers.GET(event.request);
+}
+
+export async function POST(event: APIEvent) {
+  // Authentication check
+  const session = await getSession(event);
+  if (!session) {
+    return new Response(JSON.stringify({ error: 'Authentication required' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+  
+  return uploadRouter.handlers.POST(event.request);
+}
+```
+
+## Advanced Configuration
+
+### Upload Configuration with Session
+
+```typescript title="src/lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+import { getSession } from './auth';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Profile pictures with authentication
+  profilePicture: s3
+    .image()
+    .max("2MB")
+    .count(1)
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req }) => {
+      const session = await getSessionFromRequest(req);
+      if (!session?.user?.id) {
+        throw new Error('Authentication required');
+      }
+      
+      return {
+        userId: session.user.id,
+        userRole: session.user.role,
+        category: "profile"
+      };
+    }),
+
+  // Gallery images for authenticated users
+  gallery: s3
+    .image()
+    .max("5MB")
+    .count(10)
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req }) => {
+      const session = await getSessionFromRequest(req);
+      if (!session?.user?.id) {
+        throw new Error('Authentication required');
+      }
+      
+      return {
+        userId: session.user.id,
+        category: "gallery"
+      };
+    }),
+
+  // Public uploads (no authentication)
+  public: s3
+    .image()
+    .max("1MB")
+    .count(1)
+    .formats(["jpeg", "png"])
+    // No middleware = public access
+});
+
+async function getSessionFromRequest(request: Request) {
+  // Extract session from request headers/cookies
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.substring(7);
+  return await validateSessionToken(token);
+}
+
+export type AppUploadRouter = typeof uploadRouter;
+```
+
+### Authentication Helper
+
+```typescript title="src/lib/auth.ts"
+import { APIEvent } from '@solidjs/start/server';
+
+export interface Session {
+  user: {
+    id: string;
+    email: string;
+    role: string;
+  };
+}
+
+export async function getSession(event: APIEvent): Promise<Session | null> {
+  // Extract session from cookies or headers
+  const authHeader = event.request.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.substring(7);
+  
+  try {
+    const session = await validateSessionToken(token);
+    return session;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function validateSessionToken(token: string): Promise<Session> {
+  // Your token validation logic
+  if (token === 'demo-token') {
+    return {
+      user: {
+        id: 'demo-user',
+        email: 'demo@example.com',
+        role: 'user'
+      }
+    };
+  }
+  
+  throw new Error('Invalid token');
+}
+```
+
+## Client-Side Usage
+
+### Upload Client Setup
+
+```typescript title="src/lib/upload-client.ts"
+import { createUploadClient } from 'pushduck/client';
+import type { AppUploadRouter } from './upload';
+
+export const upload = createUploadClient<AppUploadRouter>({
+  endpoint: '/api/upload'
+});
+```
+
+### SolidJS Upload Component
+
+```tsx title="src/components/UploadForm.tsx"
+import { createSignal, For } from 'solid-js';
+import { upload } from '../lib/upload-client';
+
+export function UploadForm() {
+  const [activeTab, setActiveTab] = createSignal<'profile' | 'gallery' | 'public'>('profile');
+  
+  const profileUpload = upload.profilePicture();
+  const galleryUpload = upload.gallery();
+  const publicUpload = upload.public();
+  
+  const getCurrentUpload = () => {
+    const tab = activeTab();
+    return {
+      profile: profileUpload,
+      gallery: galleryUpload,
+      public: publicUpload
+    }[tab];
+  };
+
+  const handleFileSelect = (e: Event) => {
+    const target = e.target as HTMLInputElement;
+    const selectedFiles = Array.from(target.files || []);
+    getCurrentUpload().uploadFiles(selectedFiles);
+  };
+
+  const tabs = [
+    { key: 'profile', label: 'Profile Picture', icon: '👤' },
+    { key: 'gallery', label: 'Gallery', icon: '🖼️' },
+    { key: 'public', label: 'Public', icon: '🌍' }
+  ];
+
+  return (
+    <div class="max-w-2xl mx-auto p-6">
+      <h2 class="text-2xl font-bold mb-6">File Upload</h2>
+      
+      {/* Tab Navigation */}
+      <div class="flex border-b border-gray-200 mb-6">
+        <For each={tabs}>
+          {(tab) => (
+            <button
+              onClick={() => setActiveTab(tab.key as any)}
+              class={`px-4 py-2 text-sm font-medium border-b-2 ${
+                activeTab() === tab.key
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          )}
+        </For>
+      </div>
+
+      {/* Upload Interface */}
+      <div class="space-y-4">
+        <input
+          type="file"
+          multiple={activeTab() !== 'profile'}
+          accept="image/*"
+          onChange={handleFileSelect}
+          disabled={getCurrentUpload().isUploading()}
+          class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+        />
+
+        {getCurrentUpload().error() && (
+          <div class="p-3 text-red-700 bg-red-100 rounded-md">
+            Error: {getCurrentUpload().error()?.message}
+          </div>
+        )}
+
+        {/* File List */}
+        {getCurrentUpload().files().length > 0 && (
+          <div class="space-y-3">
+            <For each={getCurrentUpload().files()}>
+              {(file) => (
+                <div class="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+                  <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-900">{file.name}</p>
+                    <p class="text-xs text-gray-500">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                  
+                  <div class="flex-1">
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${file.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div class="text-sm">
+                    {file.status === 'success' && '✅'}
+                    {file.status === 'error' && '❌'}
+                    {file.status === 'uploading' && '⏳'}
+                    {file.status === 'pending' && '⏸️'}
+                  </div>
+                  
+                  {file.status === 'success' && file.url && (
+                    <a 
+                      href={file.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      View
+                    </a>
+                  )}
+                </div>
+              )}
+            </For>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+### Upload Page Route
+
+```tsx title="src/routes/upload.tsx"
+import { UploadForm } from '../components/UploadForm';
+
+export default function UploadPage() {
+  return (
+    <div class="container mx-auto py-8">
+      <UploadForm />
+    </div>
+  );
+}
+```
+
+## Project Structure
+
+```
+src/
+├── routes/
+│   ├── api/
+│   │   └── upload/
+│   │       └── [...path].ts      # Upload API route
+│   ├── upload.tsx                # Upload page
+│   └── app.tsx
+├── components/
+│   └── UploadForm.tsx            # Upload component
+├── lib/
+│   ├── upload.ts                 # Upload configuration
+│   ├── upload-client.ts          # Client setup
+│   └── auth.ts                   # Authentication helpers
+└── app.config.ts
+```
+
+## Deployment
+
+### Vercel Deployment
+
+```typescript title="app.config.ts"
+import { defineConfig } from '@solidjs/start/config';
+
+export default defineConfig({
+  server: {
+    preset: 'vercel'
+  }
+});
+```
+
+### Netlify Deployment
+
+```typescript title="app.config.ts"
+import { defineConfig } from '@solidjs/start/config';
+
+export default defineConfig({
+  server: {
+    preset: 'netlify'
+  }
+});
+```
+
+### Cloudflare Workers Deployment
+
+```typescript title="app.config.ts"
+import { defineConfig } from '@solidjs/start/config';
+
+export default defineConfig({
+  server: {
+    preset: 'cloudflare-workers'
+  }
+});
+```
+
+### Environment Variables
+
+```bash title=".env"
+# Cloudflare R2 Configuration
+AWS_ACCESS_KEY_ID=your_r2_access_key
+AWS_SECRET_ACCESS_KEY=your_r2_secret_key
+AWS_ENDPOINT_URL=https://your-account-id.r2.cloudflarestorage.com
+S3_BUCKET_NAME=your-bucket-name
+R2_ACCOUNT_ID=your-account-id
+
+# Session Configuration
+SESSION_SECRET=your-session-secret
+```
+
+## Performance Benefits
+
+<Cards>
+  <Card title="🚀 SolidJS Performance" description="Fine-grained reactivity">
+    SolidJS provides exceptional performance with fine-grained reactivity and no virtual DOM.
+  </Card>
+  
+  <Card title="⚡ Zero Overhead" description="Direct Web Standards integration">
+    No adapter layer means zero performance overhead - pushduck handlers run directly.
+  </Card>
+  
+  <Card title="🔧 TypeScript Support" description="Full type safety">
+    Complete TypeScript support from server to client with SolidJS Start and pushduck.
+  </Card>
+  
+  <Card title="📦 Small Bundle Size" description="Optimized for production">
+    SolidJS produces smaller bundle sizes while maintaining full functionality.
+  </Card>
+</Cards>
+
+---
+
+<Callout type="success">
+  **SolidJS Start + Pushduck**: A high-performance full-stack solution with zero-overhead file uploads using Web Standards and fine-grained reactivity.
+</Callout> 

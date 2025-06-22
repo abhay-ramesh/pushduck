@@ -9,10 +9,7 @@ import type { S3Router, S3RouterDefinition } from "../router/router-v2";
  */
 export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
   router: S3Router<TRoutes>
-): {
-  GET: (request: Request) => Promise<Response>;
-  POST: (request: Request) => Promise<Response>;
-} {
+): UniversalHandler {
   // Initialize upload configuration
   const uploadConfig = getUploadConfig();
 
@@ -151,7 +148,42 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
     );
   }
 
-  return { GET, POST };
+  // Create the main handler function that auto-detects method
+  async function handler(request: Request): Promise<Response> {
+    const method = request.method.toUpperCase();
+
+    if (method === "GET") {
+      return GET(request);
+    } else if (method === "POST") {
+      return POST(request);
+    } else {
+      return new Response(
+        JSON.stringify({ error: `Method ${method} not allowed` }),
+        {
+          status: 405,
+          headers: {
+            "Content-Type": "application/json",
+            Allow: "GET, POST",
+          },
+        }
+      );
+    }
+  }
+
+  // Add the individual methods as properties for backward compatibility
+  handler.GET = GET;
+  handler.POST = POST;
+
+  return handler;
+}
+
+/**
+ * Type definition for the universal handler
+ */
+export interface UniversalHandler {
+  (request: Request): Promise<Response>;
+  GET: (request: Request) => Promise<Response>;
+  POST: (request: Request) => Promise<Response>;
 }
 
 /**

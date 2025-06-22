@@ -1,0 +1,479 @@
+---
+title: TanStack Start
+description: Full-stack React framework with Web Standards support - no adapter needed!
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+
+# TanStack Start Integration
+
+TanStack Start is a full-stack React framework built on Web Standards. Since TanStack Start provides `request` as a Web Standard `Request` object, pushduck handlers work directly without any adapters!
+
+<Callout type="info">
+  **Web Standards Native**: TanStack Start's `{ request }` parameter is a Web Standard `Request` object, making pushduck integration seamless with zero overhead.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install dependencies**
+    
+    ```bash
+    npm install @tanstack/start pushduck
+    # or
+    pnpm add @tanstack/start pushduck
+    ```
+  </Step>
+
+  <Step>
+    **Configure upload router**
+    
+    ```typescript title="app/lib/upload.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    const { s3, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: process.env.AWS_ENDPOINT_URL!,
+        bucket: process.env.S3_BUCKET_NAME!,
+        accountId: process.env.R2_ACCOUNT_ID!,
+      })
+      .build();
+
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create API route**
+    
+    ```typescript title="app/routes/api/upload.$.ts"
+    import { createAPIFileRoute } from '@tanstack/start/api';
+    import { uploadRouter } from '../../lib/upload';
+
+    export const Route = createAPIFileRoute('/api/upload/$')({
+      GET: ({ request }) => {
+        return uploadRouter.handlers.GET(request);
+      },
+      POST: ({ request }) => {
+        return uploadRouter.handlers.POST(request);
+      }
+    });
+    ```
+  </Step>
+</Steps>
+
+## Basic Integration
+
+### Simple API Route
+
+```typescript title="app/routes/api/upload.$.ts"
+import { createAPIFileRoute } from '@tanstack/start/api';
+import { uploadRouter } from '../../lib/upload';
+
+export const Route = createAPIFileRoute('/api/upload/$')({
+  // Direct usage - no adapter needed!
+  GET: ({ request }) => uploadRouter.handlers.GET(request),
+  POST: ({ request }) => uploadRouter.handlers.POST(request)
+});
+```
+
+### With Authentication
+
+```typescript title="app/routes/api/upload.$.ts"
+import { createAPIFileRoute } from '@tanstack/start/api';
+import { uploadRouter } from '../../lib/upload';
+import { getSession } from '../../lib/auth';
+
+export const Route = createAPIFileRoute('/api/upload/$')({
+  GET: async ({ request }) => {
+    // Authentication check
+    const session = await getSession(request);
+    if (!session) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    return uploadRouter.handlers.GET(request);
+  },
+  
+  POST: async ({ request }) => {
+    // Authentication check
+    const session = await getSession(request);
+    if (!session) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    return uploadRouter.handlers.POST(request);
+  }
+});
+```
+
+## Advanced Configuration
+
+### Upload Configuration with Session
+
+```typescript title="app/lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+import { getSession } from './auth';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Profile pictures with authentication
+  profilePicture: s3
+    .image()
+    .max("2MB")
+    .count(1)
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req }) => {
+      const session = await getSession(req);
+      if (!session?.user?.id) {
+        throw new Error('Authentication required');
+      }
+      
+      return {
+        userId: session.user.id,
+        userRole: session.user.role,
+        category: "profile"
+      };
+    }),
+
+  // Gallery images for authenticated users
+  gallery: s3
+    .image()
+    .max("5MB")
+    .count(10)
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req }) => {
+      const session = await getSession(req);
+      if (!session?.user?.id) {
+        throw new Error('Authentication required');
+      }
+      
+      return {
+        userId: session.user.id,
+        category: "gallery"
+      };
+    }),
+
+  // Public uploads (no authentication)
+  public: s3
+    .image()
+    .max("1MB")
+    .count(1)
+    .formats(["jpeg", "png"])
+    // No middleware = public access
+});
+
+export type AppUploadRouter = typeof uploadRouter;
+```
+
+### Authentication Helper
+
+```typescript title="app/lib/auth.ts"
+import { getWebRequest } from 'vinxi/http';
+
+export interface Session {
+  user: {
+    id: string;
+    email: string;
+    role: string;
+  };
+}
+
+export async function getSession(request: Request): Promise<Session | null> {
+  // Extract session from cookies or headers
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.substring(7);
+  
+  try {
+    // Your session validation logic here
+    const session = await validateSessionToken(token);
+    return session;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function validateSessionToken(token: string): Promise<Session> {
+  // Your token validation logic
+  // This could be JWT verification, database lookup, etc.
+  if (token === 'demo-token') {
+    return {
+      user: {
+        id: 'demo-user',
+        email: 'demo@example.com',
+        role: 'user'
+      }
+    };
+  }
+  
+  throw new Error('Invalid token');
+}
+```
+
+## Client-Side Usage
+
+### Upload Client Setup
+
+```typescript title="app/lib/upload-client.ts"
+import { createUploadClient } from 'pushduck/client';
+import type { AppUploadRouter } from './upload';
+
+export const upload = createUploadClient<AppUploadRouter>({
+  endpoint: '/api/upload'
+});
+```
+
+### React Upload Component
+
+```typescript title="app/components/UploadForm.tsx"
+import { useState } from 'react';
+import { upload } from '../lib/upload-client';
+
+export function UploadForm() {
+  const [activeTab, setActiveTab] = useState<'profile' | 'gallery' | 'public'>('profile');
+  
+  const profileUpload = upload.profilePicture();
+  const galleryUpload = upload.gallery();
+  const publicUpload = upload.public();
+  
+  const currentUpload = {
+    profile: profileUpload,
+    gallery: galleryUpload,
+    public: publicUpload
+  }[activeTab];
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    currentUpload.uploadFiles(selectedFiles);
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-6">File Upload</h2>
+      
+      {/* Tab Navigation */}
+      <div className="flex border-b border-gray-200 mb-6">
+        {[
+          { key: 'profile', label: 'Profile Picture', icon: '👤' },
+          { key: 'gallery', label: 'Gallery', icon: '🖼️' },
+          { key: 'public', label: 'Public', icon: '🌍' }
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key as any)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 ${
+              activeTab === tab.key
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Upload Interface */}
+      <div className="space-y-4">
+        <input
+          type="file"
+          multiple={activeTab !== 'profile'}
+          accept="image/*"
+          onChange={handleFileSelect}
+          disabled={currentUpload.isUploading}
+          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+        />
+
+        {currentUpload.error && (
+          <div className="p-3 text-red-700 bg-red-100 rounded-md">
+            Error: {currentUpload.error.message}
+          </div>
+        )}
+
+        {/* File List */}
+        {currentUpload.files.length > 0 && (
+          <div className="space-y-3">
+            {currentUpload.files.map((file) => (
+              <div key={file.id} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+                
+                <div className="flex-1">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                      style={{ width: `${file.progress}%` }}
+                    />
+                  </div>
+                </div>
+                
+                <div className="text-sm">
+                  {file.status === 'success' && '✅'}
+                  {file.status === 'error' && '❌'}
+                  {file.status === 'uploading' && '⏳'}
+                  {file.status === 'pending' && '⏸️'}
+                </div>
+                
+                {file.status === 'success' && file.url && (
+                  <a 
+                    href={file.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    View
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+### Upload Page Route
+
+```typescript title="app/routes/upload.tsx"
+import { createFileRoute } from '@tanstack/react-router';
+import { UploadForm } from '../components/UploadForm';
+
+export const Route = createFileRoute('/upload')({
+  component: UploadPage
+});
+
+function UploadPage() {
+  return (
+    <div className="container mx-auto py-8">
+      <UploadForm />
+    </div>
+  );
+}
+```
+
+## Project Structure
+
+```
+app/
+├── routes/
+│   ├── api/
+│   │   └── upload.$.ts          # Upload API route
+│   ├── upload.tsx               # Upload page
+│   └── __root.tsx
+├── components/
+│   └── UploadForm.tsx           # Upload component
+├── lib/
+│   ├── upload.ts                # Upload configuration
+│   ├── upload-client.ts         # Client setup
+│   └── auth.ts                  # Authentication helpers
+└── app.config.ts
+```
+
+## Deployment
+
+### Vercel Deployment
+
+```typescript title="app.config.ts"
+import { defineConfig } from '@tanstack/start/config';
+
+export default defineConfig({
+  server: {
+    preset: 'vercel'
+  }
+});
+```
+
+### Netlify Deployment
+
+```typescript title="app.config.ts"
+import { defineConfig } from '@tanstack/start/config';
+
+export default defineConfig({
+  server: {
+    preset: 'netlify'
+  }
+});
+```
+
+### Environment Variables
+
+```bash title=".env"
+# Cloudflare R2 Configuration
+AWS_ACCESS_KEY_ID=your_r2_access_key
+AWS_SECRET_ACCESS_KEY=your_r2_secret_key
+AWS_ENDPOINT_URL=https://your-account-id.r2.cloudflarestorage.com
+S3_BUCKET_NAME=your-bucket-name
+R2_ACCOUNT_ID=your-account-id
+
+# Session Configuration
+SESSION_SECRET=your-session-secret
+```
+
+## Performance Benefits
+
+<Cards>
+  <Card title="🚀 React Server Components" description="Full-stack React with streaming">
+    TanStack Start provides modern React features with server-side rendering and streaming.
+  </Card>
+  
+  <Card title="⚡ Zero Overhead" description="Direct Web Standards integration">
+    No adapter layer means zero performance overhead - pushduck handlers run directly.
+  </Card>
+  
+  <Card title="🔧 Type Safety" description="End-to-end TypeScript">
+    Full type safety from server to client with TanStack Start and pushduck.
+  </Card>
+  
+  <Card title="📦 Modern Stack" description="Latest React patterns">
+    Server components, streaming, and modern React patterns work seamlessly with pushduck.
+  </Card>
+</Cards>
+
+---
+
+<Callout type="success">
+  **TanStack Start + Pushduck**: A modern full-stack React solution with zero-overhead file uploads using Web Standards.
+</Callout> 

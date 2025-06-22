@@ -1,0 +1,15 @@
+{
+    "title": "Framework Integrations",
+    "description": "Integrate pushduck with your favorite web framework",
+    "pages": [
+        "overview",
+        "nextjs",
+        "hono",
+        "elysia",
+        "bun",
+        "tanstack-start",
+        "solidjs-start",
+        "express",
+        "fastify"
+    ]
+}

@@ -1,0 +1,577 @@
+---
+title: Express
+description: Classic Node.js framework integration with pushduck using adapters for req/res API
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+# Express Integration
+
+Express uses the traditional Node.js `req`/`res` API pattern. Pushduck provides a simple adapter that converts Web Standard handlers to Express middleware format.
+
+<Callout type="info">
+  **Legacy API**: Express uses `req`/`res` objects instead of Web Standards, so pushduck provides the `toExpressHandler` adapter for seamless integration.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install dependencies**
+    
+    ```bash
+    npm install express pushduck
+    npm install --save-dev @types/express
+    # or
+    pnpm add express pushduck
+    pnpm add -D @types/express
+    ```
+  </Step>
+
+  <Step>
+    **Configure upload router**
+    
+    ```typescript title="lib/upload.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    const { s3, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: process.env.AWS_ENDPOINT_URL!,
+        bucket: process.env.S3_BUCKET_NAME!,
+        accountId: process.env.R2_ACCOUNT_ID!,
+      })
+      .build();
+
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create Express server with upload routes**
+    
+    ```typescript title="server.ts"
+    import express from 'express';
+    import { uploadRouter } from './lib/upload';
+    import { toExpressHandler } from 'pushduck/server';
+
+    const app = express();
+
+    // Convert pushduck handlers to Express middleware
+    app.all('/api/upload/*', toExpressHandler(uploadRouter.handlers));
+
+    app.listen(3000, () => {
+      console.log('Server running on http://localhost:3000');
+    });
+    ```
+  </Step>
+</Steps>
+
+## Basic Integration
+
+### Simple Upload Route
+
+```typescript title="server.ts"
+import express from 'express';
+import cors from 'cors';
+import { uploadRouter } from './lib/upload';
+import { toExpressHandler } from 'pushduck/server';
+
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Upload routes using adapter
+app.all('/api/upload/*', toExpressHandler(uploadRouter.handlers));
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`🚀 Server running on http://localhost:${port}`);
+});
+```
+
+### With Authentication Middleware
+
+```typescript title="server.ts"
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import { uploadRouter } from './lib/upload';
+import { toExpressHandler } from 'pushduck/server';
+
+const app = express();
+
+app.use(express.json());
+
+// Authentication middleware
+const authenticateToken = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.sendStatus(401);
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET!, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+};
+
+// Public upload route (no auth)
+app.all('/api/upload/public/*', toExpressHandler(uploadRouter.handlers));
+
+// Private upload route (with auth)
+app.all('/api/upload/private/*', authenticateToken, toExpressHandler(uploadRouter.handlers));
+
+app.listen(3000);
+```
+
+## Advanced Configuration
+
+### Upload Configuration with Express Context
+
+```typescript title="lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Profile pictures with authentication
+  profilePicture: s3
+    .image()
+    .max("2MB")
+    .count(1)
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req }) => {
+      // Extract user from JWT token in Authorization header
+      const authHeader = req.headers.get('authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        throw new Error('Authentication required');
+      }
+
+      const token = authHeader.substring(7);
+      const user = await verifyJWT(token);
+      
+      return {
+        userId: user.id,
+        userRole: user.role,
+        category: "profile"
+      };
+    }),
+
+  // Document uploads for authenticated users
+  documents: s3
+    .file()
+    .max("10MB")
+    .count(5)
+    .types([
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/plain"
+    ])
+    .middleware(async ({ req }) => {
+      const authHeader = req.headers.get('authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        throw new Error('Authentication required');
+      }
+
+      const token = authHeader.substring(7);
+      const user = await verifyJWT(token);
+      
+      return {
+        userId: user.id,
+        category: "documents"
+      };
+    }),
+
+  // Public uploads (no authentication)
+  publicImages: s3
+    .image()
+    .max("1MB")
+    .count(1)
+    .formats(["jpeg", "png"])
+    // No middleware = public access
+});
+
+async function verifyJWT(token: string) {
+  // Your JWT verification logic
+  const jwt = await import('jsonwebtoken');
+  return jwt.verify(token, process.env.JWT_SECRET!) as any;
+}
+
+export type AppUploadRouter = typeof uploadRouter;
+```
+
+### Complete Express Application
+
+```typescript title="server.ts"
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { uploadRouter } from './lib/upload';
+import { toExpressHandler } from 'pushduck/server';
+
+const app = express();
+
+// Security middleware
+app.use(helmet());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://your-domain.com'] 
+    : ['http://localhost:3000'],
+  credentials: true
+}));
+
+// Rate limiting
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many upload requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Body parsing middleware
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    version: process.env.npm_package_version || '1.0.0'
+  });
+});
+
+// API info endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    name: 'Express Upload API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      upload: '/api/upload/*'
+    },
+    uploadTypes: [
+      'profilePicture - Single profile picture (2MB max)',
+      'documents - PDF, Word, text files (10MB max, 5 files)',
+      'publicImages - Public images (1MB max)'
+    ]
+  });
+});
+
+// Upload routes with rate limiting
+app.all('/api/upload/*', uploadLimiter, toExpressHandler(uploadRouter.handlers));
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({
+    error: 'Not Found',
+    message: `Route ${req.originalUrl} not found`,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Error handler
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Express error:', err);
+  
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
+    timestamp: new Date().toISOString()
+  });
+});
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`🚀 Express server running on http://localhost:${port}`);
+  console.log(`📁 Upload endpoint: http://localhost:${port}/api/upload`);
+});
+```
+
+## Project Structure
+
+<Files>
+  <Folder name="express-upload-api" defaultOpen>
+    <Folder name="src" defaultOpen>
+      <File name="server.ts" />
+      <Folder name="lib">
+        <File name="upload.ts" />
+        <File name="auth.ts" />
+      </Folder>
+      <Folder name="middleware">
+        <File name="auth.ts" />
+        <File name="validation.ts" />
+      </Folder>
+      <Folder name="routes">
+        <File name="uploads.ts" />
+        <File name="health.ts" />
+      </Folder>
+    </Folder>
+    <File name="package.json" />
+    <File name=".env" />
+    <File name="Dockerfile" />
+  </Folder>
+</Files>
+
+## Modular Route Organization
+
+### Separate Upload Routes
+
+```typescript title="routes/uploads.ts"
+import { Router } from 'express';
+import { uploadRouter } from '../lib/upload';
+import { toExpressHandler } from 'pushduck/server';
+import { authenticateToken } from '../middleware/auth';
+
+const router = Router();
+
+// Public uploads
+router.all('/public/*', toExpressHandler(uploadRouter.handlers));
+
+// Private uploads (requires authentication)
+router.all('/private/*', authenticateToken, toExpressHandler(uploadRouter.handlers));
+
+export default router;
+```
+
+```typescript title="middleware/auth.ts"
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+
+export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET!, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+};
+```
+
+```typescript title="server.ts"
+import express from 'express';
+import uploadRoutes from './routes/uploads';
+
+const app = express();
+
+app.use(express.json());
+
+// Mount upload routes
+app.use('/api/upload', uploadRoutes);
+
+app.listen(3000);
+```
+
+## Client Usage
+
+The client-side integration is identical regardless of your backend framework:
+
+```typescript title="client/upload-client.ts"
+import { createUploadClient } from 'pushduck/client';
+import type { AppUploadRouter } from '../src/lib/upload';
+
+export const upload = createUploadClient<AppUploadRouter>({
+  endpoint: 'http://localhost:3000/api/upload',
+  headers: {
+    'Authorization': `Bearer ${getAuthToken()}`
+  }
+});
+
+function getAuthToken(): string {
+  return localStorage.getItem('auth-token') || '';
+}
+```
+
+```typescript title="client/upload-form.tsx"
+import { upload } from './upload-client';
+
+export function DocumentUploader() {
+  const { uploadFiles, files, isUploading, error } = upload.documents();
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    uploadFiles(selectedFiles);
+  };
+
+  return (
+    <div>
+      <input
+        type="file"
+        multiple
+        accept=".pdf,.doc,.docx,.txt"
+        onChange={handleFileSelect}
+        disabled={isUploading}
+      />
+
+      {error && (
+        <div className="error">
+          Error: {error.message}
+        </div>
+      )}
+
+      {files.map((file) => (
+        <div key={file.id}>
+          <span>{file.name}</span>
+          <progress value={file.progress} max={100} />
+          {file.status === 'success' && (
+            <a href={file.url} target="_blank" rel="noopener noreferrer">
+              Download
+            </a>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Deployment
+
+### Docker Deployment
+
+```dockerfile title="Dockerfile"
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy source code
+COPY . .
+
+# Build TypeScript
+RUN npm run build
+
+EXPOSE 3000
+
+CMD ["npm", "start"]
+```
+
+```json title="package.json"
+{
+  "name": "express-upload-api",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "pushduck": "latest",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "express-rate-limit": "^6.7.0",
+    "jsonwebtoken": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.17",
+    "@types/cors": "^2.8.13",
+    "@types/jsonwebtoken": "^9.0.2",
+    "tsx": "^3.12.7",
+    "typescript": "^5.0.0"
+  }
+}
+```
+
+### Environment Variables
+
+```bash title=".env"
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+JWT_SECRET=your-super-secret-jwt-key
+
+# Cloudflare R2 Configuration
+AWS_ACCESS_KEY_ID=your_r2_access_key
+AWS_SECRET_ACCESS_KEY=your_r2_secret_key
+AWS_ENDPOINT_URL=https://your-account-id.r2.cloudflarestorage.com
+S3_BUCKET_NAME=your-bucket-name
+R2_ACCOUNT_ID=your-account-id
+
+# CORS Configuration
+ALLOWED_ORIGINS=http://localhost:3000,https://your-domain.com
+```
+
+## Adapter Benefits
+
+<Cards>
+  <Card title="🔄 Seamless Integration" description="Works with existing Express apps">
+    Drop pushduck into any existing Express application without changing your architecture.
+  </Card>
+  
+  <Card title="🛡️ Express Ecosystem" description="Full compatibility with Express middleware">
+    Use all your favorite Express middleware like CORS, rate limiting, and authentication.
+  </Card>
+  
+  <Card title="📦 Familiar Patterns" description="Standard Express req/res handling">
+    Follows Express conventions while providing modern upload capabilities.
+  </Card>
+  
+  <Card title="🚀 Easy Migration" description="Upgrade existing upload solutions">
+    Replace complex upload implementations with pushduck's simple adapter.
+  </Card>
+</Cards>
+
+---
+
+<Callout type="success">
+  **Express Ready**: The `toExpressHandler` adapter makes pushduck work seamlessly with Express's traditional req/res API while providing modern file upload capabilities.
+</Callout> 

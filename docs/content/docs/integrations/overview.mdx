@@ -1,0 +1,316 @@
+---
+title: Overview
+description: Universal file uploads that work with any web framework - from modern Web Standards to legacy APIs
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+
+# Framework Integrations Overview
+
+Pushduck provides **universal file upload handlers** that work with any web framework through a single, consistent API. Write your upload logic once and deploy it anywhere!
+
+<Callout type="info">
+  **Universal Design**: Pushduck uses Web Standards (Request/Response) at its core, making it compatible with both modern and legacy frameworks without framework-specific code.
+</Callout>
+
+## 🌟 Universal API
+
+All frameworks use the same core API:
+
+```typescript
+import { createS3Router, s3 } from 'pushduck/server';
+
+const uploadRouter = createS3Router({
+  imageUpload: s3.image().max("5MB"),
+  documentUpload: s3.file().max("10MB"),
+  videoUpload: s3.file().max("100MB").types(["video/*"])
+});
+
+// Universal handlers - work with ANY framework
+export const { GET, POST } = uploadRouter.handlers;
+```
+
+## Framework Categories
+
+Pushduck supports frameworks in two categories:
+
+<Cards>
+  <Card 
+    title="🚀 Web Standards Native" 
+    description="Modern frameworks using Web Request/Response"
+    href="/docs/integrations/hono"
+  >
+    **No adapter needed!** Use `uploadRouter.handlers` directly.
+    
+    - Hono
+    - Elysia  
+    - Bun Runtime
+    - TanStack Start
+    - SolidJS Start
+  </Card>
+  
+  <Card 
+    title="🔧 Legacy Frameworks" 
+    description="Frameworks with custom request/response objects"
+    href="/docs/integrations/express"
+  >
+    **Simple adapters provided** for seamless integration.
+    
+    - Next.js (App & Pages Router)
+    - Express
+    - Fastify
+  </Card>
+</Cards>
+
+## Quick Start by Framework
+
+<Tabs items={["Modern (Web Standards)", "Next.js", "Express", "Fastify"]}>
+  <Tab value="Modern (Web Standards)">
+    ```typescript
+    // Works with: Hono, Elysia, Bun, TanStack Start, SolidJS Start
+    import { uploadRouter } from '@/lib/upload';
+
+    // Direct usage - no adapter needed!
+    app.get('/api/upload/*', (ctx) => {
+      return uploadRouter.handlers.GET(ctx.request); // or c.req.raw
+    });
+
+    app.post('/api/upload/*', (ctx) => {
+      return uploadRouter.handlers.POST(ctx.request);
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Next.js">
+    ```typescript
+    // app/api/upload/route.ts
+    import { uploadRouter } from '@/lib/upload';
+
+    // Direct usage (recommended)
+    export const { GET, POST } = uploadRouter.handlers;
+
+    // Or with explicit adapter for extra type safety
+    import { toNextJsHandler } from 'pushduck/server';
+    export const { GET, POST } = toNextJsHandler(uploadRouter.handlers);
+    ```
+  </Tab>
+  
+  <Tab value="Express">
+    ```typescript
+    import express from 'express';
+    import { uploadRouter } from '@/lib/upload';
+    import { toExpressHandler } from 'pushduck/server';
+
+    const app = express();
+    app.all("/api/upload/*", toExpressHandler(uploadRouter.handlers));
+    ```
+  </Tab>
+  
+  <Tab value="Fastify">
+    ```typescript
+    import Fastify from 'fastify';
+    import { uploadRouter } from '@/lib/upload';
+    import { toFastifyHandler } from 'pushduck/server';
+
+    const fastify = Fastify();
+    fastify.all('/api/upload/*', toFastifyHandler(uploadRouter.handlers));
+    ```
+  </Tab>
+</Tabs>
+
+## Why Universal Handlers Work
+
+<Steps>
+  <Step>
+    **Web Standards Foundation**
+    
+    Pushduck is built on Web Standards (`Request` and `Response` objects) that are supported by all modern JavaScript runtimes.
+
+    ```typescript
+    // Core handler signature
+    type Handler = (request: Request) => Promise<Response>
+    ```
+  </Step>
+
+  <Step>
+    **Framework Compatibility**
+    
+    Modern frameworks expose Web Standard objects directly:
+    - **Hono**: `c.req.raw` is a Web `Request`
+    - **Elysia**: `context.request` is a Web `Request`  
+    - **Bun**: Native Web `Request` support
+    - **TanStack Start**: `{ request }` is a Web `Request`
+    - **SolidJS Start**: `event.request` is a Web `Request`
+  </Step>
+
+  <Step>
+    **Legacy Framework Adapters**
+    
+    For frameworks with custom APIs, simple adapters convert between formats:
+
+    ```typescript
+    // Express adapter example
+    export function toExpressHandler(handlers: UniversalHandlers) {
+      return async (req: Request, res: Response, next: NextFunction) => {
+        const webRequest = convertExpressToWebRequest(req);
+        const webResponse = await handlers[req.method](webRequest);
+        convertWebResponseToExpress(webResponse, res);
+      };
+    }
+    ```
+  </Step>
+</Steps>
+
+## Configuration (Same for All Frameworks)
+
+Your upload configuration is identical across all frameworks:
+
+```typescript title="lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Image uploads with validation
+  imageUpload: s3
+    .image()
+    .max("5MB")
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req }) => {
+      const userId = await getUserId(req);
+      return { userId, category: "images" };
+    }),
+
+  // Document uploads
+  documentUpload: s3
+    .file()
+    .max("10MB")
+    .types(["application/pdf", "text/plain"])
+    .middleware(async ({ req }) => {
+      const userId = await getUserId(req);
+      return { userId, category: "documents" };
+    }),
+
+  // Video uploads
+  videoUpload: s3
+    .file()
+    .max("100MB")
+    .types(["video/mp4", "video/quicktime"])
+    .middleware(async ({ req }) => {
+      const userId = await getUserId(req);
+      return { userId, category: "videos" };
+    })
+});
+
+export type AppUploadRouter = typeof uploadRouter;
+```
+
+## Client Usage (Framework Independent)
+
+The client-side code is identical regardless of your backend framework:
+
+```typescript title="lib/upload-client.ts"
+import { createUploadClient } from 'pushduck/client';
+import type { AppUploadRouter } from './upload';
+
+export const upload = createUploadClient<AppUploadRouter>({
+  endpoint: '/api/upload'
+});
+```
+
+```typescript title="components/upload-form.tsx"
+import { upload } from '@/lib/upload-client';
+
+export function UploadForm() {
+  // Property-based access with full type safety
+  const { uploadFiles, files, isUploading } = upload.imageUpload();
+
+  const handleUpload = async (selectedFiles: File[]) => {
+    await uploadFiles(selectedFiles);
+  };
+
+  return (
+    <div>
+      <input 
+        type="file" 
+        multiple 
+        onChange={(e) => handleUpload(Array.from(e.target.files || []))}
+      />
+      
+      {files.map(file => (
+        <div key={file.id}>
+          <span>{file.name}</span>
+          <progress value={file.progress} max={100} />
+          {file.url && <a href={file.url}>View</a>}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Benefits of Universal Design
+
+<Cards>
+  <Card title="🔄 Framework Flexibility" description="Switch frameworks without rewriting upload logic">
+    Migrate from Express to Hono or Next.js to Bun without changing your upload implementation.
+  </Card>
+  
+  <Card title="⚡ Performance" description="Zero overhead for modern frameworks">
+    Web Standards native frameworks get direct handler access with no adapter overhead.
+  </Card>
+  
+  <Card title="🛠️ Developer Experience" description="One API to learn, works everywhere">
+    Master pushduck once and use it with any framework in your toolkit.
+  </Card>
+  
+  <Card title="🚀 Future Proof" description="Built on Web Standards">
+    As more frameworks adopt Web Standards, they automatically work with pushduck.
+  </Card>
+</Cards>
+
+## Next Steps
+
+Choose your framework integration guide:
+
+<Cards>
+  <Card title="Next.js" href="/docs/integrations/nextjs">
+    Complete guide for Next.js App Router and Pages Router
+  </Card>
+  
+  <Card title="Hono" href="/docs/integrations/hono">
+    Fast, lightweight, built on Web Standards
+  </Card>
+  
+  <Card title="Elysia" href="/docs/integrations/elysia">
+    TypeScript-first framework with Bun
+  </Card>
+  
+  <Card title="Express" href="/docs/integrations/express">
+    Classic Node.js framework integration
+  </Card>
+</Cards>
+
+---
+
+<Callout type="success">
+  **Universal by Design**: Write once, run anywhere. Pushduck's universal handlers make file uploads work seamlessly across the entire JavaScript ecosystem.
+</Callout> 
