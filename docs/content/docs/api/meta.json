@@ -3,6 +3,8 @@
     "pages": [
         "cli",
         "configuration",
+        "s3-router",
+        "storage",
         "hooks",
         "utilities",
         "troubleshooting"

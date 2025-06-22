@@ -1,0 +1,249 @@
+---
+title: Presigned URLs
+description: Secure file access with presigned URLs for private buckets
+---
+
+# Presigned URLs
+
+Presigned URLs allow secure access to private S3 files without exposing credentials. They're essential for serving files from private buckets.
+
+## Download URLs
+
+### Basic Presigned URL
+
+```typescript
+// Generate URL valid for 1 hour (default)
+const url = await storage.download.presignedUrl('private/document.pdf')
+
+// Custom expiration (in seconds)
+const url = await storage.download.presignedUrl('private/image.jpg', 3600) // 1 hour
+const url = await storage.download.presignedUrl('private/video.mp4', 86400) // 24 hours
+```
+
+### Direct File URLs
+
+For public buckets, get direct URLs:
+
+```typescript
+const publicUrl = await storage.download.url('public/image.jpg')
+// Returns: https://bucket.s3.amazonaws.com/public/image.jpg
+```
+
+## Upload URLs
+
+### Single Upload URL
+
+```typescript
+const uploadUrl = await storage.upload.presignedUrl({
+  key: 'uploads/new-file.jpg',
+  contentType: 'image/jpeg',
+  expiresIn: 300, // 5 minutes
+  maxFileSize: 5 * 1024 * 1024 // 5MB
+})
+
+console.log(uploadUrl.url)        // Presigned URL for PUT request
+console.log(uploadUrl.fields)     // Form fields for multipart upload
+```
+
+### Batch Upload URLs
+
+```typescript
+const requests = [
+  { key: 'file1.jpg', contentType: 'image/jpeg' },
+  { key: 'file2.pdf', contentType: 'application/pdf' },
+  { key: 'file3.mp4', contentType: 'video/mp4' }
+]
+
+const urls = await storage.upload.presignedBatch(requests)
+
+urls.forEach((result, index) => {
+  if (result.success) {
+    console.log(`Upload URL for ${requests[index].key}:`, result.url)
+  } else {
+    console.log(`Failed to generate URL:`, result.error)
+  }
+})
+```
+
+## Frontend Usage Examples
+
+### Direct File Access
+
+```typescript
+// API Route (app/api/files/[key]/route.ts)
+import { storage } from '@/lib/upload'
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { key: string } }
+) {
+  try {
+    const url = await storage.download.presignedUrl(params.key, 3600)
+    return NextResponse.redirect(url)
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'File not found' },
+      { status: 404 }
+    )
+  }
+}
+```
+
+### File Viewer Component
+
+```tsx
+'use client'
+
+import { useState, useEffect } from 'react'
+
+interface FileViewerProps {
+  fileKey: string
+}
+
+export function FileViewer({ fileKey }: FileViewerProps) {
+  const [url, setUrl] = useState<string>()
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function getUrl() {
+      try {
+        const response = await fetch('/api/presigned', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            operation: 'get-download-url', 
+            key: fileKey 
+          })
+        })
+        
+        const data = await response.json()
+        if (data.success) {
+          setUrl(data.url)
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    getUrl()
+  }, [fileKey])
+
+  if (loading) return <div>Loading...</div>
+  if (!url) return <div>Failed to load file</div>
+
+  return (
+    <div>
+      <img src={url} alt="File preview" />
+      <a href={url} download>Download File</a>
+    </div>
+  )
+}
+```
+
+### API Route for Presigned URLs
+
+```typescript
+// app/api/presigned/route.ts
+import { storage } from '@/lib/upload'
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function POST(request: NextRequest) {
+  try {
+    const { operation, key, expiresIn = 3600 } = await request.json()
+
+    switch (operation) {
+      case 'get-download-url':
+        const downloadUrl = await storage.download.presignedUrl(key, expiresIn)
+        return NextResponse.json({
+          success: true,
+          url: downloadUrl,
+          expiresIn
+        })
+
+      case 'get-upload-url':
+        const uploadUrl = await storage.upload.presignedUrl({
+          key,
+          expiresIn,
+          contentType: 'application/octet-stream'
+        })
+        return NextResponse.json({
+          success: true,
+          ...uploadUrl
+        })
+
+      default:
+        return NextResponse.json(
+          { success: false, error: 'Unknown operation' },
+          { status: 400 }
+        )
+    }
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    )
+  }
+}
+```
+
+## Security Considerations
+
+### Expiration Times
+
+Choose appropriate expiration times:
+
+```typescript
+// Short-lived for sensitive files
+const sensitiveUrl = await storage.download.presignedUrl('private/sensitive.pdf', 300) // 5 minutes
+
+// Medium-lived for user content
+const userUrl = await storage.download.presignedUrl('user/profile.jpg', 3600) // 1 hour
+
+// Longer-lived for public content
+const publicUrl = await storage.download.presignedUrl('public/banner.jpg', 86400) // 24 hours
+```
+
+### Access Control
+
+Implement proper access control before generating URLs:
+
+```typescript
+// API Route with authentication
+export async function POST(request: NextRequest) {
+  // Verify user authentication
+  const user = await getAuthenticatedUser(request)
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { key } = await request.json()
+
+  // Check if user can access this file
+  if (!canUserAccessFile(user.id, key)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // Generate presigned URL
+  const url = await storage.download.presignedUrl(key, 3600)
+  return NextResponse.json({ url })
+}
+```
+
+## Type Definitions
+
+```typescript
+interface PresignedUrlOptions {
+  key: string
+  contentType?: string
+  expiresIn?: number
+  maxFileSize?: number
+  metadata?: Record<string, string>
+}
+
+interface PresignedUrlResult {
+  url: string
+  fields?: Record<string, string>
+  expiresAt: Date
+}
+``` 

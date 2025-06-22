@@ -1,0 +1,96 @@
+---
+title: Quick Reference
+description: Essential storage operations at a glance
+---
+
+# Storage API Quick Reference
+
+## Setup
+
+```typescript
+// lib/upload.ts
+import { uploadConfig } from 'pushduck/server'
+
+const { storage } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL,
+    bucket: process.env.S3_BUCKET_NAME,
+    accountId: process.env.R2_ACCOUNT_ID,
+  })
+  .build()
+
+export { storage }
+```
+
+## Essential Operations
+
+### List Files
+```typescript
+const files = await storage.list.files({ prefix: 'uploads/', maxResults: 50 })
+const paginated = await storage.list.paginated({ maxResults: 20 })
+const images = await storage.list.byExtension('jpg')
+```
+
+### File Info
+```typescript
+const info = await storage.metadata.getInfo('file.jpg')
+const exists = await storage.validation.exists('file.jpg')
+```
+
+### Delete Files
+```typescript
+await storage.delete.file('old-file.jpg')
+await storage.delete.files(['file1.jpg', 'file2.pdf'])
+await storage.delete.byPrefix('temp/')
+```
+
+### Presigned URLs
+```typescript
+const downloadUrl = await storage.download.presignedUrl('private/file.pdf', 3600)
+const uploadUrl = await storage.upload.presignedUrl({ key: 'new-file.jpg', contentType: 'image/jpeg' })
+```
+
+## API Route Example
+
+```typescript
+// app/api/files/route.ts
+import { storage } from '@/lib/upload'
+
+export async function GET() {
+  const files = await storage.list.files()
+  return Response.json({ files })
+}
+
+export async function DELETE(request: Request) {
+  const { key } = await request.json()
+  const result = await storage.delete.file(key)
+  return Response.json(result)
+}
+```
+
+## Error Handling
+
+```typescript
+import { isPushduckError } from 'pushduck/server'
+
+try {
+  await storage.list.files()
+} catch (error) {
+  if (isPushduckError(error)) {
+    console.log(error.code, error.context)
+  }
+}
+```
+
+## Types
+
+```typescript
+import type { 
+  FileInfo, 
+  ListFilesOptions, 
+  ValidationRules 
+} from 'pushduck/server'
+``` 

@@ -1,0 +1,524 @@
+---
+title: Path Configuration
+description: Complete guide to organizing your uploads with hierarchical path structures and custom file organization
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+import { TypeTable } from "fumadocs-ui/components/type-table";
+
+# Path Configuration
+
+Organize your uploads with powerful hierarchical path structures that provide clean file organization, prevent conflicts, and enable scalable storage patterns.
+
+<Callout type="info">
+  **New in v2.0:** The hierarchical path system allows global configuration to provide the foundation while route-level paths extend and nest within it - **no more overrides that lose configuration!**
+</Callout>
+
+## How Hierarchical Paths Work
+
+The path system works in **layers** that build upon each other:
+
+<Files>
+  <Folder name="uploads" defaultOpen>
+    <Folder name="images" defaultOpen>
+      <Folder name="demo-user">
+        <Folder name="1750450587845">
+          <Folder name="q5vnkwxv2w">
+            <File name="photo.jpg" />
+          </Folder>
+        </Folder>
+      </Folder>
+    </Folder>
+    <Folder name="documents" defaultOpen>
+      <Folder name="demo-user">
+        <Folder name="1750450587846">
+          <Folder name="13gj6df51i1">
+            <File name="report.pdf" />
+          </Folder>
+        </Folder>
+      </Folder>
+    </Folder>
+  </Folder>
+</Files>
+
+**Path Structure:** `{globalPrefix}/{routePrefix}/{globalGenerated}`
+
+- **Global prefix:** `uploads` (foundation for all files)
+- **Route prefix:** `images`, `documents` (category organization)  
+- **Global generated:** `{userId}/{timestamp}/{randomId}/{filename}` (file structure)
+
+## Basic Path Configuration
+
+### Global Foundation
+
+Configure the base structure that all uploads will use:
+
+```typescript title="lib/upload.ts"
+import { uploadConfig } from "pushduck/server";
+
+const { s3, createS3Handler } = uploadConfig
+  .cloudflareR2({
+    // ... provider config
+  })
+  .paths({
+    // Global prefix - foundation for ALL uploads
+    prefix: "uploads",
+    
+    // Global structure - used when routes don't override
+    generateKey: (file, metadata) => {
+      const userId = metadata.userId || "anonymous";
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+
+      // Return ONLY the file path part (no prefix)
+      return `${userId}/${timestamp}/${randomId}/${sanitizedName}`;
+    },
+  })
+  .build();
+```
+
+### Route-Level Extensions
+
+Extend the global foundation with route-specific organization:
+
+```typescript title="app/api/upload/route.ts"
+import { createS3Handler, s3 } from "@/lib/upload";
+
+const s3Router = s3.createRouter({
+  // Images: uploads/images/{userId}/{timestamp}/{randomId}/photo.jpg
+  imageUpload: s3
+    .image()
+    .max("5MB")
+    .paths({
+      prefix: "images", // Nests under global prefix
+    }),
+
+  // Documents: uploads/documents/{userId}/{timestamp}/{randomId}/report.pdf  
+  documentUpload: s3
+    .file()
+    .max("10MB")
+    .paths({
+      prefix: "documents", // Nests under global prefix
+    }),
+
+  // General: uploads/{userId}/{timestamp}/{randomId}/file.ext
+  generalUpload: s3
+    .file()
+    .max("20MB")
+    // No .paths() - uses pure global configuration
+});
+```
+
+<Callout type="success">
+  **✨ Result:** Clean, predictable paths that scale with your application. Global config provides consistency while routes add organization.
+</Callout>
+
+## Advanced Path Patterns
+
+### Custom Route Generation
+
+Override the default structure for specific use cases:
+
+<Tabs items={["Date-Based", "Category-Based", "User-Based"]} groupId="path-patterns">
+  <Tab value="Date-Based">
+    ```typescript
+    galleryUpload: s3
+      .image()
+      .max("5MB")
+      .paths({
+        generateKey: (ctx) => {
+          const { file, metadata, globalConfig } = ctx;
+          const globalPrefix = globalConfig.prefix || "uploads";
+          const date = new Date();
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const userId = metadata.userId || "anonymous";
+          
+          // Custom path: uploads/gallery/2024/06/demo-user/photo.jpg
+          return `${globalPrefix}/gallery/${year}/${month}/${userId}/${file.name}`;
+        },
+      })
+    ```
+    **Result:** `uploads/gallery/2024/06/demo-user/photo.jpg`
+  </Tab>
+  
+  <Tab value="Category-Based">
+    ```typescript
+    productUpload: s3
+      .image()
+      .max("8MB")
+      .paths({
+        generateKey: (ctx) => {
+          const { file, metadata, globalConfig } = ctx;
+          const globalPrefix = globalConfig.prefix || "uploads";
+          const category = metadata.category || "general";
+          const productId = metadata.productId || "unknown";
+          const timestamp = Date.now();
+          
+          // Custom path: uploads/products/electronics/prod-123/1234567890/image.jpg
+          return `${globalPrefix}/products/${category}/${productId}/${timestamp}/${file.name}`;
+        },
+      })
+    ```
+    **Result:** `uploads/products/electronics/prod-123/1234567890/image.jpg`
+  </Tab>
+  
+  <Tab value="User-Based">
+    ```typescript
+    profileUpload: s3
+      .image()
+      .max("2MB")
+      .paths({
+        generateKey: (ctx) => {
+          const { file, metadata, globalConfig } = ctx;
+          const globalPrefix = globalConfig.prefix || "uploads";
+          const userId = metadata.userId || "anonymous";
+          const fileType = file.type.split('/')[0]; // image, video, etc.
+          
+          // Custom path: uploads/users/user-123/profile/image/avatar.jpg
+          return `${globalPrefix}/users/${userId}/profile/${fileType}/${file.name}`;
+        },
+      })
+    ```
+    **Result:** `uploads/users/user-123/profile/image/avatar.jpg`
+  </Tab>
+</Tabs>
+
+### Environment-Based Paths
+
+Organize files by environment for clean separation:
+
+```typescript title="lib/upload.ts"
+const { s3, createS3Handler } = uploadConfig
+  .cloudflareR2({
+    // ... provider config
+  })
+  .paths({
+    // Environment-aware global prefix
+    prefix: process.env.NODE_ENV === "production" ? "prod" : "dev",
+    
+    generateKey: (file, metadata) => {
+      const userId = metadata.userId || "anonymous";
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      
+      return `${userId}/${timestamp}/${randomId}/${file.name}`;
+    },
+  })
+  .build();
+```
+
+**Result Paths:**
+- **Development:** `dev/images/user123/1234567890/abc123/photo.jpg`
+- **Production:** `prod/images/user123/1234567890/abc123/photo.jpg`
+
+## Path Configuration API
+
+### Global Configuration
+
+<TypeTable
+  type={{
+    prefix: {
+      description: "Base prefix for all uploaded files",
+      type: "string",
+      default: '"uploads"',
+    },
+    generateKey: {
+      description: "Function to generate the file path structure",
+      type: "(file, metadata) => string",
+    },
+  }}
+/>
+
+```typescript
+.paths({
+  prefix: "uploads",
+  generateKey: (file, metadata) => {
+    // Return the file path structure (without prefix)
+    return `${metadata.userId}/${Date.now()}/${file.name}`;
+  }
+})
+```
+
+### Route Configuration
+
+<TypeTable
+  type={{
+    prefix: {
+      description: "Route-specific prefix, nested under global prefix",
+      type: "string",
+    },
+    generateKey: {
+      description: "Custom path generation with access to global config",
+      type: "(ctx: PathContext) => string",
+    },
+  }}
+/>
+
+```typescript
+.paths({
+  prefix: "images", // Nested under global prefix
+  generateKey: (ctx) => {
+    const { file, metadata, globalConfig, routeName } = ctx;
+    // Full control with access to global configuration
+    return `${globalConfig.prefix}/custom/${file.name}`;
+  }
+})
+```
+
+### PathContext Reference
+
+When using custom `generateKey` functions at the route level, you receive a context object:
+
+<TypeTable
+  type={{
+    file: {
+      description: "File information object",
+      type: "{ name: string; type: string }",
+    },
+    metadata: {
+      description: "Metadata from middleware chain",
+      type: "TMetadata",
+    },
+    globalConfig: {
+      description: "Global path configuration",
+      type: "{ prefix?: string; generateKey?: Function }",
+    },
+    routeName: {
+      description: "Name of the current route",
+      type: "string",
+    },
+  }}
+/>
+
+## Real-World Examples
+
+### E-commerce Platform
+
+```typescript title="app/api/upload/route.ts"
+const s3Router = s3.createRouter({
+  // Product images: uploads/products/{category}/{productId}/images/photo.jpg
+  productImages: s3
+    .image()
+    .max("8MB")
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req }) => {
+      const { productId, category } = await getProductContext(req);
+      return { productId, category, userId: await getUserId(req) };
+    })
+    .paths({
+      generateKey: (ctx) => {
+        const { file, metadata, globalConfig } = ctx;
+        const { productId, category } = metadata;
+        return `${globalConfig.prefix}/products/${category}/${productId}/images/${file.name}`;
+      },
+    }),
+
+  // User avatars: uploads/users/{userId}/avatar/profile.jpg
+  userAvatar: s3
+    .image()
+    .max("2MB")
+    .formats(["jpeg", "png", "webp"])
+    .middleware(async ({ req }) => {
+      const userId = await getUserId(req);
+      return { userId, type: "avatar" };
+    })
+    .paths({
+      generateKey: (ctx) => {
+        const { file, metadata, globalConfig } = ctx;
+        return `${globalConfig.prefix}/users/${metadata.userId}/avatar/${file.name}`;
+      },
+    }),
+
+  // Order documents: uploads/orders/{orderId}/documents/{timestamp}/receipt.pdf
+  orderDocuments: s3
+    .file()
+    .max("10MB")
+    .types(["application/pdf", "image/*"])
+    .middleware(async ({ req }) => {
+      const { orderId } = await getOrderContext(req);
+      return { orderId, uploadedAt: new Date().toISOString() };
+    })
+    .paths({
+      generateKey: (ctx) => {
+        const { file, metadata, globalConfig } = ctx;
+        const timestamp = Date.now();
+        return `${globalConfig.prefix}/orders/${metadata.orderId}/documents/${timestamp}/${file.name}`;
+      },
+    }),
+});
+```
+
+### Content Management System
+
+```typescript title="app/api/upload/route.ts"
+const s3Router = s3.createRouter({
+  // Media library: uploads/media/{year}/{month}/{type}/filename.ext
+  mediaLibrary: s3
+    .file()
+    .max("50MB")
+    .middleware(async ({ req, file }) => {
+      const userId = await getUserId(req);
+      const mediaType = file.type.split('/')[0]; // image, video, audio
+      return { userId, mediaType };
+    })
+    .paths({
+      generateKey: (ctx) => {
+        const { file, metadata, globalConfig } = ctx;
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const randomId = Math.random().toString(36).substring(2, 8);
+        
+        return `${globalConfig.prefix}/media/${year}/${month}/${metadata.mediaType}/${randomId}-${file.name}`;
+      },
+    }),
+
+  // Page assets: uploads/pages/{pageSlug}/assets/image.jpg
+  pageAssets: s3
+    .image()
+    .max("10MB")
+    .middleware(async ({ req }) => {
+      const { pageSlug } = await getPageContext(req);
+      return { pageSlug, userId: await getUserId(req) };
+    })
+    .paths({
+      generateKey: (ctx) => {
+        const { file, metadata, globalConfig } = ctx;
+        return `${globalConfig.prefix}/pages/${metadata.pageSlug}/assets/${file.name}`;
+      },
+    }),
+
+  // Temp uploads: uploads/temp/{userId}/{sessionId}/file.ext
+  tempUploads: s3
+    .file()
+    .max("20MB")
+    .middleware(async ({ req }) => {
+      const userId = await getUserId(req);
+      const sessionId = req.headers.get('x-session-id') || 'unknown';
+      return { userId, sessionId, temporary: true };
+    })
+    .paths({
+      prefix: "temp", // Simple prefix approach
+    }),
+});
+```
+
+## Best Practices
+
+### 🎯 Path Organization
+
+<Cards>
+  <Card title="Use Descriptive Prefixes" description="Make paths self-documenting">
+    ```typescript
+    // ✅ Good
+    .paths({ prefix: "user-avatars" })
+    .paths({ prefix: "product-images" })
+    
+    // ❌ Avoid
+    .paths({ prefix: "imgs" })
+    .paths({ prefix: "files" })
+    ```
+  </Card>
+  
+  <Card title="Include Identifiers" description="Make files traceable">
+    ```typescript
+    // ✅ Good - includes user and timestamp
+    return `${prefix}/users/${userId}/${timestamp}/${file.name}`;
+    
+    // ❌ Avoid - no traceability
+    return `${prefix}/${file.name}`;
+    ```
+  </Card>
+  
+  <Card title="Prevent Conflicts" description="Use unique identifiers">
+    ```typescript
+    // ✅ Good - timestamp + random ID
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 8);
+    return `${prefix}/${userId}/${timestamp}/${randomId}/${file.name}`;
+    ```
+  </Card>
+</Cards>
+
+### 🚀 Performance Tips
+
+<Callout type="warn">
+  **Path Length Limits:** Most S3-compatible services have a 1024-character limit for object keys. Keep your paths reasonable!
+</Callout>
+
+- **Use short, meaningful prefixes** instead of long descriptive names
+- **Avoid deep nesting** beyond 5-6 levels for better performance
+- **Include timestamps** for natural chronological ordering
+- **Sanitize filenames** to prevent special character issues
+
+### 🔒 Security Considerations
+
+```typescript
+// ✅ Sanitize user input in paths
+const sanitizePathSegment = (input: string) => {
+  return input.replace(/[^a-zA-Z0-9.-]/g, "_").substring(0, 50);
+};
+
+.paths({
+  generateKey: (ctx) => {
+    const { file, metadata, globalConfig } = ctx;
+    const safeUserId = sanitizePathSegment(metadata.userId);
+    const safeFilename = sanitizePathSegment(file.name);
+    
+    return `${globalConfig.prefix}/users/${safeUserId}/${Date.now()}/${safeFilename}`;
+  }
+})
+```
+
+## Migration from Legacy Paths
+
+<Callout type="info">
+  **Upgrading from v1.x?** The old `pathPrefix` option still works but is deprecated. Use the new hierarchical system for better organization.
+</Callout>
+
+### Before (Legacy)
+
+```typescript
+// Old way - simple prefix only
+export const { POST, GET } = createUploadRouter(
+  { /* routes */ },
+  { s3, pathPrefix: "uploads/" }
+);
+```
+
+### After (Hierarchical)
+
+```typescript
+// New way - hierarchical configuration
+const { s3, createS3Handler } = uploadConfig
+  .cloudflareR2({ /* config */ })
+  .paths({
+    prefix: "uploads",
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+const s3Router = s3.createRouter({
+  images: s3.image().paths({ prefix: "images" }),
+  documents: s3.file().paths({ prefix: "documents" })
+});
+```
+
+**Benefits of upgrading:**
+- ✅ **Better organization** with route-specific prefixes
+- ✅ **No configuration loss** - global settings are preserved
+- ✅ **More flexibility** with custom generation functions
+- ✅ **Type safety** with PathContext
+- ✅ **Scalable patterns** for growing applications
+
+<Callout type="success">
+  **🎉 You're ready!** Your uploads now have clean, organized, and scalable path structures that will grow with your application.
+</Callout> 

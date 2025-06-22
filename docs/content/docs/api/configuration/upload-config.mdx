@@ -1,0 +1,303 @@
+---
+title: Upload Configuration
+description: Complete guide to configuring pushduck with the uploadConfig builder
+---
+
+# Upload Configuration
+
+The `uploadConfig` builder provides a fluent API for configuring your S3 uploads with providers, security, paths, and lifecycle hooks.
+
+## Basic Setup
+
+```typescript
+// lib/upload.ts
+import { uploadConfig } from 'pushduck/server'
+
+const { storage, s3, createS3Handler, config } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL,
+    bucket: process.env.S3_BUCKET_NAME,
+    accountId: process.env.R2_ACCOUNT_ID,
+  })
+  .build()
+
+export { storage, s3, createS3Handler }
+```
+
+## Provider Configuration
+
+### Cloudflare R2
+
+```typescript
+uploadConfig.cloudflareR2({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: 'auto', // Always 'auto' for R2
+  endpoint: process.env.AWS_ENDPOINT_URL,
+  bucket: process.env.S3_BUCKET_NAME,
+  accountId: process.env.R2_ACCOUNT_ID, // Required for R2
+})
+```
+
+### AWS S3
+
+```typescript
+uploadConfig.aws({
+  region: 'us-east-1',
+  bucket: 'your-bucket',
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+})
+```
+
+### DigitalOcean Spaces
+
+```typescript
+uploadConfig.digitalOceanSpaces({
+  region: 'nyc3',
+  bucket: 'your-space',
+  accessKeyId: process.env.DO_SPACES_ACCESS_KEY_ID,
+  secretAccessKey: process.env.DO_SPACES_SECRET_ACCESS_KEY,
+})
+```
+
+### MinIO
+
+```typescript
+uploadConfig.minio({
+  endpoint: 'localhost:9000',
+  bucket: 'your-bucket',
+  accessKeyId: process.env.MINIO_ACCESS_KEY_ID,
+  secretAccessKey: process.env.MINIO_SECRET_ACCESS_KEY,
+  useSSL: false,
+})
+```
+
+## Configuration Methods
+
+### .defaults()
+
+Set default file constraints and options:
+
+```typescript
+.defaults({
+  maxFileSize: '10MB',
+  allowedFileTypes: ['image/*', 'application/pdf', 'text/*'],
+  acl: 'public-read', // or 'private'
+  metadata: {
+    uploadedBy: 'system',
+    environment: process.env.NODE_ENV,
+  },
+})
+```
+
+### .paths()
+
+Configure global path structure:
+
+```typescript
+.paths({
+  // Global prefix for all uploads
+  prefix: 'uploads',
+  
+  // Global key generation function
+  generateKey: (file, metadata) => {
+    const userId = metadata.userId || 'anonymous'
+    const timestamp = Date.now()
+    const randomId = Math.random().toString(36).substring(2, 8)
+    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+    
+    return `${userId}/${timestamp}/${randomId}/${sanitizedName}`
+  },
+})
+```
+
+### .security()
+
+Configure security and access control:
+
+```typescript
+.security({
+  requireAuth: true,
+  allowedOrigins: [
+    'http://localhost:3000',
+    'https://your-domain.com',
+  ],
+  rateLimiting: {
+    maxUploads: 10,
+    windowMs: 60000, // 1 minute
+  },
+})
+```
+
+### .hooks()
+
+Add lifecycle hooks for upload events:
+
+```typescript
+.hooks({
+  onUploadStart: async ({ file, metadata }) => {
+    console.log(`🚀 Upload started: ${file.name}`)
+    // Log to analytics, validate user, etc.
+  },
+  
+  onUploadComplete: async ({ file, url, metadata }) => {
+    console.log(`✅ Upload completed: ${file.name} -> ${url}`)
+    
+    // Save to database
+    await db.files.create({
+      filename: file.name,
+      url,
+      userId: metadata.userId,
+      size: file.size,
+    })
+    
+    // Send notifications
+    await notificationService.send({
+      type: 'upload_complete',
+      userId: metadata.userId,
+      filename: file.name,
+    })
+  },
+  
+  onUploadError: async ({ file, error, metadata }) => {
+    console.error(`❌ Upload failed: ${file.name}`, error)
+    
+    // Log to error tracking service
+    await errorService.log({
+      operation: 'file_upload',
+      error: error.message,
+      userId: metadata.userId,
+      filename: file.name,
+    })
+  },
+})
+```
+
+## Complete Example
+
+```typescript
+// lib/upload.ts
+import { uploadConfig } from 'pushduck/server'
+
+const { storage, s3, createS3Handler, config } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL,
+    bucket: process.env.S3_BUCKET_NAME,
+    accountId: process.env.R2_ACCOUNT_ID,
+  })
+  .defaults({
+    maxFileSize: '10MB',
+    acl: 'public-read',
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      const userId = metadata.userId || 'anonymous'
+      const date = new Date()
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const randomId = Math.random().toString(36).substring(2, 8)
+      
+      return `${userId}/${year}/${month}/${day}/${randomId}/${file.name}`
+    },
+  })
+  .security({
+    allowedOrigins: [
+      'http://localhost:3000',
+      'https://your-domain.com',
+    ],
+    rateLimiting: {
+      maxUploads: 20,
+      windowMs: 60000,
+    },
+  })
+  .hooks({
+    onUploadComplete: async ({ file, url, metadata }) => {
+      // Save to your database
+      await saveFileRecord({
+        filename: file.name,
+        url,
+        userId: metadata.userId,
+        uploadedAt: new Date(),
+      })
+    },
+  })
+  .build()
+
+export { storage, s3, createS3Handler }
+```
+
+## Environment Variables
+
+The configuration automatically reads from environment variables:
+
+```bash
+# .env.local
+
+# Cloudflare R2
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_ENDPOINT_URL=https://your-account-id.r2.cloudflarestorage.com
+S3_BUCKET_NAME=your-bucket
+R2_ACCOUNT_ID=your-account-id
+
+# AWS S3 (alternative)
+AWS_REGION=us-east-1
+AWS_S3_BUCKET=your-s3-bucket
+
+# DigitalOcean Spaces (alternative)
+DO_SPACES_REGION=nyc3
+DO_SPACES_BUCKET=your-space
+DO_SPACES_ACCESS_KEY_ID=your_key
+DO_SPACES_SECRET_ACCESS_KEY=your_secret
+```
+
+## Type Definitions
+
+```typescript
+interface UploadConfig {
+  provider: ProviderConfig
+  defaults?: {
+    maxFileSize?: string | number
+    allowedFileTypes?: string[]
+    acl?: 'public-read' | 'private'
+    metadata?: Record<string, any>
+  }
+  paths?: {
+    prefix?: string
+    generateKey?: (
+      file: { name: string; type: string },
+      metadata: any
+    ) => string
+  }
+  security?: {
+    requireAuth?: boolean
+    allowedOrigins?: string[]
+    rateLimiting?: {
+      maxUploads?: number
+      windowMs?: number
+    }
+  }
+  hooks?: {
+    onUploadStart?: (ctx: { file: any; metadata: any }) => Promise<void> | void
+    onUploadComplete?: (ctx: {
+      file: any
+      url: string
+      metadata: any
+    }) => Promise<void> | void
+    onUploadError?: (ctx: {
+      file: any
+      error: Error
+      metadata: any
+    }) => Promise<void> | void
+  }
+}
+``` 

@@ -261,11 +261,15 @@ Configure settings that apply to all upload endpoints:
       default: "300000",
     },
     pathPrefix: {
-      description: "S3 key prefix for all uploaded files",
+      description: "Legacy S3 key prefix (deprecated - use hierarchical paths instead)",
       type: "string",
     },
   }}
 />
+
+<Callout type="warn">
+  **Deprecated:** The `pathPrefix` option is deprecated. Use the new [**hierarchical path configuration**](/docs/api/configuration/path-configuration) for better organization and flexibility.
+</Callout>
 
 ```typescript
 export const { POST, GET } = createUploadRouter(
@@ -277,9 +281,29 @@ export const { POST, GET } = createUploadRouter(
     maxTotalSize: "500MB",
     allowedOrigins: ["https://yourdomain.com"],
     uploadTimeout: 600000, // 10 minutes
-    pathPrefix: "uploads/",
+    // pathPrefix: "uploads/", // ❌ Deprecated
   }
 );
+```
+
+**For new projects, use the [hierarchical path system](/docs/api/configuration/path-configuration) instead:**
+
+```typescript
+// ✅ Modern approach with hierarchical paths
+const { s3, createS3Handler } = uploadConfig
+  .cloudflareR2({ /* config */ })
+  .paths({
+    prefix: "uploads",
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+const s3Router = s3.createRouter({
+  images: s3.image().paths({ prefix: "images" }),
+  documents: s3.file().paths({ prefix: "documents" })
+});
 ```
 
 ### Multiple Providers

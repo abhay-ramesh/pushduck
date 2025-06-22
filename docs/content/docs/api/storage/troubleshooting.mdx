@@ -1,0 +1,282 @@
+---
+title: Storage Troubleshooting
+description: Common issues and solutions for storage operations
+---
+
+# Storage Troubleshooting
+
+## Common Issues
+
+### Access Denied (403 Errors)
+
+**Problem**: Getting 403 errors when listing or accessing files.
+
+**Solutions**:
+
+1. **Check credentials**:
+```typescript
+// Verify your environment variables are set
+console.log('Access Key:', process.env.AWS_ACCESS_KEY_ID?.substring(0, 5) + '...')
+console.log('Bucket:', process.env.S3_BUCKET_NAME)
+```
+
+2. **Test connection**:
+```typescript
+const isHealthy = await storage.validation.connection()
+if (!isHealthy) {
+  console.log('Connection failed - check credentials and permissions')
+}
+```
+
+3. **Verify bucket permissions**:
+   - Ensure your access key has `s3:ListBucket`, `s3:GetObject`, `s3:DeleteObject` permissions
+   - For Cloudflare R2, check your API token has the necessary permissions
+
+### Empty File Lists
+
+**Problem**: `storage.list.files()` returns empty array but files exist.
+
+**Solutions**:
+
+1. **Check prefix**:
+```typescript
+// Try without prefix first
+const allFiles = await storage.list.files()
+console.log('Total files:', allFiles.length)
+
+// Then with specific prefix
+const prefixFiles = await storage.list.files({ prefix: 'uploads/' })
+console.log('Prefix files:', prefixFiles.length)
+```
+
+2. **Verify bucket name**:
+```typescript
+const info = storage.getProviderInfo()
+console.log('Current bucket:', info.bucket)
+```
+
+### Presigned URL Errors
+
+**Problem**: Presigned URLs return 403 or expire immediately.
+
+**Solutions**:
+
+1. **Check expiration time**:
+```typescript
+// Use longer expiration for testing
+const url = await storage.download.presignedUrl('file.jpg', 3600) // 1 hour
+```
+
+2. **Verify file exists**:
+```typescript
+const exists = await storage.validation.exists('file.jpg')
+if (!exists) {
+  console.log('File does not exist')
+}
+```
+
+3. **Check bucket privacy settings**:
+   - Private buckets require presigned URLs
+   - Public buckets can use direct URLs
+
+### Large File Operations Timeout
+
+**Problem**: Operations on large datasets timeout or fail.
+
+**Solutions**:
+
+1. **Use pagination**:
+```typescript
+// Instead of loading all files at once
+const allFiles = await storage.list.files() // ❌ May timeout
+
+// Use pagination
+const result = await storage.list.paginated({ maxResults: 100 }) // ✅ Better
+```
+
+2. **Use async generators for processing**:
+```typescript
+for await (const batch of storage.list.paginatedGenerator({ maxResults: 50 })) {
+  console.log(`Processing ${batch.files.length} files`)
+  // Process batch...
+}
+```
+
+3. **Batch operations**:
+```typescript
+// Delete files in batches
+const filesToDelete = ['file1.jpg', 'file2.jpg', /* ... many files */]
+const batchSize = 100
+
+for (let i = 0; i < filesToDelete.length; i += batchSize) {
+  const batch = filesToDelete.slice(i, i + batchSize)
+  await storage.delete.files(batch)
+}
+```
+
+## Error Handling Patterns
+
+### Graceful Degradation
+
+```typescript
+async function getFilesSafely() {
+  try {
+    const files = await storage.list.files()
+    return { success: true, files }
+  } catch (error) {
+    if (isPushduckError(error)) {
+      console.log('Storage error:', error.code, error.context)
+      
+      // Handle specific error types
+      if (error.code === 'NETWORK_ERROR') {
+        return { success: false, error: 'Network connection failed', files: [] }
+      }
+      
+      if (error.code === 'ACCESS_DENIED') {
+        return { success: false, error: 'Access denied', files: [] }
+      }
+    }
+    
+    // Fallback for unknown errors
+    return { success: false, error: 'Unknown error', files: [] }
+  }
+}
+```
+
+### Retry Logic
+
+```typescript
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries = 3,
+  delay = 1000
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation()
+    } catch (error) {
+      if (attempt === maxRetries) throw error
+      
+      console.log(`Attempt ${attempt} failed, retrying in ${delay}ms...`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+      delay *= 2 // Exponential backoff
+    }
+  }
+  
+  throw new Error('Max retries exceeded')
+}
+
+// Usage
+const files = await withRetry(() => storage.list.files())
+```
+
+## Performance Optimization
+
+### Efficient File Listing
+
+```typescript
+// ❌ Inefficient - loads all metadata
+const files = await storage.list.files()
+
+// ✅ Efficient - only get what you need
+const files = await storage.list.files({
+  maxResults: 50,
+  sortBy: 'lastModified',
+  sortOrder: 'desc'
+})
+
+// ✅ Even better - use pagination for large datasets
+const result = await storage.list.paginated({ maxResults: 20 })
+```
+
+### Batch Metadata Retrieval
+
+```typescript
+// ❌ Inefficient - multiple API calls
+const fileInfos = []
+for (const key of fileKeys) {
+  const info = await storage.metadata.getInfo(key)
+  fileInfos.push(info)
+}
+
+// ✅ Efficient - single batch call
+const fileInfos = await storage.metadata.getBatch(fileKeys)
+```
+
+### Smart Caching
+
+```typescript
+// Cache file lists for a short time
+const cache = new Map()
+
+async function getCachedFiles(prefix?: string) {
+  const cacheKey = `files:${prefix || 'all'}`
+  
+  if (cache.has(cacheKey)) {
+    const { data, timestamp } = cache.get(cacheKey)
+    if (Date.now() - timestamp < 60000) { // 1 minute cache
+      return data
+    }
+  }
+  
+  const files = await storage.list.files({ prefix })
+  cache.set(cacheKey, { data: files, timestamp: Date.now() })
+  
+  return files
+}
+```
+
+## Debugging Tips
+
+### Enable Debug Logging
+
+```typescript
+// Check if debug mode is enabled in your config
+const config = storage.getConfig()
+console.log('Debug mode:', config.provider.debug)
+
+// The storage operations will log detailed information when debug is true
+```
+
+### Inspect Configuration
+
+```typescript
+// Check your current configuration
+const config = storage.getConfig()
+console.log('Provider:', config.provider.provider)
+console.log('Bucket:', config.provider.bucket)
+console.log('Region:', config.provider.region)
+
+// Check provider info
+const info = storage.getProviderInfo()
+console.log('Provider info:', info)
+```
+
+### Test Individual Operations
+
+```typescript
+// Test each operation individually
+console.log('Testing connection...')
+const isHealthy = await storage.validation.connection()
+console.log('Connection:', isHealthy ? 'OK' : 'Failed')
+
+console.log('Testing file listing...')
+const files = await storage.list.files({ maxResults: 1 })
+console.log('Files found:', files.length)
+
+console.log('Testing file existence...')
+if (files.length > 0) {
+  const exists = await storage.validation.exists(files[0].key)
+  console.log('First file exists:', exists)
+}
+```
+
+## Getting Help
+
+If you're still experiencing issues:
+
+1. **Check the logs** - Look for detailed error messages in your console
+2. **Verify environment variables** - Ensure all required variables are set
+3. **Test with minimal configuration** - Start with basic setup and add complexity gradually
+4. **Check provider documentation** - Verify your bucket/account settings
+5. **Use health check** - Run `storage.validation.connection()` to verify basic connectivity 

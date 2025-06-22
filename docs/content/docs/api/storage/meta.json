@@ -1,0 +1,10 @@
+{
+    "title": "Storage API",
+    "pages": [
+        "quick-reference",
+        "storage-instance",
+        "file-operations",
+        "presigned-urls",
+        "troubleshooting"
+    ]
+}

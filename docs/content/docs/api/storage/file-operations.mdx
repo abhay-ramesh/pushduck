@@ -1,0 +1,249 @@
+---
+title: File Operations
+description: Complete guide to file listing, metadata, and delete operations
+---
+
+# File Operations
+
+## List Operations
+
+### Basic File Listing
+
+```typescript
+// List all files
+const files = await storage.list.files()
+
+// List with options
+const files = await storage.list.files({
+  prefix: 'uploads/',
+  maxResults: 50,
+  sortBy: 'lastModified',
+  sortOrder: 'desc'
+})
+```
+
+### Paginated Listing
+
+```typescript
+// Get first page
+const result = await storage.list.paginated({
+  maxResults: 20,
+  prefix: 'images/'
+})
+
+console.log(result.files)        // FileInfo[]
+console.log(result.hasMore)      // boolean
+console.log(result.nextToken)    // string | undefined
+
+// Get next page
+if (result.hasMore) {
+  const nextPage = await storage.list.paginated({
+    maxResults: 20,
+    prefix: 'images/',
+    continuationToken: result.nextToken
+  })
+}
+```
+
+### Filtered Listing
+
+```typescript
+// By file extension
+const images = await storage.list.byExtension('jpg', 'photos/')
+const pdfs = await storage.list.byExtension('pdf')
+
+// By file size (bytes)
+const largeFiles = await storage.list.bySize(1024 * 1024) // > 1MB
+const mediumFiles = await storage.list.bySize(100000, 1024 * 1024) // 100KB - 1MB
+
+// By date range
+const recent = await storage.list.byDate(
+  new Date('2024-01-01'),
+  new Date('2024-12-31')
+)
+```
+
+### Directory Listing
+
+```typescript
+// List "directories" (common prefixes)
+const dirs = await storage.list.directories('uploads/')
+// Returns: ['uploads/images/', 'uploads/documents/', 'uploads/videos/']
+```
+
+### Async Generator (Large Datasets)
+
+```typescript
+// Process large datasets efficiently
+for await (const batch of storage.list.paginatedGenerator({ maxResults: 100 })) {
+  console.log(`Processing ${batch.files.length} files`)
+  // Process batch...
+}
+```
+
+## Metadata Operations
+
+### Single File Info
+
+```typescript
+const info = await storage.metadata.getInfo('uploads/image.jpg')
+
+console.log(info.key)           // 'uploads/image.jpg'
+console.log(info.size)          // 1024000
+console.log(info.contentType)   // 'image/jpeg'
+console.log(info.lastModified)  // Date object
+console.log(info.etag)          // '"abc123..."'
+```
+
+### Batch Metadata
+
+```typescript
+const keys = ['file1.jpg', 'file2.pdf', 'file3.mp4']
+const results = await storage.metadata.getBatch(keys)
+
+results.forEach(result => {
+  if (result.success) {
+    console.log(result.info.size)
+  } else {
+    console.log(result.error)
+  }
+})
+```
+
+### Specific Metadata
+
+```typescript
+// Get individual properties
+const size = await storage.metadata.getSize('file.jpg')
+const contentType = await storage.metadata.getContentType('file.jpg')
+const lastModified = await storage.metadata.getLastModified('file.jpg')
+
+// Custom metadata
+const customMeta = await storage.metadata.getCustom('file.jpg')
+await storage.metadata.setCustom('file.jpg', {
+  userId: '123',
+  category: 'profile-image'
+})
+```
+
+## Delete Operations
+
+### Single File Delete
+
+```typescript
+const result = await storage.delete.file('uploads/old-file.jpg')
+
+if (result.success) {
+  console.log('File deleted successfully')
+} else {
+  console.log('Delete failed:', result.error)
+}
+```
+
+### Batch Delete
+
+```typescript
+const keys = ['file1.jpg', 'file2.pdf', 'file3.mp4']
+const result = await storage.delete.files(keys)
+
+console.log(`Deleted: ${result.deleted.length}`)
+console.log(`Failed: ${result.errors.length}`)
+
+// Check individual results
+result.errors.forEach(error => {
+  console.log(`Failed to delete ${error.key}: ${error.message}`)
+})
+```
+
+### Delete by Prefix (Folder-like)
+
+```typescript
+// Delete all files with prefix
+const result = await storage.delete.byPrefix('temp-uploads/')
+
+console.log(`Deleted ${result.deletedCount} files`)
+
+// With options
+const result = await storage.delete.byPrefix('old-files/', {
+  dryRun: true,        // Preview only, don't delete
+  batchSize: 500,      // Process in batches
+  maxFiles: 1000       // Limit total files
+})
+
+if (result.dryRun) {
+  console.log(`Would delete ${result.totalFiles} files`)
+}
+```
+
+## Validation Operations
+
+### File Existence
+
+```typescript
+// Simple existence check
+const exists = await storage.validation.exists('file.jpg')
+
+// Existence with metadata
+const result = await storage.validation.existsWithInfo('file.jpg')
+if (result.exists) {
+  console.log('File size:', result.info.size)
+}
+```
+
+### File Validation
+
+```typescript
+// Validate single file
+const result = await storage.validation.validateFile('image.jpg', {
+  maxSize: 5 * 1024 * 1024,    // 5MB
+  allowedTypes: ['image/jpeg', 'image/png'],
+  minSize: 1024                 // 1KB
+})
+
+if (result.valid) {
+  console.log('File is valid')
+} else {
+  console.log('Validation errors:', result.errors)
+}
+
+// Validate multiple files
+const results = await storage.validation.validateFiles(
+  ['file1.jpg', 'file2.png'],
+  { maxSize: 10 * 1024 * 1024 }
+)
+```
+
+### Connection Validation
+
+```typescript
+// Test S3 connection and permissions
+const isHealthy = await storage.validation.connection()
+console.log('S3 connection:', isHealthy ? 'OK' : 'Failed')
+```
+
+## Type Definitions
+
+```typescript
+interface FileInfo {
+  key: string
+  size: number
+  contentType: string
+  lastModified: Date
+  etag: string
+  metadata?: Record<string, string>
+}
+
+interface ListFilesOptions {
+  prefix?: string
+  maxResults?: number
+  sortBy?: 'key' | 'size' | 'lastModified'
+  sortOrder?: 'asc' | 'desc'
+}
+
+interface ValidationRules {
+  maxSize?: number
+  minSize?: number
+  allowedTypes?: string[]
+  requiredMetadata?: string[]
+}
+``` 

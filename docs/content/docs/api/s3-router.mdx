@@ -1,0 +1,343 @@
+---
+title: S3 Router
+description: Type-safe upload routes with schema validation and middleware
+---
+
+# S3 Router
+
+The S3 router provides a type-safe way to define upload endpoints with schema validation, middleware, and lifecycle hooks.
+
+## Basic Router Setup
+
+```typescript
+// app/api/upload/route.ts
+import { s3 } from '@/lib/upload'
+
+const s3Router = s3.createRouter({
+  imageUpload: s3
+    .image()
+    .max('5MB')
+    .formats(['jpeg', 'jpg', 'png', 'webp'])
+    .middleware(async ({ file, metadata }) => {
+      // Add authentication and user context
+      return {
+        ...metadata,
+        userId: 'user-123',
+        uploadedAt: new Date().toISOString(),
+      }
+    }),
+
+  documentUpload: s3
+    .file()
+    .max('10MB')
+    .types(['application/pdf', 'text/plain'])
+    .paths({
+      prefix: 'documents',
+    }),
+})
+
+// Export the handler
+export const { GET, POST } = createS3Handler(s3Router)
+```
+
+## Schema Builders
+
+### Image Schema
+
+```typescript
+s3.image()
+  .max('5MB')
+  .formats(['jpeg', 'jpg', 'png', 'webp', 'gif'])
+  .dimensions({ minWidth: 100, maxWidth: 2000 })
+  .quality(0.8) // JPEG quality
+```
+
+### File Schema
+
+```typescript
+s3.file()
+  .max('10MB')
+  .types(['application/pdf', 'text/plain', 'application/json'])
+  .extensions(['pdf', 'txt', 'json'])
+```
+
+### Object Schema (Multiple Files)
+
+```typescript
+s3.object({
+  images: s3.image().max('5MB').count(5),
+  documents: s3.file().max('10MB').count(2),
+  thumbnail: s3.image().max('1MB').count(1),
+})
+```
+
+## Route Configuration
+
+### Middleware
+
+Add authentication, validation, and metadata:
+
+```typescript
+.middleware(async ({ file, metadata, req }) => {
+  // Authentication
+  const user = await authenticateUser(req)
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  // File validation
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error('File too large')
+  }
+
+  // Return enriched metadata
+  return {
+    ...metadata,
+    userId: user.id,
+    userRole: user.role,
+    uploadedAt: new Date().toISOString(),
+    ipAddress: req.headers.get('x-forwarded-for'),
+  }
+})
+```
+
+### Path Configuration
+
+Control where files are stored:
+
+```typescript
+.paths({
+  // Simple prefix
+  prefix: 'user-uploads',
+  
+  // Custom path generation
+  generateKey: (ctx) => {
+    const { file, metadata, routeName } = ctx
+    const userId = metadata.userId
+    const timestamp = Date.now()
+    
+    return `${routeName}/${userId}/${timestamp}/${file.name}`
+  },
+  
+  // Simple suffix
+  suffix: 'processed',
+})
+```
+
+### Lifecycle Hooks
+
+React to upload events:
+
+```typescript
+.onUploadStart(async ({ file, metadata }) => {
+  console.log(`Starting upload: ${file.name}`)
+  
+  // Log to analytics
+  await analytics.track('upload_started', {
+    userId: metadata.userId,
+    filename: file.name,
+    fileSize: file.size,
+  })
+})
+
+.onUploadComplete(async ({ file, url, metadata }) => {
+  console.log(`Upload complete: ${file.name} -> ${url}`)
+  
+  // Save to database
+  await db.files.create({
+    filename: file.name,
+    url,
+    userId: metadata.userId,
+    size: file.size,
+    contentType: file.type,
+    uploadedAt: new Date(),
+  })
+  
+  // Send notification
+  await notificationService.send({
+    userId: metadata.userId,
+    type: 'upload_complete',
+    message: `${file.name} uploaded successfully`,
+  })
+})
+
+.onUploadError(async ({ file, error, metadata }) => {
+  console.error(`Upload failed: ${file.name}`, error)
+  
+  // Log error
+  await errorLogger.log({
+    operation: 'file_upload',
+    error: error.message,
+    userId: metadata.userId,
+    filename: file.name,
+  })
+})
+```
+
+## Advanced Examples
+
+### E-commerce Product Images
+
+```typescript
+const productRouter = s3.createRouter({
+  productImages: s3
+    .image()
+    .max('5MB')
+    .formats(['jpeg', 'jpg', 'png', 'webp'])
+    .dimensions({ minWidth: 800, maxWidth: 2000 })
+    .middleware(async ({ metadata, req }) => {
+      const user = await authenticateUser(req)
+      const productId = metadata.productId
+      
+      // Verify user owns the product
+      const product = await db.products.findFirst({
+        where: { id: productId, ownerId: user.id }
+      })
+      
+      if (!product) {
+        throw new Error('Product not found or access denied')
+      }
+      
+      return {
+        ...metadata,
+        userId: user.id,
+        productId,
+        productName: product.name,
+      }
+    })
+    .paths({
+      generateKey: (ctx) => {
+        const { metadata } = ctx
+        return `products/${metadata.productId}/images/${Date.now()}.jpg`
+      }
+    })
+    .onUploadComplete(async ({ url, metadata }) => {
+      // Update product with new image
+      await db.products.update({
+        where: { id: metadata.productId },
+        data: {
+          images: {
+            push: url
+          }
+        }
+      })
+    }),
+
+  productDocuments: s3
+    .file()
+    .max('10MB')
+    .types(['application/pdf'])
+    .paths({
+      prefix: 'product-docs',
+    })
+    .onUploadComplete(async ({ url, metadata }) => {
+      await db.productDocuments.create({
+        productId: metadata.productId,
+        documentUrl: url,
+        type: 'specification',
+      })
+    }),
+})
+```
+
+### User Profile System
+
+```typescript
+const profileRouter = s3.createRouter({
+  avatar: s3
+    .image()
+    .max('2MB')
+    .formats(['jpeg', 'jpg', 'png'])
+    .dimensions({ minWidth: 100, maxWidth: 500 })
+    .middleware(async ({ req }) => {
+      const user = await authenticateUser(req)
+      return { userId: user.id, type: 'avatar' }
+    })
+    .paths({
+      generateKey: (ctx) => {
+        return `users/${ctx.metadata.userId}/avatar.jpg`
+      }
+    })
+    .onUploadComplete(async ({ url, metadata }) => {
+      // Update user profile
+      await db.users.update({
+        where: { id: metadata.userId },
+        data: { avatarUrl: url }
+      })
+      
+      // Invalidate cache
+      await cache.del(`user:${metadata.userId}`)
+    }),
+
+  documents: s3
+    .object({
+      resume: s3.file().max('5MB').types(['application/pdf']).count(1),
+      portfolio: s3.file().max('10MB').count(3),
+    })
+    .middleware(async ({ req }) => {
+      const user = await authenticateUser(req)
+      return { userId: user.id }
+    })
+    .paths({
+      prefix: 'user-documents',
+    }),
+})
+```
+
+## Client-Side Usage
+
+Once you have your router set up, use it from the client:
+
+```typescript
+// components/FileUploader.tsx
+import { useUploadRoute } from 'pushduck'
+
+export function FileUploader() {
+  const { upload, isUploading } = useUploadRoute('imageUpload')
+
+  const handleUpload = async (files: FileList) => {
+    try {
+      const results = await upload(files, {
+        // This metadata will be passed to middleware
+        productId: 'product-123',
+        category: 'main-images',
+      })
+      
+      console.log('Upload complete:', results)
+    } catch (error) {
+      console.error('Upload failed:', error)
+    }
+  }
+
+  return (
+    <div>
+      <input
+        type="file"
+        multiple
+        accept="image/*"
+        onChange={(e) => e.target.files && handleUpload(e.target.files)}
+        disabled={isUploading}
+      />
+      {isUploading && <p>Uploading...</p>}
+    </div>
+  )
+}
+```
+
+## Type Safety
+
+The router provides full TypeScript support:
+
+```typescript
+// Types are automatically inferred
+type RouterType = typeof s3Router
+
+// Get route names
+type RouteNames = keyof RouterType // 'imageUpload' | 'documentUpload'
+
+// Get route input types
+type ImageUploadInput = InferRouteInput<RouterType['imageUpload']>
+
+// Get route metadata types
+type ImageUploadMetadata = InferRouteMetadata<RouterType['imageUpload']>
+```

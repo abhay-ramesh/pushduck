@@ -1,8 +1,10 @@
 {
     "title": "Configuration",
     "pages": [
-        "server-router",
+        "upload-config",
         "client-options",
+        "server-router",
+        "path-configuration",
         "middleware",
         "validation",
         "providers"

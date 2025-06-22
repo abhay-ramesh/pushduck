@@ -1,0 +1,121 @@
+---
+title: Storage Instance
+description: Object-style API for S3 file operations
+---
+
+# Storage Instance
+
+The `StorageInstance` provides a clean, object-style API for all S3 operations. It groups related operations under namespaces for better discoverability.
+
+## Getting the Storage Instance
+
+The `storage` instance comes from your upload configuration, not created separately:
+
+```typescript
+// lib/upload.ts
+import { uploadConfig } from 'pushduck/server'
+
+const { storage, s3, createS3Handler, config } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL,
+    bucket: process.env.S3_BUCKET_NAME,
+    accountId: process.env.R2_ACCOUNT_ID,
+  })
+  .defaults({
+    maxFileSize: '10MB',
+    acl: 'public-read',
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      const userId = metadata.userId || 'anonymous'
+      const timestamp = Date.now()
+      const randomId = Math.random().toString(36).substring(2, 8)
+      return `${userId}/${timestamp}/${randomId}/${file.name}`
+    },
+  })
+  .build()
+
+// Export the storage instance
+export { storage }
+```
+
+Then use it in your API routes:
+
+```typescript
+// app/api/files/route.ts
+import { storage } from '@/lib/upload'
+
+export async function GET() {
+  const files = await storage.list.files()
+  return Response.json({ files })
+}
+```
+
+## API Structure
+
+The storage instance organizes operations into logical namespaces:
+
+```typescript
+storage.list.*       // File listing operations
+storage.metadata.*   // File metadata operations  
+storage.download.*   // Download and URL operations
+storage.upload.*     // Upload operations
+storage.delete.*     // Delete operations
+storage.validation.* // Validation operations
+```
+
+## Configuration Methods
+
+### getConfig()
+
+Get the current configuration (read-only):
+
+```typescript
+const config = storage.getConfig()
+console.log(config.provider.bucket) // 'my-bucket'
+```
+
+### getProviderInfo()
+
+Get provider information:
+
+```typescript
+const info = storage.getProviderInfo()
+// Returns: { provider: 'aws-s3', bucket: 'my-bucket', region: 'us-east-1' }
+```
+
+## Error Handling
+
+All storage operations throw structured `PushduckError` instances:
+
+```typescript
+import { isPushduckError } from 'pushduck/server'
+
+try {
+  const files = await storage.list.files()
+} catch (error) {
+  if (isPushduckError(error)) {
+    console.log(error.code)     // Error code
+    console.log(error.context)  // Additional context
+  }
+}
+```
+
+## TypeScript Support
+
+The storage instance is fully typed. Import types as needed:
+
+```typescript
+import type { FileInfo, ListFilesOptions } from 'pushduck/server'
+
+const options: ListFilesOptions = {
+  prefix: 'uploads/',
+  maxResults: 100
+}
+
+const files: FileInfo[] = await storage.list.files(options)
+``` 
