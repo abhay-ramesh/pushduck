@@ -263,18 +263,8 @@ Configure settings that apply to all upload endpoints:
 </Callout>
 
 ```typescript
-export const { POST, GET } = createUploadRouter(
-  {
-    // ... your upload schemas
-  },
-  {
-    s3,
-    maxTotalSize: "500MB",
-    allowedOrigins: ["https://yourdomain.com"],
-    uploadTimeout: 600000, // 10 minutes
-    // pathPrefix: "uploads/", // ❌ Deprecated
-  }
-);
+// ❌ Deprecated approach - use modern uploadConfig instead
+// This section is kept for reference only
 ```
 
 **For new projects, use the [hierarchical path system](/docs/api/configuration/path-configuration) instead:**
@@ -302,33 +292,34 @@ const s3Router = s3.createRouter({
 Support different storage providers for different upload types:
 
 ```typescript
-import { createS3Client } from "pushduck/s3";
+// ✅ Modern approach with multiple provider configurations
+import { uploadConfig } from "pushduck/server";
 
-const primaryS3 = createS3Client({
-  // Primary S3 config for production files
+const primaryConfig = uploadConfig
+  .cloudflareR2({
+    // Primary R2 config for production files
+    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+    bucket: process.env.R2_BUCKET!,
+  })
+  .build();
+
+const backupConfig = uploadConfig
+  .aws({
+    // AWS S3 config for backups
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: process.env.AWS_REGION!,
+    bucket: process.env.AWS_BACKUP_BUCKET!,
+  })
+  .build();
+
+// Use primary config for main uploads
+const s3Router = primaryConfig.s3.createRouter({
+  productImages: primaryConfig.s3.image().max("4MB").count(10),
+  // Backup handling would be done in lifecycle hooks
 });
-
-const backupR2 = createS3Client({
-  // Cloudflare R2 config for backups
-});
-
-export const router = createUploadRouter(
-  {
-    productImages: uploadSchema({
-      image: { maxSize: "4MB", maxCount: 10 },
-    }),
-
-    backups: uploadSchema({
-      any: { maxSize: "1GB", maxCount: 1 },
-    }),
-  },
-  {
-    s3: primaryS3,
-    providers: {
-      backups: { s3: backupR2 },
-    },
-  }
-);
 ```
 
 ## Middleware Integration
@@ -338,25 +329,27 @@ Add authentication, logging, and custom validation:
 ### Authentication Middleware
 
 ```typescript
-export const router = createUploadRouter({
-  privateUploads: uploadSchema({
-    image: { maxSize: "4MB", maxCount: 5 },
-  }).middleware(async ({ req }) => {
-    const session = await getServerSession(req);
+const s3Router = s3.createRouter({
+  privateUploads: s3.image()
+    .max("4MB")
+    .count(5)
+    .middleware(async ({ req, metadata }) => {
+      const session = await getServerSession(req);
 
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
+      if (!session?.user?.id) {
+        throw new Error("Unauthorized");
+      }
 
-    return {
-      userId: session.user.id,
-      userRole: session.user.role,
-    };
-  }),
+      return {
+        ...metadata,
+        userId: session.user.id,
+        userRole: session.user.role,
+      };
+    }),
 
-  publicUploads: uploadSchema({
-    image: { maxSize: "1MB", maxCount: 1 },
-  }), // No middleware = publicly accessible
+  publicUploads: s3.image()
+    .max("1MB")
+    .count(1), // No middleware = publicly accessible
 });
 ```
 
@@ -365,38 +358,40 @@ export const router = createUploadRouter({
 ```typescript
 import { z } from "zod";
 
-export const router = createUploadRouter({
-  profilePicture: uploadSchema({
-    image: { maxSize: "2MB", maxCount: 1 },
-  }).middleware(async ({ req, files }) => {
-    // Custom file validation
-    for (const file of files) {
+const s3Router = s3.createRouter({
+  profilePicture: s3.image()
+    .max("2MB")
+    .count(1)
+    .middleware(async ({ req, file, metadata }) => {
+      // Custom file validation
       if (file.name.includes("temp") || file.name.includes("test")) {
         throw new Error("Temporary files not allowed");
       }
-    }
 
-    const userId = await getUserId(req);
-    return { userId };
-  }),
+      const userId = await getUserId(req);
+      return { ...metadata, userId };
+    }),
 });
 ```
 
 ### Metadata Enhancement
 
 ```typescript
-export const router = createUploadRouter({
-  documentUpload: uploadSchema({
-    pdf: { maxSize: "10MB", maxCount: 1 },
-  }).middleware(async ({ req }) => {
-    const metadata = {
-      uploadedAt: new Date().toISOString(),
-      userAgent: req.headers.get("user-agent"),
-      ip: req.headers.get("x-forwarded-for") || "unknown",
-    };
+const s3Router = s3.createRouter({
+  documentUpload: s3.file()
+    .max("10MB")
+    .count(1)
+    .types(["application/pdf"])
+    .middleware(async ({ req, metadata }) => {
+      const enrichedMetadata = {
+        ...metadata,
+        uploadedAt: new Date().toISOString(),
+        userAgent: req.headers.get("user-agent"),
+        ip: req.headers.get("x-forwarded-for") || "unknown",
+      };
 
-    return { metadata };
-  }),
+      return enrichedMetadata;
+    }),
 });
 ```
 
@@ -426,16 +421,14 @@ Handle upload events for processing, notifications, and cleanup:
 />
 
 ```typescript
-export const router = createUploadRouter({
-  imageUpload: uploadSchema({
-    image: { maxSize: "4MB", maxCount: 10 },
-  })
-    .onUploadComplete(async ({ files, metadata }) => {
-      // Process uploaded images
-      for (const file of files) {
-        await generateThumbnail(file.url);
-        await updateDatabase(file.key, metadata.userId);
-      }
+const s3Router = s3.createRouter({
+  imageUpload: s3.image()
+    .max("4MB")
+    .count(10)
+    .onUploadComplete(async ({ file, url, metadata }) => {
+      // Process uploaded image
+      await generateThumbnail(url);
+      await updateDatabase(file.key, metadata.userId);
     })
     .onUploadError(async ({ error, metadata }) => {
       // Log errors and notify admins
@@ -452,15 +445,22 @@ export const router = createUploadRouter({
 Export your router type for end-to-end type safety:
 
 ```typescript title="lib/upload.ts"
-export const router = createUploadRouter({
+import { uploadConfig } from "pushduck/server";
+
+const { s3, createS3Handler } = uploadConfig
+  .cloudflareR2({ /* your config */ })
+  .build();
+
+const s3Router = s3.createRouter({
   // ... your configuration
 });
 
-export type AppRouter = typeof router;
+export { s3, createS3Handler };
+export type AppS3Router = typeof s3Router;
 
 // Extract individual endpoint types
-export type ImageUploadType = AppRouter["imageUpload"];
-export type DocumentUploadType = AppRouter["documentUpload"];
+export type ImageUploadType = AppS3Router["imageUpload"];
+export type DocumentUploadType = AppS3Router["documentUpload"];
 ```
 
 ### Custom Context Types

@@ -108,12 +108,11 @@ We've already solved the core problems that have frustrated developers for years
     />
 
     ```typescript
-    const router = createUploadRouter({
-      images: uploadSchema({
-        permissions: ["user:upload", "admin:all"],
-        auditLog: true,
-        compliance: "SOC2"
-      })
+    const s3Router = s3.createRouter({
+      images: s3.image()
+        .permissions(["user:upload", "admin:all"])
+        .auditLog(true)
+        .compliance("SOC2")
     })
     ```
 
@@ -151,14 +150,13 @@ We've already solved the core problems that have frustrated developers for years
     />
 
     ```typescript
-    const router = createUploadRouter({
-      images: uploadSchema({
-        processing: {
+    const s3Router = s3.createRouter({
+      images: s3.image()
+        .processing({
           resize: { width: 800, height: 600 },
           format: "webp",
           edge: true // Process at nearest edge location
-        }
-      })
+        })
     })
     ```
 
