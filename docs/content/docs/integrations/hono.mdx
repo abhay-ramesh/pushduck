@@ -68,9 +68,8 @@ Hono is a fast, lightweight web framework built on Web Standards. Since Hono use
     const app = new Hono();
 
     // Direct usage - no adapter needed!
-    app.on(['GET', 'POST'], '/api/upload/*', (c) => {
-      const method = c.req.method as 'GET' | 'POST';
-      return uploadRouter.handlers[method](c.req.raw);
+    app.all('/api/upload/*', (c) => {
+      return uploadRouter.handlers(c.req.raw);
     });
 
     export default app;
@@ -88,13 +87,12 @@ import { uploadRouter } from './lib/upload';
 
 const app = new Hono();
 
-// Method 1: Combined handler
-app.on(['GET', 'POST'], '/api/upload/*', (c) => {
-  const method = c.req.method as 'GET' | 'POST';
-  return uploadRouter.handlers[method](c.req.raw);
+// Method 1: Combined handler (recommended)
+app.all('/api/upload/*', (c) => {
+  return uploadRouter.handlers(c.req.raw);
 });
 
-// Method 2: Separate handlers (more explicit)
+// Method 2: Separate handlers (if you need method-specific logic)
 app.get('/api/upload/*', (c) => uploadRouter.handlers.GET(c.req.raw));
 app.post('/api/upload/*', (c) => uploadRouter.handlers.POST(c.req.raw));
 
@@ -120,8 +118,7 @@ app.use('*', cors({
 }));
 
 // Upload routes
-app.get('/api/upload/*', (c) => uploadRouter.handlers.GET(c.req.raw));
-app.post('/api/upload/*', (c) => uploadRouter.handlers.POST(c.req.raw));
+app.all('/api/upload/*', (c) => uploadRouter.handlers(c.req.raw));
 
 // Health check
 app.get('/health', (c) => c.json({ status: 'ok' }));
@@ -198,8 +195,7 @@ export type AppUploadRouter = typeof uploadRouter;
 
     const app = new Hono();
 
-    app.get('/api/upload/*', (c) => uploadRouter.handlers.GET(c.req.raw));
-    app.post('/api/upload/*', (c) => uploadRouter.handlers.POST(c.req.raw));
+    app.all('/api/upload/*', (c) => uploadRouter.handlers(c.req.raw));
 
     export default app;
     ```
@@ -226,8 +222,7 @@ export type AppUploadRouter = typeof uploadRouter;
 
     const app = new Hono();
 
-    app.get('/api/upload/*', (c) => uploadRouter.handlers.GET(c.req.raw));
-    app.post('/api/upload/*', (c) => uploadRouter.handlers.POST(c.req.raw));
+    app.all('/api/upload/*', (c) => uploadRouter.handlers(c.req.raw));
 
     export default {
       port: 3000,
@@ -249,8 +244,7 @@ export type AppUploadRouter = typeof uploadRouter;
 
     const app = new Hono();
 
-    app.get('/api/upload/*', (c) => uploadRouter.handlers.GET(c.req.raw));
-    app.post('/api/upload/*', (c) => uploadRouter.handlers.POST(c.req.raw));
+    app.all('/api/upload/*', (c) => uploadRouter.handlers(c.req.raw));
 
     const port = 3000;
     console.log(`Server is running on port ${port}`);
@@ -274,8 +268,7 @@ export type AppUploadRouter = typeof uploadRouter;
 
     const app = new Hono();
 
-    app.get('/api/upload/*', (c) => uploadRouter.handlers.GET(c.req.raw));
-    app.post('/api/upload/*', (c) => uploadRouter.handlers.POST(c.req.raw));
+    app.all('/api/upload/*', (c) => uploadRouter.handlers(c.req.raw));
 
     Deno.serve(app.fetch);
     ```

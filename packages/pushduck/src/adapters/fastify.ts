@@ -1,5 +1,4 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import type { UniversalHandler } from "../core/handler/universal-handler";
 
 /**
  * Fastify Adapter for Universal Handlers
@@ -7,20 +6,23 @@ import type { UniversalHandler } from "../core/handler/universal-handler";
  * Converts Web Standard Request/Response handlers to Fastify handler format.
  * Works with Fastify applications.
  */
-export function toFastifyHandler(handler: UniversalHandler) {
+export function toFastifyHandler(handlers: {
+  GET: (request: Request) => Promise<Response>;
+  POST: (request: Request) => Promise<Response>;
+}) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const method = request.method as "GET" | "POST";
 
-      if (!method || (method !== "GET" && method !== "POST")) {
+      if (!method || !(method in handlers)) {
         return reply.status(405).send({ error: "Method not allowed" });
       }
 
       // Convert Fastify Request to Web Request
       const webRequest = convertFastifyToWebRequest(request);
 
-      // Call the universal handler - auto-detects method
-      const response = await handler(webRequest);
+      // Call the universal handler
+      const response = await handlers[method](webRequest);
 
       // Convert Web Response back to Fastify Reply
       await convertWebResponseToFastify(response, reply);
@@ -112,8 +114,11 @@ async function convertWebResponseToFastify(
  * Alternative Fastify adapter that returns route options
  * for use with Fastify's route registration
  */
-export function toFastifyRouteHandler(handler: UniversalHandler) {
-  const fastifyHandler = toFastifyHandler(handler);
+export function toFastifyRouteHandler(handlers: {
+  GET: (request: Request) => Promise<Response>;
+  POST: (request: Request) => Promise<Response>;
+}) {
+  const fastifyHandler = toFastifyHandler(handlers);
 
   return {
     method: ["GET", "POST"] as const,

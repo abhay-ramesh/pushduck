@@ -1,6 +1,6 @@
 ---
 title: Overview
-description: Universal file uploads that work with any web framework - from modern Web Standards to legacy APIs
+description: Universal file uploads that work with any web framework - from Web Standards to custom request/response APIs
 ---
 
 import { Callout } from "fumadocs-ui/components/callout";
@@ -13,7 +13,7 @@ import { Steps, Step } from "fumadocs-ui/components/steps";
 Pushduck provides **universal file upload handlers** that work with any web framework through a single, consistent API. Write your upload logic once and deploy it anywhere!
 
 <Callout type="info">
-  **Universal Design**: Pushduck uses Web Standards (Request/Response) at its core, making it compatible with both modern and legacy frameworks without framework-specific code.
+  **Universal Design**: Pushduck uses Web Standards (Request/Response) at its core, making it compatible with both Web Standards frameworks and those with custom request/response APIs without framework-specific code.
 </Callout>
 
 ## 🌟 Universal API
@@ -53,8 +53,8 @@ Pushduck supports frameworks in two categories:
   </Card>
   
   <Card 
-    title="🔧 Legacy Frameworks" 
-    description="Frameworks with custom request/response objects"
+    title="🔧 Custom Request/Response APIs" 
+    description="Frameworks with their own request/response patterns"
     href="/docs/integrations/express"
   >
     **Simple adapters provided** for seamless integration.
@@ -74,12 +74,8 @@ Pushduck supports frameworks in two categories:
     import { uploadRouter } from '@/lib/upload';
 
     // Direct usage - no adapter needed!
-    app.get('/api/upload/*', (ctx) => {
-      return uploadRouter.handlers.GET(ctx.request); // or c.req.raw
-    });
-
-    app.post('/api/upload/*', (ctx) => {
-      return uploadRouter.handlers.POST(ctx.request);
+    app.all('/api/upload/*', (ctx) => {
+      return uploadRouter.handlers(ctx.request); // or c.req.raw
     });
     ```
   </Tab>
@@ -93,7 +89,7 @@ Pushduck supports frameworks in two categories:
     export const { GET, POST } = uploadRouter.handlers;
 
     // Or with explicit adapter for extra type safety
-    import { toNextJsHandler } from 'pushduck/server';
+    import { toNextJsHandler } from 'pushduck/adapters/nextjs';
     export const { GET, POST } = toNextJsHandler(uploadRouter.handlers);
     ```
   </Tab>
@@ -102,7 +98,7 @@ Pushduck supports frameworks in two categories:
     ```typescript
     import express from 'express';
     import { uploadRouter } from '@/lib/upload';
-    import { toExpressHandler } from 'pushduck/server';
+    import { toExpressHandler } from 'pushduck/adapters/express';
 
     const app = express();
     app.all("/api/upload/*", toExpressHandler(uploadRouter.handlers));
@@ -113,7 +109,7 @@ Pushduck supports frameworks in two categories:
     ```typescript
     import Fastify from 'fastify';
     import { uploadRouter } from '@/lib/upload';
-    import { toFastifyHandler } from 'pushduck/server';
+    import { toFastifyHandler } from 'pushduck/adapters/fastify';
 
     const fastify = Fastify();
     fastify.all('/api/upload/*', toFastifyHandler(uploadRouter.handlers));
@@ -147,9 +143,9 @@ Pushduck supports frameworks in two categories:
   </Step>
 
   <Step>
-    **Legacy Framework Adapters**
+    **Framework Adapters**
     
-    For frameworks with custom APIs, simple adapters convert between formats:
+    For frameworks with custom request/response APIs, simple adapters convert between formats:
 
     ```typescript
     // Express adapter example

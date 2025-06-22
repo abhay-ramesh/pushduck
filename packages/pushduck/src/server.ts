@@ -53,14 +53,9 @@ export {
 // Router types
 export type { S3Router } from "./types";
 
-// Framework adapters
-export {
-  toExpressHandler,
-  toFastifyHandler,
-  toFastifyRouteHandler,
-  toNextJsHandler,
-  toNextJsPagesHandler,
-} from "./adapters";
+// Framework adapters - import from specific adapter modules
+// e.g. import { toNextJsHandler } from 'pushduck/adapters/nextjs'
+// e.g. import { toExpressHandler } from 'pushduck/adapters/express'
 
 // ========================================
 // STORAGE API

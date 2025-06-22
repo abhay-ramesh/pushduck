@@ -8,19 +8,19 @@ import { Card, Cards } from "fumadocs-ui/components/card";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { Steps, Step } from "fumadocs-ui/components/steps";
 
-# Bun Runtime Integration
+# Bun Runtime
 
-Bun is an ultra-fast JavaScript runtime with native Web Standards support. Since Bun uses Web Standard `Request` and `Response` objects directly, pushduck handlers work without any adapters!
+Bun is an ultra-fast JavaScript runtime with native Web Standards support. Since Bun uses Web Standard `Request` and `Response` objects natively, pushduck handlers work directly without any adapters!
 
 <Callout type="info">
-  **Web Standards Native**: Bun's `Bun.serve()` uses Web Standard Request/Response objects, making pushduck integration seamless with zero overhead.
+  **Web Standards Native**: Bun's `Bun.serve()` uses Web Standard `Request` objects directly, making pushduck integration seamless with zero overhead.
 </Callout>
 
 ## Quick Setup
 
 <Steps>
   <Step>
-    **Install pushduck**
+    **Install dependencies**
     
     ```bash
     bun add pushduck
@@ -59,32 +59,21 @@ Bun is an ultra-fast JavaScript runtime with native Web Standards support. Since
     ```typescript title="server.ts"
     import { uploadRouter } from './lib/upload';
 
+    // Direct usage - no adapter needed!
     Bun.serve({
       port: 3000,
-      async fetch(request) {
+      fetch(request) {
         const url = new URL(request.url);
         
-        // Upload routes - direct usage!
         if (url.pathname.startsWith('/api/upload/')) {
-          const method = request.method as 'GET' | 'POST';
-          return uploadRouter.handlers[method](request);
+          return uploadRouter.handlers(request);
         }
         
-        // Health check
-        if (url.pathname === '/health') {
-          return new Response(JSON.stringify({ 
-            status: 'healthy', 
-            timestamp: new Date().toISOString() 
-          }), {
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-        
-        return new Response('Not Found', { status: 404 });
-      }
+        return new Response('Not found', { status: 404 });
+      },
     });
 
-    console.log('🥟 Bun server running on http://localhost:3000');
+    console.log('🚀 Bun server running on http://localhost:3000');
     ```
   </Step>
 </Steps>
@@ -96,110 +85,95 @@ Bun is an ultra-fast JavaScript runtime with native Web Standards support. Since
 ```typescript title="server.ts"
 import { uploadRouter } from './lib/upload';
 
-const server = Bun.serve({
+Bun.serve({
   port: 3000,
-  async fetch(request) {
+  fetch(request) {
     const url = new URL(request.url);
     
-    // CORS headers
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-    };
+    // Method 1: Combined handler (recommended)
+    if (url.pathname.startsWith('/api/upload/')) {
+      return uploadRouter.handlers(request);
+    }
+    
+    // Health check
+    if (url.pathname === '/health') {
+      return new Response(JSON.stringify({ status: 'ok' }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    return new Response('Not found', { status: 404 });
+  },
+});
+
+console.log('🚀 Bun server running on http://localhost:3000');
+```
+
+### With CORS and Routing
+
+```typescript title="server.ts"
+import { uploadRouter } from './lib/upload';
+
+function handleCORS(request: Request) {
+  const origin = request.headers.get('origin');
+  const allowedOrigins = ['http://localhost:3000', 'https://your-domain.com'];
+  
+  const headers = new Headers();
+  if (origin && allowedOrigins.includes(origin)) {
+    headers.set('Access-Control-Allow-Origin', origin);
+  }
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  return headers;
+}
+
+Bun.serve({
+  port: 3000,
+  fetch(request) {
+    const url = new URL(request.url);
+    const corsHeaders = handleCORS(request);
     
     // Handle preflight requests
     if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders });
+      return new Response(null, { status: 200, headers: corsHeaders });
     }
     
     // Upload routes
     if (url.pathname.startsWith('/api/upload/')) {
-      const method = request.method as 'GET' | 'POST';
-      const response = await uploadRouter.handlers[method](request);
-      
-      // Add CORS headers to response
-      Object.entries(corsHeaders).forEach(([key, value]) => {
-        response.headers.set(key, value);
+      return uploadRouter.handlers(request).then(response => {
+        // Add CORS headers to response
+        corsHeaders.forEach((value, key) => {
+          response.headers.set(key, value);
+        });
+        return response;
       });
-      
-      return response;
     }
     
     // Health check
     if (url.pathname === '/health') {
       return new Response(JSON.stringify({ 
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        runtime: 'Bun'
+        status: 'ok', 
+        runtime: 'Bun',
+        timestamp: new Date().toISOString()
       }), {
         headers: { 
           'Content-Type': 'application/json',
-          ...corsHeaders
+          ...Object.fromEntries(corsHeaders)
         }
       });
     }
     
-    return new Response('Not Found', { status: 404 });
-  }
+    return new Response('Not found', { status: 404 });
+  },
 });
 
-console.log(`🥟 Bun server running on http://localhost:${server.port}`);
-```
-
-### With Authentication
-
-```typescript title="server.ts"
-import { uploadRouter } from './lib/upload';
-
-async function authenticate(request: Request): Promise<{ userId: string } | null> {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return null;
-  }
-  
-  const token = authHeader.substring(7);
-  // Your authentication logic here
-  if (token === 'demo-token') {
-    return { userId: 'demo-user' };
-  }
-  
-  return null;
-}
-
-Bun.serve({
-  port: 3000,
-  async fetch(request) {
-    const url = new URL(request.url);
-    
-    // Public upload routes
-    if (url.pathname.startsWith('/api/upload/public/')) {
-      const method = request.method as 'GET' | 'POST';
-      return uploadRouter.handlers[method](request);
-    }
-    
-    // Private upload routes (require authentication)
-    if (url.pathname.startsWith('/api/upload/private/')) {
-      const user = await authenticate(request);
-      if (!user) {
-        return new Response(JSON.stringify({ error: 'Authentication required' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-      
-      const method = request.method as 'GET' | 'POST';
-      return uploadRouter.handlers[method](request);
-    }
-    
-    return new Response('Not Found', { status: 404 });
-  }
-});
+console.log('🚀 Bun server running on http://localhost:3000');
 ```
 
 ## Advanced Configuration
 
-### Upload Configuration with Authentication
+### Authentication and Rate Limiting
 
 ```typescript title="lib/upload.ts"
 import { uploadConfig } from 'pushduck/server';
@@ -222,179 +196,245 @@ const { s3, createS3Router } = uploadConfig
   .build();
 
 export const uploadRouter = createS3Router({
-  // Authenticated image uploads
-  images: s3
+  // Private uploads with authentication
+  privateUpload: s3
     .image()
     .max("5MB")
-    .count(10)
-    .formats(["jpeg", "png", "webp"])
     .middleware(async ({ req }) => {
       const authHeader = req.headers.get('authorization');
       if (!authHeader?.startsWith('Bearer ')) {
-        throw new Error('Authentication required');
+        throw new Error('Authorization required');
       }
 
       const token = authHeader.substring(7);
-      const user = await verifyToken(token);
       
-      return {
-        userId: user.id,
-        userRole: user.role
-      };
+      try {
+        const payload = await verifyJWT(token);
+        return {
+          userId: payload.sub as string,
+          userRole: payload.role as string
+        };
+      } catch (error) {
+        throw new Error('Invalid token');
+      }
     }),
 
-  // Public uploads
-  public: s3
+  // Public uploads (no auth)
+  publicUpload: s3
     .image()
     .max("2MB")
-    .count(1)
-    .formats(["jpeg", "png"])
     // No middleware = public access
 });
 
-async function verifyToken(token: string) {
-  // Your token verification logic
-  return { id: 'user-123', role: 'user' };
+async function verifyJWT(token: string) {
+  // Your JWT verification logic here
+  // Using Bun's built-in crypto or a JWT library
+  return { sub: 'user-123', role: 'user' };
 }
 
 export type AppUploadRouter = typeof uploadRouter;
 ```
 
-### Production Server with Routing
+### Production Server with Full Features
 
 ```typescript title="server.ts"
 import { uploadRouter } from './lib/upload';
 
-interface RouteHandler {
-  (request: Request): Promise<Response> | Response;
+// Simple rate limiting store
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+function rateLimit(ip: string, maxRequests = 100, windowMs = 15 * 60 * 1000) {
+  const now = Date.now();
+  const key = ip;
+  const record = rateLimitStore.get(key);
+  
+  if (!record || now > record.resetTime) {
+    rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+  
+  if (record.count >= maxRequests) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
 }
 
-class Router {
-  private routes = new Map<string, RouteHandler>();
+function getClientIP(request: Request): string {
+  // In production, you might get this from headers like X-Forwarded-For
+  return request.headers.get('x-forwarded-for') || 
+         request.headers.get('x-real-ip') || 
+         'unknown';
+}
 
-  get(path: string, handler: RouteHandler) {
-    this.routes.set(`GET:${path}`, handler);
-    return this;
-  }
-
-  post(path: string, handler: RouteHandler) {
-    this.routes.set(`POST:${path}`, handler);
-    return this;
-  }
-
-  async handle(request: Request): Promise<Response> {
+Bun.serve({
+  port: process.env.PORT ? parseInt(process.env.PORT) : 3000,
+  fetch(request) {
     const url = new URL(request.url);
-    const key = `${request.method}:${url.pathname}`;
+    const clientIP = getClientIP(request);
     
-    // Exact match
-    const handler = this.routes.get(key);
-    if (handler) {
-      return handler(request);
-    }
-    
-    // Pattern matching for upload routes
-    if (url.pathname.startsWith('/api/upload/')) {
-      const uploadKey = `${request.method}:/api/upload/*`;
-      const uploadHandler = this.routes.get(uploadKey);
-      if (uploadHandler) {
-        return uploadHandler(request);
-      }
-    }
-    
-    return new Response('Not Found', { status: 404 });
-  }
-}
-
-const router = new Router()
-  .get('/health', () => new Response(JSON.stringify({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    runtime: 'Bun',
-    version: Bun.version
-  }), {
-    headers: { 'Content-Type': 'application/json' }
-  }))
-  
-  .get('/api', () => new Response(JSON.stringify({
-    name: 'Bun Upload API',
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      upload: '/api/upload/*'
-    },
-    uploadTypes: [
-      'images - Image uploads (5MB max, 10 files)',
-      'public - Public images (2MB max, 1 file)'
-    ]
-  }), {
-    headers: { 'Content-Type': 'application/json' }
-  }))
-  
-  // Upload routes
-  .get('/api/upload/*', (request) => uploadRouter.handlers.GET(request))
-  .post('/api/upload/*', (request) => uploadRouter.handlers.POST(request));
-
-const server = Bun.serve({
-  port: process.env.PORT || 3000,
-  hostname: '0.0.0.0',
-  
-  async fetch(request) {
-    try {
-      return await router.handle(request);
-    } catch (error) {
-      console.error('Server error:', error);
-      return new Response(JSON.stringify({
-        error: 'Internal Server Error',
-        message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong',
-        timestamp: new Date().toISOString()
+    // Rate limiting
+    if (!rateLimit(clientIP)) {
+      return new Response(JSON.stringify({ 
+        error: 'Too many requests' 
       }), {
-        status: 500,
+        status: 429,
         headers: { 'Content-Type': 'application/json' }
       });
     }
-  }
-});
-
-console.log(`🥟 Bun server running on http://localhost:${server.port}`);
-```
-
-## Deployment Options
-
-### Production Deployment
-
-```typescript title="server.ts"
-import { uploadRouter } from './lib/upload';
-
-const server = Bun.serve({
-  port: process.env.PORT || 3000,
-  hostname: '0.0.0.0',
-  
-  async fetch(request) {
-    const url = new URL(request.url);
     
-    if (url.pathname.startsWith('/api/upload/')) {
-      const method = request.method as 'GET' | 'POST';
-      return uploadRouter.handlers[method](request);
+    // CORS
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': process.env.NODE_ENV === 'production' 
+        ? 'https://your-domain.com' 
+        : '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+    
+    // Handle preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 200, headers: corsHeaders });
     }
     
-    return new Response('Not Found', { status: 404 });
+    // Upload routes
+    if (url.pathname.startsWith('/api/upload/')) {
+      return uploadRouter.handlers(request).then(response => {
+        Object.entries(corsHeaders).forEach(([key, value]) => {
+          response.headers.set(key, value);
+        });
+        return response;
+      }).catch(error => {
+        console.error('Upload error:', error);
+        return new Response(JSON.stringify({ 
+          error: 'Upload failed',
+          message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        }), {
+          status: 500,
+          headers: { 
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
+        });
+      });
+    }
+    
+    // API info
+    if (url.pathname === '/api') {
+      return new Response(JSON.stringify({
+        name: 'Bun Upload API',
+        version: '1.0.0',
+        runtime: 'Bun',
+        endpoints: {
+          health: '/health',
+          upload: '/api/upload/*'
+        }
+      }), {
+        headers: { 
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+    
+    // Health check
+    if (url.pathname === '/health') {
+      return new Response(JSON.stringify({
+        status: 'ok',
+        runtime: 'Bun',
+        version: Bun.version,
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+      }), {
+        headers: { 
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+    
+    return new Response('Not found', { status: 404, headers: corsHeaders });
   },
-  
-  error(error) {
-    console.error('Bun server error:', error);
-    return new Response('Internal Server Error', { status: 500 });
-  }
 });
 
-console.log(`🥟 Production server running on port ${server.port}`);
+console.log(`🚀 Bun server running on http://localhost:${process.env.PORT || 3000}`);
+console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+```
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('🛑 Shutting down server...');
-  server.stop();
-  process.exit(0);
+## File-based Routing
+
+### Structured Application
+
+```typescript title="routes/upload.ts"
+import { uploadRouter } from '../lib/upload';
+
+export function handleUpload(request: Request) {
+  return uploadRouter.handlers(request);
+}
+```
+
+```typescript title="routes/api.ts"
+export function handleAPI(request: Request) {
+  return new Response(JSON.stringify({
+    name: 'Bun Upload API',
+    version: '1.0.0',
+    runtime: 'Bun'
+  }), {
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+```
+
+```typescript title="server.ts"
+import { handleUpload } from './routes/upload';
+import { handleAPI } from './routes/api';
+
+const routes = {
+  '/api/upload': handleUpload,
+  '/api': handleAPI,
+  '/health': () => new Response(JSON.stringify({ status: 'ok' }), {
+    headers: { 'Content-Type': 'application/json' }
+  })
+};
+
+Bun.serve({
+  port: 3000,
+  fetch(request) {
+    const url = new URL(request.url);
+    
+    for (const [path, handler] of Object.entries(routes)) {
+      if (url.pathname.startsWith(path)) {
+        return handler(request);
+      }
+    }
+    
+    return new Response('Not found', { status: 404 });
+  },
 });
 ```
+
+## Performance Benefits
+
+<Cards>
+  <Card title="🚀 Ultra-Fast Runtime" description="Bun's exceptional performance">
+    Bun is 3x faster than Node.js, providing incredible performance for file upload operations.
+  </Card>
+  
+  <Card title="⚡ Zero Overhead" description="Direct Web Standards integration">
+    No adapter layer means zero performance overhead - pushduck handlers run directly in Bun.
+  </Card>
+  
+  <Card title="📦 Built-in Features" description="Batteries included">
+    Built-in bundler, test runner, package manager, and more - no extra tooling needed.
+  </Card>
+  
+  <Card title="🔧 Native TypeScript" description="First-class TypeScript support">
+    Run TypeScript directly without compilation, perfect for rapid development.
+  </Card>
+</Cards>
+
+## Deployment
 
 ### Docker Deployment
 
@@ -402,23 +442,21 @@ process.on('SIGTERM', () => {
 FROM oven/bun:1 as base
 WORKDIR /usr/src/app
 
-# Copy package files
-COPY package.json bun.lockb* ./
+# Install dependencies
+COPY package.json bun.lockb ./
 RUN bun install --frozen-lockfile
 
 # Copy source code
 COPY . .
 
-# Set production environment
-ENV NODE_ENV=production
-
+# Expose port
 EXPOSE 3000
 
-# Run the server
+# Run the app
 CMD ["bun", "run", "server.ts"]
 ```
 
-### Package Configuration
+### Production Scripts
 
 ```json title="package.json"
 {
@@ -427,7 +465,8 @@ CMD ["bun", "run", "server.ts"]
   "scripts": {
     "dev": "bun run --watch server.ts",
     "start": "bun run server.ts",
-    "build": "bun build server.ts --outdir ./dist --target bun"
+    "build": "bun build server.ts --outdir ./dist --target bun",
+    "test": "bun test"
   },
   "dependencies": {
     "pushduck": "latest"
@@ -438,46 +477,8 @@ CMD ["bun", "run", "server.ts"]
 }
 ```
 
-## Client Usage
-
-```typescript title="client/upload-client.ts"
-import { createUploadClient } from 'pushduck/client';
-import type { AppUploadRouter } from '../lib/upload';
-
-export const upload = createUploadClient<AppUploadRouter>({
-  endpoint: 'http://localhost:3000/api/upload',
-  headers: {
-    'Authorization': `Bearer ${getAuthToken()}`
-  }
-});
-
-function getAuthToken(): string {
-  return localStorage.getItem('auth-token') || '';
-}
-```
-
-## Performance Benefits
-
-<Cards>
-  <Card title="🚀 Ultra Performance" description="Fastest JavaScript runtime">
-    Bun provides exceptional performance for file upload operations with minimal overhead.
-  </Card>
-  
-  <Card title="⚡ Zero Overhead" description="Direct Web Standards integration">
-    No framework or adapter layer - pushduck handlers run directly on Bun's Web API.
-  </Card>
-  
-  <Card title="📦 Built-in Everything" description="No external dependencies needed">
-    Bun includes bundler, test runner, and package manager - minimal setup required.
-  </Card>
-  
-  <Card title="🔧 TypeScript Native" description="First-class TypeScript support">
-    Run TypeScript directly without compilation step for rapid development.
-  </Card>
-</Cards>
-
 ---
 
 <Callout type="success">
-  **Bun + Pushduck**: The ultimate performance combination - ultra-fast runtime with zero-overhead file uploads using pure Web Standards.
+  **Bun + Pushduck**: The perfect combination for ultra-fast file uploads with zero configuration overhead and exceptional developer experience.
 </Callout> 

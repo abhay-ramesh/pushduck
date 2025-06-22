@@ -8,12 +8,12 @@ import { Card, Cards } from "fumadocs-ui/components/card";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { Steps, Step } from "fumadocs-ui/components/steps";
 
-# Fastify Integration
+# Fastify
 
 Fastify is a high-performance Node.js web framework that uses custom `request`/`reply` objects. Pushduck provides a simple adapter that converts Web Standard handlers to Fastify handler format.
 
 <Callout type="info">
-  **Legacy API**: Fastify uses `request`/`reply` objects instead of Web Standards, so pushduck provides the `toFastifyHandler` adapter for seamless integration.
+  **Custom Request/Response API**: Fastify uses `request`/`reply` objects instead of Web Standards, so pushduck provides the `toFastifyHandler` adapter for seamless integration.
 </Callout>
 
 ## Quick Setup
@@ -61,7 +61,7 @@ Fastify is a high-performance Node.js web framework that uses custom `request`/`
     ```typescript title="server.ts"
     import Fastify from 'fastify';
     import { uploadRouter } from './lib/upload';
-    import { toFastifyHandler } from 'pushduck/server';
+    import { toFastifyHandler } from 'pushduck/adapters/fastify';
 
     const fastify = Fastify({ logger: true });
 
@@ -91,7 +91,7 @@ Fastify is a high-performance Node.js web framework that uses custom `request`/`
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { uploadRouter } from './lib/upload';
-import { toFastifyHandler } from 'pushduck/server';
+import { toFastifyHandler } from 'pushduck/adapters/fastify';
 
 const fastify = Fastify({ 
   logger: {
@@ -137,7 +137,7 @@ start();
 import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
 import { uploadRouter } from './lib/upload';
-import { toFastifyHandler } from 'pushduck/server';
+import { toFastifyHandler } from 'pushduck/adapters/fastify';
 
 const fastify = Fastify({ logger: true });
 
@@ -275,7 +275,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { uploadRouter } from './lib/upload';
-import { toFastifyHandler } from 'pushduck/server';
+import { toFastifyHandler } from 'pushduck/adapters/fastify';
 
 const fastify = Fastify({
   logger: {
@@ -413,7 +413,7 @@ start();
 ```typescript title="plugins/upload.ts"
 import { FastifyPluginAsync } from 'fastify';
 import { uploadRouter } from '../lib/upload';
-import { toFastifyHandler } from 'pushduck/server';
+import { toFastifyHandler } from 'pushduck/adapters/fastify';
 
 const uploadPlugin: FastifyPluginAsync = async (fastify) => {
   // Upload routes

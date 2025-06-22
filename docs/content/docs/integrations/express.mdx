@@ -1,6 +1,6 @@
 ---
 title: Express
-description: Classic Node.js framework integration with pushduck using adapters for req/res API
+description: Popular Node.js framework integration with pushduck using adapters for req/res API
 ---
 
 import { Callout } from "fumadocs-ui/components/callout";
@@ -9,12 +9,12 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { Steps, Step } from "fumadocs-ui/components/steps";
 import { File, Folder, Files } from "fumadocs-ui/components/files";
 
-# Express Integration
+# Express
 
 Express uses the traditional Node.js `req`/`res` API pattern. Pushduck provides a simple adapter that converts Web Standard handlers to Express middleware format.
 
 <Callout type="info">
-  **Legacy API**: Express uses `req`/`res` objects instead of Web Standards, so pushduck provides the `toExpressHandler` adapter for seamless integration.
+  **Custom Request/Response API**: Express uses `req`/`res` objects instead of Web Standards, so pushduck provides the `toExpressHandler` adapter for seamless integration.
 </Callout>
 
 ## Quick Setup
@@ -64,7 +64,7 @@ Express uses the traditional Node.js `req`/`res` API pattern. Pushduck provides 
     ```typescript title="server.ts"
     import express from 'express';
     import { uploadRouter } from './lib/upload';
-    import { toExpressHandler } from 'pushduck/server';
+    import { toExpressHandler } from 'pushduck/adapters/express';
 
     const app = express();
 
@@ -86,7 +86,7 @@ Express uses the traditional Node.js `req`/`res` API pattern. Pushduck provides 
 import express from 'express';
 import cors from 'cors';
 import { uploadRouter } from './lib/upload';
-import { toExpressHandler } from 'pushduck/server';
+import { toExpressHandler } from 'pushduck/adapters/express';
 
 const app = express();
 
@@ -114,7 +114,7 @@ app.listen(port, () => {
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { uploadRouter } from './lib/upload';
-import { toExpressHandler } from 'pushduck/server';
+import { toExpressHandler } from 'pushduck/adapters/express';
 
 const app = express();
 
@@ -245,7 +245,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { uploadRouter } from './lib/upload';
-import { toExpressHandler } from 'pushduck/server';
+import { toExpressHandler } from 'pushduck/adapters/express';
 
 const app = express();
 
@@ -367,7 +367,7 @@ app.listen(port, () => {
 ```typescript title="routes/uploads.ts"
 import { Router } from 'express';
 import { uploadRouter } from '../lib/upload';
-import { toExpressHandler } from 'pushduck/server';
+import { toExpressHandler } from 'pushduck/adapters/express';
 import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
