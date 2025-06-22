@@ -184,7 +184,7 @@ export type Router = typeof router;
 ```
 
 <Callout type="info">
-  **What's happening here?** - `createS3Router()` creates a type-safe upload
+  **What's happening here?** - `s3.createRouter()` creates a type-safe upload
   handler - `s3.image()` and `s3.file()` provide validation and TypeScript
   inference - The router automatically handles presigned URLs, validation, and
   errors - Exporting the type enables full client-side type safety

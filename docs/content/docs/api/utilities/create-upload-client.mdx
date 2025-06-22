@@ -32,9 +32,9 @@ The structured client approach offers these advantages:
 ## Function Signature
 
 ```typescript
-function createUploadClient<TRouter>(
-  options: ClientOptions
-): UploadClient<TRouter>;
+function createUploadClient<TRouter extends S3Router<any>>(
+  config: ClientConfig
+): InferClientRouter<TRouter>;
 ```
 
 ## Parameters
@@ -46,19 +46,9 @@ function createUploadClient<TRouter>(
       type: "string",
       required: true,
     },
-    headers: {
-      description: "Custom headers to include with requests",
-      type: "Record<string, string>",
-    },
-    timeout: {
-      description: "Request timeout in milliseconds",
-      type: "number",
-      default: "30000",
-    },
-    retries: {
-      description: "Number of retry attempts",
-      type: "number",
-      default: "3",
+    fetcher: {
+      description: "Custom fetch function (optional)",
+      type: "(input: RequestInfo, init?: RequestInit) => Promise<Response>",
     },
   }}
 />
@@ -68,17 +58,19 @@ function createUploadClient<TRouter>(
 The function returns an upload client with property-based access to your router endpoints:
 
 ```typescript
-type UploadClient<TRouter> = {
-  [K in keyof TRouter]: {
-    uploadFiles: (
-      files: File[],
-      options?: UploadOptions
-    ) => Promise<UploadResult[]>;
-    files: UploadFile[];
-    isUploading: boolean;
-    reset: () => void;
-  };
+type InferClientRouter<TRouter> = {
+  readonly [K in keyof TRouter]: () => TypedRouteHook<TRouter, K>;
 };
+
+// Each route returns a hook factory function that provides:
+interface TypedRouteHook {
+  files: TypedUploadedFile[];
+  uploadFiles: (files: File[], metadata?: any) => Promise<any[]>;
+  reset: () => void;
+  isUploading: boolean;
+  errors: string[];
+  routeName: string;
+}
 ```
 
 ## Usage Examples
