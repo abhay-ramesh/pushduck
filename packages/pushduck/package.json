@@ -32,6 +32,31 @@
       "types": "./dist/adapters/nextjs.d.ts",
       "import": "./dist/adapters/nextjs.mjs",
       "require": "./dist/adapters/nextjs.js"
+    },
+    "./adapters/nextjs-pages": {
+      "types": "./dist/adapters/nextjs-pages.d.ts",
+      "import": "./dist/adapters/nextjs-pages.mjs",
+      "require": "./dist/adapters/nextjs-pages.js"
+    },
+    "./adapters/express": {
+      "types": "./dist/adapters/express.d.ts",
+      "import": "./dist/adapters/express.mjs",
+      "require": "./dist/adapters/express.js"
+    },
+    "./adapters/hono": {
+      "types": "./dist/adapters/hono.d.ts",
+      "import": "./dist/adapters/hono.mjs",
+      "require": "./dist/adapters/hono.js"
+    },
+    "./adapters/fastify": {
+      "types": "./dist/adapters/fastify.d.ts",
+      "import": "./dist/adapters/fastify.mjs",
+      "require": "./dist/adapters/fastify.js"
+    },
+    "./adapters/elysia": {
+      "types": "./dist/adapters/elysia.d.ts",
+      "import": "./dist/adapters/elysia.mjs",
+      "require": "./dist/adapters/elysia.js"
     }
   },
   "files": [
@@ -76,7 +101,12 @@
     "aws-s3",
     "file-upload",
     "multipart-upload",
-    "chunked-upload"
+    "chunked-upload",
+    "express",
+    "hono",
+    "fastify",
+    "elysia",
+    "framework-agnostic"
   ],
   "devDependencies": {
     "@size-limit/preset-small-lib": "^11.0.1",
@@ -101,15 +131,46 @@
     "tsdown": "^0.12.8",
     "typescript": "^5.2.2",
     "vitest": "^0.34.6",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "@types/express": "^4.17.21",
+    "express": "^4.18.2",
+    "hono": "^4.0.0",
+    "fastify": "^4.0.0",
+    "elysia": "^1.0.0"
   },
   "peerDependencies": {
     "next": ">=13.0.0",
     "react": ">=18.0.0",
-    "zod": ">=3.20.0"
+    "zod": ">=3.20.0",
+    "express": ">=4.18.0",
+    "@types/express": "*",
+    "hono": ">=4.0.0",
+    "fastify": ">=4.0.0",
+    "elysia": ">=1.0.0"
   },
   "peerDependenciesMeta": {
     "zod": {
+      "optional": true
+    },
+    "next": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "express": {
+      "optional": true
+    },
+    "@types/express": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    },
+    "fastify": {
+      "optional": true
+    },
+    "elysia": {
       "optional": true
     }
   },

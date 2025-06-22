@@ -54,7 +54,20 @@ export {
 export type { S3Router } from "./types";
 
 // Framework adapters
-export { toNextJsHandler, toNextJsPagesHandler } from "./adapters";
+export {
+  toBunHandler,
+  toElysiaHandler,
+  toElysiaRouteHandler,
+  toExpressHandler,
+  toFastifyHandler,
+  toFastifyRouteHandler,
+  toHonoHandler,
+  toHonoRouteHandler,
+  toNextJsHandler,
+  toNextJsPagesHandler,
+  toSolidStartHandler,
+  toTanStackStartHandler,
+} from "./adapters";
 
 // ========================================
 // STORAGE API
