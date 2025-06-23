@@ -1,6 +1,6 @@
 # Pushduck
 
-![Next.js S3 File Uploader](Next.js-S3-Uploader.png)
+![Pushduck - S3 File Uploader](pushduck.png)
 
 ![npm](https://img.shields.io/npm/dm/pushduck)
 ![npm](https://img.shields.io/npm/v/pushduck)
