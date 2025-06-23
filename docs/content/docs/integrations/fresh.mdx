@@ -1,0 +1,672 @@
+---
+title: Fresh
+description: Deno-powered file uploads with Fresh using Web Standards - no adapter needed!
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+# Fresh Integration
+
+Fresh is a modern web framework for Deno that uses islands architecture for optimal performance. It uses Web Standards APIs and provides server-side rendering with minimal client-side JavaScript. Since Fresh uses standard `Request`/`Response` objects, pushduck handlers work directly without any adapters!
+
+<Callout type="info">
+  **Web Standards Native**: Fresh API routes use Web Standard `Request`/`Response` objects, making pushduck integration seamless with zero overhead.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install Fresh and pushduck**
+    
+    ```bash
+    # Create a new Fresh project
+    deno run -A -r https://fresh.deno.dev my-app
+    cd my-app
+    
+    # Add pushduck to import_map.json
+    ```
+    
+    ```json title="import_map.json"
+    {
+      "imports": {
+        "$fresh/": "https://deno.land/x/fresh@1.6.1/",
+        "preact": "https://esm.sh/preact@10.19.2",
+        "preact/": "https://esm.sh/preact@10.19.2/",
+        "pushduck/server": "https://esm.sh/pushduck@latest/server",
+        "pushduck/client": "https://esm.sh/pushduck@latest/client"
+      }
+    }
+    ```
+  </Step>
+
+  <Step>
+    **Configure upload router**
+    
+    ```typescript title="lib/upload.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    const { s3, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: Deno.env.get("AWS_ACCESS_KEY_ID")!,
+        secretAccessKey: Deno.env.get("AWS_SECRET_ACCESS_KEY")!,
+        region: 'auto',
+        endpoint: Deno.env.get("AWS_ENDPOINT_URL")!,
+        bucket: Deno.env.get("S3_BUCKET_NAME")!,
+        accountId: Deno.env.get("R2_ACCOUNT_ID")!,
+      })
+      .build();
+
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create API route**
+    
+    ```typescript title="routes/api/upload/[...path].ts"
+    import { Handlers } from "$fresh/server.ts";
+    import { uploadRouter } from "../../../lib/upload.ts";
+
+    // Direct usage - no adapter needed!
+    export const handler: Handlers = {
+      async GET(req) {
+        return uploadRouter.handlers(req);
+      },
+      async POST(req) {
+        return uploadRouter.handlers(req);
+      },
+    };
+    ```
+  </Step>
+</Steps>
+
+## Basic Integration
+
+### Simple Upload Route
+
+```typescript title="routes/api/upload/[...path].ts"
+import { Handlers } from "$fresh/server.ts";
+import { uploadRouter } from "../../../lib/upload.ts";
+
+// Method 1: Combined handler (recommended)
+export const handler: Handlers = {
+  async GET(req) {
+    return uploadRouter.handlers(req);
+  },
+  async POST(req) {
+    return uploadRouter.handlers(req);
+  },
+};
+
+// Method 2: Universal handler
+export const handler: Handlers = {
+  async GET(req) {
+    return uploadRouter.handlers(req);
+  },
+  async POST(req) {
+    return uploadRouter.handlers(req);
+  },
+  async OPTIONS(req) {
+    return new Response(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    });
+  },
+};
+```
+
+### With Middleware
+
+```typescript title="routes/_middleware.ts"
+import { MiddlewareHandlerContext } from "$fresh/server.ts";
+
+export async function handler(
+  req: Request,
+  ctx: MiddlewareHandlerContext,
+) {
+  // Add CORS headers for upload routes
+  if (ctx.destination === "route" && req.url.includes("/api/upload")) {
+    const response = await ctx.next();
+    response.headers.set("Access-Control-Allow-Origin", "*");
+    response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+    return response;
+  }
+  
+  return ctx.next();
+}
+```
+
+## Advanced Configuration
+
+### Authentication with Fresh
+
+```typescript title="lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+import { getCookies } from "https://deno.land/std@0.208.0/http/cookie.ts";
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: Deno.env.get("AWS_ACCESS_KEY_ID")!,
+    secretAccessKey: Deno.env.get("AWS_SECRET_ACCESS_KEY")!,
+    region: 'auto',
+    endpoint: Deno.env.get("AWS_ENDPOINT_URL")!,
+    bucket: Deno.env.get("S3_BUCKET_NAME")!,
+    accountId: Deno.env.get("R2_ACCOUNT_ID")!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Private uploads with cookie-based authentication
+  privateUpload: s3
+    .image()
+    .max("5MB")
+    .middleware(async ({ req }) => {
+      const cookies = getCookies(req.headers);
+      const sessionId = cookies.sessionId;
+      
+      if (!sessionId) {
+        throw new Error('Authentication required');
+      }
+      
+      const user = await getUserFromSession(sessionId);
+      if (!user) {
+        throw new Error('Invalid session');
+      }
+      
+      return {
+        userId: user.id,
+        username: user.username,
+      };
+    }),
+
+  // Public uploads (no auth)
+  publicUpload: s3
+    .image()
+    .max("2MB")
+    // No middleware = public access
+});
+
+export type AppUploadRouter = typeof uploadRouter;
+
+// Helper function
+async function getUserFromSession(sessionId: string) {
+  // Implement your session validation logic
+  // This could connect to a database, Deno KV, etc.
+  return { id: 'user-123', username: 'demo-user' };
+}
+```
+
+## Client-Side Usage
+
+### Upload Island Component
+
+```tsx title="islands/FileUpload.tsx"
+import { useUpload } from "pushduck/client";
+import type { AppUploadRouter } from "../lib/upload.ts";
+
+const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
+  endpoint: "/api/upload",
+});
+
+export default function FileUpload() {
+  function handleUploadComplete(files: any[]) {
+    console.log("Files uploaded:", files);
+    alert("Upload completed!");
+  }
+
+  function handleUploadError(error: Error) {
+    console.error("Upload error:", error);
+    alert(`Upload failed: ${error.message}`);
+  }
+
+  return (
+    <div class="space-y-6">
+      <div>
+        <h3 class="text-lg font-semibold mb-2">Image Upload</h3>
+        <UploadButton
+          endpoint="imageUpload"
+          onClientUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
+        />
+      </div>
+
+      <div>
+        <h3 class="text-lg font-semibold mb-2">Document Upload</h3>
+        <UploadDropzone
+          endpoint="documentUpload"
+          onClientUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+### Using in Pages
+
+```tsx title="routes/index.tsx"
+import { Head } from "$fresh/runtime.ts";
+import FileUpload from "../islands/FileUpload.tsx";
+
+export default function Home() {
+  return (
+    <>
+      <Head>
+        <title>File Upload Demo</title>
+      </Head>
+      <main class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8">File Upload Demo</h1>
+        <FileUpload />
+      </main>
+    </>
+  );
+}
+```
+
+## File Management
+
+### Server-Side File API
+
+```typescript title="routes/api/files.ts"
+import { Handlers } from "$fresh/server.ts";
+
+export const handler: Handlers = {
+  async GET(req) {
+    const url = new URL(req.url);
+    const userId = url.searchParams.get('userId');
+    
+    if (!userId) {
+      return new Response(JSON.stringify({ error: 'User ID required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // Fetch files from database/Deno KV
+    const files = await getFilesForUser(userId);
+    
+    return new Response(JSON.stringify({
+      files: files.map(file => ({
+        id: file.id,
+        name: file.name,
+        url: file.url,
+        size: file.size,
+        uploadedAt: file.createdAt,
+      })),
+    }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  },
+};
+
+async function getFilesForUser(userId: string) {
+  // Example using Deno KV
+  const kv = await Deno.openKv();
+  const files = [];
+  
+  for await (const entry of kv.list({ prefix: ["files", userId] })) {
+    files.push(entry.value);
+  }
+  
+  return files;
+}
+```
+
+### File Management Page
+
+```tsx title="routes/files.tsx"
+import { Head } from "$fresh/runtime.ts";
+import { Handlers, PageProps } from "$fresh/server.ts";
+import FileUpload from "../islands/FileUpload.tsx";
+
+interface FileData {
+  id: string;
+  name: string;
+  url: string;
+  size: number;
+  uploadedAt: string;
+}
+
+interface PageData {
+  files: FileData[];
+}
+
+export const handler: Handlers<PageData> = {
+  async GET(req, ctx) {
+    // Fetch files for current user
+    const files = await getFilesForUser("current-user");
+    
+    return ctx.render({ files });
+  },
+};
+
+export default function FilesPage({ data }: PageProps<PageData>) {
+  function formatFileSize(bytes: number): string {
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 Bytes';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  }
+
+  return (
+    <>
+      <Head>
+        <title>My Files</title>
+      </Head>
+      <main class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8">My Files</h1>
+        
+        <div class="mb-8">
+          <FileUpload />
+        </div>
+        
+        <div>
+          <h2 class="text-2xl font-semibold mb-4">Uploaded Files</h2>
+          
+          {data.files.length === 0 ? (
+            <p class="text-gray-500">No files uploaded yet.</p>
+          ) : (
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {data.files.map((file) => (
+                <div key={file.id} class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <h3 class="font-medium truncate" title={file.name}>
+                    {file.name}
+                  </h3>
+                  <p class="text-sm text-gray-500">
+                    {formatFileSize(file.size)}
+                  </p>
+                  <p class="text-sm text-gray-500">
+                    {new Date(file.uploadedAt).toLocaleDateString()}
+                  </p>
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-blue-500 hover:underline text-sm mt-2 inline-block"
+                  >
+                    View File
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+    </>
+  );
+}
+
+async function getFilesForUser(userId: string) {
+  // Implementation depends on your storage solution
+  return [];
+}
+```
+
+## Deployment Options
+
+<Tabs items={["Deno Deploy", "Docker", "Self-hosted"]}>
+  <Tab value="Deno Deploy">
+    ```bash
+    # Deploy to Deno Deploy
+    deno task build
+    deployctl deploy --project=my-app --include=. --exclude=node_modules
+    ```
+    
+    ```json title="deno.json"
+    {
+      "tasks": {
+        "build": "deno run -A dev.ts build",
+        "preview": "deno run -A main.ts",
+        "start": "deno run -A --watch=static/,routes/ dev.ts",
+        "deploy": "deployctl deploy --project=my-app --include=. --exclude=node_modules"
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab value="Docker">
+    ```dockerfile title="Dockerfile"
+    FROM denoland/deno:1.38.0
+
+    WORKDIR /app
+
+    # Copy dependency files
+    COPY deno.json deno.lock import_map.json ./
+
+    # Cache dependencies
+    RUN deno cache --import-map=import_map.json main.ts
+
+    # Copy source code
+    COPY . .
+
+    # Build the application
+    RUN deno task build
+
+    EXPOSE 8000
+
+    CMD ["deno", "run", "-A", "main.ts"]
+    ```
+  </Tab>
+  
+  <Tab value="Self-hosted">
+    ```bash
+    # Install Deno
+    curl -fsSL https://deno.land/install.sh | sh
+
+    # Clone and run your app
+    git clone <your-repo>
+    cd <your-app>
+    deno task start
+    ```
+    
+    ```systemd title="/etc/systemd/system/fresh-app.service"
+    [Unit]
+    Description=Fresh App
+    After=network.target
+
+    [Service]
+    Type=simple
+    User=deno
+    WorkingDirectory=/opt/fresh-app
+    ExecStart=/home/deno/.deno/bin/deno run -A main.ts
+    Restart=always
+
+    [Install]
+    WantedBy=multi-user.target
+    ```
+  </Tab>
+</Tabs>
+
+## Environment Variables
+
+```bash title=".env"
+# AWS Configuration
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_S3_BUCKET=your-bucket-name
+
+# Fresh
+PORT=8000
+```
+
+## Performance Benefits
+
+<Cards>
+  <Card title="Islands Architecture" description="Only hydrate interactive components, minimal JavaScript" />
+  <Card title="Web Standards" description="No adapter overhead - direct Request/Response usage" />
+  <Card title="Deno Runtime" description="Modern runtime with built-in TypeScript and security" />
+  <Card title="Edge Ready" description="Works on edge runtimes and CDNs" />
+</Cards>
+
+## Real-Time Upload Progress
+
+```tsx title="islands/AdvancedUpload.tsx"
+import { useState } from "preact/hooks";
+
+export default function AdvancedUpload() {
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+
+  async function handleFileUpload(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const files = target.files;
+    
+    if (!files || files.length === 0) return;
+    
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    try {
+      // Simulate upload progress
+      for (let i = 0; i <= 100; i += 10) {
+        setUploadProgress(i);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      alert('Upload completed!');
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Upload failed!');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  }
+
+  return (
+    <div class="upload-container max-w-md mx-auto">
+      <input
+        type="file"
+        multiple
+        onChange={handleFileUpload}
+        disabled={isUploading}
+        class="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+      />
+      
+      {isUploading && (
+        <div class="mt-4">
+          <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              class="h-full bg-green-500 transition-all duration-300 ease-out"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+          <p class="text-center mt-2 text-sm text-gray-600">
+            {uploadProgress}% uploaded
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Deno KV Integration
+
+```typescript title="lib/storage.ts"
+// Example using Deno KV for file metadata storage
+export class FileStorage {
+  private kv: Deno.Kv;
+
+  constructor() {
+    this.kv = await Deno.openKv();
+  }
+
+  async saveFileMetadata(userId: string, file: {
+    id: string;
+    name: string;
+    url: string;
+    size: number;
+    type: string;
+  }) {
+    const key = ["files", userId, file.id];
+    await this.kv.set(key, {
+      ...file,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  async getFilesForUser(userId: string) {
+    const files = [];
+    for await (const entry of this.kv.list({ prefix: ["files", userId] })) {
+      files.push(entry.value);
+    }
+    return files;
+  }
+
+  async deleteFile(userId: string, fileId: string) {
+    const key = ["files", userId, fileId];
+    await this.kv.delete(key);
+  }
+}
+
+export const fileStorage = new FileStorage();
+```
+
+## Troubleshooting
+
+<Callout type="warn">
+  **Common Issues**
+  
+  1. **Route not found**: Ensure your route is `routes/api/upload/[...path].ts`
+  2. **Import errors**: Check your `import_map.json` configuration
+  3. **Permissions**: Deno requires explicit permissions (`-A` flag for all permissions)
+  4. **Environment variables**: Use `Deno.env.get()` instead of `process.env`
+</Callout>
+
+### Debug Mode
+
+Enable debug logging:
+
+```typescript title="lib/upload.ts"
+export const uploadRouter = createS3Router({
+  // ... routes
+}).middleware(async ({ req, file }) => {
+  if (Deno.env.get("DENO_ENV") === "development") {
+    console.log("Upload request:", req.url);
+    console.log("File:", file.name, file.size);
+  }
+  return {};
+});
+```
+
+### Fresh Configuration
+
+```typescript title="fresh.config.ts"
+import { defineConfig } from "$fresh/server.ts";
+
+export default defineConfig({
+  plugins: [],
+  // Enable static file serving
+  staticDir: "./static",
+  // Custom build options
+  build: {
+    target: ["chrome99", "firefox99", "safari15"],
+  },
+});
+```
+
+Fresh provides an excellent foundation for building modern web applications with Deno and pushduck, combining the power of islands architecture with Web Standards APIs and Deno's secure runtime environment. 

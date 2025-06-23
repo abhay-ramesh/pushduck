@@ -1,0 +1,665 @@
+---
+title: Qwik
+description: Edge-optimized file uploads with Qwik using Web Standards - no adapter needed!
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+# Qwik Integration
+
+Qwik is a revolutionary web framework focused on resumability and edge optimization. It uses Web Standards APIs and provides instant loading with minimal JavaScript. Since Qwik uses standard `Request`/`Response` objects, pushduck handlers work directly without any adapters!
+
+<Callout type="info">
+  **Web Standards Native**: Qwik server endpoints use Web Standard `Request`/`Response` objects, making pushduck integration seamless with zero overhead and perfect for edge deployment.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install dependencies**
+    
+    ```bash
+    npm install @builder.io/qwik pushduck
+    # or
+    pnpm add @builder.io/qwik pushduck
+    # or
+    bun add @builder.io/qwik pushduck
+    ```
+  </Step>
+
+  <Step>
+    **Configure upload router**
+    
+    ```typescript title="src/lib/upload.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    const { s3, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID!,
+        secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: import.meta.env.VITE_AWS_ENDPOINT_URL!,
+        bucket: import.meta.env.VITE_S3_BUCKET_NAME!,
+        accountId: import.meta.env.VITE_R2_ACCOUNT_ID!,
+      })
+      .build();
+
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create API route**
+    
+    ```typescript title="src/routes/api/upload/[...path]/index.ts"
+    import type { RequestHandler } from '@builder.io/qwik-city';
+    import { uploadRouter } from '~/lib/upload';
+
+    // Direct usage - no adapter needed!
+    export const onGet: RequestHandler = async ({ request }) => {
+      return uploadRouter.handlers(request);
+    };
+
+    export const onPost: RequestHandler = async ({ request }) => {
+      return uploadRouter.handlers(request);
+    };
+    ```
+  </Step>
+</Steps>
+
+## Basic Integration
+
+### Simple Upload Route
+
+```typescript title="src/routes/api/upload/[...path]/index.ts"
+import type { RequestHandler } from '@builder.io/qwik-city';
+import { uploadRouter } from '~/lib/upload';
+
+// Method 1: Combined handler (recommended)
+export const onRequest: RequestHandler = async ({ request }) => {
+  return uploadRouter.handlers(request);
+};
+
+// Method 2: Separate handlers (if you need method-specific logic)
+export const onGet: RequestHandler = async ({ request }) => {
+  return uploadRouter.handlers.GET(request);
+};
+
+export const onPost: RequestHandler = async ({ request }) => {
+  return uploadRouter.handlers.POST(request);
+};
+```
+
+### With CORS Support
+
+```typescript title="src/routes/api/upload/[...path]/index.ts"
+import type { RequestHandler } from '@builder.io/qwik-city';
+import { uploadRouter } from '~/lib/upload';
+
+export const onRequest: RequestHandler = async ({ request, headers }) => {
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    headers.set('Access-Control-Allow-Origin', '*');
+    headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    return new Response(null, { status: 200 });
+  }
+
+  const response = await uploadRouter.handlers(request);
+  
+  // Add CORS headers to actual response
+  headers.set('Access-Control-Allow-Origin', '*');
+  
+  return response;
+};
+```
+
+## Advanced Configuration
+
+### Authentication with Qwik
+
+```typescript title="src/lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID!,
+    secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: import.meta.env.VITE_AWS_ENDPOINT_URL!,
+    bucket: import.meta.env.VITE_S3_BUCKET_NAME!,
+    accountId: import.meta.env.VITE_R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Private uploads with cookie-based authentication
+  privateUpload: s3
+    .image()
+    .max("5MB")
+    .middleware(async ({ req }) => {
+      const cookies = req.headers.get('Cookie');
+      const sessionId = parseCookie(cookies)?.sessionId;
+      
+      if (!sessionId) {
+        throw new Error('Authentication required');
+      }
+      
+      const user = await getUserFromSession(sessionId);
+      if (!user) {
+        throw new Error('Invalid session');
+      }
+      
+      return {
+        userId: user.id,
+        username: user.username,
+      };
+    }),
+
+  // Public uploads (no auth)
+  publicUpload: s3
+    .image()
+    .max("2MB")
+    // No middleware = public access
+});
+
+export type AppUploadRouter = typeof uploadRouter;
+
+// Helper functions
+function parseCookie(cookieString: string | null) {
+  if (!cookieString) return {};
+  return Object.fromEntries(
+    cookieString.split('; ').map(c => {
+      const [key, ...v] = c.split('=');
+      return [key, v.join('=')];
+    })
+  );
+}
+
+async function getUserFromSession(sessionId: string) {
+  // Implement your session validation logic
+  return { id: 'user-123', username: 'demo-user' };
+}
+```
+
+## Client-Side Usage
+
+### Upload Component
+
+```tsx title="src/components/file-upload.tsx"
+import { component$, useSignal } from '@builder.io/qwik';
+import { useUpload } from "pushduck/client";
+import type { AppUploadRouter } from "~/lib/upload";
+
+export const FileUpload = component$(() => {
+  const uploadProgress = useSignal(0);
+  const isUploading = useSignal(false);
+
+  const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
+    endpoint: "/api/upload",
+  });
+
+  const handleUploadComplete = $((files: any[]) => {
+    console.log("Files uploaded:", files);
+    alert("Upload completed!");
+  });
+
+  const handleUploadError = $((error: Error) => {
+    console.error("Upload error:", error);
+    alert(`Upload failed: ${error.message}`);
+  });
+
+  return (
+    <div class="space-y-6">
+      <div>
+        <h3 class="text-lg font-semibold mb-2">Image Upload</h3>
+        <UploadButton
+          endpoint="imageUpload"
+          onClientUploadComplete$={handleUploadComplete}
+          onUploadError$={handleUploadError}
+        />
+      </div>
+
+      <div>
+        <h3 class="text-lg font-semibold mb-2">Document Upload</h3>
+        <UploadDropzone
+          endpoint="documentUpload"
+          onClientUploadComplete$={handleUploadComplete}
+          onUploadError$={handleUploadError}
+        />
+      </div>
+    </div>
+  );
+});
+```
+
+### Using in Routes
+
+```tsx title="src/routes/index.tsx"
+import { component$ } from '@builder.io/qwik';
+import type { DocumentHead } from '@builder.io/qwik-city';
+import { FileUpload } from '~/components/file-upload';
+
+export default component$(() => {
+  return (
+    <main class="container mx-auto px-4 py-8">
+      <h1 class="text-3xl font-bold mb-8">File Upload Demo</h1>
+      <FileUpload />
+    </main>
+  );
+});
+
+export const head: DocumentHead = {
+  title: 'File Upload Demo',
+  meta: [
+    {
+      name: 'description',
+      content: 'Qwik file upload demo with pushduck',
+    },
+  ],
+};
+```
+
+## File Management
+
+### Server-Side File Loader
+
+```typescript title="src/routes/files/index.tsx"
+import { component$ } from '@builder.io/qwik';
+import type { DocumentHead } from '@builder.io/qwik-city';
+import { routeLoader$ } from '@builder.io/qwik-city';
+import { FileUpload } from '~/components/file-upload';
+
+export const useFiles = routeLoader$(async (requestEvent) => {
+  const userId = 'current-user'; // Get from session/auth
+  
+  // Fetch files from database
+  const files = await getFilesForUser(userId);
+  
+  return {
+    files: files.map(file => ({
+      id: file.id,
+      name: file.name,
+      url: file.url,
+      size: file.size,
+      uploadedAt: file.createdAt,
+    })),
+  };
+});
+
+export default component$(() => {
+  const filesData = useFiles();
+  
+  const formatFileSize = (bytes: number): string => {
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 Bytes';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  return (
+    <main class="container mx-auto px-4 py-8">
+      <h1 class="text-3xl font-bold mb-8">My Files</h1>
+      
+      <div class="mb-8">
+        <FileUpload />
+      </div>
+      
+      <div>
+        <h2 class="text-2xl font-semibold mb-4">Uploaded Files</h2>
+        
+        {filesData.value.files.length === 0 ? (
+          <p class="text-gray-500">No files uploaded yet.</p>
+        ) : (
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filesData.value.files.map((file) => (
+              <div key={file.id} class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                <h3 class="font-medium truncate" title={file.name}>
+                  {file.name}
+                </h3>
+                <p class="text-sm text-gray-500">
+                  {formatFileSize(file.size)}
+                </p>
+                <p class="text-sm text-gray-500">
+                  {new Date(file.uploadedAt).toLocaleDateString()}
+                </p>
+                <a
+                  href={file.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-blue-500 hover:underline text-sm mt-2 inline-block"
+                >
+                  View File
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  );
+});
+
+export const head: DocumentHead = {
+  title: 'My Files',
+};
+
+async function getFilesForUser(userId: string) {
+  // Implement your database query logic
+  return [];
+}
+```
+
+## Deployment Options
+
+<Tabs items={["Cloudflare Pages", "Vercel", "Netlify", "Deno Deploy"]}>
+  <Tab value="Cloudflare Pages">
+    ```typescript title="vite.config.ts"
+    import { defineConfig } from 'vite';
+    import { qwikVite } from '@builder.io/qwik/optimizer';
+    import { qwikCity } from '@builder.io/qwik-city/vite';
+    import { qwikCloudflarePages } from '@builder.io/qwik-city/adapters/cloudflare-pages/vite';
+
+    export default defineConfig(() => {
+      return {
+        plugins: [
+          qwikCity({
+            adapter: qwikCloudflarePages(),
+          }),
+          qwikVite(),
+        ],
+      };
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Vercel">
+    ```typescript title="vite.config.ts"
+    import { defineConfig } from 'vite';
+    import { qwikVite } from '@builder.io/qwik/optimizer';
+    import { qwikCity } from '@builder.io/qwik-city/vite';
+    import { qwikVercel } from '@builder.io/qwik-city/adapters/vercel-edge/vite';
+
+    export default defineConfig(() => {
+      return {
+        plugins: [
+          qwikCity({
+            adapter: qwikVercel(),
+          }),
+          qwikVite(),
+        ],
+      };
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Netlify">
+    ```typescript title="vite.config.ts"
+    import { defineConfig } from 'vite';
+    import { qwikVite } from '@builder.io/qwik/optimizer';
+    import { qwikCity } from '@builder.io/qwik-city/vite';
+    import { qwikNetlifyEdge } from '@builder.io/qwik-city/adapters/netlify-edge/vite';
+
+    export default defineConfig(() => {
+      return {
+        plugins: [
+          qwikCity({
+            adapter: qwikNetlifyEdge(),
+          }),
+          qwikVite(),
+        ],
+      };
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Deno Deploy">
+    ```typescript title="vite.config.ts"
+    import { defineConfig } from 'vite';
+    import { qwikVite } from '@builder.io/qwik/optimizer';
+    import { qwikCity } from '@builder.io/qwik-city/vite';
+    import { qwikDeno } from '@builder.io/qwik-city/adapters/deno/vite';
+
+    export default defineConfig(() => {
+      return {
+        plugins: [
+          qwikCity({
+            adapter: qwikDeno(),
+          }),
+          qwikVite(),
+        ],
+      };
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## Environment Variables
+
+```bash title=".env"
+# AWS Configuration
+VITE_AWS_REGION=us-east-1
+VITE_AWS_ACCESS_KEY_ID=your_access_key
+VITE_AWS_SECRET_ACCESS_KEY=your_secret_key
+VITE_AWS_S3_BUCKET=your-bucket-name
+
+# Qwik
+VITE_PUBLIC_UPLOAD_ENDPOINT=http://localhost:5173/api/upload
+```
+
+## Performance Benefits
+
+<Cards>
+  <Card title="Resumability" description="Zero hydration - apps resume from server state" />
+  <Card title="Web Standards" description="No adapter overhead - direct Request/Response usage" />
+  <Card title="Edge Optimized" description="Perfect for edge deployment and CDNs" />
+  <Card title="Instant Loading" description="O(1) JavaScript loading regardless of app size" />
+</Cards>
+
+## Real-Time Upload Progress
+
+```tsx title="src/components/advanced-upload.tsx"
+import { component$, useSignal, $ } from '@builder.io/qwik';
+
+export const AdvancedUpload = component$(() => {
+  const uploadProgress = useSignal(0);
+  const isUploading = useSignal(false);
+
+  const handleFileUpload = $(async (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const files = target.files;
+    
+    if (!files || files.length === 0) return;
+    
+    isUploading.value = true;
+    uploadProgress.value = 0;
+    
+    try {
+      // Simulate upload progress
+      for (let i = 0; i <= 100; i += 10) {
+        uploadProgress.value = i;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      alert('Upload completed!');
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Upload failed!');
+    } finally {
+      isUploading.value = false;
+      uploadProgress.value = 0;
+    }
+  });
+
+  return (
+    <div class="upload-container max-w-md mx-auto">
+      <input
+        type="file"
+        multiple
+        onChange$={handleFileUpload}
+        disabled={isUploading.value}
+        class="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+      />
+      
+      {isUploading.value && (
+        <div class="mt-4">
+          <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              class="h-full bg-green-500 transition-all duration-300 ease-out"
+              style={{ width: `${uploadProgress.value}%` }}
+            />
+          </div>
+          <p class="text-center mt-2 text-sm text-gray-600">
+            {uploadProgress.value}% uploaded
+          </p>
+        </div>
+      )}
+    </div>
+  );
+});
+```
+
+## Qwik City Form Integration
+
+```tsx title="src/routes/upload-form/index.tsx"
+import { component$ } from '@builder.io/qwik';
+import type { DocumentHead } from '@builder.io/qwik-city';
+import { routeAction$, Form, zod$, z } from '@builder.io/qwik-city';
+import { FileUpload } from '~/components/file-upload';
+
+export const useUploadAction = routeAction$(async (data, requestEvent) => {
+  // Handle form submission
+  // Files are already uploaded via pushduck, just save metadata
+  console.log('Form data:', data);
+  
+  // Redirect to files page
+  throw requestEvent.redirect(302, '/files');
+}, zod$({
+  title: z.string().min(1),
+  description: z.string().optional(),
+}));
+
+export default component$(() => {
+  const uploadAction = useUploadAction();
+
+  return (
+    <main class="max-w-2xl mx-auto p-6">
+      <h1 class="text-2xl font-bold mb-6">Upload Files</h1>
+      
+      <Form action={uploadAction} class="space-y-6">
+        <div>
+          <label for="title" class="block text-sm font-medium mb-2">
+            Title
+          </label>
+          <input
+            type="text"
+            id="title"
+            name="title"
+            required
+            class="w-full p-3 border border-gray-300 rounded-lg"
+          />
+        </div>
+        
+        <div>
+          <label for="description" class="block text-sm font-medium mb-2">
+            Description
+          </label>
+          <textarea
+            id="description"
+            name="description"
+            rows={4}
+            class="w-full p-3 border border-gray-300 rounded-lg"
+          />
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium mb-2">
+            Files
+          </label>
+          <FileUpload />
+        </div>
+        
+        <button
+          type="submit"
+          disabled={uploadAction.isRunning}
+          class="w-full bg-blue-500 text-white p-3 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+        >
+          {uploadAction.isRunning ? "Uploading..." : "Upload Files"}
+        </button>
+      </Form>
+    </main>
+  );
+});
+
+export const head: DocumentHead = {
+  title: 'Upload Form',
+};
+```
+
+## Troubleshooting
+
+<Callout type="warn">
+  **Common Issues**
+  
+  1. **Route not found**: Ensure your route is `src/routes/api/upload/[...path]/index.ts`
+  2. **Build errors**: Check that pushduck is properly installed and configured
+  3. **Environment variables**: Use `import.meta.env.VITE_` prefix for client-side variables
+  4. **Resumability**: Remember to use `$` suffix for event handlers and functions
+</Callout>
+
+### Debug Mode
+
+Enable debug logging:
+
+```typescript title="src/lib/upload.ts"
+export const uploadRouter = createS3Router({
+  // ... routes
+}).middleware(async ({ req, file }) => {
+  if (import.meta.env.DEV) {
+    console.log("Upload request:", req.url);
+    console.log("File:", file.name, file.size);
+  }
+  return {};
+});
+```
+
+### Qwik Configuration
+
+```typescript title="vite.config.ts"
+import { defineConfig } from 'vite';
+import { qwikVite } from '@builder.io/qwik/optimizer';
+import { qwikCity } from '@builder.io/qwik-city/vite';
+
+export default defineConfig(() => {
+  return {
+    plugins: [qwikCity(), qwikVite()],
+    preview: {
+      headers: {
+        'Cache-Control': 'public, max-age=600',
+      },
+    },
+    // Environment variables configuration
+    define: {
+      'import.meta.env.VITE_AWS_ACCESS_KEY_ID': JSON.stringify(process.env.VITE_AWS_ACCESS_KEY_ID),
+    }
+  };
+});
+```
+
+Qwik provides a revolutionary approach to web development with pushduck, offering instant loading and resumability while maintaining full compatibility with Web Standards APIs for optimal edge performance. 

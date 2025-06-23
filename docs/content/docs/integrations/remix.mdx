@@ -1,0 +1,642 @@
+---
+title: Remix
+description: Full-stack React file uploads with Remix using Web Standards - no adapter needed!
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+# Remix Integration
+
+Remix is a full-stack React framework focused on web standards and modern UX. It uses Web Standards APIs and provides server-side rendering with client-side hydration. Since Remix uses standard `Request`/`Response` objects, pushduck handlers work directly without any adapters!
+
+<Callout type="info">
+  **Web Standards Native**: Remix loader and action functions use Web Standard `Request`/`Response` objects, making pushduck integration seamless with zero overhead.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install dependencies**
+    
+    ```bash
+    npm install @remix-run/node pushduck
+    # or
+    pnpm add @remix-run/node pushduck
+    # or
+    bun add @remix-run/node pushduck
+    ```
+  </Step>
+
+  <Step>
+    **Configure upload router**
+    
+    ```typescript title="app/lib/upload.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    const { s3, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: process.env.AWS_ENDPOINT_URL!,
+        bucket: process.env.S3_BUCKET_NAME!,
+        accountId: process.env.R2_ACCOUNT_ID!,
+      })
+      .build();
+
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create API route**
+    
+    ```typescript title="app/routes/api.upload.$.tsx"
+    import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+    import { uploadRouter } from "~/lib/upload";
+
+    // Direct usage - no adapter needed!
+    export async function loader({ request }: LoaderFunctionArgs) {
+      return uploadRouter.handlers(request);
+    }
+
+    export async function action({ request }: ActionFunctionArgs) {
+      return uploadRouter.handlers(request);
+    }
+    ```
+  </Step>
+</Steps>
+
+## Basic Integration
+
+### Simple Upload Route
+
+```typescript title="app/routes/api.upload.$.tsx"
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { uploadRouter } from "~/lib/upload";
+
+// Method 1: Combined handler (recommended)
+export async function loader({ request }: LoaderFunctionArgs) {
+  return uploadRouter.handlers(request);
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  return uploadRouter.handlers(request);
+}
+
+// Method 2: Method-specific handlers (if you need different logic)
+export async function loader({ request }: LoaderFunctionArgs) {
+  if (request.method === 'GET') {
+    return uploadRouter.handlers.GET(request);
+  }
+  throw new Response("Method not allowed", { status: 405 });
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  if (request.method === 'POST') {
+    return uploadRouter.handlers.POST(request);
+  }
+  throw new Response("Method not allowed", { status: 405 });
+}
+```
+
+### With Resource Route
+
+```typescript title="app/routes/api.upload.$.tsx"
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { uploadRouter } from "~/lib/upload";
+
+// Handle CORS for cross-origin requests
+export async function loader({ request }: LoaderFunctionArgs) {
+  // Handle preflight requests
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    });
+  }
+  
+  const response = await uploadRouter.handlers(request);
+  
+  // Add CORS headers
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  
+  return response;
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  const response = await uploadRouter.handlers(request);
+  
+  // Add CORS headers
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  
+  return response;
+}
+```
+
+## Advanced Configuration
+
+### Authentication with Remix
+
+```typescript title="app/lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+import { getSession } from '~/sessions';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Private uploads with session authentication
+  privateUpload: s3
+    .image()
+    .max("5MB")
+    .middleware(async ({ req }) => {
+      const cookie = req.headers.get("Cookie");
+      const session = await getSession(cookie);
+      
+      if (!session.has("userId")) {
+        throw new Error("Authentication required");
+      }
+      
+      return {
+        userId: session.get("userId"),
+        username: session.get("username"),
+      };
+    }),
+
+  // Public uploads (no auth)
+  publicUpload: s3
+    .image()
+    .max("2MB")
+    // No middleware = public access
+});
+
+export type AppUploadRouter = typeof uploadRouter;
+```
+
+## Client-Side Usage
+
+### Remix Upload Hook
+
+```typescript title="app/hooks/useUpload.ts"
+import { useUpload } from "pushduck/client";
+import type { AppUploadRouter } from "~/lib/upload";
+
+export const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
+  endpoint: "/api/upload",
+});
+```
+
+### Upload Component
+
+```tsx title="app/components/FileUpload.tsx"
+import { UploadButton, UploadDropzone } from "~/hooks/useUpload";
+
+export function FileUpload() {
+  function handleUploadComplete(files: any[]) {
+    console.log("Files uploaded:", files);
+    alert("Upload completed!");
+  }
+
+  function handleUploadError(error: Error) {
+    console.error("Upload error:", error);
+    alert(`Upload failed: ${error.message}`);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold mb-2">Image Upload</h3>
+        <UploadButton
+          endpoint="imageUpload"
+          onClientUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
+        />
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold mb-2">Document Upload</h3>
+        <UploadDropzone
+          endpoint="documentUpload"
+          onClientUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+### Using in Routes
+
+```tsx title="app/routes/_index.tsx"
+import { FileUpload } from "~/components/FileUpload";
+
+export default function Index() {
+  return (
+    <div className="p-8">
+      <h1 className="text-2xl font-bold mb-6">File Upload Demo</h1>
+      <FileUpload />
+    </div>
+  );
+}
+```
+
+## File Management
+
+### Server-Side File Loader
+
+```typescript title="app/routes/files.tsx"
+import type { LoaderFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import { useLoaderData } from "@remix-run/react";
+import { FileUpload } from "~/components/FileUpload";
+import { getSession } from "~/sessions";
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  const cookie = request.headers.get("Cookie");
+  const session = await getSession(cookie);
+  
+  if (!session.has("userId")) {
+    throw new Response("Unauthorized", { status: 401 });
+  }
+  
+  const userId = session.get("userId");
+  
+  // Fetch files from database
+  const files = await db.file.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+  });
+  
+  return json({
+    files: files.map(file => ({
+      id: file.id,
+      name: file.name,
+      url: file.url,
+      size: file.size,
+      uploadedAt: file.createdAt,
+    })),
+  });
+}
+
+export default function FilesPage() {
+  const { files } = useLoaderData<typeof loader>();
+  
+  function formatFileSize(bytes: number): string {
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 Bytes';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-8">My Files</h1>
+      
+      <div className="mb-8">
+        <FileUpload />
+      </div>
+      
+      <div>
+        <h2 className="text-2xl font-semibold mb-4">Uploaded Files</h2>
+        
+        {files.length === 0 ? (
+          <p className="text-gray-500">No files uploaded yet.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {files.map((file) => (
+              <div key={file.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                <h3 className="font-medium truncate" title={file.name}>
+                  {file.name}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {formatFileSize(file.size)}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {new Date(file.uploadedAt).toLocaleDateString()}
+                </p>
+                <a
+                  href={file.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline text-sm mt-2 inline-block"
+                >
+                  View File
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+## Deployment Options
+
+<Tabs items={["Vercel", "Netlify", "Fly.io", "Railway"]}>
+  <Tab value="Vercel">
+    ```typescript title="remix.config.js"
+    /** @type {import('@remix-run/dev').AppConfig} */
+    export default {
+      ignoredRouteFiles: ["**/.*"],
+      server: "./server.ts",
+      serverBuildPath: "api/index.js",
+      // Vercel configuration
+      serverConditions: ["workerd", "worker", "browser"],
+      serverDependenciesToBundle: "all",
+      serverMainFields: ["browser", "module", "main"],
+      serverMinify: true,
+      serverModuleFormat: "esm",
+      serverPlatform: "neutral",
+    };
+    ```
+  </Tab>
+  
+  <Tab value="Netlify">
+    ```typescript title="remix.config.js"
+    /** @type {import('@remix-run/dev').AppConfig} */
+    export default {
+      ignoredRouteFiles: ["**/.*"],
+      server: "./server.ts",
+      serverBuildPath: ".netlify/functions-internal/server.js",
+      // Netlify configuration
+      serverConditions: ["deno", "worker", "browser"],
+      serverDependenciesToBundle: "all",
+      serverMainFields: ["browser", "module", "main"],
+      serverMinify: true,
+      serverModuleFormat: "esm",
+      serverPlatform: "neutral",
+    };
+    ```
+  </Tab>
+  
+  <Tab value="Fly.io">
+    ```dockerfile title="Dockerfile"
+    FROM node:18-alpine
+
+    WORKDIR /app
+
+    COPY package*.json ./
+    RUN npm ci --only=production
+
+    COPY . .
+    RUN npm run build
+
+    EXPOSE 3000
+
+    CMD ["npm", "start"]
+    ```
+  </Tab>
+  
+  <Tab value="Railway">
+    ```json title="package.json"
+    {
+      "scripts": {
+        "build": "remix build",
+        "dev": "remix dev",
+        "start": "remix-serve build",
+        "typecheck": "tsc"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Environment Variables
+
+```bash title=".env"
+# AWS Configuration
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_S3_BUCKET=your-bucket-name
+
+# Session Secret
+SESSION_SECRET=your-session-secret
+
+# Database
+DATABASE_URL=your-database-url
+```
+
+## Performance Benefits
+
+<Cards>
+  <Card title="Progressive Enhancement" description="Works without JavaScript, enhances with it" />
+  <Card title="Web Standards" description="No adapter overhead - direct Request/Response usage" />
+  <Card title="Nested Routing" description="Efficient data loading with nested routes" />
+  <Card title="Edge Ready" description="Works on edge runtimes and CDNs" />
+</Cards>
+
+## Real-Time Upload Progress
+
+```tsx title="app/components/AdvancedUpload.tsx"
+import { useState } from "react";
+
+export function AdvancedUpload() {
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+
+  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files;
+    
+    if (!files || files.length === 0) return;
+    
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    try {
+      // Simulate upload progress
+      for (let i = 0; i <= 100; i += 10) {
+        setUploadProgress(i);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      alert('Upload completed!');
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Upload failed!');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  }
+
+  return (
+    <div className="upload-container max-w-md mx-auto">
+      <input
+        type="file"
+        multiple
+        onChange={handleFileUpload}
+        disabled={isUploading}
+        className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+      />
+      
+      {isUploading && (
+        <div className="mt-4">
+          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-green-500 transition-all duration-300 ease-out"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+          <p className="text-center mt-2 text-sm text-gray-600">
+            {uploadProgress}% uploaded
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Form Integration
+
+```tsx title="app/routes/upload-form.tsx"
+import type { ActionFunctionArgs } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
+import { Form, useActionData, useNavigation } from "@remix-run/react";
+
+export async function action({ request }: ActionFunctionArgs) {
+  const formData = await request.formData();
+  const title = formData.get("title") as string;
+  const description = formData.get("description") as string;
+  
+  // Handle form submission with file uploads
+  // Files are already uploaded via pushduck, just save metadata
+  
+  return redirect("/files");
+}
+
+export default function UploadForm() {
+  const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
+
+  return (
+    <div className="max-w-2xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">Upload Files</h1>
+      
+      <Form method="post" className="space-y-6">
+        <div>
+          <label htmlFor="title" className="block text-sm font-medium mb-2">
+            Title
+          </label>
+          <input
+            type="text"
+            id="title"
+            name="title"
+            required
+            className="w-full p-3 border border-gray-300 rounded-lg"
+          />
+        </div>
+        
+        <div>
+          <label htmlFor="description" className="block text-sm font-medium mb-2">
+            Description
+          </label>
+          <textarea
+            id="description"
+            name="description"
+            rows={4}
+            className="w-full p-3 border border-gray-300 rounded-lg"
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Files
+          </label>
+          <FileUpload />
+        </div>
+        
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full bg-blue-500 text-white p-3 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+        >
+          {isSubmitting ? "Uploading..." : "Upload Files"}
+        </button>
+      </Form>
+    </div>
+  );
+}
+```
+
+## Troubleshooting
+
+<Callout type="warn">
+  **Common Issues**
+  
+  1. **Route not found**: Ensure your route is `app/routes/api.upload.$.tsx`
+  2. **Build errors**: Check that pushduck is properly installed
+  3. **Session issues**: Make sure your session configuration is correct
+  4. **CORS errors**: Add proper CORS headers in your resource routes
+</Callout>
+
+### Debug Mode
+
+Enable debug logging:
+
+```typescript title="app/lib/upload.ts"
+export const uploadRouter = createS3Router({
+  // ... routes
+}).middleware(async ({ req, file }) => {
+  if (process.env.NODE_ENV === "development") {
+    console.log("Upload request:", req.url);
+    console.log("File:", file.name, file.size);
+  }
+  return {};
+});
+```
+
+### Session Configuration
+
+```typescript title="app/sessions.ts"
+import { createCookieSessionStorage } from "@remix-run/node";
+
+export const { getSession, commitSession, destroySession } =
+  createCookieSessionStorage({
+    cookie: {
+      name: "__session",
+      httpOnly: true,
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+      path: "/",
+      sameSite: "lax",
+      secrets: [process.env.SESSION_SECRET!],
+      secure: process.env.NODE_ENV === "production",
+    },
+  });
+```
+
+Remix provides an excellent foundation for building full-stack React applications with pushduck, combining the power of React with Web Standards APIs and progressive enhancement for optimal user experience. 

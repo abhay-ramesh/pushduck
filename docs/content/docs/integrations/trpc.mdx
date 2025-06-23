@@ -1,0 +1,737 @@
+---
+title: tRPC
+description: End-to-end typesafe file storage operations with tRPC - uploads handled by your framework!
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+# tRPC Integration
+
+tRPC enables end-to-end typesafe APIs with excellent TypeScript integration. With pushduck, you use **tRPC for storage operations** (listing, deleting, metadata) while **file uploads happen through your framework's routes** using pushduck handlers. This gives you the best of both worlds: framework-native uploads with type-safe storage management.
+
+<Callout type="info">
+  **Separation of Concerns**: File uploads use your framework's native upload routes with pushduck handlers, while tRPC procedures handle all storage-related CRUD operations using pushduck's storage API for full type safety.
+</Callout>
+
+## Architecture Overview
+
+<Mermaid diagram={`
+graph TD
+    A[Client Upload Component] --> B[Framework Upload Route]
+    A --> C[tRPC Storage Procedures]
+    
+    B --> D[pushduck Upload Handler]
+    C --> E[pushduck Storage API]
+    
+    D --> F[S3/R2 Storage]
+    E --> F
+    
+    B --> G[File Upload Success]
+    G --> C
+`} />
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install dependencies**
+    
+    ```bash
+    npm install @trpc/server @trpc/client pushduck
+    # Framework-specific tRPC packages:
+    # @trpc/next (for Next.js)
+    # @trpc/react-query (for React)
+    ```
+  </Step>
+
+  <Step>
+    **Configure storage and upload router**
+    
+    ```typescript title="lib/storage.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    // Configure storage
+    export const { s3, storage, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: process.env.AWS_ENDPOINT_URL!,
+        bucket: process.env.S3_BUCKET_NAME!,
+        accountId: process.env.R2_ACCOUNT_ID!,
+      })
+      .build();
+
+    // Upload router for framework routes
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create tRPC router with storage operations**
+    
+    ```typescript title="server/trpc.ts"
+    import { initTRPC, TRPCError } from '@trpc/server';
+    import { z } from 'zod';
+    import { storage } from '~/lib/storage';
+
+    const t = initTRPC.create();
+
+    export const appRouter = t.router({
+      files: t.router({
+        // List files with pagination
+        list: t.procedure
+          .input(z.object({ 
+            prefix: z.string().optional(),
+            limit: z.number().min(1).max(100).default(20),
+            cursor: z.string().optional()
+          }))
+          .query(async ({ input }) => {
+            const result = await storage.list.paginated({
+              prefix: input.prefix,
+              maxKeys: input.limit,
+              continuationToken: input.cursor,
+            });
+            
+            return {
+              files: result.files,
+              nextCursor: result.nextContinuationToken,
+              hasMore: result.isTruncated,
+            };
+          }),
+
+        // Get file metadata
+        getInfo: t.procedure
+          .input(z.object({ key: z.string() }))
+          .query(async ({ input }) => {
+            const info = await storage.metadata.getInfo(input.key);
+            if (!info.exists) {
+              throw new TRPCError({ 
+                code: 'NOT_FOUND', 
+                message: 'File not found' 
+              });
+            }
+            return info;
+          }),
+
+        // Get multiple files info
+        getBatch: t.procedure
+          .input(z.object({ keys: z.array(z.string()) }))
+          .query(async ({ input }) => {
+            return await storage.metadata.getBatch(input.keys);
+          }),
+
+        // Delete file
+        delete: t.procedure
+          .input(z.object({ key: z.string() }))
+          .mutation(async ({ input }) => {
+            const result = await storage.delete.file(input.key);
+            return { success: result.success };
+          }),
+
+        // Delete multiple files
+        deleteBatch: t.procedure
+          .input(z.object({ keys: z.array(z.string()) }))
+          .mutation(async ({ input }) => {
+            const result = await storage.delete.files(input.keys);
+            return { 
+              success: result.success,
+              deleted: result.deleted,
+              errors: result.errors,
+            };
+          }),
+
+        // Generate download URL
+        getDownloadUrl: t.procedure
+          .input(z.object({ 
+            key: z.string(),
+            expiresIn: z.number().optional()
+          }))
+          .query(async ({ input }) => {
+            const result = await storage.download.presignedUrl(
+              input.key, 
+              input.expiresIn
+            );
+            return { url: result.url, expiresAt: result.expiresAt };
+          }),
+
+        // Search files by extension
+        searchByExtension: t.procedure
+          .input(z.object({ 
+            extension: z.string(),
+            prefix: z.string().optional()
+          }))
+          .query(async ({ input }) => {
+            return await storage.list.byExtension(
+              input.extension, 
+              input.prefix
+            );
+          }),
+
+        // Search files by size range
+        searchBySize: t.procedure
+          .input(z.object({
+            minSize: z.number().optional(),
+            maxSize: z.number().optional(),
+            prefix: z.string().optional()
+          }))
+          .query(async ({ input }) => {
+            return await storage.list.bySize(
+              input.minSize,
+              input.maxSize,
+              input.prefix
+            );
+          }),
+
+        // Get storage statistics
+        getStats: t.procedure
+          .input(z.object({ prefix: z.string().optional() }))
+          .query(async ({ input }) => {
+            const files = await storage.list.files({ prefix: input.prefix });
+            
+            const stats = files.files.reduce((acc, file) => {
+              acc.totalSize += file.size;
+              acc.count += 1;
+              
+              const ext = file.key.split('.').pop()?.toLowerCase() || 'unknown';
+              acc.byExtension[ext] = (acc.byExtension[ext] || 0) + 1;
+              
+              return acc;
+            }, {
+              totalSize: 0,
+              count: 0,
+              byExtension: {} as Record<string, number>
+            });
+            
+            return stats;
+          }),
+      }),
+    });
+
+    export type AppRouter = typeof appRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create framework upload route**
+    
+    <Tabs items={["Next.js", "Remix", "SvelteKit"]}>
+      <Tab value="Next.js">
+        ```typescript title="app/api/upload/[...path]/route.ts"
+        import { uploadRouter } from '~/lib/storage';
+
+        // Handle file uploads through framework route
+        export const { GET, POST } = uploadRouter.handlers;
+        ```
+      </Tab>
+      
+      <Tab value="Remix">
+        ```typescript title="app/routes/api.upload.$.tsx"
+        import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+        import { uploadRouter } from "~/lib/storage";
+
+        export async function loader({ request }: LoaderFunctionArgs) {
+          return uploadRouter.handlers(request);
+        }
+
+        export async function action({ request }: ActionFunctionArgs) {
+          return uploadRouter.handlers(request);
+        }
+        ```
+      </Tab>
+      
+      <Tab value="SvelteKit">
+        ```typescript title="src/routes/api/upload/[...path]/+server.ts"
+        import type { RequestHandler } from './$types';
+        import { uploadRouter } from '$lib/storage';
+
+        export const GET: RequestHandler = async ({ request }) => {
+          return uploadRouter.handlers(request);
+        };
+
+        export const POST: RequestHandler = async ({ request }) => {
+          return uploadRouter.handlers(request);
+        };
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    **Create tRPC API route**
+    
+    <Tabs items={["Next.js", "Express", "Standalone"]}>
+      <Tab value="Next.js">
+        ```typescript title="app/api/trpc/[trpc]/route.ts"
+        import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
+        import { appRouter } from '~/server/trpc';
+
+        const handler = (req: Request) =>
+          fetchRequestHandler({
+            endpoint: '/api/trpc',
+            req,
+            router: appRouter,
+            createContext: () => ({}),
+          });
+
+        export { handler as GET, handler as POST };
+        ```
+      </Tab>
+      
+      <Tab value="Express">
+        ```typescript title="server/index.ts"
+        import express from 'express';
+        import * as trpcExpress from '@trpc/server/adapters/express';
+        import { appRouter } from './trpc';
+        import { uploadRouter } from './storage';
+        import { toExpressHandler } from 'pushduck/adapters/express';
+
+        const app = express();
+
+        // tRPC for storage operations
+        app.use('/api/trpc', trpcExpress.createExpressMiddleware({
+          router: appRouter,
+          createContext: () => ({}),
+        }));
+
+        // pushduck for file uploads
+        app.all('/api/upload/*', toExpressHandler(uploadRouter.handlers));
+
+        app.listen(3000);
+        ```
+      </Tab>
+      
+      <Tab value="Standalone">
+        ```typescript title="server/index.ts"
+        import { createHTTPServer } from '@trpc/server/adapters/standalone';
+        import { appRouter } from './trpc';
+
+        // tRPC server for storage operations
+        const server = createHTTPServer({
+          router: appRouter,
+          createContext: () => ({}),
+        });
+
+        server.listen(3001); // Different port for tRPC
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+## Client-Side Integration
+
+### React with tRPC and pushduck
+
+```tsx title="components/FileManager.tsx"
+import { trpc } from '~/lib/trpc';
+import { useUpload } from 'pushduck/client';
+import type { AppUploadRouter } from '~/lib/storage';
+
+// Upload hooks are from pushduck (framework-native)
+const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
+  endpoint: "/api/upload",
+});
+
+export function FileManager() {
+  // Storage operations are from tRPC (type-safe)
+  const { 
+    data: files, 
+    refetch,
+    fetchNextPage,
+    hasNextPage 
+  } = trpc.files.list.useInfiniteQuery(
+    { limit: 20 },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+    }
+  );
+  
+  const deleteFile = trpc.files.delete.useMutation({
+    onSuccess: () => refetch(),
+  });
+  
+  const getDownloadUrl = trpc.files.getDownloadUrl.useMutation();
+  const fileStats = trpc.files.getStats.useQuery({});
+
+  const handleUploadComplete = async (uploadedFiles: any[]) => {
+    // Files are uploaded, refresh the list
+    await refetch();
+    console.log('Upload completed:', uploadedFiles);
+  };
+
+  const handleDelete = async (key: string) => {
+    if (confirm('Are you sure you want to delete this file?')) {
+      await deleteFile.mutateAsync({ key });
+    }
+  };
+
+  const handleDownload = async (key: string) => {
+    const result = await getDownloadUrl.mutateAsync({ key });
+    window.open(result.url, '_blank');
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Upload Section - Uses pushduck hooks */}
+      <div>
+        <h2 className="text-2xl font-bold mb-4">Upload Files</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Images</h3>
+            <UploadButton
+              endpoint="imageUpload"
+              onClientUploadComplete={handleUploadComplete}
+              onUploadError={(error) => alert(`Upload failed: ${error.message}`)}
+            />
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Documents</h3>
+            <UploadDropzone
+              endpoint="documentUpload"
+              onClientUploadComplete={handleUploadComplete}
+              onUploadError={(error) => alert(`Upload failed: ${error.message}`)}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Section - Uses tRPC */}
+      <div className="bg-gray-50 p-4 rounded-lg">
+        <h3 className="text-lg font-semibold mb-2">Storage Statistics</h3>
+        {fileStats.data && (
+          <div className="grid grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="font-medium">Total Files:</span> {fileStats.data.count}
+            </div>
+            <div>
+              <span className="font-medium">Total Size:</span> {formatFileSize(fileStats.data.totalSize)}
+            </div>
+            <div>
+              <span className="font-medium">Extensions:</span> {Object.keys(fileStats.data.byExtension).join(', ')}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* File List Section - Uses tRPC */}
+      <div>
+        <h2 className="text-2xl font-bold mb-4">Your Files</h2>
+        
+        {files?.pages[0]?.files.length === 0 ? (
+          <p className="text-gray-500">No files uploaded yet.</p>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {files?.pages.flatMap(page => page.files).map((file) => (
+                <div key={file.key} className="border rounded-lg p-4">
+                  <h3 className="font-medium truncate" title={file.key}>
+                    {file.key.split('/').pop()}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {formatFileSize(file.size)}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {new Date(file.lastModified).toLocaleDateString()}
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => handleDownload(file.key)}
+                      className="text-blue-500 hover:underline text-sm"
+                      disabled={getDownloadUrl.isLoading}
+                    >
+                      Download
+                    </button>
+                    <button
+                      onClick={() => handleDelete(file.key)}
+                      className="text-red-500 hover:underline text-sm"
+                      disabled={deleteFile.isLoading}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {hasNextPage && (
+              <button
+                onClick={() => fetchNextPage()}
+                className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+              >
+                Load More Files
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatFileSize(bytes: number): string {
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  if (bytes === 0) return '0 Bytes';
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+}
+```
+
+### Advanced File Search
+
+```tsx title="components/FileSearch.tsx"
+import { useState } from 'react';
+import { trpc } from '~/lib/trpc';
+
+export function FileSearch() {
+  const [searchType, setSearchType] = useState<'extension' | 'size'>('extension');
+  const [extension, setExtension] = useState('');
+  const [minSize, setMinSize] = useState<number>();
+  const [maxSize, setMaxSize] = useState<number>();
+
+  // Type-safe search operations via tRPC
+  const searchByExtension = trpc.files.searchByExtension.useQuery(
+    { extension },
+    { enabled: searchType === 'extension' && !!extension }
+  );
+
+  const searchBySize = trpc.files.searchBySize.useQuery(
+    { minSize, maxSize },
+    { enabled: searchType === 'size' && (!!minSize || !!maxSize) }
+  );
+
+  const results = searchType === 'extension' ? searchByExtension.data : searchBySize.data;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-4">
+        <select 
+          value={searchType} 
+          onChange={(e) => setSearchType(e.target.value as any)}
+          className="border rounded px-3 py-2"
+        >
+          <option value="extension">By Extension</option>
+          <option value="size">By Size</option>
+        </select>
+
+        {searchType === 'extension' ? (
+          <input
+            type="text"
+            placeholder="e.g., jpg, pdf, mp4"
+            value={extension}
+            onChange={(e) => setExtension(e.target.value)}
+            className="border rounded px-3 py-2 flex-1"
+          />
+        ) : (
+          <div className="flex gap-2 flex-1">
+            <input
+              type="number"
+              placeholder="Min size (bytes)"
+              value={minSize || ''}
+              onChange={(e) => setMinSize(Number(e.target.value) || undefined)}
+              className="border rounded px-3 py-2 flex-1"
+            />
+            <input
+              type="number"
+              placeholder="Max size (bytes)"
+              value={maxSize || ''}
+              onChange={(e) => setMaxSize(Number(e.target.value) || undefined)}
+              className="border rounded px-3 py-2 flex-1"
+            />
+          </div>
+        )}
+      </div>
+
+      {results && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {results.files.map((file) => (
+            <div key={file.key} className="border rounded-lg p-4">
+              <h3 className="font-medium truncate">{file.key}</h3>
+              <p className="text-sm text-gray-500">{formatFileSize(file.size)}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Authentication Integration
+
+```typescript title="server/trpc.ts"
+import { initTRPC, TRPCError } from '@trpc/server';
+import { storage } from '~/lib/storage';
+
+// Create context with user authentication
+export const createContext = async ({ req }: { req: Request }) => {
+  const authHeader = req.headers.get('authorization');
+  
+  if (!authHeader?.startsWith('Bearer ')) {
+    return { user: null };
+  }
+  
+  try {
+    const token = authHeader.substring(7);
+    const user = await validateToken(token); // Your auth logic
+    return { user };
+  } catch {
+    return { user: null };
+  }
+};
+
+type Context = Awaited<ReturnType<typeof createContext>>;
+const t = initTRPC.context<Context>().create();
+
+// Auth middleware
+const isAuthenticated = t.middleware(({ next, ctx }) => {
+  if (!ctx.user) {
+    throw new TRPCError({ code: 'UNAUTHORIZED' });
+  }
+  return next({ ctx: { ...ctx, user: ctx.user } });
+});
+
+const protectedProcedure = t.procedure.use(isAuthenticated);
+
+export const appRouter = t.router({
+  files: t.router({
+    // User's files only
+    list: protectedProcedure
+      .input(z.object({ prefix: z.string().optional() }))
+      .query(async ({ input, ctx }) => {
+        // Scope to user's folder
+        const userPrefix = `users/${ctx.user.id}/${input.prefix || ''}`;
+        return await storage.list.files({ prefix: userPrefix });
+      }),
+
+    // User can only delete their own files
+    delete: protectedProcedure
+      .input(z.object({ key: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        // Ensure user owns the file
+        if (!input.key.startsWith(`users/${ctx.user.id}/`)) {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        
+        return await storage.delete.file(input.key);
+      }),
+  }),
+});
+```
+
+## Real-time Updates with Subscriptions
+
+```typescript title="server/trpc.ts"
+import { observable } from '@trpc/server/observable';
+import { EventEmitter } from 'events';
+
+const fileEventEmitter = new EventEmitter();
+
+export const appRouter = t.router({
+  files: t.router({
+    // ... other procedures
+
+    // Real-time file updates
+    onUpdate: protectedProcedure
+      .subscription(({ ctx }) => {
+        return observable<{ type: 'uploaded' | 'deleted'; file: any }>((emit) => {
+          const onFileEvent = (data: any) => {
+            // Only emit events for this user's files
+            if (data.userId === ctx.user.id) {
+              emit.next(data);
+            }
+          };
+          
+          fileEventEmitter.on('file:event', onFileEvent);
+          
+          return () => {
+            fileEventEmitter.off('file:event', onFileEvent);
+          };
+        });
+      }),
+  }),
+});
+
+// Emit events from upload completion
+export const emitFileEvent = (type: 'uploaded' | 'deleted', file: any, userId: string) => {
+  fileEventEmitter.emit('file:event', { type, file, userId });
+};
+```
+
+## Performance Benefits
+
+<Cards>
+  <Card title="Type Safety" description="Full TypeScript support for all storage operations" />
+  <Card title="Optimistic Updates" description="Fast UI updates with automatic rollback on errors" />
+  <Card title="Efficient Queries" description="React Query integration with caching and deduplication" />
+  <Card title="Real-time Sync" description="WebSocket subscriptions for live file updates" />
+</Cards>
+
+## Key Advantages
+
+### **Clear Separation**
+- **Uploads**: Framework-native routes with pushduck handlers
+- **Storage Operations**: Type-safe tRPC procedures with pushduck storage API
+- **Client**: Framework upload hooks + tRPC queries/mutations
+
+### **Best of Both Worlds**
+- **Framework-optimized uploads** (progress, validation, middleware)
+- **Type-safe storage management** (list, delete, search, metadata)
+- **Unified developer experience** with consistent patterns
+
+### **Scalable Architecture**
+- **Independent scaling** of upload and API operations
+- **Flexible deployment** (separate services if needed)
+- **Framework agnostic** storage operations
+
+## Troubleshooting
+
+<Callout type="warn">
+  **Common Issues**
+  
+  1. **Mixed responsibilities**: Don't try to handle uploads in tRPC procedures - use framework routes
+  2. **Type mismatches**: Ensure storage operations use the same config as upload routes
+  3. **Authentication**: Sync auth between upload middleware and tRPC context
+  4. **CORS**: Configure CORS for both `/api/trpc` and `/api/upload` endpoints
+</Callout>
+
+### Debug Mode
+
+```typescript title="lib/debug.ts"
+// Enable debug logging for both systems
+export const debugConfig = {
+  trpc: process.env.NODE_ENV === 'development',
+  storage: process.env.NODE_ENV === 'development',
+};
+
+// Storage debug logging
+export const storage = createStorage(config).middleware?.(async (operation, params) => {
+  if (debugConfig.storage) {
+    console.log("Storage operation:", operation, params);
+  }
+});
+
+// Upload debug logging  
+export const uploadRouter = createS3Router({
+  // ... routes
+}).middleware(async ({ req, file }) => {
+  if (debugConfig.storage) {
+    console.log("Upload request:", req.url);
+    console.log("File:", file.name, file.size);
+  }
+  return {};
+});
+```
+
+This architecture gives you **framework-native file uploads** with **type-safe storage management**, combining the strengths of both pushduck and tRPC for a superior developer experience. 

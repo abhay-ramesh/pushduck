@@ -3,13 +3,26 @@
     "description": "Integrate pushduck with your favorite web framework",
     "pages": [
         "overview",
+        "---Full-Stack Frameworks---",
         "nextjs",
+        "remix",
+        "sveltekit",
+        "nuxtjs",
+        "tanstack-start",
+        "solidjs-start",
+        "qwik",
+        "---Static Site & Islands---",
+        "astro",
+        "fresh",
+        "---Runtime & Edge---",
         "hono",
         "elysia",
         "bun",
-        "tanstack-start",
-        "solidjs-start",
+        "nitro-h3",
+        "---Traditional Server---",
         "express",
-        "fastify"
+        "fastify",
+        "---Mobile Development---",
+        "expo"
     ]
 }

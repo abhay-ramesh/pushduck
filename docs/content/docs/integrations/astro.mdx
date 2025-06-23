@@ -1,0 +1,628 @@
+---
+title: Astro
+description: Modern static site file uploads with Astro using Web Standards - no adapter needed!
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+# Astro Integration
+
+Astro is a modern web framework for building fast, content-focused websites with islands architecture. It uses Web Standards APIs and provides excellent performance with minimal JavaScript. Since Astro uses standard `Request`/`Response` objects, pushduck handlers work directly without any adapters!
+
+<Callout type="info">
+  **Web Standards Native**: Astro API routes use Web Standard `Request`/`Response` objects, making pushduck integration seamless with zero overhead.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install dependencies**
+    
+    ```bash
+    npm install astro pushduck
+    # or
+    pnpm add astro pushduck
+    # or
+    bun add astro pushduck
+    ```
+  </Step>
+
+  <Step>
+    **Configure upload router**
+    
+    ```typescript title="src/lib/upload.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    const { s3, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: import.meta.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: import.meta.env.AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: import.meta.env.AWS_ENDPOINT_URL!,
+        bucket: import.meta.env.S3_BUCKET_NAME!,
+        accountId: import.meta.env.R2_ACCOUNT_ID!,
+      })
+      .build();
+
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create API route**
+    
+    ```typescript title="src/pages/api/upload/[...path].ts"
+    import type { APIRoute } from 'astro';
+    import { uploadRouter } from '../../../lib/upload';
+
+    // Direct usage - no adapter needed!
+    export const ALL: APIRoute = async ({ request }) => {
+      return uploadRouter.handlers(request);
+    };
+    ```
+  </Step>
+</Steps>
+
+## Basic Integration
+
+### Simple Upload Route
+
+```typescript title="src/pages/api/upload/[...path].ts"
+import type { APIRoute } from 'astro';
+import { uploadRouter } from '../../../lib/upload';
+
+// Method 1: Combined handler (recommended)
+export const ALL: APIRoute = async ({ request }) => {
+  return uploadRouter.handlers(request);
+};
+
+// Method 2: Separate handlers (if you need method-specific logic)
+export const GET: APIRoute = async ({ request }) => {
+  return uploadRouter.handlers.GET(request);
+};
+
+export const POST: APIRoute = async ({ request }) => {
+  return uploadRouter.handlers.POST(request);
+};
+```
+
+### With CORS Support
+
+```typescript title="src/pages/api/upload/[...path].ts"
+import type { APIRoute } from 'astro';
+import { uploadRouter } from '../../../lib/upload';
+
+export const ALL: APIRoute = async ({ request }) => {
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    });
+  }
+
+  const response = await uploadRouter.handlers(request);
+  
+  // Add CORS headers to actual response
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  
+  return response;
+};
+```
+
+## Advanced Configuration
+
+### Authentication with Astro
+
+```typescript title="src/lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: import.meta.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: import.meta.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: import.meta.env.AWS_ENDPOINT_URL!,
+    bucket: import.meta.env.S3_BUCKET_NAME!,
+    accountId: import.meta.env.R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Private uploads with cookie-based authentication
+  privateUpload: s3
+    .image()
+    .max("5MB")
+    .middleware(async ({ req }) => {
+      const cookies = req.headers.get('Cookie');
+      const sessionId = parseCookie(cookies)?.sessionId;
+      
+      if (!sessionId) {
+        throw new Error('Authentication required');
+      }
+      
+      const user = await getUserFromSession(sessionId);
+      if (!user) {
+        throw new Error('Invalid session');
+      }
+      
+      return {
+        userId: user.id,
+        username: user.username,
+      };
+    }),
+
+  // Public uploads (no auth)
+  publicUpload: s3
+    .image()
+    .max("2MB")
+    // No middleware = public access
+});
+
+export type AppUploadRouter = typeof uploadRouter;
+
+// Helper functions
+function parseCookie(cookieString: string | null) {
+  if (!cookieString) return {};
+  return Object.fromEntries(
+    cookieString.split('; ').map(c => {
+      const [key, ...v] = c.split('=');
+      return [key, v.join('=')];
+    })
+  );
+}
+
+async function getUserFromSession(sessionId: string) {
+  // Implement your session validation logic
+  // This could connect to a database, Redis, etc.
+  return { id: 'user-123', username: 'demo-user' };
+}
+```
+
+## Client-Side Usage
+
+### Upload Component (React)
+
+```tsx title="src/components/FileUpload.tsx"
+import { useUpload } from "pushduck/client";
+import type { AppUploadRouter } from "../lib/upload";
+
+const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
+  endpoint: "/api/upload",
+});
+
+export default function FileUpload() {
+  function handleUploadComplete(files: any[]) {
+    console.log("Files uploaded:", files);
+    alert("Upload completed!");
+  }
+
+  function handleUploadError(error: Error) {
+    console.error("Upload error:", error);
+    alert(`Upload failed: ${error.message}`);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold mb-2">Image Upload</h3>
+        <UploadButton
+          endpoint="imageUpload"
+          onClientUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
+        />
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold mb-2">Document Upload</h3>
+        <UploadDropzone
+          endpoint="documentUpload"
+          onClientUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+### Upload Component (Vue)
+
+```vue title="src/components/FileUpload.vue"
+<template>
+  <div class="space-y-6">
+    <div>
+      <h3 class="text-lg font-semibold mb-2">Image Upload</h3>
+      <UploadButton
+        endpoint="imageUpload"
+        @client-upload-complete="handleUploadComplete"
+        @upload-error="handleUploadError"
+      />
+    </div>
+
+    <div>
+      <h3 class="text-lg font-semibold mb-2">Document Upload</h3>
+      <UploadDropzone
+        endpoint="documentUpload"
+        @client-upload-complete="handleUploadComplete"
+        @upload-error="handleUploadError"
+      />
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { useUpload } from "pushduck/client";
+import type { AppUploadRouter } from "../lib/upload";
+
+const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
+  endpoint: "/api/upload",
+});
+
+function handleUploadComplete(files: any[]) {
+  console.log("Files uploaded:", files);
+  alert("Upload completed!");
+}
+
+function handleUploadError(error: Error) {
+  console.error("Upload error:", error);
+  alert(`Upload failed: ${error.message}`);
+}
+</script>
+```
+
+### Using in Astro Pages
+
+```astro title="src/pages/index.astro"
+---
+// Server-side code (runs at build time)
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>File Upload Demo</title>
+  </head>
+  <body>
+    <main class="container mx-auto px-4 py-8">
+      <h1 class="text-3xl font-bold mb-8">File Upload Demo</h1>
+      
+      <!-- React component island -->
+      <FileUpload client:load />
+      
+      <!-- Or Vue component island -->
+      <!-- <FileUpload client:load /> -->
+    </main>
+  </body>
+</html>
+
+<script>
+  import FileUpload from '../components/FileUpload.tsx';
+</script>
+```
+
+## File Management
+
+### Server-Side File API
+
+```typescript title="src/pages/api/files.ts"
+import type { APIRoute } from 'astro';
+
+export const GET: APIRoute = async ({ request, url }) => {
+  const searchParams = url.searchParams;
+  const userId = searchParams.get('userId');
+  
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'User ID required' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+  
+  // Fetch files from database
+  const files = await getFilesForUser(userId);
+  
+  return new Response(JSON.stringify({
+    files: files.map(file => ({
+      id: file.id,
+      name: file.name,
+      url: file.url,
+      size: file.size,
+      uploadedAt: file.createdAt,
+    })),
+  }), {
+    headers: { 'Content-Type': 'application/json' }
+  });
+};
+
+async function getFilesForUser(userId: string) {
+  // Implement your database query logic
+  return [];
+}
+```
+
+### File Management Page
+
+```astro title="src/pages/files.astro"
+---
+// This runs on the server at build time or request time
+const files = await fetch(`${Astro.url.origin}/api/files?userId=current-user`)
+  .then(res => res.json())
+  .catch(() => ({ files: [] }));
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width" />
+    <title>My Files</title>
+  </head>
+  <body>
+    <main class="container mx-auto px-4 py-8">
+      <h1 class="text-3xl font-bold mb-8">My Files</h1>
+      
+      <div class="mb-8">
+        <FileUpload client:load />
+      </div>
+      
+      <div>
+        <h2 class="text-2xl font-semibold mb-4">Uploaded Files</h2>
+        
+        {files.files.length === 0 ? (
+          <p class="text-gray-500">No files uploaded yet.</p>
+        ) : (
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {files.files.map((file: any) => (
+              <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                <h3 class="font-medium truncate" title={file.name}>
+                  {file.name}
+                </h3>
+                <p class="text-sm text-gray-500">
+                  {formatFileSize(file.size)}
+                </p>
+                <p class="text-sm text-gray-500">
+                  {new Date(file.uploadedAt).toLocaleDateString()}
+                </p>
+                <a
+                  href={file.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-blue-500 hover:underline text-sm mt-2 inline-block"
+                >
+                  View File
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  </body>
+</html>
+
+<script>
+  import FileUpload from '../components/FileUpload.tsx';
+  
+  function formatFileSize(bytes: number): string {
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 Bytes';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  }
+</script>
+```
+
+## Deployment Options
+
+<Tabs items={["Vercel", "Netlify", "Node.js", "Cloudflare Pages"]}>
+  <Tab value="Vercel">
+    ```javascript title="astro.config.mjs"
+    import { defineConfig } from 'astro/config';
+    import vercel from '@astrojs/vercel/serverless';
+
+    export default defineConfig({
+      output: 'server',
+      adapter: vercel({
+        runtime: 'nodejs18.x',
+      }),
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Netlify">
+    ```javascript title="astro.config.mjs"
+    import { defineConfig } from 'astro/config';
+    import netlify from '@astrojs/netlify/functions';
+
+    export default defineConfig({
+      output: 'server',
+      adapter: netlify(),
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Node.js">
+    ```javascript title="astro.config.mjs"
+    import { defineConfig } from 'astro/config';
+    import node from '@astrojs/node';
+
+    export default defineConfig({
+      output: 'server',
+      adapter: node({
+        mode: 'standalone',
+      }),
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Cloudflare Pages">
+    ```javascript title="astro.config.mjs"
+    import { defineConfig } from 'astro/config';
+    import cloudflare from '@astrojs/cloudflare';
+
+    export default defineConfig({
+      output: 'server',
+      adapter: cloudflare(),
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## Environment Variables
+
+```bash title=".env"
+# AWS Configuration
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_S3_BUCKET=your-bucket-name
+
+# Astro
+PUBLIC_UPLOAD_ENDPOINT=http://localhost:3000/api/upload
+```
+
+## Performance Benefits
+
+<Cards>
+  <Card title="Islands Architecture" description="Only hydrate interactive components, minimal JavaScript" />
+  <Card title="Web Standards" description="No adapter overhead - direct Request/Response usage" />
+  <Card title="Fast Builds" description="Optimized build process with content focus" />
+  <Card title="Edge Ready" description="Works on edge runtimes and CDNs" />
+</Cards>
+
+## Real-Time Upload Progress
+
+```tsx title="src/components/AdvancedUpload.tsx"
+import { useState } from 'react';
+
+export default function AdvancedUpload() {
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+
+  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files;
+    
+    if (!files || files.length === 0) return;
+    
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    try {
+      // Simulate upload progress
+      for (let i = 0; i <= 100; i += 10) {
+        setUploadProgress(i);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      alert('Upload completed!');
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Upload failed!');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  }
+
+  return (
+    <div className="upload-container max-w-md mx-auto">
+      <input
+        type="file"
+        multiple
+        onChange={handleFileUpload}
+        disabled={isUploading}
+        className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+      />
+      
+      {isUploading && (
+        <div className="mt-4">
+          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-green-500 transition-all duration-300 ease-out"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+          <p className="text-center mt-2 text-sm text-gray-600">
+            {uploadProgress}% uploaded
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Troubleshooting
+
+<Callout type="warn">
+  **Common Issues**
+  
+  1. **Route not found**: Ensure your route is `src/pages/api/upload/[...path].ts`
+  2. **Build errors**: Check that pushduck is properly installed and configured
+  3. **Environment variables**: Use `import.meta.env` instead of `process.env`
+  4. **Client components**: Remember to add `client:load` directive for interactive components
+</Callout>
+
+### Debug Mode
+
+Enable debug logging:
+
+```typescript title="src/lib/upload.ts"
+export const uploadRouter = createS3Router({
+  // ... routes
+}).middleware(async ({ req, file }) => {
+  if (import.meta.env.DEV) {
+    console.log("Upload request:", req.url);
+    console.log("File:", file.name, file.size);
+  }
+  return {};
+});
+```
+
+### Astro Configuration
+
+```javascript title="astro.config.mjs"
+import { defineConfig } from 'astro/config';
+import react from '@astrojs/react';
+import vue from '@astrojs/vue';
+
+export default defineConfig({
+  integrations: [
+    react(), // For React components
+    vue(),   // For Vue components
+  ],
+  output: 'server', // Required for API routes
+  vite: {
+    define: {
+      // Make environment variables available
+      'import.meta.env.AWS_ACCESS_KEY_ID': JSON.stringify(process.env.AWS_ACCESS_KEY_ID),
+    }
+  }
+});
+```
+
+Astro provides an excellent foundation for building fast, content-focused websites with pushduck, combining the power of islands architecture with Web Standards APIs for optimal performance and developer experience. 

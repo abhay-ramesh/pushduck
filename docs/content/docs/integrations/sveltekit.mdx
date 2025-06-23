@@ -1,0 +1,568 @@
+---
+title: SvelteKit
+description: Fast, modern file uploads with SvelteKit using Web Standards - no adapter needed!
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+# SvelteKit Integration
+
+SvelteKit is the official application framework for Svelte. It uses Web Standards APIs and provides excellent performance with minimal JavaScript. Since SvelteKit uses standard `Request`/`Response` objects, pushduck handlers work directly without any adapters!
+
+<Callout type="info">
+  **Web Standards Native**: SvelteKit server endpoints use Web Standard `Request`/`Response` objects, making pushduck integration seamless with zero overhead.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install dependencies**
+    
+    ```bash
+    npm install @sveltejs/kit pushduck
+    # or
+    pnpm add @sveltejs/kit pushduck
+    # or
+    bun add @sveltejs/kit pushduck
+    ```
+  </Step>
+
+  <Step>
+    **Configure upload router**
+    
+    ```typescript title="src/lib/upload.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    const { s3, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: process.env.AWS_ENDPOINT_URL!,
+        bucket: process.env.S3_BUCKET_NAME!,
+        accountId: process.env.R2_ACCOUNT_ID!,
+      })
+      .build();
+
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create API route**
+    
+    ```typescript title="src/routes/api/upload/[...path]/+server.ts"
+    import type { RequestHandler } from './$types';
+    import { uploadRouter } from '$lib/upload';
+
+    // Direct usage - no adapter needed!
+    export const GET: RequestHandler = async ({ request }) => {
+      return uploadRouter.handlers(request);
+    };
+
+    export const POST: RequestHandler = async ({ request }) => {
+      return uploadRouter.handlers(request);
+    };
+    ```
+  </Step>
+</Steps>
+
+## Basic Integration
+
+### Simple Upload Route
+
+```typescript title="src/routes/api/upload/[...path]/+server.ts"
+import type { RequestHandler } from './$types';
+import { uploadRouter } from '$lib/upload';
+
+// Method 1: Combined handler (recommended)
+export const GET: RequestHandler = async ({ request }) => {
+  return uploadRouter.handlers(request);
+};
+
+export const POST: RequestHandler = async ({ request }) => {
+  return uploadRouter.handlers(request);
+};
+
+// Method 2: Separate handlers (if you need method-specific logic)
+// export const { GET, POST } = uploadRouter.handlers;
+```
+
+### With SvelteKit Hooks
+
+```typescript title="src/hooks.server.ts"
+import type { Handle } from '@sveltejs/kit';
+import { sequence } from '@sveltejs/kit/hooks';
+
+const corsHandler: Handle = async ({ event, resolve }) => {
+  if (event.url.pathname.startsWith('/api/upload')) {
+    if (event.request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+      });
+    }
+  }
+  
+  const response = await resolve(event);
+  
+  if (event.url.pathname.startsWith('/api/upload')) {
+    response.headers.set('Access-Control-Allow-Origin', '*');
+  }
+  
+  return response;
+};
+
+export const handle = sequence(corsHandler);
+```
+
+## Advanced Configuration
+
+### Authentication with SvelteKit
+
+```typescript title="src/lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+import { getUserFromSession } from '$lib/auth';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Private uploads with session authentication
+  privateUpload: s3
+    .image()
+    .max("5MB")
+    .middleware(async ({ req }) => {
+      const cookies = req.headers.get('Cookie');
+      const sessionId = parseCookie(cookies)?.sessionId;
+      
+      if (!sessionId) {
+        throw new Error('Authentication required');
+      }
+      
+      const user = await getUserFromSession(sessionId);
+      if (!user) {
+        throw new Error('Invalid session');
+      }
+      
+      return {
+        userId: user.id,
+        username: user.username,
+      };
+    }),
+
+  // Public uploads (no auth)
+  publicUpload: s3
+    .image()
+    .max("2MB")
+    // No middleware = public access
+});
+
+export type AppUploadRouter = typeof uploadRouter;
+```
+
+## Client-Side Usage
+
+### Upload Component
+
+```svelte title="src/lib/components/FileUpload.svelte"
+<script lang="ts">
+  import { useUpload } from "pushduck/client";
+  import type { AppUploadRouter } from "$lib/upload";
+  
+  const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
+    endpoint: "/api/upload",
+  });
+  
+  function handleUploadComplete(files: any[]) {
+    console.log("Files uploaded:", files);
+    alert("Upload completed!");
+  }
+  
+  function handleUploadError(error: Error) {
+    console.error("Upload error:", error);
+    alert(`Upload failed: ${error.message}`);
+  }
+</script>
+
+<div class="space-y-6">
+  <div>
+    <h3 class="text-lg font-semibold mb-2">Image Upload</h3>
+    <UploadButton
+      endpoint="imageUpload"
+      onClientUploadComplete={handleUploadComplete}
+      onUploadError={handleUploadError}
+    />
+  </div>
+
+  <div>
+    <h3 class="text-lg font-semibold mb-2">Document Upload</h3>
+    <UploadDropzone
+      endpoint="documentUpload"
+      onClientUploadComplete={handleUploadComplete}
+      onUploadError={handleUploadError}
+    />
+  </div>
+</div>
+```
+
+### Using in Pages
+
+```svelte title="src/routes/+page.svelte"
+<script lang="ts">
+  import FileUpload from "$lib/components/FileUpload.svelte";
+</script>
+
+<svelte:head>
+  <title>File Upload Demo</title>
+</svelte:head>
+
+<main class="container mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold mb-8">File Upload Demo</h1>
+  <FileUpload />
+</main>
+```
+
+## File Management
+
+### Server-Side File Listing
+
+```typescript title="src/routes/files/+page.server.ts"
+import type { PageServerLoad } from './$types';
+import { db } from '$lib/database';
+
+export const load: PageServerLoad = async ({ locals }) => {
+  const files = await db.file.findMany({
+    where: { userId: locals.user?.id },
+    orderBy: { createdAt: 'desc' },
+  });
+  
+  return {
+    files: files.map(file => ({
+      id: file.id,
+      name: file.name,
+      url: file.url,
+      size: file.size,
+      uploadedAt: file.createdAt,
+    })),
+  };
+};
+```
+
+```svelte title="src/routes/files/+page.svelte"
+<script lang="ts">
+  import type { PageData } from './$types';
+  import FileUpload from '$lib/components/FileUpload.svelte';
+  
+  export let data: PageData;
+  
+  function formatFileSize(bytes: number): string {
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 Bytes';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  }
+</script>
+
+<svelte:head>
+  <title>My Files</title>
+</svelte:head>
+
+<main class="container mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold mb-8">My Files</h1>
+  
+  <div class="mb-8">
+    <FileUpload />
+  </div>
+  
+  <div>
+    <h2 class="text-2xl font-semibold mb-4">Uploaded Files</h2>
+    
+    {#if data.files.length === 0}
+      <p class="text-gray-500">No files uploaded yet.</p>
+    {:else}
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {#each data.files as file}
+          <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+            <h3 class="font-medium truncate" title={file.name}>
+              {file.name}
+            </h3>
+            <p class="text-sm text-gray-500">
+              {formatFileSize(file.size)}
+            </p>
+            <p class="text-sm text-gray-500">
+              {new Date(file.uploadedAt).toLocaleDateString()}
+            </p>
+            <a
+              href={file.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-blue-500 hover:underline text-sm mt-2 inline-block"
+            >
+              View File
+            </a>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </div>
+</main>
+```
+
+## Deployment Options
+
+<Tabs items={["Vercel", "Netlify", "Node.js", "Cloudflare Pages"]}>
+  <Tab value="Vercel">
+    ```javascript title="svelte.config.js"
+    import adapter from '@sveltejs/adapter-vercel';
+    import { vitePreprocess } from '@sveltejs/kit/vite';
+
+    /** @type {import('@sveltejs/kit').Config} */
+    const config = {
+      preprocess: vitePreprocess(),
+      
+      kit: {
+        adapter: adapter({
+          runtime: 'nodejs18.x',
+          regions: ['iad1'],
+        }),
+      }
+    };
+
+    export default config;
+    ```
+  </Tab>
+  
+  <Tab value="Netlify">
+    ```javascript title="svelte.config.js"
+    import adapter from '@sveltejs/adapter-netlify';
+
+    /** @type {import('@sveltejs/kit').Config} */
+    const config = {
+      kit: {
+        adapter: adapter({
+          edge: false,
+          split: false
+        }),
+      }
+    };
+
+    export default config;
+    ```
+  </Tab>
+  
+  <Tab value="Node.js">
+    ```javascript title="svelte.config.js"
+    import adapter from '@sveltejs/adapter-node';
+
+    /** @type {import('@sveltejs/kit').Config} */
+    const config = {
+      kit: {
+        adapter: adapter({
+          out: 'build'
+        }),
+      }
+    };
+
+    export default config;
+    ```
+  </Tab>
+  
+  <Tab value="Cloudflare Pages">
+    ```javascript title="svelte.config.js"
+    import adapter from '@sveltejs/adapter-cloudflare';
+
+    /** @type {import('@sveltejs/kit').Config} */
+    const config = {
+      kit: {
+        adapter: adapter({
+          routes: {
+            include: ['/*'],
+            exclude: ['<build>']
+          }
+        }),
+      }
+    };
+
+    export default config;
+    ```
+  </Tab>
+</Tabs>
+
+## Environment Variables
+
+```bash title=".env"
+# AWS Configuration
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_S3_BUCKET=your-bucket-name
+
+# SvelteKit
+PUBLIC_UPLOAD_ENDPOINT=http://localhost:5173/api/upload
+```
+
+## Performance Benefits
+
+<Cards>
+  <Card title="Minimal JavaScript" description="Svelte compiles to vanilla JS with small bundle sizes" />
+  <Card title="Web Standards" description="No adapter overhead - direct Request/Response usage" />
+  <Card title="Fast Hydration" description="Selective hydration of interactive components" />
+  <Card title="Edge Ready" description="Works on edge runtimes and CDNs" />
+</Cards>
+
+## Real-Time Upload Progress
+
+```svelte title="src/lib/components/AdvancedUpload.svelte"
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { writable } from 'svelte/store';
+  
+  const uploadProgress = writable(0);
+  const isUploading = writable(false);
+  
+  let fileInput: HTMLInputElement;
+  
+  async function handleFileUpload(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const files = target.files;
+    
+    if (!files || files.length === 0) return;
+    
+    isUploading.set(true);
+    uploadProgress.set(0);
+    
+    try {
+      // Simulate upload progress
+      for (let i = 0; i <= 100; i += 10) {
+        uploadProgress.set(i);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      alert('Upload completed!');
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Upload failed!');
+    } finally {
+      isUploading.set(false);
+      uploadProgress.set(0);
+    }
+  }
+</script>
+
+<div class="upload-container">
+  <input
+    bind:this={fileInput}
+    type="file"
+    multiple
+    on:change={handleFileUpload}
+    disabled={$isUploading}
+    class="file-input"
+  />
+  
+  {#if $isUploading}
+    <div class="progress-container">
+      <div class="progress-bar" style="width: {$uploadProgress}%"></div>
+    </div>
+    <p class="progress-text">{$uploadProgress}% uploaded</p>
+  {/if}
+</div>
+
+<style>
+  .upload-container {
+    max-width: 400px;
+    margin: 0 auto;
+  }
+  
+  .file-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  
+  .file-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .progress-container {
+    width: 100%;
+    height: 8px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    margin-top: 12px;
+    overflow: hidden;
+  }
+  
+  .progress-bar {
+    height: 100%;
+    background-color: #4CAF50;
+    transition: width 0.3s ease;
+  }
+  
+  .progress-text {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 14px;
+    color: #666;
+  }
+</style>
+```
+
+## Troubleshooting
+
+<Callout type="warn">
+  **Common Issues**
+  
+  1. **Route not found**: Ensure your route is `src/routes/api/upload/[...path]/+server.ts`
+  2. **Build errors**: Check that pushduck is properly installed
+  3. **CORS issues**: SvelteKit handles CORS automatically for same-origin requests
+</Callout>
+
+### Debug Mode
+
+Enable debug logging:
+
+```typescript title="src/lib/upload.ts"
+export const uploadRouter = createS3Router({
+  // ... routes
+}).middleware(async ({ req, file }) => {
+  if (import.meta.env.DEV) {
+    console.log("Upload request:", req.url);
+    console.log("File:", file.name, file.size);
+  }
+  return {};
+});
+```
+
+SvelteKit provides an excellent foundation for building fast, modern web applications with pushduck, combining the power of Svelte's reactive framework with Web Standards APIs. 

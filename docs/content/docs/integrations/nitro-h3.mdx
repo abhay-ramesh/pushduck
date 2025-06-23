@@ -1,0 +1,689 @@
+---
+title: Nitro/H3
+description: Universal web server file uploads with Nitro and H3 using Web Standards - no adapter needed!
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+# Nitro/H3 Integration
+
+Nitro is a universal web server framework that powers Nuxt.js, built on top of H3 (HTTP framework). It uses Web Standards APIs and provides excellent performance with universal deployment. Since Nitro/H3 uses standard `Request`/`Response` objects, pushduck handlers work directly without any adapters!
+
+<Callout type="info">
+  **Web Standards Native**: Nitro/H3 uses Web Standard `Request`/`Response` objects, making pushduck integration seamless with zero overhead and universal deployment capabilities.
+</Callout>
+
+## Quick Setup
+
+<Steps>
+  <Step>
+    **Install dependencies**
+    
+    ```bash
+    npm install nitropack h3 pushduck
+    # or
+    pnpm add nitropack h3 pushduck
+    # or
+    bun add nitropack h3 pushduck
+    ```
+  </Step>
+
+  <Step>
+    **Configure upload router**
+    
+    ```typescript title="lib/upload.ts"
+    import { uploadConfig } from 'pushduck/server';
+
+    const { s3, createS3Router } = uploadConfig
+      .cloudflareR2({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: 'auto',
+        endpoint: process.env.AWS_ENDPOINT_URL!,
+        bucket: process.env.S3_BUCKET_NAME!,
+        accountId: process.env.R2_ACCOUNT_ID!,
+      })
+      .build();
+
+    export const uploadRouter = createS3Router({
+      imageUpload: s3.image().max("5MB"),
+      documentUpload: s3.file().max("10MB")
+    });
+
+    export type AppUploadRouter = typeof uploadRouter;
+    ```
+  </Step>
+
+  <Step>
+    **Create API route**
+    
+    ```typescript title="routes/api/upload/[...path].ts"
+    import { uploadRouter } from '~/lib/upload';
+
+    // Direct usage - no adapter needed!
+    export default defineEventHandler(async (event) => {
+      return uploadRouter.handlers(event.node.req);
+    });
+    ```
+  </Step>
+</Steps>
+
+## Basic Integration
+
+### Simple Upload Route
+
+```typescript title="routes/api/upload/[...path].ts"
+import { uploadRouter } from '~/lib/upload';
+
+// Method 1: Combined handler (recommended)
+export default defineEventHandler(async (event) => {
+  return uploadRouter.handlers(event.node.req);
+});
+
+// Method 2: Method-specific handlers
+export default defineEventHandler(async (event) => {
+  const method = getMethod(event);
+  
+  if (method === 'GET') {
+    return uploadRouter.handlers.GET(event.node.req);
+  }
+  
+  if (method === 'POST') {
+    return uploadRouter.handlers.POST(event.node.req);
+  }
+  
+  throw createError({
+    statusCode: 405,
+    statusMessage: 'Method Not Allowed'
+  });
+});
+```
+
+### With H3 Utilities
+
+```typescript title="routes/api/upload/[...path].ts"
+import { uploadRouter } from '~/lib/upload';
+import { 
+  defineEventHandler, 
+  getMethod, 
+  setHeader, 
+  createError 
+} from 'h3';
+
+export default defineEventHandler(async (event) => {
+  // Handle CORS
+  setHeader(event, 'Access-Control-Allow-Origin', '*');
+  setHeader(event, 'Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  setHeader(event, 'Access-Control-Allow-Headers', 'Content-Type');
+  
+  // Handle preflight requests
+  if (getMethod(event) === 'OPTIONS') {
+    return '';
+  }
+  
+  try {
+    return await uploadRouter.handlers(event.node.req);
+  } catch (error) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Upload failed',
+      data: error
+    });
+  }
+});
+```
+
+## Advanced Configuration
+
+### Authentication with H3
+
+```typescript title="lib/upload.ts"
+import { uploadConfig } from 'pushduck/server';
+import { getCookie } from 'h3';
+
+const { s3, createS3Router } = uploadConfig
+  .cloudflareR2({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      return `${metadata.userId}/${Date.now()}/${file.name}`;
+    }
+  })
+  .build();
+
+export const uploadRouter = createS3Router({
+  // Private uploads with session authentication
+  privateUpload: s3
+    .image()
+    .max("5MB")
+    .middleware(async ({ req }) => {
+      const cookies = req.headers.cookie;
+      const sessionId = parseCookie(cookies)?.sessionId;
+      
+      if (!sessionId) {
+        throw new Error('Authentication required');
+      }
+      
+      const user = await getUserFromSession(sessionId);
+      if (!user) {
+        throw new Error('Invalid session');
+      }
+      
+      return {
+        userId: user.id,
+        username: user.username,
+      };
+    }),
+
+  // Public uploads (no auth)
+  publicUpload: s3
+    .image()
+    .max("2MB")
+    // No middleware = public access
+});
+
+export type AppUploadRouter = typeof uploadRouter;
+
+// Helper functions
+function parseCookie(cookieString: string | undefined) {
+  if (!cookieString) return {};
+  return Object.fromEntries(
+    cookieString.split('; ').map(c => {
+      const [key, ...v] = c.split('=');
+      return [key, v.join('=')];
+    })
+  );
+}
+
+async function getUserFromSession(sessionId: string) {
+  // Implement your session validation logic
+  return { id: 'user-123', username: 'demo-user' };
+}
+```
+
+## Standalone Nitro App
+
+### Basic Nitro Setup
+
+```typescript title="nitro.config.ts"
+export default defineNitroConfig({
+  srcDir: 'server',
+  routeRules: {
+    '/api/upload/**': { 
+      cors: true,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      }
+    }
+  },
+  experimental: {
+    wasm: true
+  }
+});
+```
+
+### Server Entry Point
+
+```typescript title="server/index.ts"
+import { createApp, toNodeListener } from 'h3';
+import { uploadRouter } from './lib/upload';
+
+const app = createApp();
+
+// Upload routes
+app.use('/api/upload/**', defineEventHandler(async (event) => {
+  return uploadRouter.handlers(event.node.req);
+}));
+
+// Health check
+app.use('/health', defineEventHandler(() => ({ status: 'ok' })));
+
+export default toNodeListener(app);
+```
+
+## Client-Side Usage
+
+### HTML with Vanilla JavaScript
+
+```html title="public/index.html"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Upload Demo</title>
+  <script src="https://unpkg.com/pushduck@latest/client.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>File Upload Demo</h1>
+    
+    <div id="upload-area">
+      <div class="upload-section">
+        <h3>Image Upload</h3>
+        <div id="image-upload"></div>
+      </div>
+      
+      <div class="upload-section">
+        <h3>Document Upload</h3>
+        <div id="document-upload"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { useUpload } = pushduck;
+    
+    const { UploadButton, UploadDropzone } = useUpload({
+      endpoint: "/api/upload",
+    });
+    
+    // Mount upload components
+    const imageUpload = new UploadButton({
+      endpoint: 'imageUpload',
+      onClientUploadComplete: (files) => {
+        console.log('Files uploaded:', files);
+        alert('Upload completed!');
+      },
+      onUploadError: (error) => {
+        console.error('Upload error:', error);
+        alert(`Upload failed: ${error.message}`);
+      }
+    });
+    
+    const documentUpload = new UploadDropzone({
+      endpoint: 'documentUpload',
+      onClientUploadComplete: (files) => {
+        console.log('Files uploaded:', files);
+        alert('Upload completed!');
+      },
+      onUploadError: (error) => {
+        console.error('Upload error:', error);
+        alert(`Upload failed: ${error.message}`);
+      }
+    });
+    
+    imageUpload.mount('#image-upload');
+    documentUpload.mount('#document-upload');
+  </script>
+</body>
+</html>
+```
+
+### With Framework Integration
+
+```typescript title="plugins/upload.client.ts"
+import { useUpload } from "pushduck/client";
+import type { AppUploadRouter } from "~/lib/upload";
+
+export const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
+  endpoint: "/api/upload",
+});
+```
+
+## File Management
+
+### File API Route
+
+```typescript title="routes/api/files.get.ts"
+import { defineEventHandler, getQuery, createError } from 'h3';
+
+export default defineEventHandler(async (event) => {
+  const query = getQuery(event);
+  const userId = query.userId as string;
+  
+  if (!userId) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'User ID required'
+    });
+  }
+  
+  // Fetch files from database
+  const files = await getFilesForUser(userId);
+  
+  return {
+    files: files.map(file => ({
+      id: file.id,
+      name: file.name,
+      url: file.url,
+      size: file.size,
+      uploadedAt: file.createdAt,
+    })),
+  };
+});
+
+async function getFilesForUser(userId: string) {
+  // Implement your database query logic
+  return [];
+}
+```
+
+### File Management Page
+
+```html title="public/files.html"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Files</title>
+  <script src="https://unpkg.com/pushduck@latest/client.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>My Files</h1>
+    
+    <div id="upload-area">
+      <div id="file-upload"></div>
+    </div>
+    
+    <div id="files-list">
+      <h2>Uploaded Files</h2>
+      <div id="files-grid"></div>
+    </div>
+  </div>
+
+  <script>
+    async function loadFiles() {
+      try {
+        const response = await fetch('/api/files?userId=current-user');
+        const data = await response.json();
+        
+        const filesGrid = document.getElementById('files-grid');
+        
+        if (data.files.length === 0) {
+          filesGrid.innerHTML = '<p>No files uploaded yet.</p>';
+          return;
+        }
+        
+        filesGrid.innerHTML = data.files.map(file => `
+          <div class="file-card">
+            <h3 title="${file.name}">${file.name}</h3>
+            <p>${formatFileSize(file.size)}</p>
+            <p>${new Date(file.uploadedAt).toLocaleDateString()}</p>
+            <a href="${file.url}" target="_blank" rel="noopener noreferrer">
+              View File
+            </a>
+          </div>
+        `).join('');
+      } catch (error) {
+        console.error('Failed to load files:', error);
+      }
+    }
+    
+    function formatFileSize(bytes) {
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      if (bytes === 0) return '0 Bytes';
+      const i = Math.floor(Math.log(bytes) / Math.log(1024));
+      return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+    }
+    
+    // Initialize upload component
+    const { UploadDropzone } = pushduck.useUpload({
+      endpoint: "/api/upload",
+    });
+    
+    const fileUpload = new UploadDropzone({
+      endpoint: 'imageUpload',
+      onClientUploadComplete: (files) => {
+        console.log('Files uploaded:', files);
+        loadFiles(); // Refresh file list
+      },
+      onUploadError: (error) => {
+        console.error('Upload error:', error);
+        alert(`Upload failed: ${error.message}`);
+      }
+    });
+    
+    fileUpload.mount('#file-upload');
+    
+    // Load files on page load
+    loadFiles();
+  </script>
+</body>
+</html>
+```
+
+## Deployment Options
+
+<Tabs items={["Vercel", "Netlify", "Node.js", "Cloudflare Workers"]}>
+  <Tab value="Vercel">
+    ```typescript title="nitro.config.ts"
+    export default defineNitroConfig({
+      preset: 'vercel-edge',
+      // or 'vercel' for Node.js runtime
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Netlify">
+    ```typescript title="nitro.config.ts"
+    export default defineNitroConfig({
+      preset: 'netlify-edge',
+      // or 'netlify' for Node.js runtime
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Node.js">
+    ```typescript title="nitro.config.ts"
+    export default defineNitroConfig({
+      preset: 'node-server',
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Cloudflare Workers">
+    ```typescript title="nitro.config.ts"
+    export default defineNitroConfig({
+      preset: 'cloudflare-workers',
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## Environment Variables
+
+```bash title=".env"
+# AWS Configuration
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_S3_BUCKET=your-bucket-name
+
+# Nitro
+NITRO_PORT=3000
+NITRO_HOST=0.0.0.0
+```
+
+## Performance Benefits
+
+<Cards>
+  <Card title="Universal Deployment" description="Deploy to any platform with unified API" />
+  <Card title="Web Standards" description="No adapter overhead - direct Request/Response usage" />
+  <Card title="Edge Ready" description="Works on edge runtimes and CDNs" />
+  <Card title="Minimal Overhead" description="Lightweight framework with optimal performance" />
+</Cards>
+
+## Middleware and Plugins
+
+```typescript title="middleware/cors.ts"
+export default defineEventHandler(async (event) => {
+  if (event.node.req.url?.startsWith('/api/upload')) {
+    setHeader(event, 'Access-Control-Allow-Origin', '*');
+    setHeader(event, 'Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    setHeader(event, 'Access-Control-Allow-Headers', 'Content-Type');
+    
+    if (getMethod(event) === 'OPTIONS') {
+      return '';
+    }
+  }
+});
+```
+
+```typescript title="plugins/database.ts"
+export default async (nitroApp) => {
+  // Initialize database connection
+  console.log('Database plugin initialized');
+  
+  // Add database to context
+  nitroApp.hooks.hook('request', async (event) => {
+    event.context.db = await getDatabase();
+  });
+};
+```
+
+## Real-Time Upload Progress
+
+```html title="public/advanced-upload.html"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced Upload</title>
+</head>
+<body>
+  <div class="upload-container">
+    <input type="file" id="fileInput" multiple />
+    <div id="progressContainer" style="display: none;">
+      <div id="progressBar"></div>
+      <p id="progressText">0% uploaded</p>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    
+    fileInput.addEventListener('change', async (event) => {
+      const files = event.target.files;
+      
+      if (!files || files.length === 0) return;
+      
+      progressContainer.style.display = 'block';
+      
+      try {
+        // Simulate upload progress
+        for (let i = 0; i <= 100; i += 10) {
+          progressBar.style.width = `${i}%`;
+          progressText.textContent = `${i}% uploaded`;
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        alert('Upload completed!');
+      } catch (error) {
+        console.error('Upload failed:', error);
+        alert('Upload failed!');
+      } finally {
+        progressContainer.style.display = 'none';
+        progressBar.style.width = '0%';
+      }
+    });
+  </script>
+  
+  <style>
+    .upload-container {
+      max-width: 400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    #fileInput {
+      width: 100%;
+      padding: 12px;
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    
+    #progressContainer {
+      margin-top: 16px;
+    }
+    
+    #progressBar {
+      height: 8px;
+      background-color: #4CAF50;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    
+    #progressText {
+      text-align: center;
+      margin-top: 8px;
+      font-size: 14px;
+      color: #666;
+    }
+  </style>
+</body>
+</html>
+```
+
+## Troubleshooting
+
+<Callout type="warn">
+  **Common Issues**
+  
+  1. **Route not found**: Ensure your route is `routes/api/upload/[...path].ts`
+  2. **Build errors**: Check that pushduck and h3 are properly installed
+  3. **CORS issues**: Use Nitro's built-in CORS handling or middleware
+  4. **Environment variables**: Make sure they're accessible in your deployment environment
+</Callout>
+
+### Debug Mode
+
+Enable debug logging:
+
+```typescript title="lib/upload.ts"
+export const uploadRouter = createS3Router({
+  // ... routes
+}).middleware(async ({ req, file }) => {
+  if (process.env.NODE_ENV === "development") {
+    console.log("Upload request:", req.url);
+    console.log("File:", file.name, file.size);
+  }
+  return {};
+});
+```
+
+### Nitro Configuration
+
+```typescript title="nitro.config.ts"
+export default defineNitroConfig({
+  srcDir: 'server',
+  buildDir: '.nitro',
+  output: {
+    dir: '.output',
+    serverDir: '.output/server',
+    publicDir: '.output/public'
+  },
+  runtimeConfig: {
+    awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    awsRegion: process.env.AWS_REGION,
+    s3BucketName: process.env.S3_BUCKET_NAME,
+  },
+  experimental: {
+    wasm: true
+  }
+});
+```
+
+Nitro/H3 provides an excellent foundation for building universal web applications with pushduck, offering flexibility, performance, and deployment options across any platform while maintaining full compatibility with Web Standards APIs. 

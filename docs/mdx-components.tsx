@@ -1,3 +1,4 @@
+import { Mermaid } from "@/components/mdx/mermaid";
 import { UploadDemo } from "@/components/ui/upload-demo";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
@@ -7,6 +8,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
   return {
     ...defaultMdxComponents,
     UploadDemo,
+    Mermaid,
     ...components,
   };
 }
