@@ -22,29 +22,4 @@ export default defineConfig({
     remarkPlugins: [],
     rehypePlugins: [],
   },
-  // Enhanced search configuration
-  search: {
-    enabled: true,
-    // Add custom search indexing
-    index: {
-      title: true,
-      description: true,
-      content: true,
-      headings: true,
-      keywords: true,
-    },
-  },
-  // Better social meta tags
-  global: {
-    siteName: "Pushduck",
-    description: "The most comprehensive file upload library for Next.js",
-    keywords: ["nextjs", "s3", "upload", "aws", "cloudflare", "typescript"],
-    author: "Abhay Ramesh",
-    twitterCard: "summary_large_image",
-    openGraph: {
-      type: "website",
-      locale: "en_US",
-      siteName: "Pushduck",
-    },
-  },
 });
