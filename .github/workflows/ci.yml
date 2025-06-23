@@ -47,7 +47,7 @@ jobs:
         run: pnpm test --coverage
 
       - name: 📊 Coverage Report
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         if: github.event_name == 'pull_request'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
