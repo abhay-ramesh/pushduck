@@ -173,7 +173,7 @@ MINIO_PUBLIC_URL=https://uploads.yourdomain.com
 import { uploadConfig } from "pushduck/server";
 
 export const { s3,  } = uploadConfig
-  .minio({
+  .provider("minio",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
     endpoint: process.env.AWS_ENDPOINT_URL!,
@@ -339,7 +339,7 @@ services:
 ```typescript
 // Optimize for high throughput
 export const { s3,  } = uploadConfig
-  .minio({
+  .provider("minio",{
     // ... config
     maxRetries: 3,
     retryDelayOptions: {
@@ -361,7 +361,7 @@ export const { s3,  } = uploadConfig
 // Different buckets per tenant
 const createTenantConfig = (tenantId: string) =>
   uploadConfig
-    .minio({
+    .provider("minio",{
       // ... base config
       bucket: `tenant-${tenantId}-uploads`,
     })

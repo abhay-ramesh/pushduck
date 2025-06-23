@@ -39,7 +39,7 @@ Remix is a full-stack React framework focused on web standards and modern UX. It
     import { uploadConfig } from 'pushduck/server';
 
     const { s3, createS3Router } = uploadConfig
-      .cloudflareR2({
+      .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
         region: 'auto',
@@ -157,7 +157,7 @@ import { uploadConfig } from 'pushduck/server';
 import { getSession } from '~/sessions';
 
 const { s3, createS3Router } = uploadConfig
-  .cloudflareR2({
+  .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
     region: 'auto',

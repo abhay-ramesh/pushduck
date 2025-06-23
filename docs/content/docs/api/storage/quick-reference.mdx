@@ -12,7 +12,7 @@ description: Essential storage operations at a glance
 import { uploadConfig } from 'pushduck/server'
 
 const { storage } = uploadConfig
-  .cloudflareR2({
+  .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     region: 'auto',

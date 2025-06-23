@@ -103,7 +103,7 @@ export const { GET, POST } = s3Router.handlers
 import { initializeUploadConfig, providers } from 'pushduck/server'
 
 export const { s3 } = initializeUploadConfig({
-  provider: providers.aws({
+  provider: providers.provider("aws",{
     region: 'us-east-1',
     bucket: 'my-bucket'
   })

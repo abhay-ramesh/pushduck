@@ -39,7 +39,7 @@ Qwik is a revolutionary web framework focused on resumability and edge optimizat
     import { uploadConfig } from 'pushduck/server';
 
     const { s3, createS3Router } = uploadConfig
-      .cloudflareR2({
+      .provider("cloudflareR2",{
         accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID!,
         secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY!,
         region: 'auto',
@@ -132,7 +132,7 @@ export const onRequest: RequestHandler = async ({ request, headers }) => {
 import { uploadConfig } from 'pushduck/server';
 
 const { s3, createS3Router } = uploadConfig
-  .cloudflareR2({
+  .provider("cloudflareR2",{
     accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID!,
     secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY!,
     region: 'auto',

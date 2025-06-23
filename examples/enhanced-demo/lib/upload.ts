@@ -29,7 +29,7 @@ interface UploadMetadata {
 
 // Configure and initialize upload client directly
 const { s3, config, storage } = uploadConfig
-  .cloudflareR2({
+  .provider("cloudflareR2", {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     region: "auto",
@@ -156,7 +156,7 @@ export { s3, storage };
 
 // For AWS S3:
 // const { s3: awsS3, config: awsConfig } = uploadConfig
-//   .aws({
+//   .provider("aws",{
 //     region: "us-east-1",
 //     bucket: "my-s3-bucket",
 //     // accessKeyId and secretAccessKey loaded from AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
@@ -171,7 +171,7 @@ export { s3, storage };
 
 // For DigitalOcean Spaces:
 // const { s3: doS3, config: doConfig } = uploadConfig
-//   .digitalOceanSpaces({
+//   .provider("digitalOceanSpaces",{
 //     region: "nyc3",
 //     bucket: "my-spaces-bucket",
 //     // accessKeyId and secretAccessKey loaded from DO_SPACES_ACCESS_KEY_ID, DO_SPACES_SECRET_ACCESS_KEY
@@ -183,7 +183,7 @@ export { s3, storage };
 
 // For MinIO:
 // const { s3: minioS3, config: minioConfig } = uploadConfig
-//   .minio({
+//   .provider("minio",{
 //     endpoint: "localhost:9000",
 //     bucket: "my-minio-bucket",
 //     useSSL: false,

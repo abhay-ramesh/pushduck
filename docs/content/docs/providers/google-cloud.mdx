@@ -118,7 +118,7 @@ GCS_PUBLIC_URL=https://storage.googleapis.com/my-app-uploads-bucket
 import { uploadConfig } from "pushduck/server";
 
 export const { s3,  } = uploadConfig
-  .googleCloudStorage({
+  .provider("gcs",{
     projectId: process.env.GCS_PROJECT_ID!,
     keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS!,
     bucket: process.env.GCS_BUCKET_NAME!,
@@ -156,7 +156,7 @@ Your Google Cloud Storage is configured! Benefits:
 ```typescript
 // Configure multi-regional bucket for global performance
 export const { s3,  } = uploadConfig
-  .googleCloudStorage({
+  .provider("gcs",{
     // ... basic config
     bucket: process.env.GCS_BUCKET_NAME!,
     // Multi-regional configuration
@@ -189,7 +189,7 @@ Optimize costs with different storage classes:
 ```typescript
 // Use Cloud CDN for faster global delivery
 export const { s3,  } = uploadConfig
-  .googleCloudStorage({
+  .provider("gcs",{
     // ... config
     // Configure CDN endpoint
     cdnUrl: "https://your-cdn-domain.com",
@@ -361,7 +361,7 @@ gcloud domains verify yourdomain.com
 ```typescript
 // Use custom domain for file URLs
 export const { s3,  } = uploadConfig
-  .googleCloudStorage({
+  .provider("gcs",{
     // ... config
     customDomain: "https://uploads.yourdomain.com",
   })

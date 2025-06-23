@@ -8,7 +8,7 @@ console.log("🧪 Testing Framework-Agnostic Handlers with Configuration...\n");
 
 // Initialize upload config with mock AWS settings
 const config = uploadConfig
-    .aws({
+    .provider("aws", {
         accessKeyId: "test-key",
         secretAccessKey: "test-secret",
         region: "us-east-1",

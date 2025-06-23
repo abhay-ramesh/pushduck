@@ -39,7 +39,7 @@ Express uses the traditional Node.js `req`/`res` API pattern. Pushduck provides 
     import { uploadConfig } from 'pushduck/server';
 
     const { s3, createS3Router } = uploadConfig
-      .cloudflareR2({
+      .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
         region: 'auto',
@@ -153,7 +153,7 @@ app.listen(3000);
 import { uploadConfig } from 'pushduck/server';
 
 const { s3, createS3Router } = uploadConfig
-  .cloudflareR2({
+  .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
     region: 'auto',

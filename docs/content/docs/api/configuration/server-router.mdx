@@ -87,7 +87,7 @@ A typical Next.js project with pushduck follows this structure:
 
     // Configure upload with provider and settings
     const { s3, storage } = uploadConfig
-      .cloudflareR2({
+      .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
         region: 'auto',
@@ -271,7 +271,7 @@ Configure settings that apply to all upload endpoints:
 ```typescript
 // ✅ Modern approach with hierarchical paths
 const { s3 } = uploadConfig
-  .cloudflareR2({ /* config */ })
+  .provider("cloudflareR2",{ /* config */ })
   .paths({
     prefix: "uploads",
     generateKey: (file, metadata) => {
@@ -295,7 +295,7 @@ Support different storage providers for different upload types:
 import { uploadConfig } from "pushduck/server";
 
 const primaryConfig = uploadConfig
-  .cloudflareR2({
+  .provider("cloudflareR2",{
     // Primary R2 config for production files
     accessKeyId: process.env.R2_ACCESS_KEY_ID!,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
@@ -305,7 +305,7 @@ const primaryConfig = uploadConfig
   .build();
 
 const backupConfig = uploadConfig
-  .aws({
+  .provider("aws",{
     // AWS S3 config for backups
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -447,7 +447,7 @@ Export your router type for end-to-end type safety:
 import { uploadConfig } from "pushduck/server";
 
 const { s3 } = uploadConfig
-  .cloudflareR2({ /* your config */ })
+  .provider("cloudflareR2",{ /* your config */ })
   .build();
 
 const s3Router = s3.createRouter({

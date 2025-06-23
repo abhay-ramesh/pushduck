@@ -6,9 +6,10 @@
  */
 
 import {
-  providers,
+  createProvider,
   validateProviderConfig,
   type ProviderConfig,
+  type ProviderType,
 } from "../providers";
 import type { S3Router } from "../router/router-v2";
 import { createS3Router, S3Route } from "../router/router-v2";
@@ -123,10 +124,24 @@ export class UploadConfigBuilder {
   private config: Partial<UploadConfig> = {};
 
   /**
-   * Set the storage provider
+   * Set the storage provider (new generic API)
    */
-  provider(providerConfig: ProviderConfig): UploadConfigBuilder {
-    this.config.provider = providerConfig;
+  provider(providerConfig: ProviderConfig): UploadConfigBuilder;
+  provider(
+    type: ProviderType,
+    config: Record<string, any>
+  ): UploadConfigBuilder;
+  provider(
+    providerOrType: ProviderConfig | ProviderType,
+    config?: Record<string, any>
+  ): UploadConfigBuilder {
+    if (typeof providerOrType === "string") {
+      // New API: provider("aws", { bucket: "...", region: "..." })
+      this.config.provider = createProvider(providerOrType, config || {});
+    } else {
+      // Direct config object: provider(configObject)
+      this.config.provider = providerOrType;
+    }
     return this;
   }
 
@@ -209,55 +224,15 @@ export function createUploadConfig(): UploadConfigBuilder {
 }
 
 /**
- * Create upload configuration with auto-detected provider
- */
-function createAutoUploadConfig(): UploadConfig {
-  throw new Error(
-    "Auto-configuration is disabled. Please explicitly configure a provider using:\n" +
-      "- uploadConfig.aws({ ... }).build()\n" +
-      "- uploadConfig.cloudflareR2({ ... }).build()\n" +
-      "- uploadConfig.digitalOceanSpaces({ ... }).build()\n" +
-      "- uploadConfig.minio({ ... }).build()\n" +
-      "- uploadConfig.gcs({ ... }).build()\n\n" +
-      "This ensures explicit configuration and better security."
-  );
-}
-
-/**
  * Create upload configuration for specific providers
  */
 export const uploadConfig = {
   /**
-   * AWS S3 Configuration
+   * Generic provider configuration
+   * Usage: uploadConfig.provider("aws", { bucket: "my-bucket", region: "us-west-2" })
    */
-  aws: (config?: Partial<Parameters<typeof providers.aws>[0]>) =>
-    createUploadConfig().provider(providers.aws(config)),
-
-  /**
-   * Cloudflare R2 Configuration
-   */
-  cloudflareR2: (
-    config?: Partial<Parameters<typeof providers.cloudflareR2>[0]>
-  ) => createUploadConfig().provider(providers.cloudflareR2(config)),
-
-  /**
-   * DigitalOcean Spaces Configuration
-   */
-  digitalOceanSpaces: (
-    config?: Partial<Parameters<typeof providers.digitalOceanSpaces>[0]>
-  ) => createUploadConfig().provider(providers.digitalOceanSpaces(config)),
-
-  /**
-   * MinIO Configuration
-   */
-  minio: (config?: Partial<Parameters<typeof providers.minio>[0]>) =>
-    createUploadConfig().provider(providers.minio(config)),
-
-  /**
-   * Google Cloud Storage Configuration
-   */
-  gcs: (config?: Partial<Parameters<typeof providers.gcs>[0]>) =>
-    createUploadConfig().provider(providers.gcs(config)),
+  provider: (type: ProviderType, config: Record<string, any> = {}) =>
+    createUploadConfig().provider(type, config),
 };
 
 // ========================================
@@ -287,7 +262,7 @@ export function getUploadConfig(): UploadConfig {
       "Upload configuration not initialized. Auto-configuration is disabled for security.\n\n" +
         "Please explicitly initialize with a provider:\n" +
         "1. Create an upload.ts file:\n" +
-        "   export const config = uploadConfig.aws({ ... }).build();\n" +
+        '   export const config = uploadConfig.provider("aws", { bucket: "...", region: "..." }).build();\n' +
         "   export const { s3 } = config;\n\n" +
         "2. Or call uploadConfig.build() directly with your provider configuration."
     );

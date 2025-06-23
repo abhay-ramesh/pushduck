@@ -124,7 +124,7 @@ await imageUpload.uploadFiles(selectedFiles);
     import { uploadConfig } from "pushduck/server";
     
     const { s3,  } = uploadConfig
-      .cloudflareR2({
+      .provider("cloudflareR2",{
         accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
         bucket: process.env.R2_BUCKET!,
       })

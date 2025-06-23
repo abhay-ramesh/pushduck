@@ -39,7 +39,7 @@ SvelteKit is the official application framework for Svelte. It uses Web Standard
     import { uploadConfig } from 'pushduck/server';
 
     const { s3, createS3Router } = uploadConfig
-      .cloudflareR2({
+      .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
         region: 'auto',
@@ -139,7 +139,7 @@ import { uploadConfig } from 'pushduck/server';
 import { getUserFromSession } from '$lib/auth';
 
 const { s3, createS3Router } = uploadConfig
-  .cloudflareR2({
+  .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
     region: 'auto',

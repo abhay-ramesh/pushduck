@@ -47,7 +47,7 @@ export type {
 // ========================================
 
 // Provider configurations (for setup reference)
-export { providers } from "./core/providers";
+export { createProvider } from "./core/providers";
 
 // Upload configuration utilities
 export { createUploadConfig, uploadConfig } from "./core/config/upload-config";

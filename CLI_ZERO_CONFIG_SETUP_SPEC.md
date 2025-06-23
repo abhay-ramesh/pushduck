@@ -280,7 +280,7 @@ import {
 const uploadRouter = createS3Router({
   // General file upload
   fileUpload: uploadConfig
-    .aws({
+    .provider("aws",{
       region: process.env.AWS_REGION!,
       bucket: process.env.S3_BUCKET!,
     })
@@ -305,7 +305,7 @@ const uploadRouter = createS3Router({
 
   // Image-specific upload with processing
   imageUpload: uploadConfig
-    .aws({
+    .provider("aws",{
       region: process.env.AWS_REGION!,
       bucket: process.env.S3_BUCKET!,
     })
@@ -317,7 +317,7 @@ const uploadRouter = createS3Router({
 
 // Initialize the upload system
 const { s3 } = initializeUploadConfig({
-  provider: uploadConfig.aws({
+  provider: uploadConfig.provider("aws",{
     region: process.env.AWS_REGION!,
     bucket: process.env.S3_BUCKET!,
   }).build()
@@ -1023,7 +1023,7 @@ const uploadRouter = createS3Router({
 
 // Initialize with your configuration
 const { s3 } = initializeUploadConfig({
-  provider: uploadConfig.aws({
+  provider: uploadConfig.provider("aws",{
     region: process.env.AWS_REGION!,
     bucket: process.env.S3_BUCKET!,
   }).build()

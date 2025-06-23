@@ -188,230 +188,209 @@ export type ProviderConfig =
   | S3CompatibleConfig;
 
 // ========================================
-// Environment Detection
+// DRY Provider Factory System
 // ========================================
 
-function detectProvider(): ProviderConfig["provider"] | null {
-  // Check for Cloudflare R2
-  if (process.env.CLOUDFLARE_ACCOUNT_ID || process.env.R2_ACCOUNT_ID) {
-    return "cloudflare-r2";
-  }
+interface EnvVarMapping {
+  readonly [key: string]: readonly string[];
+}
 
-  // Check for DigitalOcean Spaces
-  if (
-    process.env.DO_SPACES_ENDPOINT ||
-    process.env.DIGITALOCEAN_SPACES_ENDPOINT
-  ) {
-    return "digitalocean-spaces";
-  }
+interface ProviderSpec {
+  readonly provider: string;
+  readonly envVars: EnvVarMapping;
+  readonly defaults: Record<string, any>;
+  readonly customLogic?: (config: any, computed: any) => any;
+}
 
-  // Check for MinIO
-  if (process.env.MINIO_ENDPOINT) {
-    return "minio";
-  }
+/**
+ * Generic provider configuration builder
+ * Eliminates repetitive environment variable reading and config merging
+ */
+function createProviderBuilder<T extends ProviderConfig>(
+  spec: ProviderSpec
+): (config?: Partial<T>) => T {
+  return (config: Partial<T> = {}): T => {
+    const result: any = { provider: spec.provider };
 
-  // Check for Wasabi
-  if (process.env.WASABI_ACCESS_KEY_ID || process.env.WASABI_ENDPOINT) {
-    return "wasabi";
-  }
+    // Process environment variables and defaults
+    for (const [key, envKeys] of Object.entries(spec.envVars)) {
+      result[key] =
+        config[key as keyof T] ||
+        readEnvVar(envKeys) ||
+        spec.defaults[key] ||
+        "";
+    }
 
-  // Check for Backblaze B2
-  if (process.env.B2_APPLICATION_KEY_ID || process.env.B2_ENDPOINT) {
-    return "backblaze-b2";
-  }
+    // Apply custom logic if provided
+    if (spec.customLogic) {
+      Object.assign(result, spec.customLogic(config, result));
+    }
 
-  // Check for Google Cloud Storage
-  if (process.env.GOOGLE_CLOUD_PROJECT_ID || process.env.GCS_PROJECT_ID) {
-    return "gcs";
-  }
+    return result as T;
+  };
+}
 
-  // Check for generic S3-compatible
-  if (process.env.S3_COMPATIBLE_ENDPOINT) {
-    return "s3-compatible";
+/**
+ * Read first available environment variable from a list
+ */
+function readEnvVar(envKeys: readonly string[]): string | undefined {
+  for (const key of envKeys) {
+    const value = process.env[key];
+    if (value) return value;
   }
-
-  // Default to AWS
-  if (process.env.AWS_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY_ID) {
-    return "aws";
-  }
-
-  return null;
+  return undefined;
 }
 
 // ========================================
-// Provider Configuration Builders
+// Provider Specifications (DRY)
 // ========================================
 
-export const providers = {
-  /**
-   * AWS S3 Provider
-   */
-  aws: (config?: Partial<AWSProviderConfig>): AWSProviderConfig => ({
+const PROVIDER_SPECS = {
+  aws: {
     provider: "aws",
-    region:
-      config?.region ||
-      process.env.AWS_REGION ||
-      process.env.S3_REGION ||
-      "us-east-1",
-    bucket:
-      config?.bucket ||
-      process.env.AWS_S3_BUCKET ||
-      process.env.S3_BUCKET ||
-      process.env.S3_BUCKET_NAME ||
-      "",
-    accessKeyId:
-      config?.accessKeyId ||
-      process.env.AWS_ACCESS_KEY_ID ||
-      process.env.S3_ACCESS_KEY_ID ||
-      "",
-    secretAccessKey:
-      config?.secretAccessKey ||
-      process.env.AWS_SECRET_ACCESS_KEY ||
-      process.env.S3_SECRET_ACCESS_KEY ||
-      "",
-    sessionToken: config?.sessionToken || process.env.AWS_SESSION_TOKEN,
-    acl: config?.acl || process.env.S3_ACL || "private",
-    customDomain: config?.customDomain || process.env.S3_CUSTOM_DOMAIN,
-  }),
+    envVars: {
+      region: ["AWS_REGION", "S3_REGION"],
+      bucket: ["AWS_S3_BUCKET", "S3_BUCKET", "S3_BUCKET_NAME"],
+      accessKeyId: ["AWS_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID"],
+      secretAccessKey: ["AWS_SECRET_ACCESS_KEY", "S3_SECRET_ACCESS_KEY"],
+      sessionToken: ["AWS_SESSION_TOKEN"],
+      acl: ["S3_ACL"],
+      customDomain: ["S3_CUSTOM_DOMAIN"],
+    },
+    defaults: {
+      region: "us-east-1",
+      acl: "private",
+    },
+  },
 
-  /**
-   * Cloudflare R2 Provider
-   */
-  cloudflareR2: (config?: Partial<CloudflareR2Config>): CloudflareR2Config => {
-    const accountId =
-      config?.accountId ||
-      process.env.CLOUDFLARE_ACCOUNT_ID ||
-      process.env.R2_ACCOUNT_ID ||
-      "";
-    const endpoint =
-      config?.endpoint ||
-      (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : "") ||
-      process.env.CLOUDFLARE_R2_ENDPOINT ||
-      process.env.R2_ENDPOINT ||
-      "";
-
-    return {
-      provider: "cloudflare-r2",
-      accountId,
+  cloudflareR2: {
+    provider: "cloudflare-r2",
+    envVars: {
+      accountId: ["CLOUDFLARE_ACCOUNT_ID", "R2_ACCOUNT_ID"],
+      bucket: ["CLOUDFLARE_R2_BUCKET", "R2_BUCKET"],
+      accessKeyId: ["CLOUDFLARE_R2_ACCESS_KEY_ID", "R2_ACCESS_KEY_ID"],
+      secretAccessKey: [
+        "CLOUDFLARE_R2_SECRET_ACCESS_KEY",
+        "R2_SECRET_ACCESS_KEY",
+      ],
+      endpoint: ["CLOUDFLARE_R2_ENDPOINT", "R2_ENDPOINT"],
+      customDomain: ["R2_CUSTOM_DOMAIN"],
+      acl: [],
+    },
+    defaults: {
       region: "auto",
-      bucket:
-        config?.bucket ||
-        process.env.CLOUDFLARE_R2_BUCKET ||
-        process.env.R2_BUCKET ||
-        "",
-      accessKeyId:
-        config?.accessKeyId ||
-        process.env.CLOUDFLARE_R2_ACCESS_KEY_ID ||
-        process.env.R2_ACCESS_KEY_ID ||
-        "",
-      secretAccessKey:
-        config?.secretAccessKey ||
-        process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY ||
-        process.env.R2_SECRET_ACCESS_KEY ||
-        "",
-      endpoint,
-      acl: config?.acl || "private",
-      customDomain: config?.customDomain || process.env.R2_CUSTOM_DOMAIN,
-    };
+      acl: "private",
+    },
+    customLogic: (config: any, computed: any) => ({
+      endpoint:
+        computed.endpoint ||
+        (computed.accountId
+          ? `https://${computed.accountId}.r2.cloudflarestorage.com`
+          : ""),
+    }),
   },
 
-  /**
-   * DigitalOcean Spaces Provider
-   */
-  digitalOceanSpaces: (
-    config?: Partial<DigitalOceanSpacesConfig>
-  ): DigitalOceanSpacesConfig => {
-    const region =
-      config?.region ||
-      process.env.DO_SPACES_REGION ||
-      process.env.DIGITALOCEAN_SPACES_REGION ||
-      "nyc3";
-    const endpoint =
-      config?.endpoint ||
-      process.env.DO_SPACES_ENDPOINT ||
-      process.env.DIGITALOCEAN_SPACES_ENDPOINT ||
-      `https://${region}.digitaloceanspaces.com`;
-
-    return {
-      provider: "digitalocean-spaces",
-      region,
-      endpoint,
-      bucket:
-        config?.bucket ||
-        process.env.DO_SPACES_BUCKET ||
-        process.env.DIGITALOCEAN_SPACES_BUCKET ||
-        "",
-      accessKeyId:
-        config?.accessKeyId ||
-        process.env.DO_SPACES_ACCESS_KEY_ID ||
-        process.env.DIGITALOCEAN_SPACES_ACCESS_KEY_ID ||
-        "",
-      secretAccessKey:
-        config?.secretAccessKey ||
-        process.env.DO_SPACES_SECRET_ACCESS_KEY ||
-        process.env.DIGITALOCEAN_SPACES_SECRET_ACCESS_KEY ||
-        "",
-      acl: config?.acl || "private",
-      customDomain: config?.customDomain || process.env.DO_SPACES_CUSTOM_DOMAIN,
-    };
+  digitalOceanSpaces: {
+    provider: "digitalocean-spaces",
+    envVars: {
+      region: ["DO_SPACES_REGION", "DIGITALOCEAN_SPACES_REGION"],
+      bucket: ["DO_SPACES_BUCKET", "DIGITALOCEAN_SPACES_BUCKET"],
+      accessKeyId: [
+        "DO_SPACES_ACCESS_KEY_ID",
+        "DIGITALOCEAN_SPACES_ACCESS_KEY_ID",
+      ],
+      secretAccessKey: [
+        "DO_SPACES_SECRET_ACCESS_KEY",
+        "DIGITALOCEAN_SPACES_SECRET_ACCESS_KEY",
+      ],
+      endpoint: ["DO_SPACES_ENDPOINT", "DIGITALOCEAN_SPACES_ENDPOINT"],
+      customDomain: ["DO_SPACES_CUSTOM_DOMAIN"],
+      acl: [],
+    },
+    defaults: {
+      region: "nyc3",
+      acl: "private",
+    },
+    customLogic: (config: any, computed: any) => ({
+      endpoint:
+        computed.endpoint ||
+        `https://${computed.region}.digitaloceanspaces.com`,
+    }),
   },
 
-  /**
-   * MinIO Provider
-   */
-  minio: (config?: Partial<MinIOConfig>): MinIOConfig => ({
+  minio: {
     provider: "minio",
-    endpoint:
-      config?.endpoint || process.env.MINIO_ENDPOINT || "localhost:9000",
-    bucket: config?.bucket || process.env.MINIO_BUCKET || "",
-    accessKeyId:
-      config?.accessKeyId ||
-      process.env.MINIO_ACCESS_KEY_ID ||
-      process.env.MINIO_ACCESS_KEY ||
-      "",
-    secretAccessKey:
-      config?.secretAccessKey ||
-      process.env.MINIO_SECRET_ACCESS_KEY ||
-      process.env.MINIO_SECRET_KEY ||
-      "",
-    useSSL: config?.useSSL ?? process.env.MINIO_USE_SSL === "true",
-    port: config?.port
-      ? Number(config.port)
-      : process.env.MINIO_PORT
-        ? Number(process.env.MINIO_PORT)
-        : undefined,
-    region: config?.region || process.env.MINIO_REGION || "us-east-1",
-    acl: config?.acl || "private",
-    customDomain: config?.customDomain || process.env.MINIO_CUSTOM_DOMAIN,
-  }),
+    envVars: {
+      endpoint: ["MINIO_ENDPOINT"],
+      bucket: ["MINIO_BUCKET"],
+      accessKeyId: ["MINIO_ACCESS_KEY_ID", "MINIO_ACCESS_KEY"],
+      secretAccessKey: ["MINIO_SECRET_ACCESS_KEY", "MINIO_SECRET_KEY"],
+      region: ["MINIO_REGION"],
+      customDomain: ["MINIO_CUSTOM_DOMAIN"],
+      acl: [],
+    },
+    defaults: {
+      endpoint: "localhost:9000",
+      region: "us-east-1",
+      acl: "private",
+    },
+    customLogic: (config: any, computed: any) => ({
+      useSSL: config.useSSL ?? process.env.MINIO_USE_SSL === "true",
+      port: config.port
+        ? Number(config.port)
+        : process.env.MINIO_PORT
+          ? Number(process.env.MINIO_PORT)
+          : undefined,
+    }),
+  },
 
-  /**
-   * Google Cloud Storage Provider
-   */
-  gcs: (
-    config?: Partial<GoogleCloudStorageConfig>
-  ): GoogleCloudStorageConfig => ({
+  gcs: {
     provider: "gcs",
-    projectId:
-      config?.projectId ||
-      process.env.GOOGLE_CLOUD_PROJECT_ID ||
-      process.env.GCS_PROJECT_ID ||
-      "",
-    bucket:
-      config?.bucket ||
-      process.env.GCS_BUCKET ||
-      process.env.GOOGLE_CLOUD_STORAGE_BUCKET ||
-      "",
-    keyFilename:
-      config?.keyFilename ||
-      process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-      process.env.GCS_KEY_FILE,
-    credentials: config?.credentials,
-    region: config?.region || process.env.GCS_REGION || "us-central1",
-    acl: config?.acl || "private",
-    customDomain: config?.customDomain || process.env.GCS_CUSTOM_DOMAIN,
-  }),
-};
+    envVars: {
+      projectId: ["GOOGLE_CLOUD_PROJECT_ID", "GCS_PROJECT_ID"],
+      bucket: ["GCS_BUCKET", "GOOGLE_CLOUD_STORAGE_BUCKET"],
+      keyFilename: ["GOOGLE_APPLICATION_CREDENTIALS", "GCS_KEY_FILE"],
+      region: ["GCS_REGION"],
+      customDomain: ["GCS_CUSTOM_DOMAIN"],
+      acl: [],
+    },
+    defaults: {
+      region: "us-central1",
+      acl: "private",
+    },
+    customLogic: (config: any) => ({
+      credentials: config.credentials,
+    }),
+  },
+} as const;
+
+// ========================================
+// Generic Provider Creator (New API)
+// ========================================
+
+// Extract provider names as literal types from the const object
+type ProviderSpecsType = typeof PROVIDER_SPECS;
+export type ProviderType = keyof ProviderSpecsType;
+
+/**
+ * Generic provider configuration function
+ * Usage: createProvider("aws", { bucket: "my-bucket", region: "us-west-2" })
+ */
+export function createProvider(
+  type: ProviderType,
+  config: Record<string, any> = {}
+): ProviderConfig {
+  const spec = PROVIDER_SPECS[type];
+  if (!spec) {
+    throw new Error(`Unknown provider type: ${type}`);
+  }
+
+  return createProviderBuilder(spec)(config as any);
+}
+
+// ========================================
+// Environment Detection
+// ========================================
 
 // ========================================
 // Provider Configuration Validation

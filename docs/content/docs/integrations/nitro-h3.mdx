@@ -39,7 +39,7 @@ Nitro is a universal web server framework that powers Nuxt.js, built on top of H
     import { uploadConfig } from 'pushduck/server';
 
     const { s3, createS3Router } = uploadConfig
-      .cloudflareR2({
+      .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
         region: 'auto',
@@ -146,7 +146,7 @@ import { uploadConfig } from 'pushduck/server';
 import { getCookie } from 'h3';
 
 const { s3, createS3Router } = uploadConfig
-  .cloudflareR2({
+  .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
     region: 'auto',

@@ -61,7 +61,7 @@ Configure the base structure that all uploads will use:
 import { uploadConfig } from "pushduck/server";
 
 const { s3 } = uploadConfig
-  .cloudflareR2({
+  .provider("cloudflareR2",{
     // ... provider config
   })
   .paths({
@@ -195,7 +195,7 @@ Organize files by environment for clean separation:
 
 ```typescript title="lib/upload.ts"
 const { s3 } = uploadConfig
-  .cloudflareR2({
+  .provider("cloudflareR2",{
     // ... provider config
   })
   .paths({
@@ -494,7 +494,7 @@ export const { POST, GET } = s3Router.handlers;
 ```typescript
 // New way - hierarchical configuration
 const { s3 } = uploadConfig
-  .cloudflareR2({ /* config */ })
+  .provider("cloudflareR2",{ /* config */ })
   .paths({
     prefix: "uploads",
     generateKey: (file, metadata) => {

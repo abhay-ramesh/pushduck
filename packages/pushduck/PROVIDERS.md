@@ -56,7 +56,7 @@ export function UploadComponent() {
 ### Cloudflare R2
 
 ```typescript
-uploadConfig.cloudflareR2({
+uploadConfig.provider("cloudflareR2",{
   accountId: "your-account-id", // or CLOUDFLARE_ACCOUNT_ID
   accessKeyId: "your-key",      // or R2_ACCESS_KEY_ID
   secretAccessKey: "your-secret", // or R2_SECRET_ACCESS_KEY
@@ -74,7 +74,7 @@ uploadConfig.cloudflareR2({
 ### AWS S3
 
 ```typescript
-uploadConfig.aws({
+uploadConfig.provider("aws",{
   region: "us-east-1",          // or AWS_REGION
   bucket: "your-bucket",        // or AWS_S3_BUCKET
   accessKeyId: "your-key",      // or AWS_ACCESS_KEY_ID
@@ -92,7 +92,7 @@ uploadConfig.aws({
 ### DigitalOcean Spaces
 
 ```typescript
-uploadConfig.digitalOceanSpaces({
+uploadConfig.provider("digitalOceanSpaces",{
   region: "nyc3",               // or DO_SPACES_REGION
   bucket: "your-space",         // or DO_SPACES_BUCKET
   accessKeyId: "your-key",      // or DO_SPACES_ACCESS_KEY_ID
@@ -103,7 +103,7 @@ uploadConfig.digitalOceanSpaces({
 ### MinIO
 
 ```typescript
-uploadConfig.minio({
+uploadConfig.provider("minio",{
   endpoint: "localhost:9000",   // or MINIO_ENDPOINT
   bucket: "your-bucket",        // or MINIO_BUCKET
   accessKeyId: "your-key",      // or MINIO_ACCESS_KEY_ID
@@ -115,7 +115,7 @@ uploadConfig.minio({
 ### Google Cloud Storage
 
 ```typescript
-uploadConfig.gcs({
+uploadConfig.provider("gcs",{
   projectId: "your-project",    // or GOOGLE_CLOUD_PROJECT_ID
   bucket: "your-bucket",        // or GCS_BUCKET
   keyFilename: "/path/to/key.json", // or GOOGLE_APPLICATION_CREDENTIALS
@@ -189,12 +189,12 @@ uploadConfig.gcs({
 ```typescript
 // Different configs for different environments
 const prodConfig = uploadConfig
-  .aws({ region: "us-east-1" })
+  .provider("aws",{ region: "us-east-1" })
   .security({ requireAuth: true })
   .build();
 
 const devConfig = uploadConfig
-  .minio({ endpoint: "localhost:9000" })
+  .provider("minio",{ endpoint: "localhost:9000" })
   .security({ requireAuth: false })
   .build();
 
@@ -208,7 +208,7 @@ initializeUploadConfig(config);
 import { createUploadConfig, providers } from "pushduck";
 
 const customConfig = createUploadConfig()
-  .provider(providers.aws({
+  .provider(providers.provider("aws",{
     region: "eu-west-1",
     bucket: "my-custom-bucket",
     // Custom S3-compatible endpoint
@@ -242,7 +242,7 @@ const legacyConfig = {
 
 // New way (recommended)
 const newConfig = uploadConfig
-  .aws({
+  .provider("aws",{
     region: "us-east-1",
     bucket: "my-bucket",
   })

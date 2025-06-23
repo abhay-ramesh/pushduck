@@ -94,7 +94,7 @@ import { uploadConfig } from "pushduck/server";
 
 // Configure your S3-compatible storage
 export const { s3, storage } = uploadConfig  
-  .cloudflareR2({
+  .provider("cloudflareR2",{
     accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
     secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
     region: "auto",

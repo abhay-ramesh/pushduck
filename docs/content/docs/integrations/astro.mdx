@@ -39,7 +39,7 @@ Astro is a modern web framework for building fast, content-focused websites with
     import { uploadConfig } from 'pushduck/server';
 
     const { s3, createS3Router } = uploadConfig
-      .cloudflareR2({
+      .provider("cloudflareR2",{
         accessKeyId: import.meta.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: import.meta.env.AWS_SECRET_ACCESS_KEY!,
         region: 'auto',
@@ -132,7 +132,7 @@ export const ALL: APIRoute = async ({ request }) => {
 import { uploadConfig } from 'pushduck/server';
 
 const { s3, createS3Router } = uploadConfig
-  .cloudflareR2({
+  .provider("cloudflareR2",{
     accessKeyId: import.meta.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: import.meta.env.AWS_SECRET_ACCESS_KEY!,
     region: 'auto',

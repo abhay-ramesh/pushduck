@@ -51,7 +51,7 @@ Fresh is a modern web framework for Deno that uses islands architecture for opti
     import { uploadConfig } from 'pushduck/server';
 
     const { s3, createS3Router } = uploadConfig
-      .cloudflareR2({
+      .provider("cloudflareR2",{
         accessKeyId: Deno.env.get("AWS_ACCESS_KEY_ID")!,
         secretAccessKey: Deno.env.get("AWS_SECRET_ACCESS_KEY")!,
         region: 'auto',
@@ -160,7 +160,7 @@ import { uploadConfig } from 'pushduck/server';
 import { getCookies } from "https://deno.land/std@0.208.0/http/cookie.ts";
 
 const { s3, createS3Router } = uploadConfig
-  .cloudflareR2({
+  .provider("cloudflareR2",{
     accessKeyId: Deno.env.get("AWS_ACCESS_KEY_ID")!,
     secretAccessKey: Deno.env.get("AWS_SECRET_ACCESS_KEY")!,
     region: 'auto',

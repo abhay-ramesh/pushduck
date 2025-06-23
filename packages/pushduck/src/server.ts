@@ -11,8 +11,8 @@
 
 // Provider system
 export {
+  createProvider,
   getProviderEndpoint,
-  providers,
   validateProviderConfig,
 } from "./core/providers";
 
@@ -113,6 +113,7 @@ export type {
   GoogleCloudStorageConfig,
   MinIOConfig,
   ProviderConfig,
+  ProviderType,
 } from "./core/providers";
 
 // Upload configuration types
