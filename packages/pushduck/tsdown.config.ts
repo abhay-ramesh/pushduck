@@ -13,7 +13,7 @@ export default defineConfig({
   minify: true,
   treeshake: true,
   sourcemap: false,
-  external: ["react", "next"],
+  external: ["react", "next", "crypto"],
   // Use outExtensions instead of outExtension for tsdown
   outExtensions: ({ format }) => ({
     js: format === "cjs" ? ".js" : ".mjs",
