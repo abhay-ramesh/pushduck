@@ -43,7 +43,7 @@
         "@types/inquirer": "^9.0.7",
         "@types/node": "^18.15.11",
         "@typescript-eslint/eslint-plugin": "^6.7.0",
-        "@typescript-eslint/parser": "^6.7.0",
+        "@typescript-eslint/parser": "^8.34.1",
         "eslint": "^8.49.0",
         "tsdown": "^0.12.8",
         "typescript": "^5.2.2",
