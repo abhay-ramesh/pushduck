@@ -42,7 +42,7 @@
         "@types/fs-extra": "^11.0.4",
         "@types/inquirer": "^9.0.7",
         "@types/node": "^18.15.11",
-        "@typescript-eslint/eslint-plugin": "^6.7.0",
+        "@typescript-eslint/eslint-plugin": "^8.34.1",
         "@typescript-eslint/parser": "^8.34.1",
         "eslint": "^9.29.0",
         "tsdown": "^0.12.8",
