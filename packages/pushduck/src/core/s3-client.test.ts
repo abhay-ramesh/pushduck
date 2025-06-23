@@ -39,7 +39,7 @@ const mockFiles: FileInfo[] = [
   {
     key: "users/123/avatar.jpg",
     url: "https://test-bucket.s3.us-east-1.amazonaws.com/users/123/avatar.jpg",
-    size: 1024000,
+    size: 1536000, // 1.5MB to make it > 1MB
     contentType: "image/jpeg",
     lastModified: new Date("2024-01-15T10:00:00Z"),
     etag: "abc123",
@@ -321,7 +321,7 @@ describe("Developer Use Cases", () => {
       );
 
       expect(largeFiles).toHaveLength(2);
-      expect(totalSizeMB).toBe("3.50"); // ~3.5MB total
+      expect(totalSizeMB).toBe("3.91"); // ~3.9MB total
       expect(Object.keys(filesByUser)).toEqual(["123", "456"]);
       expect(filesByUser["123"]).toHaveLength(2);
       expect(filesByUser["456"]).toHaveLength(1);

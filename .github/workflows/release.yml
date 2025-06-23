@@ -42,8 +42,8 @@ jobs:
         id: safety
         run: |
           cd packages/pushduck
-          chmod +x scripts/pre-release-check.sh
-          ./scripts/pre-release-check.sh
+          chmod +x scripts/health-check.sh
+          ./scripts/health-check.sh
 
       - name: 📝 Validate changesets
         run: |
