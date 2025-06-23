@@ -114,7 +114,7 @@
     "eslint-plugin-prettier": "^5.0.0",
     "gzip-size-cli": "^5.1.0",
     "happy-dom": "^12.9.1",
-    "next": "^15.3.3",
+    "next": "^15.3.4",
     "prettier": "^3.0.3",
     "react": "^18.2.0",
     "size-limit": "^11.0.1",
