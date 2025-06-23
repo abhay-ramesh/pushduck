@@ -11,7 +11,7 @@ github: [abhay-ramesh]
 # open_collective: pushduck
 
 # Ko-fi
-# ko_fi: abhay
+# ko_fi: abhay-ramesh
 
 # Tidelift
 # tidelift: npm/pushduck
@@ -26,13 +26,12 @@ github: [abhay-ramesh]
 # issuehunt: abhay
 
 # Buy Me a Coffee
-# buy_me_a_coffee: abhay
-
+buy_me_a_coffee: abhayramesh
 # Patreon
 # patreon: abhay
 
 # Custom funding URLs
-custom:
-  - "https://github.com/sponsors/abhay"
-  # - "https://www.buymeacoffee.com/abhay"
-  # - "https://ko-fi.com/abhay"
+# custom:
+#   - "https://github.com/sponsors/abhay-ramesh"
+# - "https://www.buymeacoffee.com/abhay-ramesh"
+# - "https://ko-fi.com/abhay-ramesh"

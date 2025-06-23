@@ -24,16 +24,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.6
+
       - name: 📦 Setup Node.js & pnpm
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "pnpm"
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 8
 
       - name: 📥 Install dependencies
         run: pnpm install --frozen-lockfile
@@ -74,8 +74,8 @@ jobs:
       contents: write
       id-token: write
 
-    environment:
-      name: production
+    # environment:
+    #   name: production
 
     steps:
       - name: 📥 Checkout
@@ -84,17 +84,17 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.6
+
       - name: 📦 Setup Node.js & pnpm
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "pnpm"
           registry-url: "https://registry.npmjs.org"
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 8
 
       - name: 📥 Install dependencies
         run: pnpm install --frozen-lockfile
@@ -138,12 +138,10 @@ jobs:
           echo "cli-version=$CLI_VERSION" >> $GITHUB_OUTPUT
 
       - name: 🎉 Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.release-info.outputs.main-version }}
-          release_name: 🚀 Release v${{ steps.release-info.outputs.main-version }}
+          name: 🚀 Release v${{ steps.release-info.outputs.main-version }}
           body: |
             ## 📦 Packages Released
 
@@ -182,16 +180,16 @@ jobs:
       - name: 📥 Checkout
         uses: actions/checkout@v4
 
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.6
+
       - name: 📦 Setup Node.js & pnpm
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "pnpm"
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 8
 
       - name: ✅ Verify NPM publication
         run: |
