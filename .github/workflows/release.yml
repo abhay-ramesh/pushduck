@@ -1,5 +1,5 @@
-# Release Workflow - Better-Auth Style
-# Automatic release creation when tags are pushed
+# Release Workflow - GitHub Native Auto-Release Notes
+# Automatic release creation when tags are pushed using GitHub's built-in features
 
 name: Release
 
@@ -36,43 +36,80 @@ jobs:
         run: |
           pnpm type-check
           pnpm test:coverage
-          pnpm build:packages
           pnpm size-check
 
-  create-release:
-    name: 🎉 Create GitHub Release
+  release:
+    name: 🚀 Create GitHub Release
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: test
     permissions:
       contents: write
       pull-requests: read
+      issues: read
+
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: 🎉 Create Release with Auto-Generated Notes
-        uses: ghalactic/github-release-from-tag@v5
-        with:
-          generateReleaseNotes: true
-          reactions: "+1,heart,rocket"
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
 
-  publish-npm:
+      - name: 🏗️ Build packages
+        run: pnpm build:packages
+
+      - name: 📊 Generate bundle analysis
+        run: |
+          cd packages/pushduck
+          node scripts/size-check.js > size-report.txt
+          echo "📦 **Bundle Analysis**" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          cat size-report.txt >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: 🎯 Extract tag info
+        id: tag_info
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "is_prerelease=${{ contains(github.ref, '-') }}" >> $GITHUB_OUTPUT
+
+      - name: 🚀 Create GitHub Release with Auto-Generated Notes
+        run: |
+          TAG_NAME="${{ steps.tag_info.outputs.tag_name }}"
+          PRERELEASE_FLAG=""
+          if [[ "${{ steps.tag_info.outputs.is_prerelease }}" == "true" ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          gh release create "$TAG_NAME" \
+            --title "$TAG_NAME" \
+            --generate-notes \
+            $PRERELEASE_FLAG
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
     name: 📦 Publish to NPM
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: test
+    timeout-minutes: 10
+    needs: [test, release]
+    if: ${{ !contains(github.ref, '-') }} # Only publish stable releases
     permissions:
       contents: read
       id-token: write
+
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
 
       - name: 🏗️ Setup project
         uses: ./.github/actions/setup
+
+      - name: 🏗️ Build packages
+        run: pnpm build:packages
 
       - name: 📦 Setup NPM registry
         uses: actions/setup-node@v4
@@ -81,167 +118,89 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           always-auth: true
 
-      - name: 🏗️ Build packages
-        run: pnpm build:packages
-
-      - name: 🔐 Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: 🔐 Verify NPM_TOKEN
+      - name: 🔐 Verify NPM token
         run: |
           if [ -z "$NPM_TOKEN" ]; then
-            echo "❌ NPM_TOKEN is not set!"
+            echo "❌ NPM_TOKEN is not set"
             exit 1
           fi
-          echo "✅ NPM_TOKEN is configured"
+          echo "✅ NPM token is configured"
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: 📤 Publish pushduck
-        run: cd packages/pushduck && npm publish --provenance --access public
+      - name: 📤 Publish to NPM
+        run: |
+          cd packages/pushduck && npm publish --provenance --access public
+          cd ../cli && npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: 📤 Publish CLI
-        run: cd packages/cli && npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: ✅ Verify NPM publication
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG_NAME#v}
 
-  # 📊 Post-Release Monitoring
-  post-release:
-    name: 📊 Post-Release Verification
+          echo "🔍 Verifying pushduck@$VERSION..."
+          npm view pushduck@$VERSION version
+
+          echo "🔍 Verifying @pushduck/cli@$VERSION..."
+          npm view @pushduck/cli@$VERSION version
+
+          echo "✅ Both packages published successfully!"
+
+      - name: 💬 Success notification
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          echo "🎉 **Release $TAG_NAME Complete!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Tests passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ GitHub release created with auto-generated notes" >> $GITHUB_STEP_SUMMARY
+          echo "✅ NPM packages published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/$TAG_NAME)" >> $GITHUB_STEP_SUMMARY
+
+  failure_notification:
+    name: 🚨 Failure Notification
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [create-release, publish-npm]
-    if: always() && needs.publish-npm.result == 'success'
+    needs: [test, release, publish]
+    if: failure()
+    permissions:
+      issues: write
+      contents: read
 
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      - name: ✅ Verify NPM publication
-        run: |
-          echo "🔍 Verifying packages are available on NPM..."
-
-          # Wait for NPM propagation
-          sleep 30
-
-          # Get versions from package.json
-          MAIN_VERSION=$(node -p "require('./packages/pushduck/package.json').version")
-          CLI_VERSION=$(node -p "require('./packages/cli/package.json').version")
-
-          # Check main package
-          if npm view "pushduck@$MAIN_VERSION" version; then
-            echo "✅ pushduck@$MAIN_VERSION is live on NPM"
-          else
-            echo "❌ pushduck@$MAIN_VERSION not found on NPM"
-            exit 1
-          fi
-
-          # Check CLI package
-          if npm view "@pushduck/cli@$CLI_VERSION" version; then
-            echo "✅ @pushduck/cli@$CLI_VERSION is live on NPM"
-          else
-            echo "❌ @pushduck/cli@$CLI_VERSION not found on NPM"
-            exit 1
-          fi
-
-      - name: 📱 Notify success
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const mainVersion = require('./packages/pushduck/package.json').version;
-            const cliVersion = require('./packages/cli/package.json').version;
-
-            // Get the tag from the event
-            const tag = context.ref.replace('refs/tags/', '');
-
-            github.rest.repos.createCommitComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: context.sha,
-              body: `## 🎉 Release ${tag} Successful!
-              
-              ✅ **Packages Published:**
-              - \`pushduck@${mainVersion}\`
-              - \`@pushduck/cli@${cliVersion}\`
-              
-              📊 **Release Stats:**
-              - All quality gates passed ✅
-              - NPM verification successful ✅
-              - GitHub Release created ✅
-              
-              🚀 **Ready for use!**
-              
-              ## 📥 Installation
-              \`\`\`bash
-              npm install pushduck@latest
-              # or
-              npx @pushduck/cli@latest
-              \`\`\``
-            });
-
-  # 🚨 Failure Notification
-  notify-failure:
-    name: 🚨 Release Failure Notification
-    runs-on: ubuntu-latest
-    needs: [test, create-release, publish-npm, post-release]
-    if: always() && (needs.test.result == 'failure' || needs.create-release.result == 'failure' || needs.publish-npm.result == 'failure' || needs.post-release.result == 'failure')
-
-    steps:
-      - name: 🚨 Create issue for failed release
+      - name: 🚨 Create failure issue
         uses: actions/github-script@v7
         with:
           script: |
             const tag = context.ref.replace('refs/tags/', '');
-            const title = `🚨 Release ${tag} Failed - ${new Date().toISOString().split('T')[0]}`;
-            const body = `## 🚨 Release Failure Report
+            const title = `🚨 Release ${tag} failed`;
+            const body = `
+            ## Release Failure Report
 
-            **Tag:** ${tag}
-            **Workflow:** ${{ github.workflow }}
-            **Run ID:** ${{ github.run_id }}
-            **Commit:** ${{ github.sha }}
+            **Tag:** \`${tag}\`
+            **Workflow:** ${context.workflow}
+            **Run:** [#${context.runNumber}](${context.payload.repository.html_url}/actions/runs/${context.runId})
 
-            **Job Results:**
-            - 🛡️ Test & Safety: ${{ needs.test.result }}
-            - 🎉 GitHub Release: ${{ needs.create-release.result }}
-            - 📦 NPM Publish: ${{ needs.publish-npm.result }}
-            - 📊 Verification: ${{ needs.post-release.result }}
+            ### Failed Jobs
+            Please check the workflow logs for detailed error information.
 
-            ## 🔍 Investigation Steps
-
-            1. Check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            2. Review safety checks and tests
-            3. Verify NPM token and permissions
-            4. Check package build outputs
-
-            ## 🛠️ Manual Recovery
-
-            If automation fails, you can release manually:
-
-            \`\`\`bash
-            # 1. Run safety checks
-            cd packages/pushduck && ./scripts/health-check.sh
-
-            # 2. Build and publish
-            pnpm build:packages
-            cd packages/pushduck && npm publish
-            cd packages/cli && npm publish
-
-            # 3. Create GitHub release manually
-            gh release create ${tag} --generate-notes
-            \`\`\`
+            ### Next Steps
+            1. Review the failed job logs
+            2. Fix any issues
+            3. Re-run the release workflow or create a new tag
 
             ---
-
-            **Auto-generated by GitHub Actions**`;
+            *This issue was automatically created by the release workflow.*
+            `;
 
             github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: title,
               body: body,
-              labels: ['bug', 'release', 'automation']
+              labels: ['release-failure', 'bug']
             });

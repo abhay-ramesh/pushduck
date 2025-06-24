@@ -1,0 +1,69 @@
+# .github/release.yml
+# Configuration for GitHub's automatic release notes generation
+# This creates beautiful release notes similar to better-auth and tRPC
+
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - dependencies
+      - internal
+      - documentation
+    authors:
+      - dependabot[bot]
+      - github-actions[bot]
+
+  categories:
+    - title: 🚀 Features
+      labels:
+        - feat
+        - feature
+        - enhancement
+        - new-feature
+
+    - title: 🐞 Bug Fixes
+      labels:
+        - fix
+        - bug
+        - bugfix
+        - hotfix
+
+    - title: ⚡ Performance Improvements
+      labels:
+        - perf
+        - performance
+        - optimization
+
+    - title: 🔧 Technical Changes
+      labels:
+        - refactor
+        - chore
+        - build
+        - ci
+        - test
+        - tests
+
+    - title: 📝 Documentation
+      labels:
+        - docs
+        - documentation
+
+    - title: 🔒 Security
+      labels:
+        - security
+        - vulnerability
+
+    - title: 💥 Breaking Changes
+      labels:
+        - breaking
+        - breaking-change
+        - BREAKING CHANGE
+
+    - title: 📦 Dependencies
+      labels:
+        - dependencies
+        - deps
+
+    - title: Other Changes
+      labels:
+        - "*"
