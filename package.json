@@ -13,11 +13,10 @@
     "type-check": "pnpm --filter=\"./packages/*\" type-check",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "docs": "turbo dev --no-cache --continue --filter=docs",
-    "release:patch": "pnpm release:version patch && pnpm release:tag",
-    "release:minor": "pnpm release:version minor && pnpm release:tag",
-    "release:major": "pnpm release:version major && pnpm release:tag",
+    "release:patch": "pnpm release:version patch && node scripts/release-tag.js",
+    "release:minor": "pnpm release:version minor && node scripts/release-tag.js",
+    "release:major": "pnpm release:version major && node scripts/release-tag.js",
     "release:version": "pnpm --filter=\"./packages/*\" exec npm version",
-    "release:tag": "node -e \"const pkg = require('./packages/pushduck/package.json'); const tag = 'v' + pkg.version; const message = 'Release ' + tag; require('child_process').execSync('git add . && git commit -m \"chore: release ' + tag + '\" && git tag -a ' + tag + ' -m \"' + message + '\" && git push && git push --tags', {stdio: 'inherit'});\"",
     "release:manual": "echo 'Manual release steps:' && echo '1. Update versions manually' && echo '2. Run: git tag -a v1.0.0 -m \"Release v1.0.0\"' && echo '3. Run: git push --tags'"
   },
   "devDependencies": {
