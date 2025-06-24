@@ -1,6 +1,7 @@
 {
     "name": "@pushduck/cli",
     "version": "0.1.0",
+    "type": "module",
     "description": "Official CLI for pushduck - Add S3 upload functionality to your Next.js project",
     "main": "dist/index.js",
     "bin": {
@@ -10,7 +11,7 @@
         "build": "tsdown",
         "dev": "tsdown --watch",
         "test": "vitest",
-        "lint": "eslint src --ext .ts",
+        "lint": "eslint src",
         "typecheck": "tsc --noEmit"
     },
     "keywords": [
@@ -39,6 +40,7 @@
         "ora": "^7.0.0"
     },
     "devDependencies": {
+        "@eslint/eslintrc": "^3.3.1",
         "@types/fs-extra": "^11.0.4",
         "@types/inquirer": "^9.0.7",
         "@types/node": "^18.15.11",
