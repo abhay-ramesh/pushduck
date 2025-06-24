@@ -1,6 +1,6 @@
 {
   "name": "pushduck",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "author": "Abhay Ramesh",
   "license": "MIT",
@@ -72,12 +72,7 @@
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm build",
     "maintenance:health": "./scripts/health-check.sh",
-    "maintenance:deps": "./scripts/update-deps.sh",
-    "release:changeset": "pnpm changeset && pnpm changeset version && pnpm changeset publish",
-    "release:preview": "pnpm changeset status",
-    "release:snapshot": "pnpm changeset version --snapshot && pnpm changeset publish --tag snapshot",
-    "release:patch": "pnpm changeset add --type patch && pnpm changeset version && pnpm changeset publish",
-    "validate-changesets": "node ./scripts/changeset-validator.cjs"
+    "maintenance:deps": "./scripts/update-deps.sh"
   },
   "keywords": [
     "nextjs",
