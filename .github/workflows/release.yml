@@ -19,6 +19,11 @@ jobs:
       should-release: ${{ steps.check.outputs.should-release }}
 
     steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: 🏗️ Setup project
         uses: ./.github/actions/setup
 
@@ -59,6 +64,12 @@ jobs:
       id-token: write
 
     steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: 🏗️ Setup project
         uses: ./.github/actions/setup
 

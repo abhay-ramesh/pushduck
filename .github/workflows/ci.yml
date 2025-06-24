@@ -18,6 +18,11 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: 🏗️ Setup project
         uses: ./.github/actions/setup
 
@@ -45,6 +50,9 @@ jobs:
     needs: quality
 
     steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
       - name: 🏗️ Setup project
         uses: ./.github/actions/setup
 
@@ -80,6 +88,9 @@ jobs:
     needs: quality
 
     steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
       - name: 🏗️ Setup project
         uses: ./.github/actions/setup
 
@@ -102,6 +113,11 @@ jobs:
     if: github.event_name == 'pull_request'
 
     steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: 🏗️ Setup project
         uses: ./.github/actions/setup
 
@@ -159,6 +175,9 @@ jobs:
         node: ["18", "20", "21"]
 
     steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
       - name: 🏗️ Setup project
         uses: ./.github/actions/setup
         with:
