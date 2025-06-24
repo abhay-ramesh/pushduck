@@ -320,12 +320,18 @@ importers:
 
   packages/ui:
     dependencies:
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
       lucide-react:
         specifier: ^0.516.0
         version: 0.516.0(react@19.1.0)
       pushduck:
         specifier: workspace:*
         version: link:../pushduck
+      tailwind-merge:
+        specifier: ^3.3.1
+        version: 3.3.1
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.3.1

@@ -77,7 +77,7 @@
     "release:preview": "pnpm changeset status",
     "release:snapshot": "pnpm changeset version --snapshot && pnpm changeset publish --tag snapshot",
     "release:patch": "pnpm changeset add --type patch && pnpm changeset version && pnpm changeset publish",
-    "validate-changesets": "node ./scripts/changeset-validator.js"
+    "validate-changesets": "node ./scripts/changeset-validator.cjs"
   },
   "keywords": [
     "nextjs",
