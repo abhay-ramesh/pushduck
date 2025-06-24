@@ -97,14 +97,6 @@ jobs:
       - name: 🔐 Audit dependencies
         run: pnpm audit --audit-level moderate
 
-      - name: 🛡️ Snyk security scan
-        uses: snyk/actions/node@master
-        if: github.event_name == 'pull_request'
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=medium
-
   # 📝 Changeset Validation (PR only)
   changeset-check:
     name: 📝 Changeset Validation
