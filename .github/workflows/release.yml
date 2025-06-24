@@ -62,6 +62,7 @@ jobs:
     permissions:
       contents: write
       id-token: write
+      pull-requests: read
 
     steps:
       - name: 📥 Checkout
@@ -91,6 +92,8 @@ jobs:
         run: |
           pnpm version-packages
           echo "📝 Generated versions and changelogs"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 📤 Publish to NPM
         run: pnpm release
