@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.1
+
+### Patch Changes
+
+- [#15](https://github.com/abhay-ramesh/pushduck/pull/15) [`7107e29`](https://github.com/abhay-ramesh/pushduck/commit/7107e2926a7f4cdec8d134e21e9e8836ef54ec7c) Thanks [@abhay-ramesh](https://github.com/abhay-ramesh)! - fix(lint): resolve ESLint compatibility issues and migrate to modern config
+
+- [#15](https://github.com/abhay-ramesh/pushduck/pull/15) [`81afc47`](https://github.com/abhay-ramesh/pushduck/commit/81afc47dce18eec3767247cc42ad56a7cd75cd60) Thanks [@abhay-ramesh](https://github.com/abhay-ramesh)! - feat(ui): enhance upload components and add utility functions
+
+  - Introduced new utility functions for class name merging using clsx and tailwind-merge.
+  - Updated UploadButton and UploadDropzone components to use new uploadFiles method.
+  - Added clsx and tailwind-merge as dependencies in the UI package.
+  - Created a new TypeScript configuration file for the UI package.
+  - Added changeset validator script to ensure proper changeset formatting.
+
+- [#15](https://github.com/abhay-ramesh/pushduck/pull/15) [`f37730a`](https://github.com/abhay-ramesh/pushduck/commit/f37730a37090f4e76c9ccbf3f488a324df90ff3e) Thanks [@abhay-ramesh](https://github.com/abhay-ramesh)! - Upgraded linting to newer versions
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -22,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive documentation
 - **Comprehensive S3-Compatible Provider Framework** - Added support framework for 11+ additional providers
   - **Enterprise Providers**: Azure Blob Storage, IBM Cloud Object Storage, Oracle OCI
-  - **Cost-Optimized Providers**: Wasabi Hot Cloud Storage, Backblaze B2, Storj DCS  
+  - **Cost-Optimized Providers**: Wasabi Hot Cloud Storage, Backblaze B2, Storj DCS
   - **Specialized Providers**: Telnyx Storage, Tigris Data, Cloudian HyperStore
   - **Generic S3-Compatible Provider**: Support for any S3-compatible service with custom endpoints
 - **Provider Implementation Guide** - Complete documentation for adding new providers (`PROVIDERS.md`)

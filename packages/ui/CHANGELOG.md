@@ -1,4 +1,4 @@
-# Changelog
+# @pushduck/ui
 
 ## 0.1.1
 
@@ -16,36 +16,5 @@
 
 - [#15](https://github.com/abhay-ramesh/pushduck/pull/15) [`f37730a`](https://github.com/abhay-ramesh/pushduck/commit/f37730a37090f4e76c9ccbf3f488a324df90ff3e) Thanks [@abhay-ramesh](https://github.com/abhay-ramesh)! - Upgraded linting to newer versions
 
-All notable changes to @pushduck/cli will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
-### Added
-
-- Interactive setup wizard
-- Multi-provider support configuration
-- Environment variable generation
-- Template generation for different frameworks
-- Package manager detection
-
-### Changed
-
-- Improved user experience
-- Better error handling
-- Enhanced prompts
-
-## [0.1.0] - 2024-12-17
-
-### Added
-
-- Initial release of @pushduck/cli (migrated from create-next-s3-uploader)
-- Zero-config setup for pushduck
-- Support for Next.js projects
-- Provider configuration (AWS S3, Cloudflare R2, DigitalOcean Spaces, Google Cloud, MinIO)
-- Environment file generation
-- Route template generation
-- Package manager detection (npm, yarn, pnpm, bun)
-- Interactive prompts for easy setup
+- Updated dependencies [[`7107e29`](https://github.com/abhay-ramesh/pushduck/commit/7107e2926a7f4cdec8d134e21e9e8836ef54ec7c), [`81afc47`](https://github.com/abhay-ramesh/pushduck/commit/81afc47dce18eec3767247cc42ad56a7cd75cd60), [`f37730a`](https://github.com/abhay-ramesh/pushduck/commit/f37730a37090f4e76c9ccbf3f488a324df90ff3e)]:
+  - pushduck@0.1.1
