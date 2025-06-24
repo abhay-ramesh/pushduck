@@ -20,7 +20,7 @@
     "@custom/tsconfig",
     "eslint-config-custom",
     "new-api-demo",
-    "nextra-docs-template"
+    "@pushduck/docs"
   ],
   "baseBranch": "main",
   "snapshot": {
