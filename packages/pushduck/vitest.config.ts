@@ -7,8 +7,10 @@ export default defineConfig({
     globals: true,
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     exclude: ["node_modules", "dist"],
+    passWithNoTests: true,
     coverage: {
-      reporter: ["text", "json", "html"],
+      provider: "v8",
+      reporter: ["text", "json", "html", "lcov"],
       exclude: ["node_modules/", "dist/", "**/*.test.{ts,tsx}"],
     },
   },
