@@ -105,36 +105,71 @@ jobs:
           echo "main-version=$MAIN_VERSION" >> $GITHUB_OUTPUT
           echo "cli-version=$CLI_VERSION" >> $GITHUB_OUTPUT
 
+      - name: 📋 Generate enhanced release notes
+        id: release-notes
+        run: |
+          # Install conventional changelog
+          npm install -g conventional-changelog-cli
+
+          # Generate changelog for this release
+          conventional-changelog -p angular -t v${{ steps.release-info.outputs.main-version }} > release-notes.md
+
+          # Get bundle sizes
+          MAIN_SIZE=$(gzip-size-cli packages/pushduck/dist/index.mjs 2>/dev/null || echo "N/A")
+          CLI_SIZE=$(du -sh packages/cli/dist 2>/dev/null | cut -f1 || echo "N/A")
+
+          # Create enhanced release notes
+          cat > enhanced-release-notes.md << EOF
+          ## 📦 Packages Released
+
+          - \`pushduck@${{ steps.release-info.outputs.main-version }}\`
+          - \`@pushduck/cli@${{ steps.release-info.outputs.cli-version }}\`
+
+          ## 📝 What's Changed
+
+          $(cat release-notes.md)
+
+          ## 📊 Bundle Size Report
+
+          | Package | Size (gzipped) | 
+          |---------|----------------|
+          | pushduck | $MAIN_SIZE |
+          | @pushduck/cli | $CLI_SIZE |
+
+          ## 📥 Installation
+
+          \`\`\`bash
+          npm install pushduck@latest
+          # or
+          npx @pushduck/cli@latest
+          \`\`\`
+
+          ## 🔗 Links
+
+          - 📚 [Documentation](https://pushduck.vercel.app)
+          - 📦 [NPM Package](https://www.npmjs.com/package/pushduck)
+          - 🐛 [Report Issues](https://github.com/${{ github.repository }}/issues)
+          - 💬 [Discussions](https://github.com/${{ github.repository }}/discussions)
+
+          ---
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.release-info.outputs.main-version }}...v${{ steps.release-info.outputs.main-version }}
+          EOF
+
+          # Set output for GitHub release
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          cat enhanced-release-notes.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: 🎉 Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.release-info.outputs.main-version }}
           name: 🚀 Release v${{ steps.release-info.outputs.main-version }}
-          body: |
-            ## 📦 Packages Released
-
-            - `pushduck@${{ steps.release-info.outputs.main-version }}`
-            - `create-pushduck@${{ steps.release-info.outputs.cli-version }}`
-
-            ## 📝 Changelog
-
-            See [CHANGELOG.md](./packages/pushduck/CHANGELOG.md) for detailed changes.
-
-            ## 📥 Installation
-
-            ```bash
-            npm install pushduck@latest
-            # or
-            npx create-pushduck@latest
-            ```
-
-            ## 🔗 Links
-
-            - [📚 Documentation](https://pushduck.vercel.app)
-            - [🐛 Report Issues](https://github.com/${{ github.repository }}/issues)
-            - [💬 Discussions](https://github.com/${{ github.repository }}/discussions)
+          body: ${{ steps.release-notes.outputs.notes }}
           draft: false
           prerelease: false
+          generate_release_notes: true
 
   # 📊 Post-Release Monitoring - Simplified
   post-release:

@@ -24,8 +24,8 @@ If you discover a security vulnerability in pushduck, please report it responsib
    - Fill out the advisory form with detailed information
 
 2. **Email**
-   - Send an email to: [security@your-domain.com] (replace with your actual security email)
-   - Include "SECURITY VULNERABILITY" in the subject line
+   - Send an email to: <ramesh.abhay14@gmail.com>
+   - Include "SECURITY VULNERABILITY - pushduck" in the subject line
    - Provide detailed information about the vulnerability
 
 ### 📋 What to Include

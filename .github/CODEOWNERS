@@ -9,7 +9,7 @@
 packages/pushduck/src/ @abhay-ramesh
 packages/pushduck/package.json @abhay-ramesh
 packages/pushduck/tsconfig.json @abhay-ramesh
-packages/pushduck/tsup.config.ts @abhay-ramesh
+packages/pushduck/tsdown.config.ts @abhay-ramesh
 
 # CLI package - require maintainer review  
 packages/cli/ @abhay-ramesh
@@ -17,15 +17,24 @@ packages/cli/ @abhay-ramesh
 # Release and automation - require maintainer review
 .changeset/ @abhay-ramesh
 .github/workflows/ @abhay-ramesh
+.github/ISSUE_TEMPLATE/ @abhay-ramesh
+.github/CODEOWNERS @abhay-ramesh
+.github/SECURITY.md @abhay-ramesh
 packages/pushduck/scripts/ @abhay-ramesh
 RELEASE_LIFECYCLE_GUIDE.md @abhay-ramesh
 GITHUB_AUTOMATION_GUIDE.md @abhay-ramesh
 
-# Documentation - can be reviewed by docs team
-*.md
-docs/
-apps/docs/
-README.md
+# Important documentation - require maintainer review
+README.md @abhay-ramesh
+packages/*/README.md @abhay-ramesh
+docs/content/docs/ @abhay-ramesh
+SECURITY.md @abhay-ramesh
+CHANGELOG.md @abhay-ramesh
+
+# Less critical documentation - optional review
+examples/**/*.md
+docs/content/examples/
+*.mdx
 
 # Configuration files - require maintainer review
 package.json @abhay-ramesh
@@ -33,8 +42,9 @@ pnpm-lock.yaml @abhay-ramesh
 pnpm-workspace.yaml @abhay-ramesh
 turbo.json @abhay-ramesh
 .gitignore @abhay-ramesh
+tsconfig.json @abhay-ramesh
 
 # Security-sensitive files - require security review
 .github/workflows/release.yml @abhay-ramesh
-packages/pushduck/scripts/pre-release-check.sh @abhay-ramesh
+.github/dependabot.yml @abhay-ramesh
 packages/pushduck/scripts/health-check.sh @abhay-ramesh

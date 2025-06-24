@@ -1,0 +1,89 @@
+name: 🧹 Stale Issues & PRs
+
+on:
+  schedule:
+    - cron: "0 12 * * 1" # Run every Monday at noon UTC
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: 🧹 Mark Stale Issues & PRs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧹 Stale action
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Issue configuration
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
+          stale-issue-message: |
+            👋 This issue has been automatically marked as stale because it has not had recent activity.
+
+            **What happens next?**
+            - This issue will be closed in 2 weeks if no further activity occurs
+            - If you're still experiencing this issue, please add a comment to keep it open
+            - If this was resolved, feel free to close it yourself
+
+            **Need help?**
+            - Check our [documentation](https://pushduck.vercel.app)
+            - Join our [discussions](https://github.com/abhay-ramesh/pushduck/discussions)
+
+            Thanks for your understanding! 🚀
+          close-issue-message: |
+            🤖 This issue has been automatically closed due to inactivity.
+
+            **Was this closed by mistake?**
+            - Feel free to reopen it if you're still experiencing the issue
+            - Or create a new issue with updated information
+
+            Thanks for using pushduck! 🎉
+          stale-issue-label: "stale"
+          close-issue-label: "auto-closed"
+
+          # PR configuration
+          days-before-pr-stale: 30
+          days-before-pr-close: 7
+          stale-pr-message: |
+            👋 This pull request has been automatically marked as stale because it has not had recent activity.
+
+            **What happens next?**
+            - This PR will be closed in 1 week if no further activity occurs
+            - If you plan to continue working on this, please add a comment or push new commits
+            - If this PR is no longer needed, feel free to close it yourself
+
+            **Need help?**
+            - Check if there are merge conflicts to resolve
+            - Ensure all CI checks are passing
+            - Consider if a rebase is needed
+
+            Thanks for your contribution! 🚀
+          close-pr-message: |
+            🤖 This pull request has been automatically closed due to inactivity.
+
+            **Want to continue this work?**
+            - Feel free to reopen if you plan to continue
+            - Or create a new PR if significant changes are needed
+
+            Thanks for your contribution! 🎉
+          stale-pr-label: "stale"
+          close-pr-label: "auto-closed"
+
+          # Exemptions
+          exempt-issue-labels: "pinned,security,enhancement,good first issue,help wanted"
+          exempt-pr-labels: "pinned,security,dependencies,release"
+          exempt-draft-pr: true
+
+          # Comments
+          remove-stale-when-updated: true
+          delete-branch: true # Delete branch when closing stale PRs
+
+          # Advanced options
+          operations-per-run: 100
+          ascending: true

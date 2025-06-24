@@ -1,0 +1,160 @@
+name: 🤖 Dependabot Auto-Merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  auto-merge:
+    name: 🤖 Auto-merge Dependabot PRs
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.draft == false
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔍 Get PR metadata
+        id: pr-metadata
+        run: |
+          echo "pr-title=${{ github.event.pull_request.title }}" >> $GITHUB_OUTPUT
+          echo "pr-body=${{ github.event.pull_request.body }}" >> $GITHUB_OUTPUT
+
+      - name: 🔍 Check if PR is safe to auto-merge
+        id: safe-merge
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+
+          # Define safe update patterns
+          SAFE_PATTERNS=(
+            "Bump.*from.*to.*"  # Standard dependabot pattern
+            "chore(deps): bump"  # Our custom pattern
+          )
+
+          # Define packages that are safe to auto-merge for patch updates
+          SAFE_PACKAGES=(
+            "@types/"
+            "eslint"
+            "prettier"
+            "typescript"
+            "@typescript-eslint/"
+            "vitest"
+            "@vitest/"
+            "bundlesize"
+            "gzip-size-cli"
+          )
+
+          IS_SAFE=false
+
+          # Check if it's a patch update for safe packages
+          for pattern in "${SAFE_PATTERNS[@]}"; do
+            if [[ $PR_TITLE =~ $pattern ]]; then
+              for safe_pkg in "${SAFE_PACKAGES[@]}"; do
+                if [[ $PR_TITLE == *"$safe_pkg"* ]]; then
+                  # Only patch versions (x.y.Z)
+                  if [[ $PR_TITLE =~ [0-9]+\.[0-9]+\.[0-9]+.*to.*[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+                    echo "Safe patch update detected for: $safe_pkg"
+                    IS_SAFE=true
+                    break 2
+                  fi
+                fi
+              done
+            fi
+          done
+
+          # Special handling for GitHub Actions updates (always safe)
+          if [[ $PR_TITLE == *"github-actions"* ]]; then
+            IS_SAFE=true
+            echo "GitHub Actions update detected (safe)"
+          fi
+
+          echo "safe-merge=$IS_SAFE" >> $GITHUB_OUTPUT
+
+      - name: ⏳ Wait for CI checks
+        if: steps.safe-merge.outputs.safe-merge == 'true'
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          check-name: "✅ All Checks Passed"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success
+
+      - name: ✅ Auto-approve safe PR
+        if: steps.safe-merge.outputs.safe-merge == 'true'
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🔄 Auto-merge safe PR
+        if: steps.safe-merge.outputs.safe-merge == 'true'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 💬 Comment on manual review needed
+        if: steps.safe-merge.outputs.safe-merge != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🔍 Manual Review Required
+
+              This dependency update requires manual review because:
+              - It may be a major/minor version update
+              - It affects core production dependencies
+              - It's not in the safe auto-merge list
+
+              Please review the changes and merge manually if appropriate.
+
+              **Auto-merge criteria:**
+              - ✅ Patch updates only (x.y.Z)
+              - ✅ Safe packages: @types/*, eslint, prettier, typescript, etc.
+              - ✅ All CI checks pass
+              - ✅ GitHub Actions updates`
+            })
+
+  # Create changeset for merged dependency updates
+  create-changeset:
+    name: 📝 Create Changeset for Dependency Updates
+    runs-on: ubuntu-latest
+    needs: auto-merge
+    if: needs.auto-merge.result == 'success'
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 📝 Create changeset for dependency updates
+        run: |
+          # Create a patch changeset for dependency updates
+          cat > .changeset/$(date +%s)-deps.md << EOF
+          ---
+          "pushduck": patch
+          "@pushduck/cli": patch
+          ---
+
+          Update dependencies to latest versions
+          EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add .changeset/
+          git commit -m "chore: add changeset for dependency updates [skip ci]"
+          git push

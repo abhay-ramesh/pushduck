@@ -22,6 +22,26 @@ updates:
     labels:
       - "dependencies"
       - "pushduck"
+    # Group related packages together
+    groups:
+      aws-sdk:
+        patterns:
+          - "@aws-sdk/*"
+      typescript:
+        patterns:
+          - "typescript"
+          - "@typescript-eslint/*"
+          - "@types/*"
+      testing:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+          - "@testing-library/*"
+      build-tools:
+        patterns:
+          - "tsdown"
+          - "bundlesize"
+          - "eslint*"
 
   # CLI package dependencies
   - package-ecosystem: "npm"

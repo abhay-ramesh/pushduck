@@ -1,0 +1,280 @@
+name: 📝 Changelog Automation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, closed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to generate changelog for"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+
+jobs:
+  # Validate commit messages on PRs
+  validate-commits:
+    name: 🔍 Validate Commit Messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 📝 Install commitlint
+        run: npm install -g @commitlint/cli @commitlint/config-conventional
+
+      - name: 🔍 Validate commit messages
+        run: |
+          # Validate all commits in the PR
+          git log --format="%H %s" origin/${{ github.base_ref }}..HEAD | while read commit; do
+            hash=$(echo "$commit" | cut -d' ' -f1)
+            message=$(echo "$commit" | cut -d' ' -f2-)
+            echo "Validating: $message"
+            echo "$message" | commitlint --verbose
+          done
+
+      - name: 💬 Comment on PR if invalid commits
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## ❌ Invalid Commit Messages
+
+              Some commits in this PR don't follow conventional commit format:
+              
+              **Required format:**
+              \`\`\`
+              <type>(<scope>): <subject>
+              
+              - <first point>
+              - <second point>
+              - <third point>
+              \`\`\`
+
+              **Examples:**
+              - \`feat(core): add new upload progress indicator\`
+              - \`fix(client): resolve memory leak in chunk upload\`
+              - \`docs(readme): update installation instructions\`
+
+              **Valid types:** feat, fix, docs, style, refactor, test, chore, perf, ci, build, revert
+
+              Please squash/reword your commits to follow this format.`
+            })
+
+  # Generate changelog preview for PRs
+  changelog-preview:
+    name: 📋 Generate Changelog Preview
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 📝 Install changelog tools
+        run: npm install -g conventional-changelog-cli conventional-commits-parser
+
+      - name: 📋 Generate changelog preview
+        id: changelog
+        run: |
+          # Generate changelog for commits in this PR
+          CHANGELOG=$(conventional-changelog -p angular -u)
+
+          # Escape for GitHub output
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 💬 Comment changelog preview
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const changelog = `${{ steps.changelog.outputs.changelog }}`;
+
+            if (changelog.trim()) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 📋 Changelog Preview
+
+                This PR will generate the following changelog entry:
+
+                \`\`\`markdown
+                ${changelog}
+                \`\`\`
+
+                **Note:** This is auto-generated from conventional commits. You can still add a manual changeset if needed.`
+              });
+            }
+
+  # Auto-generate changesets from conventional commits
+  auto-changeset:
+    name: 🤖 Auto-Generate Changesets
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 📝 Install tools
+        run: npm install -g conventional-commits-parser
+
+      - name: 🤖 Generate changesets from commits
+        run: |
+          # Get commits since last release
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LAST_TAG" ]; then
+            echo "No previous tags found, using all commits"
+            COMMITS=$(git log --format="%s" --no-merges)
+          else
+            echo "Getting commits since $LAST_TAG"
+            COMMITS=$(git log ${LAST_TAG}..HEAD --format="%s" --no-merges)
+          fi
+
+          # Parse commits and generate changesets
+          echo "$COMMITS" | while IFS= read -r commit; do
+            if [[ $commit =~ ^(feat|fix|perf|revert)(\([^)]+\))?:(.+)$ ]]; then
+              type="${BASH_REMATCH[1]}"
+              scope="${BASH_REMATCH[2]}"
+              subject="${BASH_REMATCH[3]}"
+              
+              # Determine version bump type
+              case $type in
+                feat) bump="minor" ;;
+                fix|perf) bump="patch" ;;
+                revert) bump="patch" ;;
+                *) continue ;;
+              esac
+              
+              # Determine affected packages
+              if [[ $scope == *"cli"* ]]; then
+                packages='"@pushduck/cli": '$bump''
+              elif [[ $scope == *"core"* ]] || [[ $scope == *"client"* ]] || [[ $scope == *"server"* ]]; then
+                packages='"pushduck": '$bump''
+              else
+                packages='"pushduck": '$bump', "@pushduck/cli": '$bump''
+              fi
+              
+              # Create changeset file
+              timestamp=$(date +%s)
+              changeset_file=".changeset/auto-${timestamp}.md"
+              
+              cat > "$changeset_file" << EOF
+          ---
+          $packages
+          ---
+
+          $subject
+          EOF
+              
+              echo "Created changeset for: $commit"
+            fi
+          done
+
+      - name: 📦 Commit auto-generated changesets
+        run: |
+          if [ -n "$(git status --porcelain .changeset/)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            
+            git add .changeset/
+            git commit -m "chore: add auto-generated changesets [skip ci]"
+            git push
+            
+            echo "✅ Auto-generated changesets committed"
+          else
+            echo "ℹ️ No changesets to commit"
+          fi
+
+  # Enhanced release notes generation
+  enhanced-release-notes:
+    name: 🎉 Generate Enhanced Release Notes
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 📝 Install tools
+        run: npm install -g conventional-changelog-cli
+
+      - name: 🎉 Generate enhanced release notes
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION=$(node -p "require('./packages/pushduck/package.json').version")
+          fi
+
+          echo "# Release Notes for v$VERSION" > release-notes.md
+          echo "" >> release-notes.md
+
+          # Generate conventional changelog
+          conventional-changelog -p angular -i release-notes.md -s
+
+          # Add additional sections
+          cat >> release-notes.md << EOF
+
+          ## 📊 Bundle Size Report
+
+          | Package | Size (gzipped) | Change |
+          |---------|----------------|--------|
+          | pushduck | $(gzip-size-cli packages/pushduck/dist/index.mjs) | - |
+          | @pushduck/cli | $(du -sh packages/cli/dist | cut -f1) | - |
+
+          ## 🔗 Links
+
+          - 📚 [Documentation](https://pushduck.vercel.app)
+          - 📦 [NPM Package](https://www.npmjs.com/package/pushduck)
+          - 🐛 [Report Issues](https://github.com/abhay-ramesh/pushduck/issues)
+          - 💬 [Discussions](https://github.com/abhay-ramesh/pushduck/discussions)
+
+          ## 🙏 Contributors
+
+          Thanks to all contributors who made this release possible!
+          EOF
+
+          echo "Enhanced release notes generated:"
+          cat release-notes.md
+
+      - name: 📤 Upload release notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes.md

@@ -145,8 +145,30 @@ jobs:
               pnpm changeset
               \`\`\`
               
+              **Or use conventional commits** (will auto-generate changesets):
+              - \`feat(core): add new feature\` → minor release
+              - \`fix(client): resolve bug\` → patch release
+              
               If this is a pure refactor with no user-facing changes, you can add an empty changeset with \`--empty\`.`
             })
+
+  # Validate conventional commits
+  commit-validation:
+    name: 🔍 Validate Commit Messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 📝 Install commitlint
+        run: npm install -g @commitlint/cli @commitlint/config-conventional
+
+      - name: 🔍 Validate commit messages
+        run: |
+          # Validate all commits in the PR
+          npx commitlint --from origin/${{ github.base_ref }} --to HEAD --verbose
 
   # 🎯 Matrix Testing (multiple Node versions) - Optimized
   compatibility:

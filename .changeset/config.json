@@ -3,10 +3,22 @@
   "changelog": [
     "@changesets/changelog-github",
     {
-      "repo": "abhay-ramesh/pushduck"
+      "repo": "abhay-ramesh/pushduck",
+      "changelog": {
+        "labels": {
+          "breaking": "💥 Breaking Changes",
+          "enhancement": "✨ Features & Enhancements",
+          "bug": "🐛 Bug Fixes",
+          "documentation": "📚 Documentation",
+          "internal": "🏠 Internal Changes",
+          "dependencies": "📦 Dependencies"
+        },
+        "cacheDir": ".changelog-cache"
+      }
     }
   ],
-  "commit": false,
+  "commit": true,
+  "commitMessage": "chore(release): version packages",
   "fixed": [],
   "linked": [
     [
@@ -26,5 +38,15 @@
   "snapshot": {
     "useCalculatedVersion": true,
     "prereleaseTemplate": "{tag}-{datetime}"
+  },
+  "changedFilePatterns": [
+    "packages/*/src/**",
+    "packages/*/package.json",
+    "packages/*/README.md",
+    "packages/*/CHANGELOG.md"
+  ],
+  "privatePackages": {
+    "version": false,
+    "tag": false
   }
 }

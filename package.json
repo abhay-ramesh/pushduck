@@ -18,15 +18,31 @@
     "release:snapshot": "changeset version --snapshot && changeset publish --tag snapshot",
     "release:check": "changeset status --verbose",
     "validate-changesets": "cd packages/pushduck && pnpm validate-changesets",
-    "changelog:preview": "changeset status --output=changelog.md"
+    "changelog:preview": "changeset status --output=changelog.md",
+    "changelog:generate": "conventional-changelog -p angular -i CHANGELOG.md -s",
+    "changelog:release": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
+    "commit": "git-cz",
+    "commit:validate": "commitlint --edit",
+    "commit:check": "commitlint --from HEAD~1 --to HEAD --verbose"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.5.1",
     "@changesets/cli": "^2.25.2",
+    "@commitlint/cli": "^18.4.3",
+    "@commitlint/config-conventional": "^18.4.3",
+    "commitizen": "^4.3.0",
+    "conventional-changelog-cli": "^4.1.0",
+    "conventional-commits-parser": "^5.0.0",
+    "cz-conventional-changelog": "^3.3.0",
     "eslint": "^7.32.0",
     "prettier": "^2.5.1",
     "turbo": "^2.5.4"
   },
   "packageManager": "pnpm@9.0.6",
-  "name": "pushduck"
+  "name": "pushduck",
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  }
 }
