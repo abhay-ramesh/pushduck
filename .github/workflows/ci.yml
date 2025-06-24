@@ -57,7 +57,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: 🏗️ Build packages
-        run: pnpm --filter="./packages/*" build
+        run: pnpm build:packages
 
       - name: 📦 Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -74,11 +74,11 @@ jobs:
           pnpm build:analyze
 
       - name: 📈 Bundle size report
-        uses: andresz1/size-limit-action@v1
         if: github.event_name == 'pull_request'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          directory: packages/pushduck
+        run: |
+          echo "## 📦 Bundle Size Analysis" >> $GITHUB_STEP_SUMMARY
+          cd packages/pushduck
+          pnpm size-check
 
   # 🔐 Security Audit
   security:
