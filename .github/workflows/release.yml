@@ -63,6 +63,8 @@ jobs:
       contents: write
       id-token: write
       pull-requests: read
+      issues: read
+      repository-projects: read
 
     steps:
       - name: 📥 Checkout
@@ -70,6 +72,11 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🔐 Setup GitHub CLI (for enhanced token access)
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+          gh auth status
 
       - name: 🏗️ Setup project
         uses: ./.github/actions/setup
