@@ -18,24 +18,8 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.0.6
-
-      - name: 📦 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "pnpm"
-
-      - name: 📥 Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
 
       - name: 🔍 Lint
         run: pnpm lint
@@ -61,25 +45,20 @@ jobs:
     needs: quality
 
     steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.0.6
-
-      - name: 📦 Setup Node.js & pnpm
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "pnpm"
-
-      - name: 📥 Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
 
       - name: 🏗️ Build packages
         run: pnpm build
+
+      - name: 📦 Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            packages/*/dist
+            packages/*/build
+          retention-days: 1
 
       - name: 📊 Bundle size analysis
         run: |
@@ -98,24 +77,11 @@ jobs:
     name: 🔐 Security Audit
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    needs: quality
 
     steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.0.6
-
-      - name: 📦 Setup Node.js & pnpm
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "pnpm"
-
-      - name: 📥 Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
 
       - name: 🔐 Audit dependencies
         run: pnpm audit --audit-level moderate
@@ -136,28 +102,20 @@ jobs:
     if: github.event_name == 'pull_request'
 
     steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.0.6
-
-      - name: 📦 Setup Node.js & pnpm
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "pnpm"
-
-      - name: 📥 Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
 
       - name: 📝 Check for changeset
         id: changeset
         run: |
+          # Check if this PR touches package source code
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E "^packages/.+\.(ts|tsx|js|jsx)$"; then
+            echo "touches_code=true" >> $GITHUB_OUTPUT
+          else
+            echo "touches_code=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Check if changeset exists
           if ls .changeset/*.md 1> /dev/null 2>&1; then
             echo "has_changeset=true" >> $GITHUB_OUTPUT
           else
@@ -170,8 +128,8 @@ jobs:
           cd packages/pushduck
           pnpm validate-changesets
 
-      - name: 💬 Comment on PR if no changeset
-        if: steps.changeset.outputs.has_changeset == 'false'
+      - name: 💬 Comment on PR if changeset needed
+        if: steps.changeset.outputs.touches_code == 'true' && steps.changeset.outputs.has_changeset == 'false'
         uses: actions/github-script@v7
         with:
           script: |
@@ -179,48 +137,39 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## 📝 Missing Changeset
+              body: `## 📝 Changeset Required
               
-              This PR doesn't include a changeset. If this PR includes changes that should be released, please add a changeset:
+              This PR modifies package source code but doesn't include a changeset. Please add one:
               
               \`\`\`bash
               pnpm changeset
               \`\`\`
               
-              If this is an internal change (docs, tests, etc.), you can ignore this message.`
+              If this is a pure refactor with no user-facing changes, you can add an empty changeset with \`--empty\`.`
             })
 
-  # 🎯 Matrix Testing (multiple Node versions)
+  # 🎯 Matrix Testing (multiple Node versions) - Optimized
   compatibility:
     name: 🎯 Node.js ${{ matrix.node }} Compatibility
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: build
     strategy:
       matrix:
         node: ["18", "20", "21"]
 
     steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.0.6
-
-      - name: 📦 Setup Node.js ${{ matrix.node }}
-        uses: actions/setup-node@v4
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
         with:
           node-version: ${{ matrix.node }}
-          cache: "pnpm"
 
-      - name: 📥 Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: 📦 Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
 
-      - name: 🏗️ Build
-        run: pnpm build
-
-      - name: 🧪 Test
+      - name: 🧪 Test with Node.js ${{ matrix.node }}
         run: pnpm test
 
   # ✅ All checks passed

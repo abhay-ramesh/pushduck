@@ -19,24 +19,8 @@ jobs:
       should-release: ${{ steps.check.outputs.should-release }}
 
     steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.0.6
-
-      - name: 📦 Setup Node.js & pnpm
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "pnpm"
-
-      - name: 📥 Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
 
       - name: 🛡️ Run comprehensive safety check
         id: safety
@@ -74,30 +58,15 @@ jobs:
       contents: write
       id-token: write
 
-    # environment:
-    #   name: production
-
     steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
 
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.0.6
-
-      - name: 📦 Setup Node.js & pnpm
+      - name: 📦 Setup NPM registry
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "pnpm"
           registry-url: "https://registry.npmjs.org"
-
-      - name: 📥 Install dependencies
-        run: pnpm install --frozen-lockfile
 
       - name: 🏗️ Build packages
         run: pnpm build
@@ -116,7 +85,6 @@ jobs:
         run: pnpm release
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: 🏷️ Commit version updates
         run: |
@@ -168,7 +136,7 @@ jobs:
           draft: false
           prerelease: false
 
-  # 📊 Post-Release Monitoring
+  # 📊 Post-Release Monitoring - Simplified
   post-release:
     name: 📊 Post-Release Monitoring
     runs-on: ubuntu-latest
@@ -177,19 +145,8 @@ jobs:
     if: always() && needs.release.result == 'success'
 
     steps:
-      - name: 📥 Checkout
+      - name: 📥 Checkout (for package.json only)
         uses: actions/checkout@v4
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.0.6
-
-      - name: 📦 Setup Node.js & pnpm
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "pnpm"
 
       - name: ✅ Verify NPM publication
         run: |
@@ -209,10 +166,10 @@ jobs:
 
           # Check CLI package
           CLI_VERSION=$(node -p "require('./packages/cli/package.json').version")
-          if npm view "create-pushduck@$CLI_VERSION" version; then
-            echo "✅ create-pushduck@$CLI_VERSION is live on NPM"
+          if npm view "@pushduck/cli@$CLI_VERSION" version; then
+            echo "✅ @pushduck/cli@$CLI_VERSION is live on NPM"
           else
-            echo "❌ create-pushduck@$CLI_VERSION not found on NPM"
+            echo "❌ @pushduck/cli@$CLI_VERSION not found on NPM"
             exit 1
           fi
 
@@ -231,7 +188,7 @@ jobs:
               
               ✅ **Packages Published:**
               - \`pushduck@${mainVersion}\`
-              - \`create-pushduck@${cliVersion}\`
+              - \`@pushduck/cli@${cliVersion}\`
               
               📊 **Release Stats:**
               - Build time: ${{ github.run_id }}
@@ -262,7 +219,8 @@ jobs:
             **Branch:** ${{ github.ref_name }}
 
             **Failed Jobs:**
-            ${JSON.stringify(github.context.payload, null, 2)}
+            - Pre-release check: ${{ needs.pre-release-check.result }}
+            - Release: ${{ needs.release.result }}
 
             ## 🔍 Investigation Steps
 
@@ -277,7 +235,7 @@ jobs:
 
             \`\`\`bash
             # 1. Run safety checks
-            pnpm pre-release
+            pnpm maintenance:health
 
             # 2. Generate versions
             pnpm version-packages

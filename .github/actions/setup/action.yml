@@ -1,0 +1,31 @@
+name: "Setup Project"
+description: "Setup Node.js, pnpm, and install dependencies"
+
+inputs:
+  node-version:
+    description: "Node.js version to use"
+    required: false
+    default: "20"
+
+runs:
+  using: "composite"
+  steps:
+    - name: 📥 Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: 📦 Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9.0.6
+
+    - name: 📦 Setup Node.js & pnpm
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: "pnpm"
+
+    - name: 📥 Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
