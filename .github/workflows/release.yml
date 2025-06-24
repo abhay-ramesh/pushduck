@@ -37,8 +37,8 @@ jobs:
       - name: 📝 Validate changesets
         run: |
           cd packages/pushduck
-          chmod +x scripts/changeset-validator.js
-          node scripts/changeset-validator.js
+          chmod +x scripts/changeset-validator.cjs
+          node scripts/changeset-validator.cjs
 
       - name: 📊 Check if release needed
         id: check
@@ -80,7 +80,7 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       - name: 🏗️ Build packages
-        run: pnpm build
+        run: pnpm build:packages
 
       - name: 🔐 Configure Git
         run: |
