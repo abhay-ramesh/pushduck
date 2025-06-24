@@ -33,7 +33,7 @@ jobs:
         run: pnpm type-check
 
       - name: 🧪 Tests
-        run: pnpm test --coverage
+        run: pnpm test:coverage
 
       - name: 📊 Coverage Report
         uses: codecov/codecov-action@v5
