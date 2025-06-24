@@ -21,6 +21,12 @@
       ],
       "dependsOn": []
     },
+    "test:coverage": {
+      "outputs": [
+        "coverage/**"
+      ],
+      "dependsOn": []
+    },
     "lint": {},
     "dev": {
       "cache": false,
@@ -28,6 +34,10 @@
     },
     "clean": {
       "cache": false
+    },
+    "type-check": {
+      "cache": false,
+      "persistent": true
     }
   }
 }

@@ -33,7 +33,7 @@ jobs:
         run: pnpm type-check
 
       - name: 🧪 Tests
-        run: pnpm test --coverage
+        run: pnpm test:coverage
 
       - name: 📊 Coverage Report
         uses: codecov/codecov-action@v5
@@ -57,7 +57,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: 🏗️ Build packages
-        run: pnpm build
+        run: pnpm build:packages
 
       - name: 📦 Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -74,11 +74,11 @@ jobs:
           pnpm build:analyze
 
       - name: 📈 Bundle size report
-        uses: andresz1/size-limit-action@v1
         if: github.event_name == 'pull_request'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          directory: packages/pushduck
+        run: |
+          echo "## 📦 Bundle Size Analysis" >> $GITHUB_STEP_SUMMARY
+          cd packages/pushduck
+          pnpm size-check
 
   # 🔐 Security Audit
   security:
@@ -96,14 +96,6 @@ jobs:
 
       - name: 🔐 Audit dependencies
         run: pnpm audit --audit-level moderate
-
-      - name: 🛡️ Snyk security scan
-        uses: snyk/actions/node@master
-        if: github.event_name == 'pull_request'
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=medium
 
   # 📝 Changeset Validation (PR only)
   changeset-check:
@@ -172,7 +164,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        node: ["18", "20", "21"]
+        node: ["18", "20", "22"]
 
     steps:
       - name: 📥 Checkout

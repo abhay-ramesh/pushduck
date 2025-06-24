@@ -46,9 +46,9 @@ export function UploadButton({
 }: UploadButtonProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const { upload, isUploading } = useUploadRoute(route, {
-    onUploadComplete,
-    onUploadError,
+  const { uploadFiles, isUploading } = useUploadRoute(route, {
+    onSuccess: onUploadComplete,
+    onError: onUploadError,
   });
 
   const handleClick = () => {
@@ -61,7 +61,7 @@ export function UploadButton({
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
       onFilesSelected?.(files);
-      upload(files);
+      uploadFiles(files);
     }
     // Reset input value to allow selecting the same file again
     e.target.value = "";

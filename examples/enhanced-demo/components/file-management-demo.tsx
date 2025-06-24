@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 // Import the new list and metadata operations from pushduck server
 // Note: In a real app, these would be called from API routes, not directly
@@ -63,7 +63,7 @@ export function FileManagementDemo({ userId = "demo-user" }: FileGalleryProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
-  const fetchFiles = async () => {
+  const fetchFiles = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(
@@ -94,11 +94,11 @@ export function FileManagementDemo({ userId = "demo-user" }: FileGalleryProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     fetchFiles();
-  }, [userId]);
+  }, [fetchFiles]);
 
   // Filter and sort files
   const filteredFiles = files

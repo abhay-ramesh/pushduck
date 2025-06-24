@@ -1,6 +1,7 @@
 {
     "name": "@pushduck/ui",
     "version": "0.1.0",
+    "type": "module",
     "description": "React UI components for pushduck - File upload components you can copy and paste into your apps",
     "author": "Abhay Ramesh",
     "license": "MIT",
@@ -27,8 +28,8 @@
         "dev": "npx shadcn@canary build",
         "build": "pnpm build:registry",
         "build:registry": "npx shadcn@canary build",
-        "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
-        "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
         "type-check": "tsc --noEmit"
     },
     "files": [
@@ -37,14 +38,19 @@
         "README.md"
     ],
     "dependencies": {
+        "clsx": "^2.1.1",
         "lucide-react": "^0.516.0",
-        "pushduck": "workspace:*"
+        "pushduck": "workspace:*",
+        "tailwind-merge": "^3.3.1"
     },
     "devDependencies": {
+        "@eslint/eslintrc": "^3.3.1",
         "@types/node": "^20.0.0",
         "@types/react": "^19.1.8",
         "@types/react-dom": "^18.2.0",
-        "eslint": "^8.49.0",
+        "@typescript-eslint/eslint-plugin": "^8.34.1",
+        "@typescript-eslint/parser": "^8.35.0",
+        "eslint": "^8.57.1",
         "react": "^19.1.0",
         "react-dom": "^18.2.0",
         "tailwindcss": "^3.3.0",

@@ -62,7 +62,7 @@ export function PropertyBasedImageUpload() {
 
       <div className="p-3 mb-4 bg-emerald-50 rounded-md border border-emerald-200">
         <h3 className="mb-2 text-sm font-medium text-emerald-800">
-          ✨ What's New:
+          ✨ What&apos;s New:
         </h3>
         <ul className="space-y-1 text-xs text-emerald-700">
           <li>

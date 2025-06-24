@@ -5,8 +5,8 @@
  * from pushduck with actual S3 implementation
  */
 
+import { storage } from "@/lib/upload";
 import { NextRequest, NextResponse } from "next/server";
-import { storage } from "../../../lib/upload";
 
 // GET /api/files - List files with various options
 export async function GET(request: NextRequest) {

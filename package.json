@@ -2,9 +2,12 @@
   "private": true,
   "scripts": {
     "build": "turbo build",
+    "build:packages": "pnpm --filter=\"./packages/*\" build",
     "dev": "turbo dev",
     "lint": "turbo lint",
     "test": "turbo test",
+    "test:coverage": "turbo test:coverage",
+    "size-check": "pnpm --filter=pushduck size-check",
     "clean": "turbo clean",
     "type-check": "turbo type-check",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",

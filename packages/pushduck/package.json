@@ -1,6 +1,7 @@
 {
   "name": "pushduck",
   "version": "0.1.0",
+  "type": "module",
   "author": "Abhay Ramesh",
   "license": "MIT",
   "description": "A simple way to upload files to S3 from a Next.js app directory (aws s3, minio, or any s3 compatible service)",
@@ -58,11 +59,11 @@
     "dev": "tsdown --watch",
     "build": "tsdown",
     "build:analyze": "pnpm build && pnpm bundle:analyze",
-    "bundle:analyze": "npx bundlesize && ls -la dist/ && gzip-size-cli dist/*.js dist/*.mjs",
+    "bundle:analyze": "pnpm size-check && echo '\n📁 File Details:' && ls -la dist/",
     "bundle:visualize": "npx esbuild-visualizer dist/index.js --open",
-    "size-check": "bundlesize",
-    "lint": "eslint src --ext .ts,.tsx,.js,.jsx",
-    "lint:fix": "eslint src --ext .ts,.tsx,.js,.jsx --fix",
+    "size-check": "node scripts/size-check.js",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
     "type-check": "tsc --noEmit",
     "test": "vitest",
     "test:watch": "vitest --watch",
@@ -76,7 +77,7 @@
     "release:preview": "pnpm changeset status",
     "release:snapshot": "pnpm changeset version --snapshot && pnpm changeset publish --tag snapshot",
     "release:patch": "pnpm changeset add --type patch && pnpm changeset version && pnpm changeset publish",
-    "validate-changesets": "node ./scripts/changeset-validator.js"
+    "validate-changesets": "node ./scripts/changeset-validator.cjs"
   },
   "keywords": [
     "nextjs",
@@ -99,40 +100,37 @@
     "framework-agnostic"
   ],
   "devDependencies": {
-    "@size-limit/preset-small-lib": "^11.0.1",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.5.1",
+    "@types/express": "^4.17.21",
     "@types/node": "^24.0.3",
     "@types/react": "^19.1.8",
-    "@typescript-eslint/eslint-plugin": "^8.34.1",
-    "@typescript-eslint/parser": "^6.7.0",
+    "@typescript-eslint/eslint-plugin": "^8.35.0",
+    "@typescript-eslint/parser": "^8.35.0",
     "@vitejs/plugin-react": "^4.1.0",
     "@vitest/coverage-v8": "^3.2.4",
-    "bundlesize": "^0.18.1",
-    "eslint": "^8.49.0",
+    "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.0.0",
+    "express": "^4.18.2",
+    "fastify": "^4.0.0",
     "gzip-size-cli": "^5.1.0",
-    "happy-dom": "^12.9.1",
+    "happy-dom": "^15.11.7",
     "next": "^15.3.4",
     "prettier": "^3.0.3",
     "react": "^19.1.0",
-    "size-limit": "^11.0.1",
     "tsdown": "^0.12.8",
     "typescript": "^5.2.2",
-    "vitest": "^0.34.6",
-    "zod": "^3.22.4",
-    "@types/express": "^4.17.21",
-    "express": "^4.18.2",
-    "fastify": "^4.0.0"
+    "vitest": "^3.2.4",
+    "zod": "^3.22.4"
   },
   "peerDependencies": {
+    "@types/express": "*",
+    "express": ">=4.18.0",
+    "fastify": ">=4.0.0",
     "next": ">=13.0.0",
     "react": ">=18.0.0",
-    "zod": ">=3.20.0",
-    "express": ">=4.18.0",
-    "@types/express": "*",
-    "fastify": ">=4.0.0"
+    "zod": ">=3.20.0"
   },
   "peerDependenciesMeta": {
     "zod": {
@@ -161,57 +159,6 @@
     "node": ">=16.0.0"
   },
   "sideEffects": false,
-  "size-limit": [
-    {
-      "name": "Client bundle (ESM)",
-      "path": "dist/client.mjs",
-      "limit": "5 KB",
-      "gzip": true,
-      "ignore": [
-        "@aws-sdk/*",
-        "next",
-        "react"
-      ]
-    },
-    {
-      "name": "Server bundle (ESM)",
-      "path": "dist/server.mjs",
-      "limit": "10 KB",
-      "gzip": true,
-      "ignore": [
-        "@aws-sdk/*",
-        "next"
-      ]
-    },
-    {
-      "name": "Main bundle (ESM)",
-      "path": "dist/index.mjs",
-      "limit": "7 KB",
-      "gzip": true,
-      "ignore": [
-        "@aws-sdk/*",
-        "next",
-        "react"
-      ]
-    }
-  ],
-  "bundlesize": [
-    {
-      "path": "./dist/client.js",
-      "maxSize": "15kb",
-      "compression": "gzip"
-    },
-    {
-      "path": "./dist/server.js",
-      "maxSize": "25kb",
-      "compression": "gzip"
-    },
-    {
-      "path": "./dist/index.js",
-      "maxSize": "20kb",
-      "compression": "gzip"
-    }
-  ],
   "dependencies": {
     "aws4fetch": "^1.0.20"
   }

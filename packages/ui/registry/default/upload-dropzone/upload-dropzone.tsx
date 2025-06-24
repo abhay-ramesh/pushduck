@@ -54,12 +54,12 @@ export function UploadDropzone({
   const [errors, setErrors] = React.useState<string[]>([]);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const { upload, files, isUploading } = useUploadRoute(route, {
-    onUploadComplete: (results) => {
+  const { uploadFiles, files, isUploading } = useUploadRoute(route, {
+    onSuccess: (results: any[]) => {
       setErrors([]);
       onUploadComplete?.(results);
     },
-    onUploadError: (error) => {
+    onError: (error: Error) => {
       setErrors([error.message]);
       onUploadError?.(error);
     },
@@ -134,9 +134,9 @@ export function UploadDropzone({
 
       setErrors([]);
       onFilesAdded?.(files);
-      upload(files);
+      uploadFiles(files);
     },
-    [disabled, isUploading, validateFiles, onFilesAdded, upload]
+    [disabled, isUploading, validateFiles, onFilesAdded, uploadFiles]
   );
 
   const handleDragOver = React.useCallback(
