@@ -179,6 +179,30 @@ const providers = [
     description: "Self-hosted S3 compatibility",
     url: "https://min.io",
   },
+  {
+    name: "Wasabi",
+    icon: "https://cdn.document360.io/bef0a1ea-7768-4d5a-b520-c4fe2f7fafad/Images/Documentation/wasabi_symbol.png",
+    description: "Hot cloud storage, predictable pricing",
+    url: "https://wasabi.com",
+  },
+  {
+    name: "Backblaze B2",
+    icon: "https://github.com/backblaze.png",
+    description: "Affordable cloud storage",
+    url: "https://www.backblaze.com/b2/cloud-storage.html",
+  },
+  {
+    name: "Linode Object Storage",
+    icon: "https://github.com/linode.png",
+    description: "Simple, scalable object storage",
+    url: "https://www.linode.com/products/object-storage/",
+  },
+  {
+    name: "Any S3-Compatible",
+    icon: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/amazonwebservices/amazonwebservices-plain-wordmark.svg",
+    description: "Works with any S3-compatible API",
+    url: "/docs/providers",
+  },
 ];
 
 const features = [
@@ -193,7 +217,7 @@ const features = [
     icon: Cloud,
     title: "5+ Storage Providers",
     description:
-      "AWS S3, Cloudflare R2, DigitalOcean Spaces, Google Cloud, MinIO - switch anytime",
+      "AWS S3, Cloudflare R2, DigitalOcean Spaces, Google Cloud, MinIO, Wasabi, Backblaze - switch anytime",
     color: "text-green-500",
   },
   {
@@ -547,6 +571,11 @@ export default function HomePage() {
             </div>
 
             <div className="mt-12 text-center">
+              <div className="inline-flex items-center px-4 py-2 rounded-lg bg-muted/50 text-sm text-muted-foreground mb-4">
+                <span className="mr-2">+</span>
+                Any custom HTTP server or edge runtime
+              </div>
+              <br />
               <Link
                 href="/docs/integrations"
                 className="inline-flex items-center px-6 py-3 text-base font-medium rounded-lg transition-colors text-primary hover:text-primary/80"
@@ -568,7 +597,8 @@ export default function HomePage() {
                 Store files anywhere
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Switch between storage providers without changing your code
+                Switch between storage providers without changing your code.
+                Works with any service that implements the S3 API.
               </p>
             </div>
 
@@ -611,6 +641,11 @@ export default function HomePage() {
             </div>
 
             <div className="mt-12 text-center">
+              <div className="inline-flex items-center px-4 py-2 rounded-lg bg-muted/50 text-sm text-muted-foreground mb-4">
+                <span className="mr-2">+</span>
+                Any other S3-compatible storage service
+              </div>
+              <br />
               <Link
                 href="/docs/providers"
                 className="inline-flex items-center px-6 py-3 text-base font-medium rounded-lg transition-colors text-primary hover:text-primary/80"
