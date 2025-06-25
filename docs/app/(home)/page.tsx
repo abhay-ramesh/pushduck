@@ -50,46 +50,135 @@ const themes = {
 } satisfies Record<string, BundledTheme>;
 
 const frameworks = [
-  { name: "Next.js", category: "Full-Stack", logo: "⚡" },
-  { name: "Remix", category: "Full-Stack", logo: "💿" },
-  { name: "SvelteKit", category: "Full-Stack", logo: "🧡" },
-  { name: "Nuxt.js", category: "Full-Stack", logo: "💚" },
-  { name: "TanStack Start", category: "Full-Stack", logo: "🟠" },
-  { name: "SolidJS Start", category: "Full-Stack", logo: "🔵" },
-  { name: "Qwik", category: "Full-Stack", logo: "⚡" },
-  { name: "Astro", category: "Static/Islands", logo: "🚀" },
-  { name: "Fresh", category: "Static/Islands", logo: "🍋" },
-  { name: "Hono", category: "Runtime/Edge", logo: "🔥" },
-  { name: "Elysia", category: "Runtime/Edge", logo: "🦋" },
-  { name: "Bun", category: "Runtime/Edge", logo: "🥟" },
-  { name: "Nitro H3", category: "Runtime/Edge", logo: "⚡" },
-  { name: "Express", category: "Traditional", logo: "🚂" },
-  { name: "Fastify", category: "Traditional", logo: "⚡" },
-  { name: "Expo", category: "Mobile", logo: "📱" },
+  {
+    name: "Next.js",
+    category: "Full-Stack",
+    logo: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nextjs/nextjs-original.svg",
+    url: "https://nextjs.org",
+  },
+  {
+    name: "Remix",
+    category: "Full-Stack",
+    logo: "https://remix.run/_brand/remix-letter-dark.png",
+    url: "https://remix.run",
+  },
+  {
+    name: "SvelteKit",
+    category: "Full-Stack",
+    logo: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/svelte/svelte-original.svg",
+    url: "https://kit.svelte.dev",
+  },
+  {
+    name: "Nuxt.js",
+    category: "Full-Stack",
+    logo: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nuxtjs/nuxtjs-original.svg",
+    url: "https://nuxt.com",
+  },
+  {
+    name: "TanStack Start",
+    category: "Full-Stack",
+    logo: "https://github.com/tanstack.png",
+    url: "https://tanstack.com/start",
+  },
+  {
+    name: "SolidJS Start",
+    category: "Full-Stack",
+    logo: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/solidjs/solidjs-original.svg",
+    url: "https://start.solidjs.com",
+  },
+  {
+    name: "Qwik",
+    category: "Full-Stack",
+    logo: "https://github.com/qwikdev.png",
+    url: "https://qwik.dev",
+  },
+  {
+    name: "Astro",
+    category: "Static/Islands",
+    logo: "https://github.com/withastro.png",
+    url: "https://astro.build",
+  },
+  {
+    name: "Fresh",
+    category: "Static/Islands",
+    logo: "https://fresh.deno.dev/logo.svg",
+    url: "https://fresh.deno.dev",
+  },
+  {
+    name: "Hono",
+    category: "Runtime/Edge",
+    logo: "https://hono.dev/images/logo.svg",
+    url: "https://hono.dev",
+  },
+  {
+    name: "Elysia",
+    category: "Runtime/Edge",
+    logo: "https://elysiajs.com/assets/elysia.svg",
+    url: "https://elysiajs.com",
+  },
+  {
+    name: "Bun",
+    category: "Runtime/Edge",
+    logo: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/bun/bun-original.svg",
+    url: "https://bun.sh",
+  },
+  {
+    name: "Nitro H3",
+    category: "Runtime/Edge",
+    logo: "https://nitro.unjs.io/icon.svg",
+    url: "https://nitro.unjs.io",
+  },
+  {
+    name: "Express",
+    category: "Traditional",
+    logo: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/express/express-original.svg",
+    url: "https://expressjs.com",
+  },
+  {
+    name: "Fastify",
+    category: "Traditional",
+    logo: "https://github.com/fastify.png",
+    url: "https://fastify.dev",
+  },
+  {
+    name: "Expo",
+    category: "Mobile",
+    logo: "https://github.com/expo.png",
+    url: "https://expo.dev",
+  },
 ];
 
 const providers = [
   {
     name: "AWS S3",
-    icon: "☁️",
+    icon: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/amazonwebservices/amazonwebservices-plain-wordmark.svg",
     description: "Industry standard with global reach",
+    url: "https://aws.amazon.com/s3/",
   },
   {
     name: "Cloudflare R2",
-    icon: "⚡",
+    icon: "https://images.seeklogo.com/logo-png/29/2/cloudflare-logo-png_seeklogo-294312.png",
     description: "Zero egress fees, global edge",
+    url: "https://developers.cloudflare.com/r2/",
   },
   {
     name: "DigitalOcean Spaces",
-    icon: "🌊",
+    icon: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/digitalocean/digitalocean-original.svg",
     description: "Simple, predictable pricing",
+    url: "https://www.digitalocean.com/products/spaces",
   },
   {
     name: "Google Cloud Storage",
-    icon: "☁️",
+    icon: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/googlecloud/googlecloud-original.svg",
     description: "AI-ready with advanced features",
+    url: "https://cloud.google.com/storage",
   },
-  { name: "MinIO", icon: "🏠", description: "Self-hosted S3 compatibility" },
+  {
+    name: "MinIO",
+    icon: "https://blog.min.io/content/images/2019/05/minio-publication-icon-7.png",
+    description: "Self-hosted S3 compatibility",
+    url: "https://min.io",
+  },
 ];
 
 const features = [
@@ -419,20 +508,41 @@ export default function HomePage() {
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {frameworks.map((framework, index) => (
-                <div
+                <a
                   key={index}
-                  className="p-4 rounded-xl border bg-card hover:shadow-md transition-all hover:scale-105"
+                  href={framework.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-4 rounded-xl border bg-card hover:shadow-md transition-all hover:scale-105 group"
                 >
                   <div className="flex items-center space-x-3">
-                    <span className="text-2xl">{framework.logo}</span>
-                    <div>
-                      <div className="font-medium">{framework.name}</div>
-                      <div className="text-xs text-muted-foreground">
+                    <div className="w-8 h-8 flex-shrink-0">
+                      <img
+                        src={framework.logo}
+                        alt={`${framework.name} logo`}
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          // Fallback to text if image fails to load
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                          const fallback = document.createElement("div");
+                          fallback.className =
+                            "w-8 h-8 bg-primary/10 rounded flex items-center justify-center text-xs font-bold text-primary";
+                          fallback.textContent = framework.name.charAt(0);
+                          target.parentNode?.appendChild(fallback);
+                        }}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium group-hover:text-primary transition-colors truncate">
+                        {framework.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
                         {framework.category}
                       </div>
                     </div>
                   </div>
-                </div>
+                </a>
               ))}
             </div>
 
@@ -464,18 +574,39 @@ export default function HomePage() {
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {providers.map((provider, index) => (
-                <div
+                <a
                   key={index}
-                  className="p-6 rounded-2xl border bg-card hover:shadow-lg transition-all hover:scale-105"
+                  href={provider.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-6 rounded-2xl border bg-card hover:shadow-lg transition-all hover:scale-105 group"
                 >
                   <div className="flex items-center space-x-3 mb-3">
-                    <span className="text-2xl">{provider.icon}</span>
-                    <h3 className="text-lg font-semibold">{provider.name}</h3>
+                    <div className="w-8 h-8 flex-shrink-0">
+                      <img
+                        src={provider.icon}
+                        alt={`${provider.name} logo`}
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          // Fallback to text if image fails to load
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                          const fallback = document.createElement("div");
+                          fallback.className =
+                            "w-8 h-8 bg-primary/10 rounded flex items-center justify-center text-xs font-bold text-primary";
+                          fallback.textContent = provider.name.charAt(0);
+                          target.parentNode?.appendChild(fallback);
+                        }}
+                      />
+                    </div>
+                    <h3 className="text-lg font-semibold group-hover:text-primary transition-colors">
+                      {provider.name}
+                    </h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {provider.description}
                   </p>
-                </div>
+                </a>
               ))}
             </div>
 
