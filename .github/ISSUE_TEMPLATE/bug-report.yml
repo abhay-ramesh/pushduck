@@ -1,22 +1,23 @@
 name: 🐛 Bug Report
-description: Report a bug or unexpected behavior
-title: "[Bug]: "
-labels: ["bug", "triage"]
+description: Report a bug or unexpected behavior in pushduck
+title: "bug: "
+labels: ["type: bug", "status: needs review"]
+
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report a bug! Please fill out the information below to help us reproduce and fix the issue.
+        Thanks for taking the time to report a bug! Please fill out the information below to help us investigate and fix the issue.
 
   - type: checkboxes
     id: prerequisites
     attributes:
-      label: Prerequisites
+      label: Pre-flight checklist
       description: Please confirm before submitting
       options:
         - label: I have searched existing issues to ensure this bug hasn't been reported
           required: true
-        - label: I have read the documentation
+        - label: I have checked the [documentation](https://pushduck.dev/docs)
           required: true
         - label: I am using the latest version of pushduck
           required: true
@@ -36,10 +37,9 @@ body:
       label: 🔄 Steps to Reproduce
       description: Steps to reproduce the behavior
       placeholder: |
-        1. Go to '...'
-        2. Click on '...'
-        3. Scroll down to '...'
-        4. See error
+        1. Configure pushduck with...
+        2. Try to upload a file...
+        3. See error...
     validations:
       required: true
 
@@ -48,7 +48,7 @@ body:
     attributes:
       label: ✅ Expected Behavior
       description: What you expected to happen
-      placeholder: Describe what should happen...
+      placeholder: Describe what should have happened...
     validations:
       required: true
 
@@ -68,87 +68,74 @@ body:
       description: Minimal code that reproduces the issue
       placeholder: |
         // Your code here
-        import { useS3FileUpload } from 'pushduck';
+        import { uploadConfig } from 'pushduck/server';
 
-        export default function MyComponent() {
-          // ...
-        }
+        export const { uploadRouter } = uploadConfig
+          .provider("cloudflareR2", {
+            // your config
+          })
+          .build();
       render: typescript
     validations:
       required: false
 
-  - type: textarea
-    id: logs
-    attributes:
-      label: 📋 Error Logs
-      description: Any error messages or logs
-      placeholder: |
-        Paste error logs here...
-      render: shell
-    validations:
-      required: false
-
   - type: dropdown
-    id: package-version
+    id: framework
     attributes:
-      label: 📦 Package Version
-      description: Which version of pushduck are you using?
+      label: 🎯 Framework
+      description: Which framework are you using?
       options:
-        - 0.1.0 (latest)
-        - 0.2.1
-        - 0.2.0
-        - 0.1.x
-        - Other (please specify in additional context)
-    validations:
-      required: true
-
-  - type: dropdown
-    id: nextjs-version
-    attributes:
-      label: ⚛️ Next.js Version
-      description: Which version of Next.js are you using?
-      options:
-        - 14.x (App Router)
-        - 14.x (Pages Router)
-        - 13.x (App Router)
-        - 13.x (Pages Router)
-        - 12.x
-        - Other (please specify in additional context)
-    validations:
-      required: true
-
-  - type: dropdown
-    id: router-type
-    attributes:
-      label: 🛣️ Router Type
-      description: Which Next.js router are you using?
-      options:
-        - App Router (app directory)
-        - Pages Router (pages directory)
-        - Not sure
+        - Next.js
+        - Remix
+        - SvelteKit
+        - Nuxt.js
+        - TanStack Start
+        - SolidJS Start
+        - Qwik
+        - Astro
+        - Fresh
+        - Hono
+        - Elysia
+        - Express
+        - Fastify
+        - Expo
+        - Other (specify in additional context)
     validations:
       required: true
 
   - type: dropdown
     id: provider
     attributes:
-      label: ☁️ Cloud Provider
-      description: Which cloud provider are you using?
+      label: ☁️ Storage Provider
+      description: Which storage provider are you using?
       options:
         - AWS S3
         - Cloudflare R2
+        - DigitalOcean Spaces
         - Google Cloud Storage
-        - Azure Blob Storage
-        - Other (please specify in additional context)
+        - MinIO
+        - Wasabi
+        - Backblaze B2
+        - Linode Object Storage
+        - Other S3-compatible (specify in additional context)
     validations:
       required: true
 
   - type: input
-    id: nodejs-version
+    id: version
+    attributes:
+      label: 📦 Pushduck Version
+      description: What version of pushduck are you using?
+      placeholder: "e.g., 0.1.7"
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
     attributes:
       label: 📟 Node.js Version
-      description: What version of Node.js are you running?
-      placeholder: "20.0.0"
+      description: What version of Node.js are you using?
+      placeholder: "e.g., 18.17.0"
     validations:
       required: true
 
@@ -166,6 +153,18 @@ body:
       required: true
 
   - type: dropdown
+    id: environment
+    attributes:
+      label: 🌍 Environment
+      description: Where does this bug occur?
+      options:
+        - Development
+        - Production
+        - Both
+    validations:
+      required: true
+
+  - type: dropdown
     id: os
     attributes:
       label: 💻 Operating System
@@ -174,7 +173,7 @@ body:
         - macOS
         - Windows
         - Linux
-        - Other (please specify in additional context)
+        - Other (specify in additional context)
     validations:
       required: true
 
@@ -188,22 +187,37 @@ body:
         - Firefox
         - Safari
         - Edge
-        - Other (please specify in additional context)
+        - Other (specify in additional context)
         - Not applicable
     validations:
       required: false
 
   - type: textarea
-    id: config
+    id: error-logs
+    attributes:
+      label: 📋 Error Logs
+      description: Any error messages or logs
+      placeholder: |
+        Paste error logs here...
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: configuration
     attributes:
       label: ⚙️ Configuration
-      description: Your pushduck configuration (remove sensitive data)
+      description: Your pushduck configuration (remove any sensitive information)
       placeholder: |
-        // next.config.js or configuration object
-        {
-          // Your config here (without secrets)
-        }
-      render: javascript
+        ```typescript
+        // Your pushduck configuration
+        export const { uploadRouter } = uploadConfig
+          .provider("cloudflareR2", {
+            // your config (without secrets)
+          })
+          .build();
+        ```
+      render: typescript
     validations:
       required: false
 

@@ -1,0 +1,89 @@
+name: 📚 Documentation
+description: Suggest improvements to documentation
+title: "docs: "
+labels: ["type: documentation", "status: needs review"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve our documentation! Clear docs make pushduck better for everyone.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Pre-flight checklist
+      options:
+        - label: I have searched existing issues for similar documentation requests
+          required: true
+        - label: I have checked the current [documentation](https://pushduck.dev/docs)
+          required: true
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: 📖 Documentation Type
+      description: What type of documentation needs improvement?
+      options:
+        - Getting Started Guide
+        - API Reference
+        - Framework Integration
+        - Provider Setup
+        - Examples/Tutorials
+        - Troubleshooting
+        - Migration Guide
+        - FAQ
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: 📝 What's unclear or missing?
+      description: Describe what documentation is confusing, outdated, or missing
+      placeholder: |
+        Describe the documentation issue...
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: 📍 Location
+      description: Where is this documentation issue? (URL or section)
+      placeholder: |
+        e.g., https://pushduck.dev/docs/api/upload-config
+        or "Getting Started > Quick Setup section"
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: 💡 Suggested Improvement
+      description: How would you improve this documentation?
+      placeholder: |
+        Describe your suggested changes or additions...
+    validations:
+      required: true
+
+  - type: textarea
+    id: audience
+    attributes:
+      label: 👥 Target Audience
+      description: Who would benefit from this documentation improvement?
+      placeholder: |
+        e.g., "New users trying to set up pushduck"
+        e.g., "Developers migrating from other upload libraries"
+
+  - type: checkboxes
+    id: help
+    attributes:
+      label: 🤝 Would you like to help?
+      description: Optional - would you be interested in contributing?
+      options:
+        - label: I can help write this documentation
+          required: false
+        - label: I can provide examples or code samples
+          required: false
+        - label: I can review the documentation once updated
+          required: false

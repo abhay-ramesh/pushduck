@@ -1,7 +1,8 @@
 name: ✨ Feature Request
-description: Suggest a new feature or enhancement
-title: "[Feature]: "
-labels: ["enhancement", "feature-request"]
+description: Suggest a new feature or enhancement for pushduck
+title: "feat: "
+labels: ["type: feature", "status: needs review"]
+
 body:
   - type: markdown
     attributes:
@@ -11,19 +12,19 @@ body:
   - type: checkboxes
     id: prerequisites
     attributes:
-      label: Prerequisites
+      label: Pre-flight checklist
       description: Please confirm before submitting
       options:
         - label: I have searched existing issues to ensure this feature hasn't been requested
           required: true
-        - label: I have read the documentation and this feature doesn't exist
+        - label: I have checked the [documentation](https://pushduck.dev/docs) and [roadmap](https://pushduck.dev/docs/roadmap)
           required: true
 
   - type: textarea
     id: problem
     attributes:
       label: 🎯 Problem Statement
-      description: What problem does this feature solve?
+      description: What problem does this feature solve? What use case does it address?
       placeholder: |
         Describe the problem you're facing or the use case this feature would address...
     validations:
@@ -39,13 +40,49 @@ body:
     validations:
       required: true
 
-  - type: textarea
-    id: alternatives
+  - type: dropdown
+    id: category
     attributes:
-      label: 🔄 Alternatives Considered
-      description: What alternatives have you considered?
-      placeholder: |
-        Describe any alternative solutions or features you've considered...
+      label: 📂 Feature Category
+      description: What type of feature is this?
+      options:
+        - Framework Support
+        - Storage Provider
+        - Core API
+        - Developer Experience
+        - Performance
+        - Security
+        - Documentation
+        - CLI Tool
+        - UI Components
+        - Examples/Demos
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 🚨 Priority
+      description: How important is this feature to you?
+      options:
+        - Low - Nice to have
+        - Medium - Would significantly improve my workflow
+        - High - Important for my use case
+        - Critical - Blocking my project
+    validations:
+      required: true
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: 🔧 Estimated Complexity
+      description: How complex do you think this feature is to implement?
+      options:
+        - Simple - Minor change or addition
+        - Medium - Moderate implementation effort
+        - Complex - Significant development required
+        - Not sure
     validations:
       required: false
 
@@ -65,29 +102,13 @@ body:
     validations:
       required: false
 
-  - type: dropdown
-    id: priority
+  - type: textarea
+    id: alternatives
     attributes:
-      label: 🚨 Priority
-      description: How important is this feature to you?
-      options:
-        - Low - Nice to have
-        - Medium - Would significantly improve my workflow
-        - High - Blocking my current project
-        - Critical - Essential for production use
-    validations:
-      required: true
-
-  - type: dropdown
-    id: complexity
-    attributes:
-      label: 🔧 Estimated Complexity
-      description: How complex do you think this feature is to implement?
-      options:
-        - Simple - Minor change or addition
-        - Medium - Moderate implementation effort
-        - Complex - Significant development required
-        - Not sure
+      label: 🔄 Alternatives Considered
+      description: What alternatives have you considered?
+      placeholder: |
+        Describe any alternative solutions or workarounds you've tried...
     validations:
       required: false
 

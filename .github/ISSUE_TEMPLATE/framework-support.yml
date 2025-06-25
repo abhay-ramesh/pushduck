@@ -1,0 +1,121 @@
+name: 🔧 Framework Support
+description: Request support for a new framework or improve existing framework integration
+title: "feat(framework): "
+labels: ["type: feature", "component: adapters", "status: needs review"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping expand pushduck's framework support! Universal compatibility is one of our core goals.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Pre-flight checklist
+      options:
+        - label: I have checked the [current framework list](https://pushduck.dev/docs/integrations)
+          required: true
+        - label: I have searched existing issues for this framework request
+          required: true
+
+  - type: dropdown
+    id: request-type
+    attributes:
+      label: 📋 Request Type
+      description: What type of framework support do you need?
+      options:
+        - New framework support
+        - Improve existing framework integration
+        - Fix framework-specific bug
+        - Add framework-specific features
+    validations:
+      required: true
+
+  - type: input
+    id: framework-name
+    attributes:
+      label: 🎯 Framework Name
+      description: Which framework needs support?
+      placeholder: "e.g., Solid.js, Deno Fresh, Bun, etc."
+    validations:
+      required: true
+
+  - type: input
+    id: framework-version
+    attributes:
+      label: 📦 Framework Version
+      description: Which version(s) should be supported?
+      placeholder: "e.g., 1.x, 2.0+, latest"
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: 🎯 Use Case
+      description: Why do you need this framework support?
+      placeholder: |
+        Describe your project and why this framework support is important...
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-situation
+    attributes:
+      label: 📊 Current Situation
+      description: Have you tried using pushduck with this framework? What happened?
+      placeholder: |
+        Describe what you tried and what issues you encountered...
+
+  - type: textarea
+    id: expected-api
+    attributes:
+      label: 💡 Expected API
+      description: How do you think the integration should work?
+      placeholder: |
+        // Example of how you'd like to use pushduck with this framework
+        import { createHandler } from 'pushduck/adapters/your-framework';
+
+        export const uploadHandler = createHandler({
+          // configuration
+        });
+      render: typescript
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 🚨 Priority
+      description: How important is this framework support?
+      options:
+        - Low - Nice to have for future projects
+        - Medium - Would help with current project
+        - High - Blocking current project
+        - Critical - Essential for production use
+    validations:
+      required: true
+
+  - type: textarea
+    id: framework-details
+    attributes:
+      label: 🔧 Framework Details
+      description: Technical details about the framework
+      placeholder: |
+        - Framework type: (SSR, SPA, Meta-framework, etc.)
+        - Runtime: (Node.js, Deno, Bun, Edge, etc.)
+        - Request/Response handling: (Web API, custom, etc.)
+        - Documentation links
+        - Popular usage patterns
+
+  - type: checkboxes
+    id: help
+    attributes:
+      label: 🤝 Would you like to help implement this?
+      description: Framework adapters are a great way to contribute!
+      options:
+        - label: I can help implement the adapter
+          required: false
+        - label: I can help test the implementation
+          required: false
+        - label: I can provide framework expertise/guidance
+          required: false
+        - label: I can create examples and documentation
+          required: false

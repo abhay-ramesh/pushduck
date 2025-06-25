@@ -1,0 +1,140 @@
+name: ☁️ Storage Provider
+description: Request support for a new storage provider or improve existing provider integration
+title: "feat(provider): "
+labels: ["type: feature", "component: providers", "status: needs review"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping expand pushduck's storage provider support! Multi-cloud compatibility gives users more choice and flexibility.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Pre-flight checklist
+      options:
+        - label: I have checked the [current provider list](https://pushduck.dev/docs/providers)
+          required: true
+        - label: I have searched existing issues for this provider request
+          required: true
+
+  - type: dropdown
+    id: request-type
+    attributes:
+      label: 📋 Request Type
+      description: What type of provider support do you need?
+      options:
+        - New storage provider support
+        - Improve existing provider integration
+        - Fix provider-specific bug
+        - Add provider-specific features
+    validations:
+      required: true
+
+  - type: input
+    id: provider-name
+    attributes:
+      label: ☁️ Provider Name
+      description: Which storage provider needs support?
+      placeholder: "e.g., Azure Blob Storage, Oracle Cloud, Vultr Object Storage"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: s3-compatibility
+    attributes:
+      label: 🔌 S3 Compatibility
+      description: Is this provider S3-compatible?
+      options:
+        - "Yes - Full S3 API compatibility"
+        - "Yes - Partial S3 API compatibility"
+        - "No - Custom API"
+        - "Unknown"
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: 🎯 Use Case
+      description: Why do you need this provider support?
+      placeholder: |
+        Describe your project and why this provider support is important...
+    validations:
+      required: true
+
+  - type: textarea
+    id: provider-details
+    attributes:
+      label: 🔧 Provider Details
+      description: Technical details about the storage provider
+      placeholder: |
+        - Provider website/documentation
+        - API documentation links
+        - Authentication method (access keys, OAuth, etc.)
+        - Supported regions
+        - Pricing model
+        - Special features or limitations
+        - S3 compatibility level (if applicable)
+
+  - type: textarea
+    id: current-situation
+    attributes:
+      label: 📊 Current Situation
+      description: Have you tried using this provider with pushduck? What happened?
+      placeholder: |
+        Describe what you tried and what issues you encountered...
+
+  - type: textarea
+    id: expected-config
+    attributes:
+      label: 💡 Expected Configuration
+      description: How do you think the provider configuration should work?
+      placeholder: |
+        // Example of how you'd like to configure this provider
+        export const { uploadRouter } = uploadConfig
+          .provider("yourProvider", {
+            apiKey: process.env.PROVIDER_API_KEY,
+            bucket: process.env.PROVIDER_BUCKET,
+            region: process.env.PROVIDER_REGION,
+            // other config options
+          })
+          .build();
+      render: typescript
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 🚨 Priority
+      description: How important is this provider support?
+      options:
+        - Low - Nice to have for future projects
+        - Medium - Would help with current project
+        - High - Blocking current project
+        - Critical - Essential for production use
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 🔄 Current Alternatives
+      description: What are you using instead? Any workarounds?
+      placeholder: |
+        Describe current solutions or workarounds you're using...
+
+  - type: checkboxes
+    id: help
+    attributes:
+      label: 🤝 Would you like to help implement this?
+      description: Provider integrations are a great way to contribute!
+      options:
+        - label: I can help implement the provider integration
+          required: false
+        - label: I can help test the implementation
+          required: false
+        - label: I have access to this provider for testing
+          required: false
+        - label: I can provide provider expertise/documentation
+          required: false
