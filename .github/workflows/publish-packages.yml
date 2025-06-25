@@ -1,0 +1,403 @@
+# Package Publishing Workflow
+# Triggers when GitHub releases are published (from any source)
+# Handles NPM publishing and release notes enhancement
+
+name: Publish Packages
+
+on:
+  release:
+    types: [published]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-release:
+    name: 🔍 Validate Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+      is_prerelease: ${{ steps.extract.outputs.is_prerelease }}
+      packages_changed: ${{ steps.extract.outputs.packages_changed }}
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 🎯 Extract release info
+        id: extract
+        run: |
+          # Extract version from release tag (remove 'v' prefix if present)
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION=${VERSION#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Check if it's a prerelease
+          IS_PRERELEASE="${{ github.event.release.prerelease }}"
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+
+          # Check if packages need to be published
+          echo "packages_changed=true" >> $GITHUB_OUTPUT
+
+          echo "📋 Release Info:"
+          echo "  Tag: ${{ github.event.release.tag_name }}"
+          echo "  Version: $VERSION"
+          echo "  Prerelease: $IS_PRERELEASE"
+          echo "  Draft: ${{ github.event.release.draft }}"
+
+      - name: ✅ Validate version format
+        run: |
+          VERSION="${{ steps.extract.outputs.version }}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "❌ Invalid version format: $VERSION"
+            echo "Expected format: x.y.z or x.y.z-prerelease"
+            exit 1
+          fi
+          echo "✅ Version format is valid: $VERSION"
+
+  test:
+    name: 🛡️ Test & Quality Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: validate-release
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 🧪 Run tests
+        run: pnpm test
+
+      - name: 🔍 Type check
+        run: pnpm type-check
+
+      - name: 🎨 Lint check
+        run: pnpm lint
+
+      - name: 🏗️ Build check
+        run: pnpm build:packages
+
+      - name: 📊 Bundle size check
+        run: |
+          cd packages/pushduck
+          pnpm size-check
+
+      - name: 🛡️ Health check
+        run: |
+          cd packages/pushduck
+          if [ -f "scripts/health-check.sh" ]; then
+            chmod +x scripts/health-check.sh
+            ./scripts/health-check.sh
+          else
+            echo "⚠️ Health check script not found, skipping"
+          fi
+
+  build:
+    name: 🏗️ Build Packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [validate-release, test]
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 🏗️ Build all packages
+        run: pnpm build:packages
+
+      - name: 📊 Generate bundle analysis
+        run: |
+          cd packages/pushduck
+          if [ -f "scripts/size-check.js" ]; then
+            node scripts/size-check.js > bundle-analysis.txt
+            echo "📦 **Bundle Analysis for v${{ needs.validate-release.outputs.version }}**" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            cat bundle-analysis.txt >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 📦 Package artifacts
+        run: |
+          # Create dist archive for each package
+          cd packages/pushduck && tar -czf ../../pushduck-dist.tar.gz dist/
+          cd ../cli && tar -czf ../../cli-dist.tar.gz dist/
+
+      - name: 💾 Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            pushduck-dist.tar.gz
+            cli-dist.tar.gz
+          retention-days: 7
+
+  publish-npm:
+    name: 📦 Publish to NPM
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [validate-release, test, build]
+    if: ${{ needs.validate-release.outputs.packages_changed == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 💾 Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+
+      - name: 📦 Extract build artifacts
+        run: |
+          cd packages/pushduck && tar -xzf ../../pushduck-dist.tar.gz
+          cd ../cli && tar -xzf ../../cli-dist.tar.gz
+
+      - name: 📦 Setup NPM registry
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          always-auth: true
+
+      - name: 🔐 Verify NPM authentication
+        run: |
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "❌ NPM_TOKEN is not set"
+            exit 1
+          fi
+          echo "✅ NPM token is configured"
+
+          # Test authentication
+          npm whoami
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: 🔍 Pre-publish validation
+        run: |
+          VERSION="${{ needs.validate-release.outputs.version }}"
+
+          # Check if version already exists
+          echo "🔍 Checking if pushduck@$VERSION already exists..."
+          if npm view pushduck@$VERSION version 2>/dev/null; then
+            echo "❌ pushduck@$VERSION already exists on npm"
+            exit 1
+          fi
+
+          echo "🔍 Checking if @pushduck/cli@$VERSION already exists..."
+          if npm view @pushduck/cli@$VERSION version 2>/dev/null; then
+            echo "❌ @pushduck/cli@$VERSION already exists on npm"
+            exit 1
+          fi
+
+          echo "✅ Version $VERSION is available for publishing"
+
+      - name: 📤 Publish pushduck package
+        run: |
+          cd packages/pushduck
+
+          # Publish with provenance and public access
+          if [[ "${{ needs.validate-release.outputs.is_prerelease }}" == "true" ]]; then
+            echo "📦 Publishing prerelease version..."
+            npm publish --provenance --access public --tag beta
+          else
+            echo "📦 Publishing stable version..."
+            npm publish --provenance --access public
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: 📤 Publish CLI package
+        run: |
+          cd packages/cli
+
+          # Publish with provenance and public access
+          if [[ "${{ needs.validate-release.outputs.is_prerelease }}" == "true" ]]; then
+            echo "📦 Publishing prerelease CLI version..."
+            npm publish --provenance --access public --tag beta
+          else
+            echo "📦 Publishing stable CLI version..."
+            npm publish --provenance --access public
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: ✅ Verify publication
+        run: |
+          VERSION="${{ needs.validate-release.outputs.version }}"
+
+          echo "🔍 Verifying pushduck@$VERSION..."
+          npm view pushduck@$VERSION version
+
+          echo "🔍 Verifying @pushduck/cli@$VERSION..."
+          npm view @pushduck/cli@$VERSION version
+
+          echo "✅ Both packages published successfully!"
+
+      - name: 📝 Enhance release notes
+        run: |
+          VERSION="${{ needs.validate-release.outputs.version }}"
+          TAG="${{ github.event.release.tag_name }}"
+
+          # Get current release notes (user's custom notes)
+          CUSTOM_NOTES="${{ github.event.release.body }}"
+
+          # Generate auto-generated release notes from GitHub
+          echo "🤖 Generating auto-release notes..."
+          AUTO_NOTES=$(gh api repos/${{ github.repository }}/releases/generate-notes \
+            --method POST \
+            --field tag_name="$TAG" \
+            --field target_commitish="${{ github.event.release.target_commitish }}" \
+            --jq '.body')
+
+          # Combine notes: Auto-generated first, then custom notes
+          ENHANCED_NOTES="$AUTO_NOTES"
+
+          # If custom notes exist and are not empty, append them
+          if [ -n "$CUSTOM_NOTES" ] && [ "$CUSTOM_NOTES" != "null" ] && [ "$CUSTOM_NOTES" != "" ]; then
+            ENHANCED_NOTES="$AUTO_NOTES
+
+          ---
+
+          $CUSTOM_NOTES"
+          fi
+
+          # Add npm package information
+          NPM_SECTION="
+
+          ---
+
+          ## 📦 NPM Packages
+
+          - **Core Package**: [\`pushduck@$VERSION\`](https://www.npmjs.com/package/pushduck/v/$VERSION)
+          - **CLI Package**: [\`@pushduck/cli@$VERSION\`](https://www.npmjs.com/package/@pushduck/cli/v/$VERSION)
+
+          ## 🚀 Installation
+
+          \`\`\`bash
+          # Install core package
+          npm install pushduck@$VERSION
+
+          # Install CLI (optional)
+          npm install -g @pushduck/cli@$VERSION
+          \`\`\`
+
+          ## 📊 Bundle Sizes
+
+          \$(cd packages/pushduck && node scripts/size-check.js 2>/dev/null || echo \"Bundle size information not available\")
+
+          ## 🔗 Links
+
+          - [Documentation](https://pushduck.dev)
+          - [Examples](https://github.com/${{ github.repository }}/tree/main/examples)
+          - [Changelog](https://github.com/${{ github.repository }}/releases)"
+
+          # Update release with enhanced notes
+          echo "📝 Updating release notes..."
+          gh release edit "$TAG" --notes "$ENHANCED_NOTES$NPM_SECTION"
+
+          echo "✅ Release notes enhanced successfully!"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify-success:
+    name: 🎉 Success Notification
+    runs-on: ubuntu-latest
+    needs: [validate-release, test, build, publish-npm]
+    if: success()
+
+    steps:
+      - name: 🎉 Success summary
+        run: |
+          VERSION="${{ needs.validate-release.outputs.version }}"
+          TAG="${{ github.event.release.tag_name }}"
+
+          echo "🎉 **Release $TAG Published Successfully!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Tests passed**" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Packages built**" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Published to NPM**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📦 Published Packages" >> $GITHUB_STEP_SUMMARY
+          echo "- [\`pushduck@$VERSION\`](https://www.npmjs.com/package/pushduck/v/$VERSION)" >> $GITHUB_STEP_SUMMARY
+          echo "- [\`@pushduck/cli@$VERSION\`](https://www.npmjs.com/package/@pushduck/cli/v/$VERSION)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/$TAG)" >> $GITHUB_STEP_SUMMARY
+
+  notify-failure:
+    name: 🚨 Failure Notification
+    runs-on: ubuntu-latest
+    needs: [validate-release, test, build, publish-npm]
+    if: failure()
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🚨 Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = context.payload.release.tag_name;
+            const version = tag.replace(/^v/, '');
+            const releaseUrl = context.payload.release.html_url;
+            const workflowUrl = `${context.payload.repository.html_url}/actions/runs/${context.runId}`;
+
+            const title = `🚨 Release ${tag} publication failed`;
+            const body = `
+            ## Release Publication Failure
+
+            **Release**: [${tag}](${releaseUrl})
+            **Version**: \`${version}\`
+            **Workflow Run**: [View Logs](${workflowUrl})
+
+            ### What Happened
+            The GitHub release was created successfully, but the npm publication failed.
+
+            ### Next Steps
+            1. Check the [workflow logs](${workflowUrl}) for detailed error information
+            2. Fix any issues (authentication, version conflicts, etc.)
+            3. Re-run the workflow or manually publish the packages
+
+            ### Manual Publication Commands
+            \`\`\`bash
+            # If you need to publish manually:
+            cd packages/pushduck && npm publish
+            cd ../cli && npm publish
+            \`\`\`
+
+            ---
+            *This issue was automatically created by the release workflow.*
+            `;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['release-failure', 'bug', 'npm']
+            });

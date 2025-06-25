@@ -1,0 +1,12 @@
+# Ignore draft and temporary files
+drafts/
+*.tmp
+*.draft
+.DS_Store
+
+# Ignore current release metadata (temporary)
+.current-release.json
+
+# Keep committed release notes and templates
+!*.md
+!template.md 

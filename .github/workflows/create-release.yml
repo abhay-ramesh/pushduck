@@ -1,0 +1,222 @@
+# Create Release Workflow
+# Creates GitHub releases via manual dispatch - NPM publishing handled by separate workflow
+
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: "Version bump type"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+      prerelease_tag:
+        description: "Prerelease tag (e.g., beta, alpha, rc)"
+        required: false
+        default: "beta"
+        type: string
+      release_notes:
+        description: "Release notes (optional - will auto-generate if empty)"
+        required: false
+        type: string
+      dry_run:
+        description: "Dry run (test without publishing)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  prepare-release:
+    name: 🎯 Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      current_version: ${{ steps.version.outputs.current_version }}
+      release_notes: ${{ steps.notes.outputs.release_notes }}
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 🎯 Calculate new version
+        id: version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./packages/pushduck/package.json').version")
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+          # Calculate new version based on type
+          case "${{ github.event.inputs.version_type }}" in
+            "patch")
+              NEW_VERSION=$(npm version patch --no-git-tag-version --prefix packages/pushduck | cut -d'v' -f2)
+              ;;
+            "minor") 
+              NEW_VERSION=$(npm version minor --no-git-tag-version --prefix packages/pushduck | cut -d'v' -f2)
+              ;;
+            "major")
+              NEW_VERSION=$(npm version major --no-git-tag-version --prefix packages/pushduck | cut -d'v' -f2)
+              ;;
+            "prerelease")
+              NEW_VERSION=$(npm version prerelease --preid=${{ github.event.inputs.prerelease_tag }} --no-git-tag-version --prefix packages/pushduck | cut -d'v' -f2)
+              ;;
+          esac
+
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "📋 Version bump: $CURRENT_VERSION → $NEW_VERSION"
+
+      - name: 📝 Generate release notes
+        id: notes
+        run: |
+          if [ -n "${{ github.event.inputs.release_notes }}" ]; then
+            echo "Using provided release notes"
+            echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+            echo "${{ github.event.inputs.release_notes }}" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "Generating automatic release notes"
+            # Generate release notes from commits since last tag
+            LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            if [ -n "$LAST_TAG" ]; then
+              NOTES=$(git log $LAST_TAG..HEAD --pretty=format:"- %s (%h)" --no-merges)
+            else
+              NOTES=$(git log --pretty=format:"- %s (%h)" --no-merges -10)
+            fi
+            
+            echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+            echo "## What's Changed" >> $GITHUB_OUTPUT
+            echo "$NOTES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+  test-and-build:
+    name: 🧪 Test & Build
+    runs-on: ubuntu-latest
+    needs: prepare-release
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 🧪 Run tests
+        run: pnpm test
+
+      - name: 🔍 Type check
+        run: pnpm type-check
+
+      - name: 🎨 Lint
+        run: pnpm lint
+
+      - name: 🏗️ Build packages
+        run: pnpm build:packages
+
+      - name: 📊 Bundle size check
+        run: |
+          cd packages/pushduck
+          pnpm size-check
+
+  create-github-release:
+    name: 🚀 Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [prepare-release, test-and-build]
+    if: ${{ github.event.inputs.dry_run == 'false' }}
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 🔄 Update package versions
+        run: |
+          NEW_VERSION="${{ needs.prepare-release.outputs.new_version }}"
+
+          # Update pushduck package
+          jq --arg version "$NEW_VERSION" '.version = $version' packages/pushduck/package.json > packages/pushduck/package.json.tmp
+          mv packages/pushduck/package.json.tmp packages/pushduck/package.json
+
+          # Update CLI package
+          jq --arg version "$NEW_VERSION" '.version = $version' packages/cli/package.json > packages/cli/package.json.tmp
+          mv packages/cli/package.json.tmp packages/cli/package.json
+
+      - name: 🏷️ Create git tag and commit
+        run: |
+          NEW_VERSION="${{ needs.prepare-release.outputs.new_version }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add packages/pushduck/package.json packages/cli/package.json
+          git commit -m "chore(release): bump version to $NEW_VERSION"
+          git tag "v$NEW_VERSION"
+          git push origin main
+          git push origin "v$NEW_VERSION"
+
+      - name: 🚀 Create GitHub Release
+        run: |
+          NEW_VERSION="${{ needs.prepare-release.outputs.new_version }}"
+          RELEASE_NOTES="${{ needs.prepare-release.outputs.release_notes }}"
+
+          # Determine if prerelease
+          PRERELEASE_FLAG=""
+          if [[ "$NEW_VERSION" =~ -[a-zA-Z] ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          # Create GitHub release (this will trigger the publish-packages workflow)
+          gh release create "v$NEW_VERSION" \
+            --title "v$NEW_VERSION" \
+            --notes "$RELEASE_NOTES" \
+            $PRERELEASE_FLAG
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dry-run-summary:
+    name: 🔍 Dry Run Summary
+    runs-on: ubuntu-latest
+    needs: [prepare-release, test-and-build]
+    if: ${{ github.event.inputs.dry_run == 'true' }}
+
+    steps:
+      - name: 📋 Dry run summary
+        run: |
+          echo "🔍 **Dry Run Complete**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version Change**: ${{ needs.prepare-release.outputs.current_version }} → ${{ needs.prepare-release.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Type**: ${{ github.event.inputs.version_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Would publish**:" >> $GITHUB_STEP_SUMMARY
+          echo "- pushduck@${{ needs.prepare-release.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- @pushduck/cli@${{ needs.prepare-release.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release Notes**:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${{ needs.prepare-release.outputs.release_notes }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Tests passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Build succeeded" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Ready for real release" >> $GITHUB_STEP_SUMMARY
