@@ -2,8 +2,6 @@ import { source } from "@/lib/source";
 import { notFound } from "next/navigation";
 import { ImageResponse } from "next/og";
 
-// export const runtime = "edge";
-
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ slug: string[] }> }
@@ -11,6 +9,11 @@ export async function GET(
   const { slug } = await params;
   const page = source.getPage(slug.slice(0, -1));
   if (!page) notFound();
+
+  // Fetch the mascot image
+  const mascotImage = await fetch(
+    new URL("/pushduck-mascot.png", "https://pushduck.dev")
+  ).then((res) => res.arrayBuffer());
 
   return new ImageResponse(
     (
@@ -56,29 +59,32 @@ export async function GET(
           }}
         />
 
-        {/* Header */}
+        {/* Header with mascot */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "14px",
+            gap: "16px",
             zIndex: 1,
           }}
         >
-          <div
+          <img
+            src={`data:image/png;base64,${Buffer.from(mascotImage).toString(
+              "base64"
+            )}`}
+            alt="Pushduck"
+            width="40"
+            height="40"
             style={{
-              width: "6px",
-              height: "32px",
-              backgroundColor: "#ffffff",
-              borderRadius: "0px",
+              borderRadius: "8px",
               display: "flex",
             }}
           />
           <div
             style={{
               color: "#ffffff",
-              fontSize: "20px",
-              fontWeight: "500",
+              fontSize: "24px",
+              fontWeight: "600",
               letterSpacing: "0.5px",
               display: "flex",
             }}
