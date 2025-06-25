@@ -1,0 +1,203 @@
+# Repository settings for Pushduck
+# This file configures repository settings via the Settings GitHub App
+# https://github.com/apps/settings
+
+repository:
+  # Repository basic settings
+  name: pushduck
+  description: "🦆 Simple, type-safe S3 uploads for Next.js with zero configuration"
+  homepage: https://pushduck.dev
+  topics:
+    - nextjs
+    - s3
+    - upload
+    - typescript
+    - react
+    - aws
+    - file-upload
+    - presigned-urls
+
+  # Repository features
+  private: false
+  has_issues: true
+  has_projects: false
+  has_wiki: false
+  has_discussions: true
+  has_downloads: true
+
+  # Default branch
+  default_branch: main
+
+  # Merge settings - ENFORCE SQUASH AND MERGE
+  allow_squash_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: false
+
+  # Additional merge settings
+  squash_merge_commit_title: PR_TITLE
+  squash_merge_commit_message: PR_BODY
+  merge_commit_title: PR_TITLE
+  merge_commit_message: PR_BODY
+
+  # Automatically delete head branches after merge
+  delete_branch_on_merge: true
+
+  # Vulnerability alerts
+  enable_vulnerability_alerts: true
+  enable_automated_security_fixes: true
+
+# Branch protection rules
+branches:
+  - name: main
+    protection:
+      # Require pull request reviews
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+        require_last_push_approval: false
+
+      # Require status checks
+      required_status_checks:
+        strict: true
+        contexts:
+          - "CI / test (18)"
+          - "CI / test (20)"
+          - "CI / lint"
+          - "CI / build"
+          - "CI / type-check"
+
+      # Additional protections
+      enforce_admins: false
+      require_linear_history: true
+      allow_force_pushes: false
+      allow_deletions: false
+      required_conversation_resolution: true
+
+# Labels for issue and PR management
+labels:
+  # Type labels
+  - name: "type: bug"
+    color: "d73a4a"
+    description: "Something isn't working"
+
+  - name: "type: feature"
+    color: "0075ca"
+    description: "New feature or request"
+
+  - name: "type: documentation"
+    color: "0052cc"
+    description: "Improvements or additions to documentation"
+
+  - name: "type: maintenance"
+    color: "fbca04"
+    description: "Maintenance and chore tasks"
+
+  # Priority labels
+  - name: "priority: critical"
+    color: "b60205"
+    description: "Critical priority"
+
+  - name: "priority: high"
+    color: "d93f0b"
+    description: "High priority"
+
+  - name: "priority: medium"
+    color: "fbca04"
+    description: "Medium priority"
+
+  - name: "priority: low"
+    color: "0e8a16"
+    description: "Low priority"
+
+  # Status labels
+  - name: "status: needs review"
+    color: "006b75"
+    description: "Needs review from maintainers"
+
+  - name: "status: work in progress"
+    color: "d4c5f9"
+    description: "Work in progress"
+
+  - name: "status: blocked"
+    color: "b60205"
+    description: "Blocked by external dependency"
+
+  # Size labels
+  - name: "size: small"
+    color: "c2e0c6"
+    description: "Small change"
+
+  - name: "size: medium"
+    color: "f9d71c"
+    description: "Medium change"
+
+  - name: "size: large"
+    color: "d4c5f9"
+    description: "Large change"
+
+  # Component labels
+  - name: "component: core"
+    color: "1d76db"
+    description: "Core functionality"
+
+  - name: "component: client"
+    color: "5319e7"
+    description: "Client-side code"
+
+  - name: "component: server"
+    color: "0052cc"
+    description: "Server-side code"
+
+  - name: "component: cli"
+    color: "bfd4f2"
+    description: "CLI tool"
+
+  - name: "component: docs"
+    color: "d4edda"
+    description: "Documentation"
+
+  # Special labels
+  - name: "good first issue"
+    color: "7057ff"
+    description: "Good for newcomers"
+
+  - name: "help wanted"
+    color: "008672"
+    description: "Extra attention is needed"
+
+  - name: "dependencies"
+    color: "0366d6"
+    description: "Pull requests that update a dependency file"
+
+  - name: "security"
+    color: "b60205"
+    description: "Security-related changes"
+
+# Issue and PR templates
+issue_template:
+  - name: "🐛 Bug Report"
+    about: "Report a bug to help us improve"
+    title: "bug: "
+    labels: ["type: bug", "status: needs review"]
+
+  - name: "🚀 Feature Request"
+    about: "Suggest a new feature or enhancement"
+    title: "feat: "
+    labels: ["type: feature", "status: needs review"]
+
+  - name: "📚 Documentation"
+    about: "Suggest improvements to documentation"
+    title: "docs: "
+    labels: ["type: documentation", "status: needs review"]
+# Collaborators and teams (if using organization)
+# teams:
+#   - name: maintainers
+#     permission: admin
+#   - name: contributors
+#     permission: write
+
+# Repository secrets (configured separately in GitHub UI)
+# Required secrets:
+# - NPM_TOKEN: For publishing to npm
+# - CODECOV_TOKEN: For code coverage reporting (optional)

@@ -27,39 +27,6 @@ git commit -m "feat(core): add your feature description"
 git push origin feat/your-feature-name
 ```
 
-## 🔄 Merge Strategy: Squash and Merge
-
-We use **Squash and Merge** for all pull requests to maintain a clean, linear git history.
-
-### Why Squash and Merge?
-
-- ✅ **Clean history**: Each PR becomes one atomic commit
-- ✅ **Easy reverts**: Simple to rollback problematic changes  
-- ✅ **Better changelogs**: Clean commits generate better release notes
-- ✅ **Simplified debugging**: `git bisect` works more effectively
-
-### What This Means for Contributors
-
-1. **Don't worry about commit history in your PR** - it gets squashed anyway
-2. **Focus on clear PR titles** - they become the commit message
-3. **Write good PR descriptions** - they help reviewers and become part of history
-
-### PR Title Format
-
-Your PR title becomes the squashed commit message, so use conventional commit format:
-
-```bash
-✅ Good PR titles:
-feat(core): add file type validation
-fix(client): resolve upload progress memory leak
-docs(api): add configuration examples
-
-❌ Bad PR titles:  
-Add validation
-Fix bug
-Update docs
-```
-
 ## 📋 Development Workflow
 
 ### Branch Naming Convention
@@ -103,6 +70,48 @@ We use [Conventional Commits](https://conventionalcommits.org/):
 - `docs`: Documentation
 - `examples`: Examples
 - `deps`: Dependencies
+
+**Examples:**
+
+```bash
+feat(core): add retry mechanism for failed uploads
+fix(client): resolve memory leak in upload progress
+docs(api): update configuration options
+chore(deps): update development dependencies
+```
+
+## 🔄 Merge Strategy
+
+We use **Squash and Merge** for all pull requests:
+
+### Why Squash and Merge?
+
+- ✅ **Clean history**: Each PR becomes one atomic commit
+- ✅ **Easy reverts**: Simple to rollback problematic changes
+- ✅ **Better changelogs**: Clean commits generate better release notes
+- ✅ **Simplified debugging**: `git bisect` works more effectively
+
+### What This Means for Contributors
+
+1. **Don't worry about commit history in your PR** - it gets squashed anyway
+2. **Focus on clear PR titles** - they become the commit message
+3. **Write good PR descriptions** - they help reviewers and become part of history
+
+### PR Title Format
+
+Your PR title becomes the squashed commit message, so use conventional commit format:
+
+```bash
+✅ Good PR titles:
+feat(core): add file type validation
+fix(client): resolve upload progress memory leak
+docs(api): add configuration examples
+
+❌ Bad PR titles:  
+Add validation
+Fix bug
+Update docs
+```
 
 ## 🧪 Testing Requirements
 
