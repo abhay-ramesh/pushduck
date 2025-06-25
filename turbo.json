@@ -2,10 +2,15 @@
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
   "globalDependencies": [
-    "**/.env.*local"
+    "**/.env.*local",
+    ".env"
   ],
   "tasks": {
     "build": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
       "outputs": [
         "dist/**",
         ".next/**",
