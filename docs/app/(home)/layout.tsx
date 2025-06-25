@@ -5,27 +5,27 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "Pushduck - The Complete File Upload Solution",
+  title: "Pushduck - Universal File Upload Library",
   description:
-    "The most comprehensive file upload library for Next.js. Handle uploads to AWS S3, Cloudflare R2, DigitalOcean Spaces, and more with type-safe APIs.",
+    "The most comprehensive file upload library. Works with 16+ frameworks (Next.js, Remix, Hono, Express, etc.) and 5+ storage providers (AWS S3, Cloudflare R2, DigitalOcean, etc.) with type-safe APIs.",
   openGraph: {
-    title: "Pushduck - The Complete File Upload Solution",
+    title: "Pushduck - Universal File Upload Library",
     description:
-      "The most comprehensive file upload library for Next.js. Handle uploads to AWS S3, Cloudflare R2, DigitalOcean Spaces, and more with type-safe APIs.",
+      "The most comprehensive file upload library. Works with 16+ frameworks (Next.js, Remix, Hono, Express, etc.) and 5+ storage providers (AWS S3, Cloudflare R2, DigitalOcean, etc.) with type-safe APIs.",
     type: "website",
     url: baseUrl.origin,
     images: {
       url: `${baseUrl.origin}/og-image`,
       width: 1200,
       height: 630,
-      alt: "Pushduck - The Complete File Upload Solution",
+      alt: "Pushduck - Universal File Upload Library",
     },
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pushduck - The Complete File Upload Solution",
+    title: "Pushduck - Universal File Upload Library",
     description:
-      "The most comprehensive file upload library for Next.js. Handle uploads to AWS S3, Cloudflare R2, DigitalOcean Spaces, and more with type-safe APIs.",
+      "The most comprehensive file upload library. Works with 16+ frameworks (Next.js, Remix, Hono, Express, etc.) and 5+ storage providers (AWS S3, Cloudflare R2, DigitalOcean, etc.) with type-safe APIs.",
     images: `${baseUrl.origin}/og-image`,
   },
   keywords: [

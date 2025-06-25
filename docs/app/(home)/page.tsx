@@ -3,11 +3,21 @@
 import {
   ArrowRight,
   Check,
+  CheckCircle,
   ChevronDown,
+  Cloud,
+  Code,
   Copy,
+  Database,
+  FileText,
+  Gauge,
   Github,
+  Globe,
+  Image,
+  Settings,
   Shield,
-  Upload,
+  Star,
+  Video,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
@@ -16,12 +26,16 @@ import { BundledTheme, codeToHtml } from "shiki";
 
 const codeExample = `import { uploadConfig } from "pushduck/server";
 
-export const { uploadHandler } = uploadConfig
-  .s3({
+// Universal API - works with ANY framework
+export const { s3, uploadRouter } = uploadConfig
+  .provider("cloudflareR2", {
     bucket: process.env.S3_BUCKET!,
     region: process.env.AWS_REGION!,
   })
-  .build();`;
+  .build();
+
+// Framework-agnostic handlers
+export const { GET, POST } = uploadRouter.handlers;`;
 
 const packageManagers = [
   { name: "npm", command: "npm install pushduck" },
@@ -34,6 +48,121 @@ const themes = {
   light: "one-light",
   dark: "one-dark-pro",
 } satisfies Record<string, BundledTheme>;
+
+const frameworks = [
+  { name: "Next.js", category: "Full-Stack", logo: "⚡" },
+  { name: "Remix", category: "Full-Stack", logo: "💿" },
+  { name: "SvelteKit", category: "Full-Stack", logo: "🧡" },
+  { name: "Nuxt.js", category: "Full-Stack", logo: "💚" },
+  { name: "TanStack Start", category: "Full-Stack", logo: "🟠" },
+  { name: "SolidJS Start", category: "Full-Stack", logo: "🔵" },
+  { name: "Qwik", category: "Full-Stack", logo: "⚡" },
+  { name: "Astro", category: "Static/Islands", logo: "🚀" },
+  { name: "Fresh", category: "Static/Islands", logo: "🍋" },
+  { name: "Hono", category: "Runtime/Edge", logo: "🔥" },
+  { name: "Elysia", category: "Runtime/Edge", logo: "🦋" },
+  { name: "Bun", category: "Runtime/Edge", logo: "🥟" },
+  { name: "Nitro H3", category: "Runtime/Edge", logo: "⚡" },
+  { name: "Express", category: "Traditional", logo: "🚂" },
+  { name: "Fastify", category: "Traditional", logo: "⚡" },
+  { name: "Expo", category: "Mobile", logo: "📱" },
+];
+
+const providers = [
+  {
+    name: "AWS S3",
+    icon: "☁️",
+    description: "Industry standard with global reach",
+  },
+  {
+    name: "Cloudflare R2",
+    icon: "⚡",
+    description: "Zero egress fees, global edge",
+  },
+  {
+    name: "DigitalOcean Spaces",
+    icon: "🌊",
+    description: "Simple, predictable pricing",
+  },
+  {
+    name: "Google Cloud Storage",
+    icon: "☁️",
+    description: "AI-ready with advanced features",
+  },
+  { name: "MinIO", icon: "🏠", description: "Self-hosted S3 compatibility" },
+];
+
+const features = [
+  {
+    icon: Globe,
+    title: "16+ Framework Support",
+    description:
+      "Universal handlers work with any web framework - from Next.js to Hono, Express to Expo",
+    color: "text-blue-500",
+  },
+  {
+    icon: Cloud,
+    title: "5+ Storage Providers",
+    description:
+      "AWS S3, Cloudflare R2, DigitalOcean Spaces, Google Cloud, MinIO - switch anytime",
+    color: "text-green-500",
+  },
+  {
+    icon: Shield,
+    title: "Type-Safe APIs",
+    description:
+      "Full TypeScript support with intelligent autocomplete and compile-time validation",
+    color: "text-purple-500",
+  },
+  {
+    icon: Zap,
+    title: "Zero Configuration",
+    description:
+      "Works out of the box with CLI setup. Configure only what you need to customize",
+    color: "text-yellow-500",
+  },
+  {
+    icon: Settings,
+    title: "Advanced Schema Validation",
+    description:
+      "Built-in file type, size, and custom validation with detailed error messages",
+    color: "text-red-500",
+  },
+  {
+    icon: Gauge,
+    title: "Production Ready",
+    description:
+      "Presigned URLs, chunked uploads, progress tracking, retry logic, and error handling",
+    color: "text-indigo-500",
+  },
+];
+
+const uploadTypes = [
+  {
+    icon: Image,
+    type: "Images",
+    description: "JPEG, PNG, WebP with automatic optimization",
+    examples: "Profile pics, galleries, thumbnails",
+  },
+  {
+    icon: Video,
+    type: "Videos",
+    description: "MP4, WebM, AVI with size and duration limits",
+    examples: "Course content, demos, clips",
+  },
+  {
+    icon: FileText,
+    type: "Documents",
+    description: "PDF, DOCX, XLSX with virus scanning",
+    examples: "Contracts, reports, spreadsheets",
+  },
+  {
+    icon: Database,
+    type: "Any File Type",
+    description: "Custom validation rules for any format",
+    examples: "3D models, audio, archives",
+  },
+];
 
 function InstallCommand() {
   const [selectedPM, setSelectedPM] = useState(packageManagers[0]);
@@ -178,30 +307,38 @@ export default function HomePage() {
     <main className="flex-1">
       {/* Hero Section */}
       <section className="container px-4 py-24 mx-auto sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-4xl text-center">
-          <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-6xl">
-            Next.js S3 Uploads
-            <span className="block mt-2 text-primary">Made Simple</span>
+        <div className="mx-auto max-w-5xl text-center">
+          <div className="inline-flex items-center px-3 py-1 mb-6 text-xs font-medium rounded-full bg-primary/10 text-primary">
+            <Star className="w-3 h-3 mr-1" />
+            Universal • Type-Safe • Production Ready
+          </div>
+
+          <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
+            File Uploads for
+            <span className="block mt-2 bg-gradient-to-r from-primary via-purple-500 to-indigo-500 bg-clip-text text-transparent">
+              Any Framework
+            </span>
           </h1>
-          <p className="mx-auto mb-8 max-w-2xl text-xl text-muted-foreground">
-            The most comprehensive file upload library for Next.js. Handle
-            uploads to AWS S3, Cloudflare R2, DigitalOcean Spaces, and more with
-            type-safe APIs.
+
+          <p className="mx-auto mb-8 max-w-3xl text-xl text-muted-foreground sm:text-2xl">
+            The most comprehensive file upload library. Works with 16+
+            frameworks, 5+ storage providers, with type-safe APIs and zero
+            configuration.
           </p>
 
           <div className="flex flex-col gap-4 justify-center mb-12 sm:flex-row">
             <Link
               href="/docs"
-              className="inline-flex justify-center items-center px-6 py-3 text-base font-medium rounded-lg border border-transparent transition-colors text-primary-foreground bg-primary hover:bg-primary/90"
+              className="inline-flex justify-center items-center px-8 py-4 text-lg font-medium rounded-xl border border-transparent transition-all shadow-lg text-primary-foreground bg-primary hover:bg-primary/90 hover:shadow-xl hover:scale-105"
             >
               Get Started
-              <ArrowRight className="ml-2 w-4 h-4" />
+              <ArrowRight className="ml-2 w-5 h-5" />
             </Link>
             <Link
               href="https://github.com/abhay-ramesh/pushduck"
-              className="inline-flex justify-center items-center px-6 py-3 text-base font-medium rounded-lg border transition-colors border-border text-foreground bg-background hover:bg-muted"
+              className="inline-flex justify-center items-center px-8 py-4 text-lg font-medium rounded-xl border transition-all shadow-md border-border text-foreground bg-background hover:bg-muted hover:shadow-lg hover:scale-105"
             >
-              <Github className="mr-2 w-4 h-4" />
+              <Github className="mr-2 w-5 h-5" />
               View on GitHub
             </Link>
           </div>
@@ -210,14 +347,14 @@ export default function HomePage() {
           <InstallCommand />
 
           {/* Code Example */}
-          <div className="mx-auto max-w-2xl">
-            <div className="overflow-hidden rounded-xl border shadow-sm bg-card">
-              <div className="px-4 py-2 border-b bg-muted">
+          <div className="mx-auto max-w-4xl">
+            <div className="overflow-hidden rounded-2xl border shadow-2xl bg-card">
+              <div className="px-6 py-3 border-b bg-muted">
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                   <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="ml-4 text-sm text-muted-foreground">
+                  <span className="ml-4 text-sm font-mono text-muted-foreground">
                     upload.ts
                   </span>
                 </div>
@@ -230,51 +367,266 @@ export default function HomePage() {
 
       {/* Features Section */}
       <section className="border-t bg-muted/20">
-        <div className="container px-4 py-16 mx-auto sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-4xl">
-            <div className="mb-12 text-center">
-              <h2 className="mb-4 text-3xl font-bold tracking-tight">
-                Everything you need
+        <div className="container px-4 py-20 mx-auto sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-16 text-center">
+              <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+                Everything you need for file uploads
               </h2>
-              <p className="text-lg text-muted-foreground">
-                Built with developer experience in mind
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Built with developer experience in mind, pushduck handles the
+                complexity so you can focus on your application
               </p>
             </div>
 
-            <div className="grid gap-8 md:grid-cols-3">
-              <div className="text-center">
-                <div className="flex justify-center items-center mx-auto mb-4 w-12 h-12 rounded-lg bg-primary/10">
-                  <Upload className="w-6 h-6 text-primary" />
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {features.map((feature, index) => (
+                <div
+                  key={index}
+                  className="p-6 rounded-2xl border bg-card hover:shadow-lg transition-all hover:scale-105"
+                >
+                  <div
+                    className={`flex justify-center items-center mx-auto mb-4 w-12 h-12 rounded-xl bg-muted ${feature.color}`}
+                  >
+                    <feature.icon className="w-6 h-6" />
+                  </div>
+                  <h3 className="mb-3 text-lg font-semibold text-center">
+                    {feature.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground text-center leading-relaxed">
+                    {feature.description}
+                  </p>
                 </div>
-                <h3 className="mb-2 text-lg font-semibold">
-                  Multiple Providers
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, and Google
-                  Cloud Storage
-                </p>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Framework Support Section */}
+      <section className="border-t">
+        <div className="container px-4 py-20 mx-auto sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-16 text-center">
+              <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+                Works with your favorite framework
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Universal API that adapts to any framework - write once, deploy
+                anywhere
+              </p>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {frameworks.map((framework, index) => (
+                <div
+                  key={index}
+                  className="p-4 rounded-xl border bg-card hover:shadow-md transition-all hover:scale-105"
+                >
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">{framework.logo}</span>
+                    <div>
+                      <div className="font-medium">{framework.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {framework.category}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-12 text-center">
+              <Link
+                href="/docs/integrations"
+                className="inline-flex items-center px-6 py-3 text-base font-medium rounded-lg transition-colors text-primary hover:text-primary/80"
+              >
+                View all integrations
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Storage Providers Section */}
+      <section className="border-t bg-muted/20">
+        <div className="container px-4 py-20 mx-auto sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-16 text-center">
+              <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+                Store files anywhere
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Switch between storage providers without changing your code
+              </p>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {providers.map((provider, index) => (
+                <div
+                  key={index}
+                  className="p-6 rounded-2xl border bg-card hover:shadow-lg transition-all hover:scale-105"
+                >
+                  <div className="flex items-center space-x-3 mb-3">
+                    <span className="text-2xl">{provider.icon}</span>
+                    <h3 className="text-lg font-semibold">{provider.name}</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {provider.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-12 text-center">
+              <Link
+                href="/docs/providers"
+                className="inline-flex items-center px-6 py-3 text-base font-medium rounded-lg transition-colors text-primary hover:text-primary/80"
+              >
+                Compare providers
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Upload Types Section */}
+      <section className="border-t">
+        <div className="container px-4 py-20 mx-auto sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-16 text-center">
+              <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+                Handle any file type
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Built-in validation and optimization for common file types, with
+                custom rules for anything else
+              </p>
+            </div>
+
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+              {uploadTypes.map((upload, index) => (
+                <div key={index} className="text-center">
+                  <div className="flex justify-center items-center mx-auto mb-4 w-16 h-16 rounded-2xl bg-primary/10">
+                    <upload.icon className="w-8 h-8 text-primary" />
+                  </div>
+                  <h3 className="mb-2 text-lg font-semibold">{upload.type}</h3>
+                  <p className="mb-3 text-sm text-muted-foreground font-medium">
+                    {upload.description}
+                  </p>
+                  <p className="text-xs text-muted-foreground/80">
+                    {upload.examples}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Benefits Section */}
+      <section className="border-t bg-muted/20">
+        <div className="container px-4 py-20 mx-auto sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-16 text-center">
+              <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+                Why developers choose pushduck
+              </h2>
+            </div>
+
+            <div className="grid gap-8 lg:grid-cols-2">
+              <div className="space-y-6">
+                <div className="flex space-x-4">
+                  <CheckCircle className="w-6 h-6 text-green-500 mt-1 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-semibold mb-1">Zero vendor lock-in</h3>
+                    <p className="text-muted-foreground text-sm">
+                      Switch storage providers or frameworks without rewriting
+                      code
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex space-x-4">
+                  <CheckCircle className="w-6 h-6 text-green-500 mt-1 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-semibold mb-1">
+                      Production-ready security
+                    </h3>
+                    <p className="text-muted-foreground text-sm">
+                      Presigned URLs, file validation, size limits, and CORS
+                      handling
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex space-x-4">
+                  <CheckCircle className="w-6 h-6 text-green-500 mt-1 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-semibold mb-1">
+                      Developer experience first
+                    </h3>
+                    <p className="text-muted-foreground text-sm">
+                      CLI setup, TypeScript intellisense, detailed error
+                      messages
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex space-x-4">
+                  <CheckCircle className="w-6 h-6 text-green-500 mt-1 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-semibold mb-1">
+                      Performance optimized
+                    </h3>
+                    <p className="text-muted-foreground text-sm">
+                      Direct uploads, chunked transfers, progress tracking,
+                      automatic retries
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <div className="text-center">
-                <div className="flex justify-center items-center mx-auto mb-4 w-12 h-12 rounded-lg bg-primary/10">
-                  <Shield className="w-6 h-6 text-primary" />
+              <div className="lg:pl-8">
+                <div className="p-6 rounded-2xl border bg-card">
+                  <h3 className="font-semibold mb-4">Quick Setup Example</h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center space-x-2">
+                      <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-mono">
+                        1
+                      </span>
+                      <code className="text-muted-foreground">
+                        npx @pushduck/cli@latest init
+                      </code>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-mono">
+                        2
+                      </span>
+                      <span className="text-muted-foreground">
+                        Configure your storage provider
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-mono">
+                        3
+                      </span>
+                      <span className="text-muted-foreground">
+                        Add upload routes to your app
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="w-6 h-6 rounded-full bg-green-500 text-white text-xs flex items-center justify-center">
+                        ✓
+                      </span>
+                      <span className="text-muted-foreground">
+                        Start uploading files!
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="mb-2 text-lg font-semibold">Type Safe</h3>
-                <p className="text-sm text-muted-foreground">
-                  Full TypeScript support with intelligent autocomplete and
-                  error checking
-                </p>
-              </div>
-
-              <div className="text-center">
-                <div className="flex justify-center items-center mx-auto mb-4 w-12 h-12 rounded-lg bg-primary/10">
-                  <Zap className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="mb-2 text-lg font-semibold">Zero Config</h3>
-                <p className="text-sm text-muted-foreground">
-                  Works out of the box with sensible defaults. Customize only
-                  what you need
-                </p>
               </div>
             </div>
           </div>
@@ -283,21 +635,32 @@ export default function HomePage() {
 
       {/* CTA Section */}
       <section className="border-t">
-        <div className="container px-4 py-16 mx-auto text-center sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl">
-            <h2 className="mb-4 text-3xl font-bold tracking-tight">
-              Ready to start uploading?
+        <div className="container px-4 py-20 mx-auto text-center sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-3xl">
+            <h2 className="mb-6 text-3xl font-bold tracking-tight sm:text-4xl">
+              Ready to handle file uploads like a pro?
             </h2>
             <p className="mb-8 text-lg text-muted-foreground">
-              Get started in minutes with our comprehensive documentation.
+              Join developers building the next generation of applications with
+              pushduck. Get started in minutes with our comprehensive
+              documentation.
             </p>
-            <Link
-              href="/docs"
-              className="inline-flex justify-center items-center px-8 py-3 text-base font-medium rounded-lg border border-transparent transition-colors text-primary-foreground bg-primary hover:bg-primary/90"
-            >
-              Start Building
-              <ArrowRight className="ml-2 w-4 h-4" />
-            </Link>
+            <div className="flex flex-col gap-4 justify-center sm:flex-row">
+              <Link
+                href="/docs"
+                className="inline-flex justify-center items-center px-8 py-4 text-lg font-medium rounded-xl border border-transparent transition-all shadow-lg text-primary-foreground bg-primary hover:bg-primary/90 hover:shadow-xl hover:scale-105"
+              >
+                Start Building
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Link>
+              <Link
+                href="/docs/examples"
+                className="inline-flex justify-center items-center px-8 py-4 text-lg font-medium rounded-xl border transition-all shadow-md border-border text-foreground bg-background hover:bg-muted hover:shadow-lg hover:scale-105"
+              >
+                <Code className="mr-2 w-5 h-5" />
+                View Examples
+              </Link>
+            </div>
           </div>
         </div>
       </section>
