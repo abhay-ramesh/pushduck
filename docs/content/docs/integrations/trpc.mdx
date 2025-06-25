@@ -40,12 +40,40 @@ graph TD
   <Step>
     **Install dependencies**
     
-    ```bash
-    npm install @trpc/server @trpc/client pushduck
-    # Framework-specific tRPC packages:
-    # @trpc/next (for Next.js)
-    # @trpc/react-query (for React)
-    ```
+    <Tabs items={["npm", "yarn", "pnpm", "bun"]}>
+      <Tab value="npm">
+        ```bash
+        npm install @trpc/server @trpc/client pushduck
+        # Framework-specific tRPC packages:
+        # @trpc/next (for Next.js)
+        # @trpc/react-query (for React)
+        ```
+      </Tab>
+      <Tab value="yarn">
+        ```bash
+        yarn add @trpc/server @trpc/client pushduck
+        # Framework-specific tRPC packages:
+        # @trpc/next (for Next.js)
+        # @trpc/react-query (for React)
+        ```
+      </Tab>
+      <Tab value="pnpm">
+        ```bash
+        pnpm add @trpc/server @trpc/client pushduck
+        # Framework-specific tRPC packages:
+        # @trpc/next (for Next.js)
+        # @trpc/react-query (for React)
+        ```
+      </Tab>
+      <Tab value="bun">
+        ```bash
+        bun add @trpc/server @trpc/client pushduck
+        # Framework-specific tRPC packages:
+        # @trpc/next (for Next.js)
+        # @trpc/react-query (for React)
+        ```
+      </Tab>
+    </Tabs>
   </Step>
 
   <Step>

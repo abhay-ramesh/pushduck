@@ -23,13 +23,28 @@ Express uses the traditional Node.js `req`/`res` API pattern. Pushduck provides 
   <Step>
     **Install dependencies**
     
-    ```bash
-    npm install express pushduck
-    npm install --save-dev @types/express
-    # or
-    pnpm add express pushduck
-    pnpm add -D @types/express
-    ```
+    <Tabs items={["npm", "yarn", "pnpm", "bun"]}>
+      <Tab value="npm">
+        ```bash
+        npm install pushduck
+        ```
+      </Tab>
+      <Tab value="yarn">
+        ```bash
+        yarn add pushduck
+        ```
+      </Tab>
+      <Tab value="pnpm">
+        ```bash
+        pnpm add pushduck
+        ```
+      </Tab>
+      <Tab value="bun">
+        ```bash
+        bun add pushduck
+        ```
+      </Tab>
+    </Tabs>
   </Step>
 
   <Step>
@@ -402,176 +417,3 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
   });
 };
 ```
-
-```typescript title="server.ts"
-import express from 'express';
-import uploadRoutes from './routes/uploads';
-
-const app = express();
-
-app.use(express.json());
-
-// Mount upload routes
-app.use('/api/upload', uploadRoutes);
-
-app.listen(3000);
-```
-
-## Client Usage
-
-The client-side integration is identical regardless of your backend framework:
-
-```typescript title="client/upload-client.ts"
-import { createUploadClient } from 'pushduck/client';
-import type { AppUploadRouter } from '../src/lib/upload';
-
-export const upload = createUploadClient<AppUploadRouter>({
-  endpoint: 'http://localhost:3000/api/upload',
-  headers: {
-    'Authorization': `Bearer ${getAuthToken()}`
-  }
-});
-
-function getAuthToken(): string {
-  return localStorage.getItem('auth-token') || '';
-}
-```
-
-```typescript title="client/upload-form.tsx"
-import { upload } from './upload-client';
-
-export function DocumentUploader() {
-  const { uploadFiles, files, isUploading, error } = upload.documents();
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    uploadFiles(selectedFiles);
-  };
-
-  return (
-    <div>
-      <input
-        type="file"
-        multiple
-        accept=".pdf,.doc,.docx,.txt"
-        onChange={handleFileSelect}
-        disabled={isUploading}
-      />
-
-      {error && (
-        <div className="error">
-          Error: {error.message}
-        </div>
-      )}
-
-      {files.map((file) => (
-        <div key={file.id}>
-          <span>{file.name}</span>
-          <progress value={file.progress} max={100} />
-          {file.status === 'success' && (
-            <a href={file.url} target="_blank" rel="noopener noreferrer">
-              Download
-            </a>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-```
-
-## Deployment
-
-### Docker Deployment
-
-```dockerfile title="Dockerfile"
-FROM node:18-alpine
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Copy source code
-COPY . .
-
-# Build TypeScript
-RUN npm run build
-
-EXPOSE 3000
-
-CMD ["npm", "start"]
-```
-
-```json title="package.json"
-{
-  "name": "express-upload-api",
-  "version": "1.0.0",
-  "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "pushduck": "latest",
-    "cors": "^2.8.5",
-    "helmet": "^7.0.0",
-    "express-rate-limit": "^6.7.0",
-    "jsonwebtoken": "^9.0.0"
-  },
-  "devDependencies": {
-    "@types/express": "^4.17.17",
-    "@types/cors": "^2.8.13",
-    "@types/jsonwebtoken": "^9.0.2",
-    "tsx": "^3.12.7",
-    "typescript": "^5.0.0"
-  }
-}
-```
-
-### Environment Variables
-
-```bash title=".env"
-# Server Configuration
-PORT=3000
-NODE_ENV=development
-JWT_SECRET=your-super-secret-jwt-key
-
-# Cloudflare R2 Configuration
-AWS_ACCESS_KEY_ID=your_r2_access_key
-AWS_SECRET_ACCESS_KEY=your_r2_secret_key
-AWS_ENDPOINT_URL=https://your-account-id.r2.cloudflarestorage.com
-S3_BUCKET_NAME=your-bucket-name
-R2_ACCOUNT_ID=your-account-id
-
-# CORS Configuration
-ALLOWED_ORIGINS=http://localhost:3000,https://your-domain.com
-```
-
-## Adapter Benefits
-
-<Cards>
-  <Card title="🔄 Seamless Integration" description="Works with existing Express apps">
-    Drop pushduck into any existing Express application without changing your architecture.
-  </Card>
-  
-  <Card title="🛡️ Express Ecosystem" description="Full compatibility with Express middleware">
-    Use all your favorite Express middleware like CORS, rate limiting, and authentication.
-  </Card>
-  
-  <Card title="📦 Familiar Patterns" description="Standard Express req/res handling">
-    Follows Express conventions while providing modern upload capabilities.
-  </Card>
-  
-  <Card title="🚀 Easy Migration" description="Upgrade existing upload solutions">
-    Replace complex upload implementations with pushduck's simple adapter.
-  </Card>
-</Cards>
-
----
-
-<Callout type="success">
-  **Express Ready**: The `toExpressHandler` adapter makes pushduck work seamlessly with Express's traditional req/res API while providing modern file upload capabilities.
-</Callout> 

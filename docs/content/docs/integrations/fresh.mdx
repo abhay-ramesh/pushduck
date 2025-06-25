@@ -23,25 +23,69 @@ Fresh is a modern web framework for Deno that uses islands architecture for opti
   <Step>
     **Install Fresh and pushduck**
     
-    ```bash
-    # Create a new Fresh project
-    deno run -A -r https://fresh.deno.dev my-app
-    cd my-app
-    
-    # Add pushduck to import_map.json
-    ```
-    
-    ```json title="import_map.json"
-    {
-      "imports": {
-        "$fresh/": "https://deno.land/x/fresh@1.6.1/",
-        "preact": "https://esm.sh/preact@10.19.2",
-        "preact/": "https://esm.sh/preact@10.19.2/",
-        "pushduck/server": "https://esm.sh/pushduck@latest/server",
-        "pushduck/client": "https://esm.sh/pushduck@latest/client"
-      }
-    }
-    ```
+    <Tabs items={["Deno", "npm", "yarn", "pnpm", "bun"]}>
+      <Tab value="Deno">
+        ```bash
+        # Create a new Fresh project
+        deno run -A -r https://fresh.deno.dev my-app
+        cd my-app
+        
+        # Add pushduck to import_map.json
+        ```
+        
+        ```json title="import_map.json"
+        {
+          "imports": {
+            "$fresh/": "https://deno.land/x/fresh@1.6.1/",
+            "preact": "https://esm.sh/preact@10.19.2",
+            "preact/": "https://esm.sh/preact@10.19.2/",
+            "pushduck/server": "https://esm.sh/pushduck@latest/server",
+            "pushduck/client": "https://esm.sh/pushduck@latest/client"
+          }
+        }
+        ```
+      </Tab>
+      <Tab value="npm">
+        ```bash
+        # Create a new Fresh project
+        deno run -A -r https://fresh.deno.dev my-app
+        cd my-app
+        
+        # Install pushduck via npm (requires Node.js compatibility)
+        npm install pushduck
+        ```
+      </Tab>
+      <Tab value="yarn">
+        ```bash
+        # Create a new Fresh project
+        deno run -A -r https://fresh.deno.dev my-app
+        cd my-app
+        
+        # Install pushduck via yarn (requires Node.js compatibility)
+        yarn add pushduck
+        ```
+      </Tab>
+      <Tab value="pnpm">
+        ```bash
+        # Create a new Fresh project
+        deno run -A -r https://fresh.deno.dev my-app
+        cd my-app
+        
+        # Install pushduck via pnpm (requires Node.js compatibility)
+        pnpm add pushduck
+        ```
+      </Tab>
+      <Tab value="bun">
+        ```bash
+        # Create a new Fresh project
+        deno run -A -r https://fresh.deno.dev my-app
+        cd my-app
+        
+        # Install pushduck via bun (requires Node.js compatibility)
+        bun add pushduck
+        ```
+      </Tab>
+    </Tabs>
   </Step>
 
   <Step>
