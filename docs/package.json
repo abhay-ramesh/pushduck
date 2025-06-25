@@ -9,9 +9,11 @@
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
+    "@t3-oss/env-nextjs": "^0.13.8",
     "fumadocs-core": "15.5.3",
     "fumadocs-mdx": "11.6.9",
     "fumadocs-ui": "15.5.3",
+    "jiti": "^2.4.2",
     "lucide-react": "^0.516.0",
     "mermaid": "^11.7.0",
     "next": "15.3.3",
@@ -24,7 +26,7 @@
     "remark-gfm": "^4.0.1",
     "remark-mdx": "^3.1.0",
     "shiki": "^3.7.0",
-    "zod": "^3.22.4"
+    "zod": "^3.25.67"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.1.0",

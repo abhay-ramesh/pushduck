@@ -3,13 +3,19 @@
   "ui": "tui",
   "globalDependencies": [
     "**/.env.*local",
-    ".env"
+    ".env",
+    ".env.production.local",
+    ".env.local",
+    ".env.production"
   ],
   "tasks": {
     "build": {
       "inputs": [
         "$TURBO_DEFAULT$",
-        ".env*"
+        ".env.production.local",
+        ".env.local",
+        ".env.production",
+        ".env"
       ],
       "outputs": [
         "dist/**",
