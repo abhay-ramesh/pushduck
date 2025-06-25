@@ -210,7 +210,7 @@ const features = [
     icon: Globe,
     title: "16+ Framework Support",
     description:
-      "Universal handlers work with any web framework - from Next.js to Hono, Express to Expo",
+      "Universal handlers work with any web framework and edge runtime - from Next.js to Hono, Express to Expo to Cloudflare Workers",
     color: "text-blue-500",
   },
   {
@@ -435,8 +435,8 @@ export default function HomePage() {
 
           <p className="mx-auto mb-8 max-w-3xl text-xl text-muted-foreground sm:text-2xl">
             The most comprehensive file upload library. Works with 16+
-            frameworks, 5+ storage providers, with type-safe APIs and zero
-            configuration.
+            frameworks, 5+ storage providers, edge runtimes, with type-safe APIs
+            and zero configuration.
           </p>
 
           <div className="flex flex-col gap-4 justify-center mb-12 sm:flex-row">
@@ -522,11 +522,11 @@ export default function HomePage() {
           <div className="mx-auto max-w-6xl">
             <div className="mb-16 text-center">
               <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
-                Works with your favorite framework
+                Works with your favorite framework & edge runtime
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Universal API that adapts to any framework - write once, deploy
-                anywhere
+                Universal API that adapts to any framework and edge runtime -
+                write once, deploy anywhere from traditional servers to the edge
               </p>
             </div>
 
@@ -573,7 +573,7 @@ export default function HomePage() {
             <div className="mt-12 text-center">
               <div className="inline-flex items-center px-4 py-2 rounded-lg bg-muted/50 text-sm text-muted-foreground mb-4">
                 <span className="mr-2">+</span>
-                Any custom HTTP server or edge runtime
+                Any custom HTTP server, edge runtime, or serverless function
               </div>
               <br />
               <Link
