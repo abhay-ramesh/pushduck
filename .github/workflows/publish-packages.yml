@@ -387,34 +387,8 @@ jobs:
             done <<< "$CONTRIBUTORS"
           fi
 
-          # Add npm package information
-          NPM_SECTION="
-
-          ---
-
-          ## 📦 NPM Packages
-
-          - **Core Package**: [\`pushduck@$VERSION\`](https://www.npmjs.com/package/pushduck/v/$VERSION)
-          - **CLI Package**: [\`@pushduck/cli@$VERSION\`](https://www.npmjs.com/package/@pushduck/cli/v/$VERSION)
-
-          ## 🚀 Installation
-
-          \`\`\`bash
-          # Install core package
-          npm install pushduck@$VERSION
-
-          # Install CLI (optional)
-          npm install -g @pushduck/cli@$VERSION
-          \`\`\`
-
-          ## 🔗 Links
-
-          - [Documentation](https://pushduck.dev)
-          - [Examples](https://github.com/${{ github.repository }}/tree/main/examples)
-          - [Changelog](https://github.com/${{ github.repository }}/releases)"
-
           # Combine all sections
-          ENHANCED_NOTES="$AUTO_NOTES$NPM_SECTION$CONTRIBUTOR_SECTION"
+          ENHANCED_NOTES="$AUTO_NOTES$CONTRIBUTOR_SECTION"
 
           # Update release with enhanced notes
           echo "📝 Updating release notes..."
