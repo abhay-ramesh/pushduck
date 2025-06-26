@@ -5,6 +5,7 @@
         "aws-s3",
         "digitalocean-spaces",
         "google-cloud",
-        "minio"
+        "minio",
+        "s3-compatible"
     ]
 }

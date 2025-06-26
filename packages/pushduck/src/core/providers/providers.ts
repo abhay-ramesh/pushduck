@@ -362,6 +362,24 @@ const PROVIDER_SPECS = {
       credentials: config.credentials,
     }),
   },
+
+  s3Compatible: {
+    provider: "s3-compatible",
+    envVars: {
+      endpoint: ["S3_ENDPOINT", "S3_COMPATIBLE_ENDPOINT"],
+      bucket: ["S3_BUCKET", "S3_BUCKET_NAME"],
+      accessKeyId: ["S3_ACCESS_KEY_ID", "ACCESS_KEY_ID"],
+      secretAccessKey: ["S3_SECRET_ACCESS_KEY", "SECRET_ACCESS_KEY"],
+      region: ["S3_REGION", "REGION"],
+      customDomain: ["S3_CUSTOM_DOMAIN"],
+      acl: ["S3_ACL"],
+    },
+    defaults: {
+      region: "us-east-1",
+      acl: "private",
+      forcePathStyle: true, // Most S3-compatible providers need path-style access
+    },
+  },
 } as const;
 
 // ========================================
@@ -386,6 +404,7 @@ export type ProviderConfigMap = {
   digitalOceanSpaces: Partial<Omit<DigitalOceanSpacesConfig, "provider">>;
   minio: Partial<Omit<MinIOConfig, "provider">>;
   gcs: Partial<Omit<GoogleCloudStorageConfig, "provider">>;
+  s3Compatible: Partial<Omit<S3CompatibleConfig, "provider">>;
 };
 
 /**
@@ -462,6 +481,12 @@ export function validateProviderConfig(config: ProviderConfig): {
         );
       }
       break;
+
+    case "s3-compatible":
+      if (!config.endpoint) errors.push("S3-compatible endpoint is required");
+      if (!config.accessKeyId) errors.push("Access Key ID is required");
+      if (!config.secretAccessKey) errors.push("Secret Access Key is required");
+      break;
   }
 
   return {
@@ -520,6 +545,8 @@ export function getProviderEndpoint(config: ProviderConfig): string {
     }
     case "gcs":
       return "https://storage.googleapis.com";
+    case "s3-compatible":
+      return config.endpoint;
     default:
       return "";
   }
