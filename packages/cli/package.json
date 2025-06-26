@@ -5,7 +5,12 @@
   "description": "Official CLI for pushduck - Add S3 upload functionality to your Next.js project",
   "main": "dist/index.cjs",
   "bin": {
-    "pushduck": "./dist/index.cjs"
+    "pushduck": "dist/index.cjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abhay-ramesh/pushduck.git",
+    "directory": "packages/cli"
   },
   "scripts": {
     "build": "tsdown",
