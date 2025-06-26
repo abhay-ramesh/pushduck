@@ -28,10 +28,6 @@ on:
         required: false
         default: "beta"
         type: string
-      release_notes:
-        description: "Release notes (optional - will auto-generate if empty)"
-        required: false
-        type: string
       dry_run:
         description: "Dry run (test without publishing)"
         required: false
@@ -89,26 +85,19 @@ jobs:
       - name: 📝 Generate release notes
         id: notes
         run: |
-          if [ -n "${{ github.event.inputs.release_notes }}" ]; then
-            echo "Using provided release notes"
-            echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-            echo "${{ github.event.inputs.release_notes }}" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+          echo "Generating automatic release notes"
+          # Generate release notes from commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            NOTES=$(git log $LAST_TAG..HEAD --pretty=format:"- %s (%h)" --no-merges)
           else
-            echo "Generating automatic release notes"
-            # Generate release notes from commits since last tag
-            LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-            if [ -n "$LAST_TAG" ]; then
-              NOTES=$(git log $LAST_TAG..HEAD --pretty=format:"- %s (%h)" --no-merges)
-            else
-              NOTES=$(git log --pretty=format:"- %s (%h)" --no-merges -10)
-            fi
-            
-            echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-            echo "## What's Changed" >> $GITHUB_OUTPUT
-            echo "$NOTES" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            NOTES=$(git log --pretty=format:"- %s (%h)" --no-merges -10)
           fi
+
+          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+          echo "## What's Changed" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
   test-and-build:
     name: 🧪 Test & Validate
@@ -227,11 +216,11 @@ jobs:
           echo "- pushduck@${{ needs.prepare-release.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
           echo "- @pushduck/cli@${{ needs.prepare-release.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Release Notes**:" >> $GITHUB_STEP_SUMMARY
+          echo "**Auto-Generated Release Notes Preview**:" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "${{ needs.prepare-release.outputs.release_notes }}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ Tests passed" >> $GITHUB_STEP_SUMMARY
           echo "✅ Build succeeded" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Ready for real release" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Ready for real release with contributor avatars" >> $GITHUB_STEP_SUMMARY

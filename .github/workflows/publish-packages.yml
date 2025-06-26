@@ -334,9 +334,6 @@ jobs:
           VERSION="${{ needs.validate-release.outputs.version }}"
           TAG="${{ github.event.release.tag_name }}"
 
-          # Get current release notes (user's custom notes)
-          CUSTOM_NOTES="${{ github.event.release.body }}"
-
           # Generate auto-generated release notes from GitHub
           echo "🤖 Generating auto-release notes..."
           if AUTO_NOTES=$(gh api repos/${{ github.repository }}/releases/generate-notes \
@@ -352,16 +349,42 @@ jobs:
           Auto-generated release notes unavailable. Please see commit history for details."
           fi
 
-          # Combine notes: Auto-generated first, then custom notes
-          ENHANCED_NOTES="$AUTO_NOTES"
+          # Get contributors for this release
+          echo "👥 Getting contributors for this release..."
+          LAST_TAG=$(git describe --tags --abbrev=0 $TAG^ 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            COMMIT_RANGE="$LAST_TAG..$TAG"
+          else
+            # If no previous tag, get commits from last 30 days
+            SINCE_DATE=$(date -d '30 days ago' '+%Y-%m-%d' 2>/dev/null || date -v-30d '+%Y-%m-%d' 2>/dev/null || echo '2024-01-01')
+            COMMIT_RANGE="--since=$SINCE_DATE"
+          fi
 
-          # If custom notes exist and are not empty, append them
-          if [ -n "$CUSTOM_NOTES" ] && [ "$CUSTOM_NOTES" != "null" ] && [ "$CUSTOM_NOTES" != "" ]; then
-            ENHANCED_NOTES="$AUTO_NOTES
+          # Get unique contributors (excluding bots)
+          CONTRIBUTORS=$(git log $COMMIT_RANGE --format='%ae|%an' | sort -u | grep -v 'bot@' | grep -v 'noreply.github.com' || echo "")
 
-          ---
+          # Generate contributor avatars section
+          CONTRIBUTOR_SECTION=""
+          if [ -n "$CONTRIBUTORS" ]; then
+            echo "📸 Generating contributor avatars..."
+            CONTRIBUTOR_SECTION="
 
-          $CUSTOM_NOTES"
+          ## 👥 Contributors
+
+          Thanks to all the contributors who made this release possible:
+
+          "
+            
+            # Add GitHub usernames and avatars
+            while IFS='|' read -r email name; do
+              if [ -n "$email" ] && [ -n "$name" ]; then
+                # Try to get GitHub username from email
+                GH_USER=$(gh api search/users --method GET --field q="$email" --jq '.items[0].login' 2>/dev/null || echo "")
+                if [ -n "$GH_USER" ] && [ "$GH_USER" != "null" ]; then
+                  CONTRIBUTOR_SECTION="$CONTRIBUTOR_SECTION<a href=\"https://github.com/$GH_USER\"><img src=\"https://github.com/$GH_USER.png\" width=\"50\" height=\"50\" alt=\"$name\" title=\"$name\" style=\"border-radius: 50%; margin: 0 5px;\"></a> "
+                fi
+              fi
+            done <<< "$CONTRIBUTORS"
           fi
 
           # Add npm package information
@@ -384,19 +407,18 @@ jobs:
           npm install -g @pushduck/cli@$VERSION
           \`\`\`
 
-          ## 📊 Bundle Sizes
-
-          \$(cd packages/pushduck && node scripts/size-check.js 2>/dev/null || echo \"Bundle size information not available\")
-
           ## 🔗 Links
 
           - [Documentation](https://pushduck.dev)
           - [Examples](https://github.com/${{ github.repository }}/tree/main/examples)
           - [Changelog](https://github.com/${{ github.repository }}/releases)"
 
+          # Combine all sections
+          ENHANCED_NOTES="$AUTO_NOTES$NPM_SECTION$CONTRIBUTOR_SECTION"
+
           # Update release with enhanced notes
           echo "📝 Updating release notes..."
-          if gh release edit "$TAG" --notes "$ENHANCED_NOTES$NPM_SECTION"; then
+          if gh release edit "$TAG" --notes "$ENHANCED_NOTES"; then
             echo "✅ Release notes enhanced successfully!"
           else
             echo "⚠️ Failed to update release notes, but packages were published successfully"
