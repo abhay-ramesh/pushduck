@@ -1,3 +1,5 @@
+![Banner](./docs/public/banner.png)
+
 # 🦆 Pushduck - Universal S3 File Upload Library
 
 [![NPM Version](https://img.shields.io/npm/v/pushduck)](https://www.npmjs.com/package/pushduck)
