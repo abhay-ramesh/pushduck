@@ -40,18 +40,6 @@ function formatUploadSpeed(bytesPerSecond: number): string {
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
-function createProgressTracker(
-  fileId: string,
-  onProgress: (fileId: string, progress: number) => void
-) {
-  return (event: ProgressEvent) => {
-    if (event.lengthComputable) {
-      const progress = Math.round((event.loaded / event.total) * 100);
-      onProgress(fileId, progress);
-    }
-  };
-}
-
 async function uploadToS3(
   file: File,
   presignedUrl: string,
@@ -111,7 +99,59 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
   const [files, setFiles] = useState<S3UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [progress, setProgress] = useState<number>(0);
+  const [uploadSpeed, setUploadSpeed] = useState<number>(0);
+  const [eta, setEta] = useState<number>(0);
   const abortControllers = useRef<Map<string, AbortController>>(new Map());
+
+  // Calculate overall progress metrics
+  const calculateOverallMetrics = useCallback(
+    (currentFiles: S3UploadedFile[]) => {
+      if (currentFiles.length === 0) {
+        setProgress(0);
+        setUploadSpeed(0);
+        setEta(0);
+        return;
+      }
+
+      const activeFiles = currentFiles.filter(
+        (f) => f.status === "uploading" || f.status === "success"
+      );
+
+      if (activeFiles.length === 0) {
+        setProgress(0);
+        setUploadSpeed(0);
+        setEta(0);
+        return;
+      }
+
+      // Calculate total progress: weighted by file size
+      const totalBytes = activeFiles.reduce((sum, file) => sum + file.size, 0);
+      const totalLoadedBytes = activeFiles.reduce((sum, file) => {
+        const fileProgress =
+          file.status === "success" ? 100 : file.progress || 0;
+        return sum + (file.size * fileProgress) / 100;
+      }, 0);
+
+      const overallProgressPercent =
+        totalBytes > 0 ? (totalLoadedBytes / totalBytes) * 100 : 0;
+
+      // Calculate total transfer rate: sum of all active file speeds
+      const currentTransferRate = activeFiles.reduce((sum, file) => {
+        return sum + (file.uploadSpeed || 0);
+      }, 0);
+
+      // Calculate total time remaining: based on remaining bytes and current speed
+      const remainingBytes = totalBytes - totalLoadedBytes;
+      const timeRemaining =
+        currentTransferRate > 0 ? remainingBytes / currentTransferRate : 0;
+
+      setProgress(Math.min(100, Math.max(0, overallProgressPercent)));
+      setUploadSpeed(currentTransferRate);
+      setEta(timeRemaining);
+    },
+    []
+  );
 
   const reset = useCallback(() => {
     abortControllers.current.forEach((controller) => controller.abort());
@@ -119,17 +159,25 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
     setFiles([]);
     setErrors([]);
     setIsUploading(false);
+    setProgress(0);
+    setUploadSpeed(0);
+    setEta(0);
   }, []);
 
   const updateFileProgress = useCallback(
     (fileId: string, progress: number, uploadSpeed?: number, eta?: number) => {
-      setFiles((prev) =>
-        prev.map((file) =>
+      setFiles((prev) => {
+        const updatedFiles = prev.map((file) =>
           file.id === fileId ? { ...file, progress, uploadSpeed, eta } : file
-        )
-      );
+        );
+
+        // Recalculate overall metrics with updated files
+        calculateOverallMetrics(updatedFiles);
+
+        return updatedFiles;
+      });
     },
-    []
+    [calculateOverallMetrics]
   );
 
   const updateFileStatus = useCallback(
@@ -138,13 +186,18 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
       status: S3UploadedFile["status"],
       extra: Partial<S3UploadedFile> = {}
     ) => {
-      setFiles((prev) =>
-        prev.map((file) =>
+      setFiles((prev) => {
+        const updatedFiles = prev.map((file) =>
           file.id === fileId ? { ...file, status, ...extra } : file
-        )
-      );
+        );
+
+        // Recalculate overall metrics with updated files
+        calculateOverallMetrics(updatedFiles);
+
+        return updatedFiles;
+      });
     },
-    []
+    [calculateOverallMetrics]
   );
 
   const startUpload = useCallback(
@@ -336,6 +389,9 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
     reset,
     isUploading,
     errors,
+    progress,
+    uploadSpeed,
+    eta,
   };
 }
 

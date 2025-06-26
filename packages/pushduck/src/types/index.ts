@@ -45,6 +45,10 @@ export interface S3RouteUploadResult {
   reset: () => void;
   isUploading: boolean;
   errors: string[];
+  // Overall progress tracking across all files
+  progress?: number; // 0-100 percentage across all files
+  uploadSpeed?: number; // bytes per second across all files
+  eta?: number; // seconds remaining for all files
 }
 
 // ========================================
@@ -89,6 +93,10 @@ export interface TypedRouteHook<
   isUploading: boolean;
   errors: string[];
   routeName: TRouteName;
+  // Overall progress tracking across all files
+  progress?: number; // 0-100 percentage across all files
+  uploadSpeed?: number; // bytes per second across all files
+  eta?: number; // seconds remaining for all files
 }
 
 // ========================================
