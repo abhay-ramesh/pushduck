@@ -153,8 +153,8 @@ jobs:
     needs: [validate-release, test, build]
     if: ${{ needs.validate-release.outputs.packages_changed == 'true' }}
     permissions:
-      contents: read
-      id-token: write
+      contents: write # Required for editing releases
+      id-token: write # Required for npm provenance
 
     steps:
       - name: 📥 Checkout
@@ -339,11 +339,18 @@ jobs:
 
           # Generate auto-generated release notes from GitHub
           echo "🤖 Generating auto-release notes..."
-          AUTO_NOTES=$(gh api repos/${{ github.repository }}/releases/generate-notes \
+          if AUTO_NOTES=$(gh api repos/${{ github.repository }}/releases/generate-notes \
             --method POST \
             --field tag_name="$TAG" \
             --field target_commitish="${{ github.event.release.target_commitish }}" \
-            --jq '.body')
+            --jq '.body' 2>/dev/null); then
+            echo "✅ Auto-generated release notes successfully created"
+          else
+            echo "⚠️ Failed to generate auto-release notes, using fallback"
+            AUTO_NOTES="## What's Changed
+
+          Auto-generated release notes unavailable. Please see commit history for details."
+          fi
 
           # Combine notes: Auto-generated first, then custom notes
           ENHANCED_NOTES="$AUTO_NOTES"
@@ -389,11 +396,13 @@ jobs:
 
           # Update release with enhanced notes
           echo "📝 Updating release notes..."
-          gh release edit "$TAG" --notes "$ENHANCED_NOTES$NPM_SECTION"
-
-          echo "✅ Release notes enhanced successfully!"
+          if gh release edit "$TAG" --notes "$ENHANCED_NOTES$NPM_SECTION"; then
+            echo "✅ Release notes enhanced successfully!"
+          else
+            echo "⚠️ Failed to update release notes, but packages were published successfully"
+          fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
 
   notify-success:
     name: 🎉 Success Notification
