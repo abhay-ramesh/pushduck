@@ -6,6 +6,7 @@ description: React hook for uploading files with reactive state management
 import { Callout } from "fumadocs-ui/components/callout";
 import { TypeTable } from "fumadocs-ui/components/type-table";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { formatETA, formatUploadSpeed } from "pushduck";
 
 # useUploadRoute
 
@@ -53,16 +54,13 @@ Both approaches provide the same functionality and type safety - choose what fee
 
 ```typescript
 import { useUploadRoute } from "pushduck/client";
+import { formatETA, formatUploadSpeed } from "pushduck";
 import type { AppRouter } from "@/lib/upload";
 
 export function ImageUploader() {
   // With type parameter (recommended for better type safety)
-  const { uploadFiles, files, isUploading, error, reset } =
+  const { uploadFiles, files, isUploading, error, reset, progress, uploadSpeed, eta } =
     useUploadRoute<AppRouter>("imageUpload");
-    
-  // Or without type parameter (still works)
-  // const { uploadFiles, files, isUploading, error, reset } =
-  //   useUploadRoute("imageUpload");
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
@@ -78,6 +76,19 @@ export function ImageUploader() {
         onChange={handleFileSelect}
       />
 
+      {/* Overall Progress Tracking */}
+      {isUploading && files.length > 1 && progress !== undefined && (
+        <div className="overall-progress">
+          <h3>Overall Progress: {Math.round(progress)}%</h3>
+          <progress value={progress} max={100} />
+          <div>
+            <span>Speed: {uploadSpeed ? formatUploadSpeed(uploadSpeed) : '0 B/s'}</span>
+            <span>ETA: {eta ? formatETA(eta) : '--'}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Individual File Progress */}
       {files.map((file) => (
         <div key={file.id}>
           <span>{file.name}</span>
@@ -92,6 +103,34 @@ export function ImageUploader() {
   );
 }
 ```
+
+## Overall Progress Tracking
+
+The hook provides real-time overall progress metrics when uploading multiple files:
+
+<Callout type="info">
+  Overall progress tracking is especially useful for batch uploads and provides a better user experience when uploading multiple files simultaneously.
+</Callout>
+
+```typescript
+const { progress, uploadSpeed, eta } = useUploadRoute("imageUpload");
+
+// Progress: 0-100 percentage across all files
+console.log(`Overall progress: ${progress}%`);
+
+// Upload speed: Combined transfer rate in bytes/second
+console.log(`Transfer rate: ${formatUploadSpeed(uploadSpeed)}`);
+
+// ETA: Time remaining in seconds
+console.log(`Time remaining: ${formatETA(eta)}`);
+```
+
+### Progress Calculation
+
+- **progress**: Weighted by file sizes, not just file count
+- **uploadSpeed**: Sum of all active file upload speeds
+- **eta**: Calculated based on remaining bytes and current speed
+- Values are `undefined` when no uploads are active
 
 ## Hook Signature
 
@@ -197,6 +236,18 @@ const { uploadFiles } = useUploadRoute("imageUpload");
     reset: {
       description: "Reset upload state",
       type: "() => void",
+    },
+    progress: {
+      description: "Overall progress across all files (0-100)",
+      type: "number | undefined",
+    },
+    uploadSpeed: {
+      description: "Combined transfer rate in bytes per second",
+      type: "number | undefined",
+    },
+    eta: {
+      description: "Overall time remaining in seconds",
+      type: "number | undefined",
     },
   }}
 />

@@ -15,7 +15,7 @@ interface UploadDemoProps {
 
 export function UploadDemo({
   title = "Interactive Upload Demo",
-  description = "Try uploading files to see pushduck in action",
+  description = "Try uploading multiple files to see overall progress tracking in action",
   showTabs = true,
   defaultTab = "images",
   compact = false,
@@ -72,6 +72,9 @@ export function UploadDemo({
               <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full dark:bg-blue-900/20 dark:text-blue-300">
                 ⚡ Property-Based
               </span>
+              <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-orange-800 bg-orange-100 rounded-full dark:bg-orange-900/20 dark:text-orange-300">
+                📊 Overall Progress
+              </span>
               <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-purple-800 bg-purple-100 rounded-full dark:bg-purple-900/20 dark:text-purple-300">
                 ☁️ Cloudflare R2
               </span>
@@ -118,42 +121,95 @@ export function UploadDemo({
                       "text/plain": [".txt"],
                     }
               }
-              maxFiles={activeTab === "images" ? 3 : 2}
+              maxFiles={activeTab === "images" ? 5 : 3}
             />
 
             {/* Status and Actions */}
             {currentUpload.files.length > 0 && (
-              <div className="flex justify-between items-center p-3 rounded-md bg-fd-muted/50">
-                <div className="text-sm text-fd-muted-foreground">
-                  <span className="font-medium text-fd-foreground">
-                    {
-                      currentUpload.files.filter((f) => f.status === "success")
-                        .length
-                    }
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-medium text-fd-foreground">
-                    {currentUpload.files.length}
-                  </span>{" "}
-                  files uploaded
+              <div className="space-y-3">
+                <div className="flex justify-between items-center p-3 rounded-md bg-fd-muted/50">
+                  <div className="text-sm text-fd-muted-foreground">
+                    <span className="font-medium text-fd-foreground">
+                      {
+                        currentUpload.files.filter(
+                          (f) => f.status === "success"
+                        ).length
+                      }
+                    </span>{" "}
+                    of{" "}
+                    <span className="font-medium text-fd-foreground">
+                      {currentUpload.files.length}
+                    </span>{" "}
+                    files uploaded
+                  </div>
+
+                  <div className="flex gap-2 items-center">
+                    {currentUpload.isUploading && (
+                      <div className="flex gap-2 items-center text-sm text-fd-primary">
+                        <div className="w-3 h-3 rounded-full border-2 animate-spin border-fd-primary border-t-transparent"></div>
+                        Uploading...
+                      </div>
+                    )}
+
+                    <button
+                      onClick={currentUpload.reset}
+                      disabled={currentUpload.isUploading}
+                      className="px-2 py-1 text-xs rounded border transition-colors text-fd-muted-foreground hover:text-fd-foreground disabled:opacity-50 border-fd-border hover:border-fd-border-hover"
+                    >
+                      Clear
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex gap-2 items-center">
-                  {currentUpload.isUploading && (
-                    <div className="flex gap-2 items-center text-sm text-fd-primary">
-                      <div className="w-3 h-3 rounded-full border-2 animate-spin border-fd-primary border-t-transparent"></div>
-                      Uploading...
+                {/* Overall Progress Tracking */}
+                {currentUpload.isUploading &&
+                  currentUpload.progress !== undefined && (
+                    <div className="p-4 rounded-md bg-gradient-to-r from-fd-background to-fd-muted/20 border border-fd-border">
+                      <div className="flex justify-between items-center mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-fd-primary rounded-full animate-pulse"></div>
+                          <h4 className="text-sm font-medium text-fd-foreground">
+                            Overall Progress
+                          </h4>
+                        </div>
+                        <span className="text-lg font-semibold text-fd-primary">
+                          {Math.round(currentUpload.progress)}%
+                        </span>
+                      </div>
+
+                      {/* Overall Progress Bar */}
+                      <div className="w-full h-3 bg-fd-muted rounded-full mb-3 overflow-hidden">
+                        <div
+                          className="h-3 bg-gradient-to-r from-fd-primary to-fd-primary/80 rounded-full transition-all duration-500 ease-out"
+                          style={{ width: `${currentUpload.progress}%` }}
+                        />
+                      </div>
+
+                      {/* Overall Stats */}
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-center gap-1">
+                          <span className="text-fd-muted-foreground">
+                            Speed:
+                          </span>
+                          <span className="font-medium text-fd-foreground">
+                            {currentUpload.uploadSpeed !== undefined &&
+                            currentUpload.uploadSpeed > 0
+                              ? formatUploadSpeed(currentUpload.uploadSpeed)
+                              : "Calculating..."}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-fd-muted-foreground">ETA:</span>
+                          <span className="font-medium text-fd-foreground">
+                            {currentUpload.eta !== undefined &&
+                            currentUpload.eta > 0
+                              ? formatETA(currentUpload.eta)
+                              : "Calculating..."}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   )}
-
-                  <button
-                    onClick={currentUpload.reset}
-                    disabled={currentUpload.isUploading}
-                    className="px-2 py-1 text-xs rounded border transition-colors text-fd-muted-foreground hover:text-fd-foreground disabled:opacity-50 border-fd-border hover:border-fd-border-hover"
-                  >
-                    Clear
-                  </button>
-                </div>
               </div>
             )}
 
@@ -282,9 +338,14 @@ await ${
                 }.uploadFiles(files);
 
 // Access state with TypeScript inference
-const { files, isUploading, errors } = ${
-                  activeTab === "images" ? "imageUpload" : "fileUpload"
-                };`}</code>
+const { 
+  files,        // Individual file progress
+  isUploading,  // Upload status
+  errors,       // Any errors
+  progress,     // Overall progress (0-100)
+  uploadSpeed,  // Overall bytes/sec
+  eta          // Overall time remaining
+} = ${activeTab === "images" ? "imageUpload" : "fileUpload"};`}</code>
               </pre>
             </div>
           )}

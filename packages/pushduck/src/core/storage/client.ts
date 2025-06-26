@@ -661,6 +661,10 @@ export interface UploadProgress {
   total: number;
   percentage: number;
   key: string;
+  // Overall progress tracking across all files
+  progress?: number; // 0-100 percentage across all files
+  uploadSpeed?: number; // bytes per second across all files
+  eta?: number; // seconds remaining for all files
 }
 
 export type ProgressCallback = (progress: UploadProgress) => void;

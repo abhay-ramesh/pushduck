@@ -8,8 +8,16 @@ export function PropertyBasedImageUpload() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   // Property-based access with full type inference - no string literals!
-  const { uploadFiles, files, isUploading, errors, reset } =
-    upload.imageUpload();
+  const {
+    uploadFiles,
+    files,
+    isUploading,
+    errors,
+    reset,
+    progress,
+    uploadSpeed,
+    eta,
+  } = upload.imageUpload();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
@@ -58,6 +66,9 @@ export function PropertyBasedImageUpload() {
         <div className="px-2 py-1 text-xs font-medium text-emerald-800 bg-emerald-100 rounded-full">
           Enhanced Type Inference
         </div>
+        <div className="px-2 py-1 text-xs font-medium text-orange-800 bg-orange-100 rounded-full">
+          Overall Progress Tracking
+        </div>
       </div>
 
       <div className="p-3 mb-4 bg-emerald-50 rounded-md border border-emerald-200">
@@ -73,6 +84,10 @@ export function PropertyBasedImageUpload() {
             - Hook factory pattern (tRPC-style)
           </li>
           <li>• Full TypeScript inference from server router</li>
+          <li>
+            • <strong>Overall progress tracking</strong> - progress,
+            uploadSpeed, eta
+          </li>
           <li>• Zero runtime overhead, compile-time safety</li>
           <li>• Backward compatible with existing hooks</li>
         </ul>
@@ -89,7 +104,7 @@ export function PropertyBasedImageUpload() {
           className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
         />
         <p className="mt-1 text-xs text-gray-500">
-          Property-based upload with enhanced type inference
+          Property-based upload with enhanced type inference & overall progress
         </p>
       </div>
 
@@ -151,6 +166,47 @@ export function PropertyBasedImageUpload() {
         )}
       </div>
 
+      {/* Overall Progress Tracking */}
+      {isUploading && files.length > 1 && progress !== undefined && (
+        <div className="p-4 mb-4 rounded-md bg-gradient-to-r from-emerald-50 to-blue-50 border border-emerald-200">
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+              <h4 className="text-sm font-medium text-gray-800">
+                Overall Progress
+              </h4>
+            </div>
+            <span className="text-lg font-semibold text-emerald-600">
+              {Math.round(progress)}%
+            </span>
+          </div>
+
+          {/* Overall Progress Bar */}
+          <div className="w-full h-2 bg-gray-200 rounded-full mb-3">
+            <div
+              className="h-2 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          {/* Overall Stats */}
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="text-center">
+              <div className="text-xs text-gray-500">Transfer Rate</div>
+              <div className="font-medium text-emerald-600">
+                {uploadSpeed ? formatUploadSpeed(uploadSpeed) : "0 B/s"}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-gray-500">Time Remaining</div>
+              <div className="font-medium text-blue-600">
+                {eta ? formatETA(eta) : "--"}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Upload Progress */}
       {files.length > 0 && (
         <div className="mb-4">
@@ -160,9 +216,9 @@ export function PropertyBasedImageUpload() {
               {files.filter((f) => f.status === "success").length}/
               {files.length} completed):
             </h3>
-            {files.length > 1 && (
+            {files.length > 1 && !isUploading && (
               <div className="text-xs text-gray-500">
-                Overall:{" "}
+                Final:{" "}
                 {Math.round(
                   (files.filter((f) => f.status === "success").length /
                     files.length) *
@@ -172,24 +228,6 @@ export function PropertyBasedImageUpload() {
               </div>
             )}
           </div>
-
-          {/* Overall Progress Bar for Multiple Files */}
-          {files.length > 1 && (
-            <div className="mb-3">
-              <div className="w-full h-2 bg-gray-200 rounded-full">
-                <div
-                  className="h-2 bg-emerald-600 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${
-                      (files.filter((f) => f.status === "success").length /
-                        files.length) *
-                      100
-                    }%`,
-                  }}
-                />
-              </div>
-            </div>
-          )}
 
           {files.map((file) => (
             <div key={file.id} className="p-3 mb-2 rounded-md border">
