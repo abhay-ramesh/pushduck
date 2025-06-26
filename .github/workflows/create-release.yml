@@ -1,5 +1,12 @@
 # Create Release Workflow
 # Creates GitHub releases via manual dispatch - NPM publishing handled by separate workflow
+#
+# IMPORTANT: This workflow requires a Personal Access Token (PAT) to bypass branch protection rules:
+# 1. Create a PAT with 'repo' permissions at: https://github.com/settings/tokens
+# 2. Add it as a repository secret named 'PAT_TOKEN'
+# 3. The token owner must have admin permissions on the repository
+#
+# Without PAT_TOKEN, the workflow will fall back to GITHUB_TOKEN but may fail due to branch protection.
 
 name: Create Release
 
@@ -140,12 +147,15 @@ jobs:
     permissions:
       contents: write
       id-token: write
+      pull-requests: write
 
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Use PAT to bypass branch protection rules
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: 🏗️ Setup project
         uses: ./.github/actions/setup
@@ -172,8 +182,13 @@ jobs:
           git add packages/pushduck/package.json packages/cli/package.json
           git commit -m "chore(release): bump version to $NEW_VERSION"
           git tag "v$NEW_VERSION"
+
+          # Use the same token for pushing
           git push origin main
           git push origin "v$NEW_VERSION"
+        env:
+          # Ensure git uses the PAT token for authentication
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: 🚀 Create GitHub Release
         run: |
@@ -192,7 +207,7 @@ jobs:
             --notes "$RELEASE_NOTES" \
             $PRERELEASE_FLAG
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
 
   dry-run-summary:
     name: 🔍 Dry Run Summary
