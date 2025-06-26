@@ -17,9 +17,12 @@ export default function Home() {
         <div className="mb-8 text-center">
           <h1 className="mb-2 text-4xl font-bold text-gray-900">🚀 Pushduck</h1>
           <p className="mb-4 text-lg text-gray-600">
-            Complete S3 File Management Demo
+            Complete S3 File Management Demo with Overall Progress Tracking
           </p>
           <div className="flex flex-col gap-2 items-center">
+            <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-orange-800 bg-orange-100 rounded-full">
+              ⚡ NEW: Overall Progress Tracking
+            </div>
             <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full">
               ✅ List Files & Metadata Operations
             </div>
@@ -40,8 +43,32 @@ export default function Home() {
         {/* Property-Based Upload Components (Enhanced) */}
         <div className="mb-8">
           <h2 className="mb-4 text-2xl font-semibold text-gray-900">
-            🎯 Enhanced Type Inference (Property-Based Client)
+            🎯 Enhanced Type Inference (Property-Based Client) + Overall
+            Progress
           </h2>
+          <div className="p-4 mb-4 bg-orange-50 rounded-lg border border-orange-200">
+            <h3 className="mb-2 text-lg font-medium text-orange-800">
+              ⚡ NEW: Overall Progress Tracking
+            </h3>
+            <p className="mb-2 text-sm text-orange-700">
+              Get real-time overall progress metrics across all files:
+            </p>
+            <div className="grid grid-cols-1 gap-2 text-sm text-orange-700 md:grid-cols-3">
+              <div>
+                • <code className="px-1 bg-orange-100 rounded">progress</code> -
+                0-100% across all files
+              </div>
+              <div>
+                •{" "}
+                <code className="px-1 bg-orange-100 rounded">uploadSpeed</code>{" "}
+                - Combined transfer rate
+              </div>
+              <div>
+                • <code className="px-1 bg-orange-100 rounded">eta</code> -
+                Overall time remaining
+              </div>
+            </div>
+          </div>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <PropertyBasedImageUpload />
             <PropertyBasedDocumentUpload />
@@ -238,10 +265,20 @@ export default function Home() {
         {/* Code Example */}
         <div className="p-6 mt-8 text-white bg-gray-900 rounded-lg">
           <h3 className="mb-4 text-lg font-semibold">
-            📝 Real S3 API Usage Examples
+            📝 Real S3 API Usage Examples + Overall Progress Tracking
           </h3>
           <pre className="overflow-x-auto text-sm">
-            <code>{`// List user files with metadata
+            <code>{`// Upload with overall progress tracking
+const { uploadFiles, files, progress, uploadSpeed, eta } = useUploadRoute("imageUpload");
+
+// Real-time overall metrics
+console.log({
+  overallProgress: progress,     // 0-100% across all files
+  overallSpeed: uploadSpeed,     // Combined bytes/sec
+  overallETA: eta               // Time remaining in seconds
+});
+
+// List user files with metadata
 const files = await listFilesWithPrefix("users/123/", {
   maxFiles: 100,
   includeMetadata: true,

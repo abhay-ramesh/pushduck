@@ -7,8 +7,16 @@ import type { AppS3Router } from "../app/api/s3-upload/route";
 export function SimpleImageUpload() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-  const { uploadFiles, files, isUploading, errors, reset } =
-    useUploadRoute<AppS3Router>("imageUpload");
+  const {
+    uploadFiles,
+    files,
+    isUploading,
+    errors,
+    reset,
+    progress,
+    uploadSpeed,
+    eta,
+  } = useUploadRoute<AppS3Router>("imageUpload");
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
@@ -49,9 +57,14 @@ export function SimpleImageUpload() {
 
   return (
     <div className="p-6 bg-white rounded-lg shadow-md">
-      <h2 className="mb-4 text-xl font-semibold text-gray-800">
-        📸 Multiple Image Upload
-      </h2>
+      <div className="flex gap-2 items-center mb-4">
+        <h2 className="text-xl font-semibold text-gray-800">
+          📸 Multiple Image Upload
+        </h2>
+        <div className="px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full">
+          Overall Progress
+        </div>
+      </div>
 
       {/* File Selection */}
       <div className="mb-4">
@@ -63,7 +76,7 @@ export function SimpleImageUpload() {
           className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
         />
         <p className="mt-1 text-xs text-gray-500">
-          Select multiple images to upload simultaneously
+          Select multiple images to upload with overall progress tracking
         </p>
       </div>
 
@@ -134,6 +147,47 @@ export function SimpleImageUpload() {
         )}
       </div>
 
+      {/* Overall Progress Tracking */}
+      {isUploading && files.length > 1 && progress !== undefined && (
+        <div className="p-4 mb-4 rounded-md bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <h4 className="text-sm font-medium text-gray-800">
+                Overall Progress
+              </h4>
+            </div>
+            <span className="text-lg font-semibold text-blue-600">
+              {Math.round(progress)}%
+            </span>
+          </div>
+
+          {/* Overall Progress Bar */}
+          <div className="w-full h-3 bg-gray-200 rounded-full mb-3">
+            <div
+              className="h-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          {/* Overall Stats */}
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="text-center">
+              <div className="text-xs text-gray-500">Transfer Rate</div>
+              <div className="font-medium text-blue-600">
+                {uploadSpeed ? formatUploadSpeed(uploadSpeed) : "0 B/s"}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-gray-500">Time Remaining</div>
+              <div className="font-medium text-indigo-600">
+                {eta ? formatETA(eta) : "--"}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Upload Progress */}
       {files.length > 0 && (
         <div className="mb-4">
@@ -143,54 +197,18 @@ export function SimpleImageUpload() {
               {files.filter((f) => f.status === "success").length}/
               {files.length} completed):
             </h3>
-            {files.length > 1 && (
-              <div className="flex gap-3 text-xs text-gray-500">
-                <span>
-                  Overall:{" "}
-                  {Math.round(
-                    (files.filter((f) => f.status === "success").length /
-                      files.length) *
-                      100
-                  )}
-                  %
-                </span>
-                {(() => {
-                  const uploadingFiles = files.filter(
-                    (f) => f.status === "uploading" && f.eta && f.eta > 0
-                  );
-                  if (uploadingFiles.length > 0) {
-                    const totalETA = Math.max(
-                      ...uploadingFiles.map((f) => f.eta || 0)
-                    );
-                    return (
-                      <span className="text-orange-600">
-                        ETA: {formatETA(totalETA)}
-                      </span>
-                    );
-                  }
-                  return null;
-                })()}
+            {files.length > 1 && !isUploading && (
+              <div className="text-xs text-gray-500">
+                Final:{" "}
+                {Math.round(
+                  (files.filter((f) => f.status === "success").length /
+                    files.length) *
+                    100
+                )}
+                %
               </div>
             )}
           </div>
-
-          {/* Overall Progress Bar for Multiple Files */}
-          {files.length > 1 && (
-            <div className="mb-3">
-              <div className="w-full h-2 bg-gray-200 rounded-full">
-                <div
-                  className="h-2 bg-green-600 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${
-                      (files.filter((f) => f.status === "success").length /
-                        files.length) *
-                      100
-                    }%`,
-                  }}
-                />
-              </div>
-            </div>
-          )}
 
           {files.map((file) => (
             <div key={file.id} className="p-3 mb-2 rounded-md border">
@@ -298,24 +316,33 @@ export function SimpleImageUpload() {
 }
 
 export function SimpleDocumentUpload() {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-  const { uploadFiles, files, isUploading, errors, reset } =
-    useUploadRoute("documentUpload");
+  const {
+    uploadFiles,
+    files,
+    isUploading,
+    errors,
+    reset,
+    progress,
+    uploadSpeed,
+    eta,
+  } = useUploadRoute<AppS3Router>("documentUpload");
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
+    const fileList = e.target.files;
+    if (fileList) {
+      const filesArray = Array.from(fileList);
+      setSelectedFiles(filesArray);
     }
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) return;
+    if (selectedFiles.length === 0) return;
 
     try {
-      await uploadFiles([selectedFile]);
-      setSelectedFile(null);
+      await uploadFiles(selectedFiles);
+      setSelectedFiles([]);
       // Reset file input
       const input = document.querySelector(
         'input[type="file"][accept*="pdf"]'
@@ -328,41 +355,80 @@ export function SimpleDocumentUpload() {
 
   const handleReset = () => {
     reset();
-    setSelectedFile(null);
+    setSelectedFiles([]);
     const input = document.querySelector(
       'input[type="file"][accept*="pdf"]'
     ) as HTMLInputElement;
     if (input) input.value = "";
   };
 
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   return (
     <div className="p-6 bg-white rounded-lg shadow-md">
-      <h2 className="mb-4 text-xl font-semibold text-gray-800">
-        📄 Document Upload
-      </h2>
+      <div className="flex gap-2 items-center mb-4">
+        <h2 className="text-xl font-semibold text-gray-800">
+          📄 Document Upload
+        </h2>
+        <div className="px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full">
+          Overall Progress
+        </div>
+      </div>
 
       {/* File Selection */}
       <div className="mb-4">
         <input
           type="file"
           accept=".pdf,.doc,.docx,.txt"
+          multiple
           onChange={handleFileSelect}
           className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
         />
         <p className="mt-1 text-xs text-gray-500">
-          Single document upload (PDF, DOC, DOCX, TXT)
+          Select multiple documents to upload with overall progress tracking
         </p>
       </div>
 
-      {/* Selected File Info */}
-      {selectedFile && (
+      {/* Selected Files Info */}
+      {selectedFiles.length > 0 && (
         <div className="p-3 mb-4 bg-gray-50 rounded-md">
-          <p className="text-sm text-gray-600">
-            Selected: <span className="font-medium">{selectedFile.name}</span>
-          </p>
-          <p className="text-xs text-gray-500">
-            Size: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-          </p>
+          <h3 className="mb-2 text-sm font-medium text-gray-700">
+            Selected Files ({selectedFiles.length}):
+          </h3>
+          <div className="space-y-2">
+            {selectedFiles.map((file, index) => (
+              <div
+                key={index}
+                className="flex justify-between items-center p-2 bg-white rounded border"
+              >
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-800">
+                    {file.name}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type}
+                  </p>
+                </div>
+                <button
+                  onClick={() => removeSelectedFile(index)}
+                  className="ml-2 text-sm text-red-500 hover:text-red-700"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 text-xs text-gray-600">
+            Total size:{" "}
+            {(
+              selectedFiles.reduce((sum, file) => sum + file.size, 0) /
+              1024 /
+              1024
+            ).toFixed(2)}{" "}
+            MB
+          </div>
         </div>
       )}
 
@@ -370,10 +436,16 @@ export function SimpleDocumentUpload() {
       <div className="flex gap-2 mb-4">
         <button
           onClick={handleUpload}
-          disabled={!selectedFile || isUploading}
+          disabled={selectedFiles.length === 0 || isUploading}
           className="px-4 py-2 text-white bg-green-600 rounded-md transition-colors hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
-          {isUploading ? "Uploading..." : "Upload Document"}
+          {isUploading
+            ? `Uploading ${
+                files.filter((f) => f.status === "uploading").length
+              }/${files.length}...`
+            : `Upload ${selectedFiles.length} Document${
+                selectedFiles.length !== 1 ? "s" : ""
+              }`}
         </button>
 
         {(files.length > 0 || errors.length > 0) && (
@@ -386,12 +458,69 @@ export function SimpleDocumentUpload() {
         )}
       </div>
 
+      {/* Overall Progress Tracking */}
+      {isUploading && files.length > 1 && progress !== undefined && (
+        <div className="p-4 mb-4 rounded-md bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <h4 className="text-sm font-medium text-gray-800">
+                Overall Progress
+              </h4>
+            </div>
+            <span className="text-lg font-semibold text-blue-600">
+              {Math.round(progress)}%
+            </span>
+          </div>
+
+          {/* Overall Progress Bar */}
+          <div className="w-full h-3 bg-gray-200 rounded-full mb-3">
+            <div
+              className="h-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          {/* Overall Stats */}
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="text-center">
+              <div className="text-xs text-gray-500">Transfer Rate</div>
+              <div className="font-medium text-blue-600">
+                {uploadSpeed ? formatUploadSpeed(uploadSpeed) : "0 B/s"}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-gray-500">Time Remaining</div>
+              <div className="font-medium text-indigo-600">
+                {eta ? formatETA(eta) : "--"}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Upload Progress */}
       {files.length > 0 && (
         <div className="mb-4">
-          <h3 className="mb-2 text-sm font-medium text-gray-700">
-            Upload Status:
-          </h3>
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-sm font-medium text-gray-700">
+              Upload Progress (
+              {files.filter((f) => f.status === "success").length}/
+              {files.length} completed):
+            </h3>
+            {files.length > 1 && !isUploading && (
+              <div className="text-xs text-gray-500">
+                Final:{" "}
+                {Math.round(
+                  (files.filter((f) => f.status === "success").length /
+                    files.length) *
+                    100
+                )}
+                %
+              </div>
+            )}
+          </div>
+
           {files.map((file) => (
             <div key={file.id} className="p-3 mb-2 rounded-md border">
               <div className="flex justify-between items-center mb-2">
@@ -417,12 +546,12 @@ export function SimpleDocumentUpload() {
                 </span>
               </div>
 
-              {/* Progress Bar */}
+              {/* Individual Progress Bar */}
               {(file.status === "pending" || file.status === "uploading") && (
                 <div className="mb-2">
                   <div className="w-full h-2 bg-gray-200 rounded-full">
                     <div
-                      className="h-2 bg-green-600 rounded-full transition-all duration-300"
+                      className="h-2 bg-blue-600 rounded-full transition-all duration-300"
                       style={{ width: `${file.progress}%` }}
                     />
                   </div>
@@ -435,7 +564,7 @@ export function SimpleDocumentUpload() {
                     <div className="flex gap-2">
                       <span>{file.progress}%</span>
                       {file.status === "uploading" && file.uploadSpeed && (
-                        <span className="text-green-600">
+                        <span className="text-blue-600">
                           {formatUploadSpeed(file.uploadSpeed)}
                         </span>
                       )}
@@ -459,7 +588,7 @@ export function SimpleDocumentUpload() {
                       href={file.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-green-600 underline hover:text-green-800"
+                      className="text-sm text-blue-600 underline hover:text-blue-800"
                     >
                       View uploaded file →
                     </a>
