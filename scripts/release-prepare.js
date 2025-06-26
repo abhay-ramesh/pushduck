@@ -117,11 +117,12 @@ function createReleaseNotes(version) {
 function openInEditor(filePath) {
     const editors = [
         process.env.EDITOR,
-        'code',  // VS Code
-        'subl',  // Sublime Text
-        'atom',  // Atom
-        'vim',   // Vim
-        'nano'   // Nano
+        'cursor', // Cursor
+        'code',   // VS Code
+        'subl',   // Sublime Text
+        'atom',   // Atom
+        'vim',    // Vim
+        'nano'    // Nano
     ].filter(Boolean);
 
     for (const editor of editors) {
