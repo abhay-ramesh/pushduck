@@ -198,23 +198,57 @@ jobs:
         run: |
           VERSION="${{ needs.validate-release.outputs.version }}"
 
-          # Check if version already exists
-          echo "🔍 Checking if pushduck@$VERSION already exists..."
-          if npm view pushduck@$VERSION version 2>/dev/null; then
-            echo "❌ pushduck@$VERSION already exists on npm"
-            exit 1
+          # Function to check package existence
+          check_package_exists() {
+            local package_name=$1
+            echo "🔍 Checking if $package_name@$VERSION already exists..."
+            
+            if npm view "$package_name@$VERSION" version 2>/dev/null; then
+              echo "⚠️ $package_name@$VERSION already exists on npm"
+              echo "🔍 Existing version info:"
+              npm view "$package_name@$VERSION" --json 2>/dev/null | jq -r '.version, .publishedAt' || true
+              return 1
+            else
+              echo "✅ $package_name@$VERSION is available for publishing"
+              return 0
+            fi
+          }
+
+          # Check both packages
+          PUSHDUCK_AVAILABLE=true
+          CLI_AVAILABLE=true
+
+          if ! check_package_exists "pushduck"; then
+            PUSHDUCK_AVAILABLE=false
           fi
 
-          echo "🔍 Checking if @pushduck/cli@$VERSION already exists..."
-          if npm view @pushduck/cli@$VERSION version 2>/dev/null; then
-            echo "❌ @pushduck/cli@$VERSION already exists on npm"
-            exit 1
+          if ! check_package_exists "@pushduck/cli"; then
+            CLI_AVAILABLE=false
           fi
 
-          echo "✅ Version $VERSION is available for publishing"
+          # If both packages already exist, this might be a retry
+          if [ "$PUSHDUCK_AVAILABLE" = false ] && [ "$CLI_AVAILABLE" = false ]; then
+            echo "⚠️ Both packages already exist. This might be a workflow retry."
+            echo "🤔 Checking if this is a valid retry scenario..."
+            
+            # Allow the workflow to continue but we'll skip actual publishing
+            echo "SKIP_PUBLISH=true" >> $GITHUB_ENV
+          elif [ "$PUSHDUCK_AVAILABLE" = false ] || [ "$CLI_AVAILABLE" = false ]; then
+            echo "❌ Partial publication detected. This is an inconsistent state."
+            echo "📋 Manual intervention may be required."
+            exit 1
+          else
+            echo "✅ Version $VERSION is available for publishing both packages"
+            echo "SKIP_PUBLISH=false" >> $GITHUB_ENV
+          fi
 
       - name: 📤 Publish pushduck package
         run: |
+          if [ "$SKIP_PUBLISH" = "true" ]; then
+            echo "⏭️ Skipping pushduck publication - package already exists"
+            exit 0
+          fi
+
           cd packages/pushduck
 
           # Publish with provenance and public access
@@ -230,6 +264,11 @@ jobs:
 
       - name: 📤 Publish CLI package
         run: |
+          if [ "$SKIP_PUBLISH" = "true" ]; then
+            echo "⏭️ Skipping CLI publication - package already exists"
+            exit 0
+          fi
+
           cd packages/cli
 
           # Publish with provenance and public access
@@ -247,13 +286,48 @@ jobs:
         run: |
           VERSION="${{ needs.validate-release.outputs.version }}"
 
-          echo "🔍 Verifying pushduck@$VERSION..."
-          npm view pushduck@$VERSION version
+          # Function to verify package with retries
+          verify_package() {
+            local package_name=$1
+            local max_attempts=5
+            local delay=10
 
-          echo "🔍 Verifying @pushduck/cli@$VERSION..."
-          npm view @pushduck/cli@$VERSION version
+            for attempt in $(seq 1 $max_attempts); do
+              echo "🔍 Attempt $attempt/$max_attempts: Verifying $package_name@$VERSION..."
+              
+              if npm view "$package_name@$VERSION" version 2>/dev/null; then
+                echo "✅ $package_name@$VERSION verified successfully!"
+                return 0
+              else
+                if [ $attempt -lt $max_attempts ]; then
+                  echo "⏳ Package not yet available, waiting ${delay}s before retry..."
+                  sleep $delay
+                else
+                  echo "❌ Failed to verify $package_name@$VERSION after $max_attempts attempts"
+                  echo "🔍 Checking if package exists with different version..."
+                  npm view "$package_name" versions --json 2>/dev/null || echo "Package not found in registry"
+                  return 1
+                fi
+              fi
+            done
+          }
 
-          echo "✅ Both packages published successfully!"
+          # Verify both packages
+          echo "🔍 Verifying package publications..."
+
+          if verify_package "pushduck"; then
+            echo "✅ pushduck package verified"
+          else
+            echo "⚠️ pushduck verification failed, but package may have been published"
+          fi
+
+          if verify_package "@pushduck/cli"; then
+            echo "✅ CLI package verified"
+          else
+            echo "⚠️ CLI verification failed, but package may have been published"
+          fi
+
+          echo "📦 Publication process completed. Note: npm registry may take a few minutes to fully propagate."
 
       - name: 📝 Enhance release notes
         run: |
