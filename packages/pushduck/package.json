@@ -4,12 +4,19 @@
   "type": "module",
   "author": "Abhay Ramesh",
   "license": "MIT",
-  "description": "A simple way to upload files to S3 from a Next.js app directory (aws s3, minio, or any s3 compatible service)",
+  "description": "The fastest way to add file uploads to any web application. Enterprise security, edge-ready. Works with 16+ frameworks and 5+ storage providers. No heavy AWS SDK required.",
   "repository": {
     "type": "git",
     "url": "https://github.com/abhay-ramesh/pushduck.git"
   },
   "homepage": "https://pushduck.dev",
+  "bugs": {
+    "url": "https://github.com/abhay-ramesh/pushduck/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/abhay-ramesh"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "module": "./dist/index.mjs",
@@ -75,10 +82,20 @@
     "maintenance:deps": "./scripts/update-deps.sh"
   },
   "keywords": [
-    "nextjs",
-    "s3",
-    "minio",
+    "file-upload",
     "upload",
+    "s3",
+    "aws",
+    "cloudflare-r2",
+    "digitalocean-spaces",
+    "google-cloud-storage",
+    "minio",
+    "presigned-urls",
+    "nextjs",
+    "remix",
+    "sveltekit",
+    "nuxt",
+    "astro",
     "react",
     "nextjs app directory",
     "nextjs app folder",
@@ -88,11 +105,26 @@
     "file-upload",
     "multipart-upload",
     "chunked-upload",
+    "typescript",
     "express",
     "hono",
     "fastify",
+    "hono",
     "elysia",
-    "framework-agnostic"
+    "framework-agnostic",
+    "edge-runtime",
+    "cloudflare-workers",
+    "vercel-edge",
+    "serverless",
+    "framework-agnostic",
+    "universal",
+    "enterprise-security",
+    "multipart-upload",
+    "chunked-upload",
+    "upload-library",
+    "web-development",
+    "backend",
+    "frontend"
   ],
   "devDependencies": {
     "@testing-library/react": "^16.3.0",
@@ -151,7 +183,8 @@
     "access": "public"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
   },
   "sideEffects": false,
   "dependencies": {

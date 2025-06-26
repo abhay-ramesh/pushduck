@@ -1,7 +1,7 @@
 {
-    "name": "Pushduck - Simple S3 Uploads for Next.js",
+    "name": "Pushduck",
     "short_name": "Pushduck",
-    "description": "🦆 Simple, type-safe S3 uploads for Next.js with zero configuration",
+    "description": "🦆 Simple, type-safe S3 uploads for Next.js with guided setup",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#ffffff",

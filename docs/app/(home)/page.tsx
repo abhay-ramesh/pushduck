@@ -229,9 +229,9 @@ const features = [
   },
   {
     icon: Zap,
-    title: "Zero Configuration",
+    title: "CLI Setup",
     description:
-      "Works out of the box with CLI setup. Configure only what you need to customize",
+      "Interactive CLI guides you through setup. Get from zero to uploads in minutes",
     color: "text-yellow-500",
   },
   {
@@ -436,7 +436,7 @@ export default function HomePage() {
           <p className="mx-auto mb-8 max-w-3xl text-xl text-muted-foreground sm:text-2xl">
             The most comprehensive file upload library. Works with 16+
             frameworks, 5+ storage providers, edge runtimes, with type-safe APIs
-            and zero configuration.
+            and guided setup.
           </p>
 
           <div className="flex flex-col gap-4 justify-center mb-12 sm:flex-row">

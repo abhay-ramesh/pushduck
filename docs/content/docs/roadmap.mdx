@@ -11,7 +11,132 @@ import { TypeTable } from "fumadocs-ui/components/type-table";
 
 # Roadmap
 
-Our mission is simple: **make file uploads in Next.js as straightforward as they should be**. We're building the most developer-friendly, type-safe, and production-ready file upload solution for the TypeScript ecosystem.
+Our mission is to make file uploads **simple**, **secure**, and **scalable** for every developer and every use case.
+
+## ✅ Completed
+
+### Core Foundation
+✅ **Universal Compatibility** - Works with 16+ frameworks and edge runtimes  
+✅ **Type-Safe APIs** - Full TypeScript inference from server to client  
+✅ **Multi-Provider Support** - AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO  
+✅ **Production Security** - Presigned URLs, file validation, CORS handling  
+✅ **Developer Experience** - Property-based client, comprehensive error handling  
+
+### Setup & Tooling
+✅ **Interactive CLI** - Guided setup with smart defaults and auto-detection  
+✅ **Code Generation** - Type-safe API routes and client components  
+✅ **Framework Detection** - Automatic Next.js App Router/Pages Router detection  
+✅ **Environment Setup** - Automated credential configuration  
+
+### Documentation & Examples
+✅ **Comprehensive Docs** - Complete API reference and integration guides  
+✅ **Live Examples** - Working demos for all supported frameworks  
+✅ **Migration Guides** - Step-by-step migration from other solutions  
+✅ **Best Practices** - Security, performance, and architecture guidance  
+
+## ⚠️ Current Limitations
+
+### Progress Tracking Constraints
+The library currently provides individual file progress tracking but has limitations for aggregate reporting:
+
+❌ **No Overall Progress** - No aggregate progress calculation across all files  
+❌ **No Overall Upload Speed** - Speed metrics are per-file only  
+❌ **No Overall ETA** - Time estimates are calculated per individual file  
+❌ **No onProgress Hook Callback** - Progress callbacks not available in hook configuration  
+
+### Upload Control Limitations
+Current upload management has constraints for handling real-world scenarios:
+
+❌ **No Resumable Uploads** - Cannot resume interrupted uploads from where they left off  
+❌ **No Pausable Uploads** - Cannot pause ongoing uploads and resume later  
+❌ **No Cancel Support** - Cannot cancel individual uploads in progress  
+❌ **Limited Network Resilience** - No automatic retry on network failures or connection switching  
+
+These limitations may be addressed in future releases based on community feedback and use case requirements.
+
+## 🚧 In Progress
+
+### Enhanced Developer Experience
+🚧 **Visual Studio Code Extension** - IntelliSense, snippets, and debugging tools  
+🚧 **Enhanced Error Messages** - Contextual help and troubleshooting suggestions  
+🚧 **Performance Monitoring** - Built-in metrics and optimization recommendations  
+
+### Advanced Features
+🚧 **Image Processing Pipeline** - Automatic optimization, resizing, and format conversion  
+🚧 **Video Processing** - Transcoding, thumbnail generation, and streaming support  
+🚧 **Advanced Validation** - Content scanning, virus detection, and custom rules  
+
+## 📋 Planned
+
+### Q3 2025 - Enterprise Features
+- **Advanced Analytics** - Upload metrics, performance insights, and usage tracking
+- **Aggregate Progress Tracking** - Overall progress, speed, and ETA across multiple files
+- **Enhanced Hook APIs** - onProgress callbacks and advanced upload state management
+- **Advanced Upload Control** - Resumable, pausable uploads with cancel support and network resilience
+- **Team Management** - Multi-user access, role-based permissions, and audit logs
+- **Advanced Security** - Content scanning, encryption at rest, and compliance tools
+- **SLA & Support** - Enterprise support plans and guaranteed uptime
+
+### Q4 2025 - Platform Expansion
+- **Mobile SDKs** - React Native, Flutter, and native iOS/Android support
+- **Desktop Applications** - Electron and Tauri integration
+- **Serverless Optimization** - Enhanced edge runtime support and cold start optimization
+- **Global CDN** - Built-in content delivery and edge caching
+
+### Q1 2026 - AI Integration
+- **Smart Tagging** - Automatic content categorization and metadata extraction
+- **Image Recognition** - Object detection, OCR, and content moderation
+- **Intelligent Compression** - AI-powered optimization for different use cases
+- **Content Insights** - Usage patterns and optimization recommendations
+
+### Q2 2026 - Ecosystem Growth
+- **Plugin Architecture** - Extensible middleware system for custom workflows
+- **Third-party Integrations** - CMS platforms, e-commerce solutions, and productivity tools
+- **Community Templates** - Shared configurations and best practices
+- **Certification Program** - Training and certification for developers and teams
+
+## 🎯 Long-term Vision
+
+### Universal File Management Platform
+Transform pushduck from a upload library into a comprehensive file management platform that handles the entire file lifecycle:
+
+- **Intelligent Storage** - Automatic tier management and cost optimization
+- **Global Distribution** - Multi-region replication and edge delivery
+- **Advanced Processing** - Real-time transformation and processing pipelines
+- **Collaborative Features** - Shared workspaces, comments, and version control
+
+### Developer Ecosystem
+Build a thriving ecosystem around pushduck:
+
+- **Marketplace** - Community-driven plugins, templates, and integrations
+- **Certification** - Professional training and certification programs
+- **Events & Community** - Conferences, meetups, and developer advocacy
+- **Enterprise Solutions** - Custom implementations and consulting services
+
+## 💡 Ideas & Suggestions
+
+Have ideas for pushduck? We'd love to hear them!
+
+- [Feature Requests](https://github.com/abhay-ramesh/pushduck/discussions/categories/ideas)
+- [Community Discord](https://discord.gg/pushduck)
+- [Developer Survey](https://forms.gle/pushduck-feedback)
+
+## 🤝 Contributing
+
+Want to help build the future of file uploads? Check out our [Contributing Guide](/docs/contributing) to get started.
+
+### Current Priorities
+We're actively looking for contributors in these areas:
+
+- **Framework Integrations** - Help us support more frameworks and platforms
+- **Documentation** - Improve guides, examples, and API documentation  
+- **Testing** - Expand test coverage and add integration tests
+- **Performance** - Optimize bundle size and runtime performance
+- **Security** - Security audits and vulnerability assessments
+
+---
+
+*Last updated: June 2025*
 
 <Callout type="info">
   This roadmap is community-driven. **Your feedback shapes our priorities.**
@@ -24,7 +149,7 @@ Our mission is simple: **make file uploads in Next.js as straightforward as they
 
 We've already solved the core problems that have frustrated developers for years:
 
-✅ **Zero Configuration** - Works out of the box with sensible defaults  
+✅ **Interactive CLI** - Guided setup with smart defaults and auto-detection  
 ✅ **Type Safety** - Full TypeScript inference for upload schemas  
 ✅ **Multiple Providers** - Cloudflare R2, AWS S3, Google Cloud, and more  
 ✅ **Production Ready** - Used by teams processing millions of uploads  
@@ -32,7 +157,7 @@ We've already solved the core problems that have frustrated developers for years
 
 ## What's Next
 
-### 🚀 Q1 2024: Developer Experience Revolution
+### 🚀 Q3 2025: Developer Experience Revolution
 
 <Cards>
   <Card
@@ -82,9 +207,37 @@ We've already solved the core problems that have frustrated developers for years
     Hot-reload your upload components with live preview of validation, progress,
     and error states. Perfect for rapid prototyping and design iteration.
   </Card>
+
+  <Card
+    title="Advanced Upload Control"
+    description="Resumable, pausable, and cancellable uploads with network resilience"
+  >
+    Complete control over upload lifecycle with automatic recovery from network issues:
+
+    ```typescript
+    const { files, uploadFiles, pauseUpload, resumeUpload, cancelUpload } = upload.images
+
+    // Pause individual uploads
+    await pauseUpload(fileId)
+    
+    // Resume from where it left off
+    await resumeUpload(fileId)
+    
+    // Cancel with cleanup
+    await cancelUpload(fileId)
+    
+    // Automatic network resilience
+    const config = {
+      retryAttempts: 3,
+      networkSwitchTolerance: true,
+      resumeOnReconnect: true
+    }
+    ```
+
+  </Card>
 </Cards>
 
-### 🔒 Q2 2024: Enterprise & Security
+### 🔒 Q4 2025: Enterprise & Security
 
 <Cards>
   <Card title="Advanced Access Control" description="Role-based permissions and audit trails">
@@ -127,7 +280,7 @@ We've already solved the core problems that have frustrated developers for years
   </Card>
 </Cards>
 
-### ⚡ Q3 2024: Performance & Scale
+### ⚡ Q1 2026: Performance & Scale
 
 <Cards>
   <Card title="Edge Computing" description="Process uploads at the edge globally">
@@ -171,7 +324,7 @@ We've already solved the core problems that have frustrated developers for years
   </Card>
 </Cards>
 
-### 🌍 Q4 2024: Ecosystem Expansion
+### 🌍 Q2 2026: Ecosystem Expansion
 
 <Cards>
   <Card
@@ -313,7 +466,7 @@ Have an idea or want to prioritize something? Here's how to influence our roadma
 
 ### What We're Working on Right Now
 
-**Week of January 15, 2024:**
+**Week of June 23, 2025:**
 
 - 🔨 Enhanced type inference for nested upload schemas
 - 🧪 Testing framework for upload workflows
