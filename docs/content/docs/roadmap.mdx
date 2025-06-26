@@ -21,6 +21,10 @@ Our mission is to make file uploads **simple**, **secure**, and **scalable** for
 ✅ **Multi-Provider Support** - AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO  
 ✅ **Production Security** - Presigned URLs, file validation, CORS handling  
 ✅ **Developer Experience** - Property-based client, comprehensive error handling  
+✅ **Overall Progress Tracking** - Now provides real-time aggregate progress metrics
+- `progress` - 0-100% completion across all files
+- `uploadSpeed` - Combined transfer rate in bytes/second  
+- `eta` - Overall time remaining in seconds
 
 ### Setup & Tooling
 ✅ **Interactive CLI** - Guided setup with smart defaults and auto-detection  
@@ -37,12 +41,10 @@ Our mission is to make file uploads **simple**, **secure**, and **scalable** for
 ## ⚠️ Current Limitations
 
 ### Progress Tracking Constraints
-The library currently provides individual file progress tracking but has limitations for aggregate reporting:
-
-❌ **No Overall Progress** - No aggregate progress calculation across all files  
-❌ **No Overall Upload Speed** - Speed metrics are per-file only  
-❌ **No Overall ETA** - Time estimates are calculated per individual file  
-❌ **No onProgress Hook Callback** - Progress callbacks not available in hook configuration  
+✅ **Overall Progress Tracking** - Now provides real-time aggregate progress metrics
+- `progress` - 0-100% completion across all files
+- `uploadSpeed` - Combined transfer rate in bytes/second  
+- `eta` - Overall time remaining in seconds
 
 ### Upload Control Limitations
 Current upload management has constraints for handling real-world scenarios:
@@ -70,7 +72,6 @@ These limitations may be addressed in future releases based on community feedbac
 
 ### Q3 2025 - Enterprise Features
 - **Advanced Analytics** - Upload metrics, performance insights, and usage tracking
-- **Aggregate Progress Tracking** - Overall progress, speed, and ETA across multiple files
 - **Enhanced Hook APIs** - onProgress callbacks and advanced upload state management
 - **Advanced Upload Control** - Resumable, pausable uploads with cancel support and network resilience
 - **Team Management** - Multi-user access, role-based permissions, and audit logs
