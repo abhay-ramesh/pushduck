@@ -32,12 +32,19 @@ export interface S3FileMetadata {
   type: string;
 }
 
-export interface S3RouteUploadConfig {
+// Unified upload configuration interface
+export interface UploadRouteConfig {
   endpoint?: string;
   onSuccess?: (results: S3UploadedFile[]) => void | Promise<void>;
   onError?: (error: Error) => void;
   onProgress?: (progress: number) => void;
+  disabled?: boolean;
+  autoUpload?: boolean;
 }
+
+// Legacy aliases for backward compatibility
+export type S3RouteUploadConfig = UploadRouteConfig;
+export type RouteUploadOptions = UploadRouteConfig;
 
 export interface S3RouteUploadResult {
   files: S3UploadedFile[];
@@ -69,6 +76,8 @@ export interface S3Route<TSchema = any, TConstraints = any> {
 export interface ClientConfig {
   endpoint: string;
   fetcher?: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
+  // Global defaults for route options
+  defaultOptions?: RouteUploadOptions;
 }
 
 // Enhanced upload results with route-specific data
@@ -113,15 +122,14 @@ export type { S3Router };
 export type RouterRouteNames<T> =
   T extends S3Router<infer TRoutes> ? keyof TRoutes : never;
 
-// Infer complete client interface from server router
-// Each route property returns a hook factory function (tRPC pattern)
+// Enhanced: Infer complete client interface from server router with optional configuration
+// Each route property returns a hook factory function that accepts optional configuration
 export type InferClientRouter<T> =
   T extends S3Router<infer TRoutes>
     ? {
-        readonly [K in keyof TRoutes]: () => TypedRouteHook<
-          T,
-          K extends string ? K : string
-        >;
+        readonly [K in keyof TRoutes]: (
+          options?: RouteUploadOptions
+        ) => TypedRouteHook<T, K extends string ? K : string>;
       }
     : never;
 

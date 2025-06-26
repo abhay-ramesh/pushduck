@@ -1,15 +1,15 @@
 /**
- * Upload Client Configuration
+ * Enhanced Upload Client Configuration
  *
- * This file creates and exports the typed upload client for the demo app.
- * It provides property-based access with enhanced type inference.
+ * This demonstrates the structured client approach with both simple
+ * and advanced per-route configuration options.
  */
 
 import { createUploadClient } from "pushduck/client";
 import type { AppS3Router } from "../app/api/s3-upload/route";
 
 /**
- * Create the typed upload client with enhanced type inference
+ * Create the typed upload client with global configuration
  *
  * This provides property-based access to upload routes:
  * - upload.imagegUpload() - for image uploads
@@ -23,7 +23,20 @@ import type { AppS3Router } from "../app/api/s3-upload/route";
  */
 export const upload = createUploadClient<AppS3Router>({
   endpoint: "/api/s3-upload",
+
+  // Global default options (optional)
+  defaultOptions: {
+    onProgress: (progress) => {
+      console.log(`Global progress: ${progress}%`);
+    },
+    onError: (error) => {
+      console.error("Global error handler:", error);
+    },
+  },
 });
+
+// Export type for components to use
+export type TypedUploadedFile = any; // Simplified for now
 
 /**
  * Usage Examples:
