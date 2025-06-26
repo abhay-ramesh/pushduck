@@ -111,7 +111,7 @@ jobs:
           fi
 
   test-and-build:
-    name: 🧪 Test & Build
+    name: 🧪 Test & Validate
     runs-on: ubuntu-latest
     needs: prepare-release
 
@@ -131,13 +131,13 @@ jobs:
       - name: 🎨 Lint
         run: pnpm lint
 
-      - name: 🏗️ Build packages
+      - name: 🏗️ Quick build validation
         run: pnpm build:packages
 
-      - name: 📊 Bundle size check
+      - name: ✅ Validation complete
         run: |
-          cd packages/pushduck
-          pnpm size-check
+          echo "✅ All validation checks passed"
+          echo "🚀 Ready to create release - packages will be built and published by publish-packages workflow"
 
   create-github-release:
     name: 🚀 Create GitHub Release

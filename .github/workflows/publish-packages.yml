@@ -1,6 +1,9 @@
 # Package Publishing Workflow
 # Triggers when GitHub releases are published (from any source)
 # Handles NPM publishing and release notes enhancement
+#
+# OPTIMIZATION: This workflow does the actual package building and publishing.
+# The create-release workflow only does validation to avoid redundant builds.
 
 name: Publish Packages
 
@@ -86,14 +89,6 @@ jobs:
       - name: 🎨 Lint check
         run: pnpm lint
 
-      - name: 🏗️ Build check
-        run: pnpm build:packages
-
-      - name: 📊 Bundle size check
-        run: |
-          cd packages/pushduck
-          pnpm size-check
-
       - name: 🛡️ Health check
         run: |
           cd packages/pushduck
@@ -119,6 +114,11 @@ jobs:
 
       - name: 🏗️ Build all packages
         run: pnpm build:packages
+
+      - name: 📊 Bundle size check
+        run: |
+          cd packages/pushduck
+          pnpm size-check
 
       - name: 📊 Generate bundle analysis
         run: |
