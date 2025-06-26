@@ -1,0 +1,582 @@
+---
+title: S3-Compatible (Generic)
+description: Set up any S3-compatible storage service for flexible, vendor-agnostic file uploads
+---
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+import { Callout } from "fumadocs-ui/components/callout";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+# S3-Compatible Storage
+
+Connect to any S3-compatible storage service for flexible, vendor-agnostic file uploads with full type safety.
+
+## Why Choose S3-Compatible?
+
+- **🔧 Vendor Flexibility**: Works with any S3-compatible service
+- **🏠 Self-Hosted Options**: Perfect for custom or self-hosted solutions
+- **🔗 Standard API**: Uses the familiar S3 API across all providers
+- **💰 Cost Control**: Choose providers based on your budget needs
+- **🛡️ Data Sovereignty**: Keep data where you need it geographically
+
+<Callout type="info">
+  **Perfect for**: Self-hosted MinIO, SeaweedFS, Garage, custom storage solutions, or any S3-compatible service not explicitly supported by dedicated providers.
+</Callout>
+
+## Common S3-Compatible Services
+
+| Service | Use Case | Best For |
+|---------|----------|----------|
+| **SeaweedFS** | Distributed storage | High-performance clusters |
+| **Garage** | Lightweight storage | Self-hosted, minimal resources |
+| **Ceph RadosGW** | Enterprise storage | Large-scale deployments |
+| **Wasabi** | Cloud storage | Cost-effective cloud alternative |
+| **Backblaze B2** | Backup storage | Archive and backup scenarios |
+| **Custom Solutions** | Specialized needs | Custom implementations |
+
+<Steps>
+
+<Step>
+
+## Identify Your S3-Compatible Service
+
+First, gather the required information from your storage provider:
+
+### Required Information
+- **Endpoint URL**: The API endpoint for your service
+- **Access Key ID**: Your access key or username
+- **Secret Access Key**: Your secret key or password
+- **Bucket Name**: The bucket/container where files will be stored
+
+### Common Endpoint Patterns
+```bash
+# Self-hosted MinIO
+https://minio.yourdomain.com
+
+# SeaweedFS
+https://seaweedfs.yourdomain.com:8333
+
+# Wasabi (if not using dedicated provider)
+https://s3.wasabisys.com
+
+# Backblaze B2 (S3-compatible endpoint)
+https://s3.us-west-000.backblazeb2.com
+
+# Custom deployment
+https://storage.yourcompany.com
+```
+
+</Step>
+
+<Step>
+
+## Verify S3 API Compatibility
+
+Ensure your service supports the required S3 operations:
+
+### Required Operations
+- `PutObject` - Upload files
+- `GetObject` - Download files  
+- `DeleteObject` - Delete files
+- `ListObjects` - List bucket contents
+- `CreateMultipartUpload` - Large file uploads
+
+### Test API Access
+
+<Tabs items={['curl', 'AWS CLI']}>
+<Tab value="curl">
+```bash
+# Test basic connectivity
+curl -X GET "https://your-endpoint.com" \
+  -H "Authorization: AWS ACCESS_KEY:SECRET_KEY"
+
+# Test bucket access
+curl -X GET "https://your-endpoint.com/your-bucket" \
+  -H "Authorization: AWS ACCESS_KEY:SECRET_KEY"
+```
+</Tab>
+<Tab value="AWS CLI">
+```bash
+# Configure AWS CLI for testing
+aws configure set aws_access_key_id YOUR_ACCESS_KEY
+aws configure set aws_secret_access_key YOUR_SECRET_KEY
+aws configure set default.region us-east-1
+
+# Test with custom endpoint
+aws s3 ls s3://your-bucket --endpoint-url https://your-endpoint.com
+```
+</Tab>
+</Tabs>
+
+</Step>
+
+<Step>
+
+## Configure CORS (If Required)
+
+Many S3-compatible services require CORS configuration for web uploads:
+
+### Standard CORS Configuration
+
+<Tabs items={['MinIO/SeaweedFS', 'Generic JSON']}>
+<Tab value="MinIO/SeaweedFS">
+```bash
+# Using MinIO client (mc)
+mc cors set your-bucket --rule "effect=Allow&origin=*&methods=GET,PUT,POST,DELETE&headers=*"
+
+# For production, restrict origins:
+mc cors set your-bucket --rule "effect=Allow&origin=https://yourdomain.com&methods=GET,PUT,POST,DELETE&headers=*"
+```
+</Tab>
+<Tab value="Generic JSON">
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://yourdomain.com"
+    ],
+    "ExposeHeaders": ["ETag", "Content-Length"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+</Tab>
+</Tabs>
+
+</Step>
+
+<Step>
+
+## Configure Environment Variables
+
+Set up your environment variables for the S3-compatible service:
+
+<Tabs items={['Development', 'Production']}>
+<Tab value="Development">
+```bash
+# .env.local
+S3_ENDPOINT=https://your-storage-service.com
+S3_BUCKET_NAME=your-bucket-name
+S3_ACCESS_KEY_ID=your_access_key
+S3_SECRET_ACCESS_KEY=your_secret_key
+S3_REGION=us-east-1
+
+# Optional: Force path-style URLs (required for most self-hosted)
+S3_FORCE_PATH_STYLE=true
+
+# Optional: Custom public URL for file access
+S3_PUBLIC_URL=https://files.yourdomain.com
+```
+</Tab>
+<Tab value="Production">
+```bash
+# Use your hosting platform's environment system
+# Never store production keys in .env files
+
+S3_ENDPOINT=https://your-storage-service.com
+S3_BUCKET_NAME=your-bucket-name
+S3_ACCESS_KEY_ID=your_access_key
+S3_SECRET_ACCESS_KEY=your_secret_key
+S3_REGION=us-east-1
+S3_FORCE_PATH_STYLE=true
+S3_PUBLIC_URL=https://files.yourdomain.com
+```
+</Tab>
+</Tabs>
+
+</Step>
+
+<Step>
+
+## Update Your Upload Configuration
+
+Configure pushduck to use your S3-compatible service:
+
+```typescript
+// lib/upload.ts
+import { uploadConfig } from "pushduck/server";
+
+export const { s3, config } = uploadConfig
+  .provider("s3Compatible", {
+    endpoint: process.env.S3_ENDPOINT!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+    region: process.env.S3_REGION || "us-east-1",
+    // Most S3-compatible services need path-style URLs
+    forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
+    // Optional: Custom domain for file access
+    customDomain: process.env.S3_PUBLIC_URL,
+  })
+  .defaults({
+    maxFileSize: "50MB",
+    acl: "public-read", // Adjust based on your needs
+  })
+  .build();
+
+export { s3 };
+```
+
+### Advanced Configuration
+
+```typescript
+// For services with specific requirements
+export const { s3, config } = uploadConfig
+  .provider("s3Compatible", {
+    endpoint: process.env.S3_ENDPOINT!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+    region: process.env.S3_REGION || "us-east-1",
+    forcePathStyle: true,
+  })
+  .paths({
+    // Organize files by service type
+    prefix: "uploads",
+    generateKey: (file, metadata) => {
+      const date = new Date().toISOString().split('T')[0];
+      const random = Math.random().toString(36).substring(2, 8);
+      return `${date}/${random}/${file.name}`;
+    },
+  })
+  .security({
+    allowedOrigins: [
+      process.env.FRONTEND_URL!,
+      "http://localhost:3000",
+    ],
+  })
+  .build();
+```
+
+</Step>
+
+<Step>
+
+## Test Your Configuration
+
+Verify everything works correctly:
+
+```bash
+# Test with pushduck CLI
+npx @pushduck/cli@latest test --provider s3-compatible
+
+# Or test manually in your app
+npm run dev
+```
+
+### Manual Testing
+
+```typescript
+// Create a simple test route
+// pages/api/test-upload.ts or app/api/test-upload/route.ts
+
+import { s3 } from '@/lib/upload';
+
+export async function POST() {
+  try {
+    // Test creating an upload route
+    const imageUpload = s3.image().max("5MB");
+    
+    return Response.json({ 
+      success: true, 
+      message: "S3-compatible storage configured correctly" 
+    });
+  } catch (error) {
+    return Response.json({ 
+      success: false, 
+      error: error.message 
+    }, { status: 500 });
+  }
+}
+```
+
+</Step>
+
+</Steps>
+
+## ✅ You're Ready!
+
+Your S3-compatible storage is now configured! You can now:
+
+- ✅ **Upload files** to your custom storage service
+- ✅ **Generate secure URLs** for file access  
+- ✅ **Use familiar S3 APIs** with any compatible service
+- ✅ **Maintain vendor independence** with standard protocols
+
+## 🔧 Service-Specific Configurations
+
+### SeaweedFS
+
+```typescript
+export const { s3, config } = uploadConfig
+  .provider("s3Compatible", {
+    endpoint: "https://seaweedfs.yourdomain.com:8333",
+    bucket: "uploads",
+    accessKeyId: process.env.SEAWEEDFS_ACCESS_KEY!,
+    secretAccessKey: process.env.SEAWEEDFS_SECRET_KEY!,
+    region: "us-east-1",
+    forcePathStyle: true, // Required for SeaweedFS
+  })
+  .build();
+```
+
+### Garage
+
+```typescript
+export const { s3, config } = uploadConfig
+  .provider("s3Compatible", {
+    endpoint: "https://garage.yourdomain.com",
+    bucket: "my-app-files",
+    accessKeyId: process.env.GARAGE_ACCESS_KEY!,
+    secretAccessKey: process.env.GARAGE_SECRET_KEY!,
+    region: "garage", // Garage-specific region
+    forcePathStyle: true,
+  })
+  .build();
+```
+
+### Wasabi (Alternative to dedicated provider)
+
+```typescript
+export const { s3, config } = uploadConfig
+  .provider("s3Compatible", {
+    endpoint: "https://s3.wasabisys.com",
+    bucket: "my-wasabi-bucket",
+    accessKeyId: process.env.WASABI_ACCESS_KEY!,
+    secretAccessKey: process.env.WASABI_SECRET_KEY!,
+    region: "us-east-1",
+    forcePathStyle: false, // Wasabi supports virtual-hosted style
+  })
+  .build();
+```
+
+### Backblaze B2 (S3-Compatible API)
+
+```typescript
+export const { s3, config } = uploadConfig
+  .provider("s3Compatible", {
+    endpoint: "https://s3.us-west-000.backblazeb2.com",
+    bucket: "my-b2-bucket",
+    accessKeyId: process.env.B2_ACCESS_KEY!,
+    secretAccessKey: process.env.B2_SECRET_KEY!,
+    region: "us-west-000",
+    forcePathStyle: false,
+  })
+  .build();
+```
+
+## 🔒 Security Best Practices
+
+### Access Control
+
+```typescript
+// Implement user-based access control
+.middleware(async ({ req, file }) => {
+  const user = await authenticate(req);
+  
+  // Create user-specific paths
+  const userPath = `users/${user.id}`;
+  
+  return {
+    userId: user.id,
+    keyPrefix: userPath,
+    metadata: {
+      uploadedBy: user.id,
+      uploadedAt: new Date().toISOString(),
+    }
+  };
+})
+```
+
+### Bucket Policies
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::your-bucket/public/*"
+    },
+    {
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:GetObject", 
+      "Resource": "arn:aws:s3:::your-bucket/private/*"
+    }
+  ]
+}
+```
+
+### Environment Security
+
+```typescript
+// Validate configuration at startup
+const validateConfig = () => {
+  const required = [
+    'S3_ENDPOINT',
+    'S3_BUCKET_NAME', 
+    'S3_ACCESS_KEY_ID',
+    'S3_SECRET_ACCESS_KEY'
+  ];
+  
+  for (const key of required) {
+    if (!process.env[key]) {
+      throw new Error(`Missing required environment variable: ${key}`);
+    }
+  }
+};
+
+validateConfig();
+```
+
+## 📊 Monitoring & Analytics
+
+### Health Monitoring
+
+```typescript
+// Monitor storage service health
+.hooks({
+  onUploadStart: async ({ file }) => {
+    // Check service availability
+    const isHealthy = await checkStorageHealth();
+    if (!isHealthy) {
+      throw new Error("Storage service unavailable");
+    }
+  },
+  onUploadComplete: async ({ file, metadata }) => {
+    // Track successful uploads
+    await analytics.track("upload_completed", {
+      provider: "s3-compatible",
+      service: process.env.S3_ENDPOINT,
+      fileSize: file.size,
+      duration: metadata.uploadTime,
+    });
+  }
+})
+
+async function checkStorageHealth(): Promise<boolean> {
+  try {
+    const response = await fetch(`${process.env.S3_ENDPOINT}/health`);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+```
+
+### Usage Analytics
+
+```typescript
+// Track storage usage patterns
+const getStorageMetrics = async () => {
+  try {
+    // Use your service's API to get metrics
+    const metrics = await fetch(`${process.env.S3_ENDPOINT}/metrics`, {
+      headers: {
+        'Authorization': `Bearer ${process.env.S3_ACCESS_KEY_ID}`,
+      }
+    });
+    
+    return await metrics.json();
+  } catch (error) {
+    console.error("Failed to fetch storage metrics:", error);
+    return null;
+  }
+};
+```
+
+## 🚀 Performance Optimization
+
+### Connection Pooling
+
+```typescript
+// Optimize for high throughput
+export const { s3, config } = uploadConfig
+  .provider("s3Compatible", {
+    // ... config
+    maxRetries: 3,
+    retryDelayOptions: {
+      base: 300,
+      customBackoff: (retryCount) => Math.pow(2, retryCount) * 100,
+    },
+    timeout: 60000,
+  })
+  .build();
+```
+
+### Parallel Uploads
+
+```typescript
+// Enable multipart uploads for large files
+.defaults({
+  maxFileSize: "100MB",
+  // Configure multipart threshold
+  multipartUploadThreshold: "25MB",
+  multipartUploadSize: "5MB",
+})
+```
+
+## 🆘 Common Issues
+
+### Connection Issues
+
+**Certificate errors?** → Add SSL certificate or use `NODE_TLS_REJECT_UNAUTHORIZED=0` for development  
+**Connection refused?** → Verify endpoint URL and port are correct  
+**Timeout errors?** → Increase timeout settings or check network connectivity
+
+### Authentication Issues
+
+**Access denied?** → Verify access keys and bucket permissions  
+**Invalid signature?** → Check secret key and ensure clock synchronization  
+**Region mismatch?** → Verify the region setting matches your service
+
+### Upload Issues
+
+**CORS errors?** → Configure CORS policy on your storage service  
+**File size errors?** → Check service limits and adjust `maxFileSize`  
+**Path errors?** → Enable `forcePathStyle: true` for most self-hosted services
+
+### Debugging Commands
+
+```bash
+# Test connectivity
+curl -v "https://your-endpoint.com/your-bucket"
+
+# Check bucket contents
+aws s3 ls s3://your-bucket --endpoint-url https://your-endpoint.com
+
+# Test upload
+aws s3 cp test.txt s3://your-bucket/ --endpoint-url https://your-endpoint.com
+```
+
+## 💡 Use Cases
+
+### Self-Hosted Solutions
+
+- **Data sovereignty** requirements
+- **Air-gapped** environments  
+- **Custom compliance** needs
+- **Cost optimization** for high usage
+
+### Hybrid Cloud
+
+- **Multi-cloud** strategies
+- **Disaster recovery** setups
+- **Geographic distribution**
+- **Vendor diversification**
+
+### Development & Testing
+
+- **Local development** without cloud dependencies
+- **CI/CD pipelines** with custom storage
+- **Testing environments** with controlled data
+
+---
+
+**Next:** [Upload Your First Image](/docs/guides/uploads/images) or explore [Configuration Options](/docs/api/configuration/upload-config) 

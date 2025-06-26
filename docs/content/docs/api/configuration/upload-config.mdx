@@ -29,6 +29,17 @@ export { storage, s3 }
 
 ## Provider Configuration
 
+The `uploadConfig.provider()` method provides full TypeScript type safety for provider configurations. When you specify a provider type, TypeScript will automatically infer the correct configuration interface and provide autocomplete and type checking.
+
+### Features
+
+- **Provider name autocomplete**: TypeScript suggests valid provider names
+- **Configuration property validation**: Only valid properties for each provider are accepted  
+- **Required field checking**: TypeScript ensures all required fields are provided
+- **Property type validation**: Each property must be the correct type
+
+## Provider Configuration
+
 ### Cloudflare R2
 
 ```typescript
@@ -73,6 +84,21 @@ uploadConfig.provider("minio",{
   accessKeyId: process.env.MINIO_ACCESS_KEY_ID,
   secretAccessKey: process.env.MINIO_SECRET_ACCESS_KEY,
   useSSL: false,
+})
+```
+
+### S3-Compatible (Generic)
+
+For any S3-compatible storage service not explicitly supported:
+
+```typescript
+uploadConfig.provider("s3Compatible",{
+  endpoint: 'https://your-s3-compatible-service.com',
+  bucket: 'your-bucket',
+  accessKeyId: process.env.S3_ACCESS_KEY_ID,
+  secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+  region: 'us-east-1', // Optional, defaults to us-east-1
+  forcePathStyle: true, // Optional, defaults to true for compatibility
 })
 ```
 
