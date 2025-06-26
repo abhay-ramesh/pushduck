@@ -9,6 +9,7 @@ import {
   createProvider,
   validateProviderConfig,
   type ProviderConfig,
+  type ProviderConfigMap,
   type ProviderType,
 } from "../providers";
 import type { S3Router } from "../router/router-v2";
@@ -124,20 +125,23 @@ export class UploadConfigBuilder {
   private config: Partial<UploadConfig> = {};
 
   /**
-   * Set the storage provider (new generic API)
+   * Set the storage provider with type-safe configuration
    */
   provider(providerConfig: ProviderConfig): UploadConfigBuilder;
-  provider(
-    type: ProviderType,
-    config: Record<string, any>
+  provider<T extends ProviderType>(
+    type: T,
+    config: ProviderConfigMap[T]
   ): UploadConfigBuilder;
-  provider(
-    providerOrType: ProviderConfig | ProviderType,
-    config?: Record<string, any>
+  provider<T extends ProviderType>(
+    providerOrType: ProviderConfig | T,
+    config?: ProviderConfigMap[T]
   ): UploadConfigBuilder {
     if (typeof providerOrType === "string") {
-      // New API: provider("aws", { bucket: "...", region: "..." })
-      this.config.provider = createProvider(providerOrType, config || {});
+      // Type-safe API: provider("aws", { bucket: "...", region: "..." })
+      this.config.provider = createProvider(
+        providerOrType,
+        config as ProviderConfigMap[T]
+      );
     } else {
       // Direct config object: provider(configObject)
       this.config.provider = providerOrType;
@@ -224,15 +228,17 @@ export function createUploadConfig(): UploadConfigBuilder {
 }
 
 /**
- * Create upload configuration for specific providers
+ * Create upload configuration with type-safe provider setup
  */
 export const uploadConfig = {
   /**
-   * Generic provider configuration
+   * Type-safe provider configuration
    * Usage: uploadConfig.provider("aws", { bucket: "my-bucket", region: "us-west-2" })
    */
-  provider: (type: ProviderType, config: Record<string, any> = {}) =>
-    createUploadConfig().provider(type, config),
+  provider: <T extends ProviderType>(
+    type: T,
+    config: ProviderConfigMap[T] = {} as ProviderConfigMap[T]
+  ) => createUploadConfig().provider(type, config),
 };
 
 // ========================================

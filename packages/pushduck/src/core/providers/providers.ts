@@ -372,13 +372,29 @@ const PROVIDER_SPECS = {
 type ProviderSpecsType = typeof PROVIDER_SPECS;
 export type ProviderType = keyof ProviderSpecsType;
 
+// ========================================
+// Type-Safe Provider Configuration Mapping
+// ========================================
+
 /**
- * Generic provider configuration function
+ * Maps each provider type to its corresponding configuration interface
+ * This enables type-safe provider configuration in uploadConfig.provider()
+ */
+export type ProviderConfigMap = {
+  aws: Partial<Omit<AWSProviderConfig, "provider">>;
+  cloudflareR2: Partial<Omit<CloudflareR2Config, "provider">>;
+  digitalOceanSpaces: Partial<Omit<DigitalOceanSpacesConfig, "provider">>;
+  minio: Partial<Omit<MinIOConfig, "provider">>;
+  gcs: Partial<Omit<GoogleCloudStorageConfig, "provider">>;
+};
+
+/**
+ * Type-safe provider configuration function
  * Usage: createProvider("aws", { bucket: "my-bucket", region: "us-west-2" })
  */
-export function createProvider(
-  type: ProviderType,
-  config: Record<string, any> = {}
+export function createProvider<T extends ProviderType>(
+  type: T,
+  config: ProviderConfigMap[T] = {} as ProviderConfigMap[T]
 ): ProviderConfig {
   const spec = PROVIDER_SPECS[type];
   if (!spec) {
