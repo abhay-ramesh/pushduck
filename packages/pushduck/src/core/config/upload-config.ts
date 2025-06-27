@@ -13,7 +13,11 @@ import {
   type ProviderType,
 } from "../providers";
 import type { S3Router } from "../router/router-v2";
-import { createS3Router, S3Route } from "../router/router-v2";
+import {
+  createS3Router,
+  createS3RouterWithConfig,
+  S3Route,
+} from "../router/router-v2";
 import {
   S3FileConstraints,
   S3FileSchema,
@@ -29,6 +33,43 @@ import { logger } from "../utils/logger";
 
 // Smart router factory that handles schema-to-route conversion
 function smartCreateRouter<TRoutes extends Record<string, any>>(
+  routes: TRoutes,
+  config: UploadConfig
+): S3Router<{
+  [K in keyof TRoutes]: TRoutes[K] extends S3Route<any, any>
+    ? TRoutes[K]
+    : S3Route<any, any>;
+}> {
+  // Convert any schema objects to route objects
+  const convertedRoutes: Record<string, S3Route<any, any>> = {};
+
+  for (const [key, value] of Object.entries(routes)) {
+    if (
+      value instanceof S3FileSchema ||
+      value instanceof S3ImageSchema ||
+      value instanceof S3ObjectSchema
+    ) {
+      // Convert schema to route
+      convertedRoutes[key] = new S3Route(value);
+    } else {
+      // Already a route
+      convertedRoutes[key] = value;
+    }
+  }
+
+  // ✅ PHASE 2 FIX: Use config-aware router factory
+  return createS3RouterWithConfig(convertedRoutes, config) as any as S3Router<{
+    [K in keyof TRoutes]: TRoutes[K] extends S3Route<any, any>
+      ? TRoutes[K]
+      : S3Route<any, any>;
+  }>;
+}
+
+/**
+ * @deprecated Legacy function for backward compatibility
+ * Use the config-aware version instead
+ */
+function legacySmartCreateRouter<TRoutes extends Record<string, any>>(
   routes: TRoutes
 ): S3Router<{
   [K in keyof TRoutes]: TRoutes[K] extends S3Route<any, any>
@@ -52,7 +93,7 @@ function smartCreateRouter<TRoutes extends Record<string, any>>(
     }
   }
 
-  // Cast to maintain the exact route structure in the type system
+  // Use the deprecated global config factory
   return createS3Router(convertedRoutes) as any as S3Router<{
     [K in keyof TRoutes]: TRoutes[K] extends S3Route<any, any>
       ? TRoutes[K]
@@ -60,7 +101,23 @@ function smartCreateRouter<TRoutes extends Record<string, any>>(
   }>;
 }
 
-// Main S3 Builder Instance (for upload-config)
+// Config-aware S3 Builder Instance Factory
+function createS3Instance(config: UploadConfig) {
+  return {
+    // Schema builders
+    file: (constraints?: S3FileConstraints) => new S3FileSchema(constraints),
+    image: (constraints?: S3FileConstraints) => new S3ImageSchema(constraints),
+    object: <T extends Record<string, any>>(shape: T) =>
+      new S3ObjectSchema(shape),
+
+    // ✅ PHASE 2 FIX: Config-aware router factory
+    createRouter: <TRoutes extends Record<string, any>>(routes: TRoutes) =>
+      smartCreateRouter(routes, config),
+  } as const;
+}
+
+// Legacy global S3 instance (for backward compatibility)
+// ⚠️ This will fall back to global config and should be deprecated
 export const s3 = {
   // Schema builders
   file: (constraints?: S3FileConstraints) => new S3FileSchema(constraints),
@@ -68,8 +125,8 @@ export const s3 = {
   object: <T extends Record<string, any>>(shape: T) =>
     new S3ObjectSchema(shape),
 
-  // Smart router factory that handles schema-to-route conversion
-  createRouter: smartCreateRouter,
+  // Legacy router factory that uses global config
+  createRouter: legacySmartCreateRouter,
 } as const;
 
 // ========================================
@@ -198,20 +255,34 @@ export class UploadConfigBuilder {
 
     const config = this.config as UploadConfig;
 
-    // Set global configuration
-    globalUploadConfig = config;
+    // ✅ CRITICAL FIX: NO MORE GLOBAL STATE MUTATION!
+    // The line below was the root cause of all global state issues:
+    // globalUploadConfig = config; // 🚨 REMOVED
+
+    // 🔄 TEMPORARY COMPATIBILITY: Set global state ONLY for first config
+    // This prevents overwrites but maintains backward compatibility for single-config apps
+    if (!isConfigInitialized()) {
+      globalUploadConfig = config;
+      configInitialized = true; // ✅ Fix: Set the flag properly
+      logger.info(
+        `[COMPATIBILITY] Setting global config for backward compatibility. Future configs will be independent.`
+      );
+    }
 
     logger.configInit(config.provider.provider, {
       provider: config.provider.provider,
     });
 
-    // Create storage instance
+    // Create storage instance with config
     const storage = createStorage(config);
+
+    // Create config-aware S3 instance
+    const s3Instance = createS3Instance(config);
 
     return {
       config,
       storage,
-      s3,
+      s3: s3Instance, // ✅ Config-aware instance instead of global
     };
   }
 }

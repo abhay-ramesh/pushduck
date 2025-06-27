@@ -10,7 +10,7 @@
 
 import { NextRequest } from "next/server";
 
-import { getUploadConfig } from "../config/upload-config";
+import { getUploadConfig, UploadConfig } from "../config/upload-config";
 import { createUniversalHandler } from "../handler/universal-handler";
 import { InferS3Input, InferS3Output, S3Schema } from "../schema";
 import {
@@ -242,19 +242,22 @@ function generateHierarchicalPath<TMetadata>(
 export type S3RouterDefinition = Record<string, S3Route<any, any>>;
 
 export class S3Router<TRoutes extends S3RouterDefinition> {
-  constructor(private routes: TRoutes) {}
+  private config: UploadConfig;
+  private routes: TRoutes;
 
-  // Get route configuration
+  constructor(routes: TRoutes, config: UploadConfig) {
+    this.routes = routes;
+    this.config = config;
+  }
+
   getRoute<K extends keyof TRoutes>(routeName: K): TRoutes[K] | undefined {
     return this.routes[routeName];
   }
 
-  // Get all route names
   getRouteNames(): (keyof TRoutes)[] {
     return Object.keys(this.routes);
   }
 
-  // Framework-agnostic handlers using Web Standards
   get handlers() {
     return createUniversalHandler(this);
   }
@@ -271,7 +274,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     }
 
     const routeConfig = route._getConfig();
-    const uploadConfig = getUploadConfig();
+    const uploadConfig = this.config;
     const results: PresignedUrlResponse[] = [];
 
     for (const file of files) {
@@ -442,10 +445,32 @@ export interface CompletionResponse {
 // Factory Functions
 // ========================================
 
+/**
+ * ✅ PHASE 2: Config-aware router factory
+ * Creates router with explicit config dependency
+ */
+export function createS3RouterWithConfig<TRoutes extends S3RouterDefinition>(
+  routes: TRoutes,
+  config: UploadConfig
+): S3Router<TRoutes> {
+  return new S3Router(routes, config);
+}
+
+/**
+ * @deprecated Use createS3RouterWithConfig() for better config isolation
+ * This function relies on global config and will be removed in v3.0
+ */
 export function createS3Router<TRoutes extends S3RouterDefinition>(
   routes: TRoutes
 ): S3Router<TRoutes> {
-  return new S3Router(routes);
+  console.warn(
+    "⚠️  createS3Router() is deprecated. Use createS3RouterWithConfig() for better config isolation.\n" +
+      "   Migration guide: https://pushduck.io/docs/migration/router-config"
+  );
+
+  // Fall back to global config for backward compatibility
+  const config = getUploadConfig();
+  return new S3Router(routes, config);
 }
 
 // ========================================
