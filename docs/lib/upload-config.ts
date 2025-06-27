@@ -1,8 +1,8 @@
-import { uploadConfig } from "pushduck/server";
+import { createUploadConfig } from "pushduck/server";
 import { env } from "./env";
 
-// Initialize upload configuration with simplified one-step process
-const { s3, config } = uploadConfig
+// Initialize upload configuration using createUploadConfig directly
+const { s3, config } = createUploadConfig()
   .provider("cloudflareR2", {
     accountId: env.CLOUDFLARE_ACCOUNT_ID,
     bucket: env.R2_BUCKET,

@@ -5,7 +5,7 @@ export default defineConfig({
     "src/index.ts",
     "src/server.ts",
     "src/client.ts",
-    "src/adapters/nextjs.ts",
+    "src/adapters/index.ts",
   ],
   format: ["cjs", "esm"],
   dts: true,
@@ -22,5 +22,19 @@ export default defineConfig({
   target: "es2020",
   // keepNames is not available in tsdown, removing it
   // bundle is deprecated in tsdown, use unbundle instead
-  unbundle: false,
+  // unbundle: false,
+  outputOptions: {
+    // Only add "use client" to client files, not server files
+    banner: (chunk) => {
+      // Only add to client.js/mjs and hooks chunks that need it
+      if (
+        chunk.fileName.includes("client") ||
+        chunk.fileName.includes("hooks") ||
+        chunk.fileName.includes("use-upload-route")
+      ) {
+        return '"use client";';
+      }
+      return "";
+    },
+  },
 });
