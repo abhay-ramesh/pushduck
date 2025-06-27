@@ -1,16 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  createUploadConfig,
-  resetUploadConfig,
-} from "../core/config/upload-config";
+import { createUploadConfig } from "../core/config/upload-config";
 
 describe("Integration Tests: End-to-End Multi-Configuration", () => {
   beforeEach(() => {
-    resetUploadConfig();
+    // No global state to reset
   });
 
   afterEach(() => {
-    resetUploadConfig();
+    // No global state to clean up
   });
 
   describe("Complete Multi-Provider Workflow", () => {

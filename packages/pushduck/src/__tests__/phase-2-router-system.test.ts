@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  createUploadConfig,
-  resetUploadConfig,
-} from "../core/config/upload-config";
+import { createUploadConfig } from "../core/config/upload-config";
 
 // Mock NextRequest for testing
 class MockNextRequest {
@@ -16,11 +13,11 @@ class MockNextRequest {
 
 describe("Phase 2: Router System with Config-Aware Instances", () => {
   beforeEach(() => {
-    resetUploadConfig();
+    // No global state to reset
   });
 
   afterEach(() => {
-    resetUploadConfig();
+    // No global state to clean up
   });
 
   describe("Router Independence", () => {

@@ -1,4 +1,4 @@
-import { getUploadConfig } from "../config/upload-config";
+import type { UploadConfig } from "../config/upload-config";
 import type { S3Router, S3RouterDefinition } from "../router/router-v2";
 
 /**
@@ -8,13 +8,13 @@ import type { S3Router, S3RouterDefinition } from "../router/router-v2";
  * that supports Web Standard APIs (Next.js, Express, Hono, Fastify, etc.)
  */
 export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
-  router: S3Router<TRoutes>
+  router: S3Router<TRoutes>,
+  uploadConfig: UploadConfig
 ): {
   GET: (request: Request) => Promise<Response>;
   POST: (request: Request) => Promise<Response>;
 } {
-  // Initialize upload configuration
-  const uploadConfig = getUploadConfig();
+  // Use the provided upload configuration
 
   async function POST(request: Request): Promise<Response> {
     try {

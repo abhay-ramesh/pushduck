@@ -17,11 +17,7 @@ export {
 } from "./core/providers";
 
 // Upload configuration
-export {
-  createUploadConfig,
-  getUploadConfig,
-  uploadConfig,
-} from "./core/config/upload-config";
+export { createUploadConfig } from "./core/config/upload-config";
 
 // ========================================
 // SCHEMA BUILDERS
@@ -36,15 +32,12 @@ export {
   S3Schema,
 } from "./core/schema";
 
-// Main s3 builder instance
-export { s3 } from "./core/config/upload-config";
-
 // ========================================
 // ROUTER SYSTEM
 // ========================================
 
-// Modern router (recommended)
-export { createS3Router, S3Route } from "./core/router/router-v2";
+// Modern config-aware router (recommended)
+export { createS3RouterWithConfig, S3Route } from "./core/router/router-v2";
 
 // Router types
 export type { S3Router } from "./types";

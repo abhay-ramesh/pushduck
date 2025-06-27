@@ -10,7 +10,7 @@
 
 import { NextRequest } from "next/server";
 
-import { getUploadConfig, UploadConfig } from "../config/upload-config";
+import { UploadConfig } from "../config/upload-config";
 import { createUniversalHandler } from "../handler/universal-handler";
 import { InferS3Input, InferS3Output, S3Schema } from "../schema";
 import {
@@ -178,7 +178,8 @@ function generateHierarchicalPath<TMetadata>(
           metadata: any
         ) => string;
       }
-    | undefined
+    | undefined,
+  uploadConfig: UploadConfig
 ): string {
   // Build path context for route-level functions
   const pathContext: PathContext<TMetadata> = {
@@ -217,7 +218,7 @@ function generateHierarchicalPath<TMetadata>(
     }
   } else {
     // Use default generation for the file part
-    filePath = generateFileKey({
+    filePath = generateFileKey(uploadConfig, {
       originalName: file.name,
       userId: (metadata as any)?.userId || (metadata as any)?.user?.id,
       prefix: "", // Don't add prefix here, we're building it hierarchically
@@ -259,7 +260,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
   }
 
   get handlers() {
-    return createUniversalHandler(this);
+    return createUniversalHandler(this, this.config);
   }
 
   // Generate presigned URLs for upload
@@ -309,10 +310,11 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           metadata,
           String(routeName),
           routeConfig.paths,
-          uploadConfig.paths
+          uploadConfig.paths,
+          uploadConfig
         );
 
-        const presignedResult = await generatePresignedUploadUrl({
+        const presignedResult = await generatePresignedUploadUrl(uploadConfig, {
           key,
           contentType: file.type,
           contentLength: file.size,
@@ -369,7 +371,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     for (const completion of completions) {
       try {
         // Get file URL
-        const url = getFileUrl(completion.key);
+        const url = getFileUrl(this.config, completion.key);
 
         // Call onUploadComplete hook
         if (routeConfig.onUploadComplete) {
@@ -446,30 +448,13 @@ export interface CompletionResponse {
 // ========================================
 
 /**
- * ✅ PHASE 2: Config-aware router factory
+ * ✅ Config-aware router factory
  * Creates router with explicit config dependency
  */
 export function createS3RouterWithConfig<TRoutes extends S3RouterDefinition>(
   routes: TRoutes,
   config: UploadConfig
 ): S3Router<TRoutes> {
-  return new S3Router(routes, config);
-}
-
-/**
- * @deprecated Use createS3RouterWithConfig() for better config isolation
- * This function relies on global config and will be removed in v3.0
- */
-export function createS3Router<TRoutes extends S3RouterDefinition>(
-  routes: TRoutes
-): S3Router<TRoutes> {
-  console.warn(
-    "⚠️  createS3Router() is deprecated. Use createS3RouterWithConfig() for better config isolation.\n" +
-      "   Migration guide: https://pushduck.io/docs/migration/router-config"
-  );
-
-  // Fall back to global config for backward compatibility
-  const config = getUploadConfig();
   return new S3Router(routes, config);
 }
 

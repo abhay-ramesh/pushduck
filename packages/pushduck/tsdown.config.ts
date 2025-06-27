@@ -24,13 +24,14 @@ export default defineConfig({
   // bundle is deprecated in tsdown, use unbundle instead
   // unbundle: false,
   outputOptions: {
-    // Only add "use client" to client files, not server files
+    // Only add "use client" to actual client entry files, not shared chunks
     banner: (chunk) => {
-      // Only add to client.js/mjs and hooks chunks that need it
+      // Only add to the main client entry files, not shared chunks
       if (
-        chunk.fileName.includes("client") ||
-        chunk.fileName.includes("hooks") ||
-        chunk.fileName.includes("use-upload-route")
+        chunk.fileName === "client.js" ||
+        chunk.fileName === "client.mjs" ||
+        (chunk.fileName.includes("use-upload-route") &&
+          !chunk.fileName.includes("server"))
       ) {
         return '"use client";';
       }

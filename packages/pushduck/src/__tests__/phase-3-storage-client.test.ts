@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  createUploadConfig,
-  resetUploadConfig,
-} from "../core/config/upload-config";
+import { createUploadConfig } from "../core/config/upload-config";
 
 // Mock S3 client to avoid actual AWS calls
 vi.mock("@aws-sdk/client-s3", () => ({
@@ -21,12 +18,12 @@ vi.mock("@aws-sdk/client-s3", () => ({
 
 describe("Phase 3: Storage Client with Config Parameters", () => {
   beforeEach(() => {
-    resetUploadConfig();
+    // No global state to reset
     vi.clearAllMocks();
   });
 
   afterEach(() => {
-    resetUploadConfig();
+    // No global state to clean up
   });
 
   describe("Storage Instance Independence", () => {

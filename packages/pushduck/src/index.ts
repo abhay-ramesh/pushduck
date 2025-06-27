@@ -50,4 +50,4 @@ export type {
 export { createProvider } from "./core/providers";
 
 // Upload configuration utilities
-export { createUploadConfig, uploadConfig } from "./core/config/upload-config";
+export { createUploadConfig } from "./core/config/upload-config";

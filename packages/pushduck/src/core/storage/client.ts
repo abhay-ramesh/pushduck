@@ -17,7 +17,7 @@
  */
 
 import { AwsClient } from "aws4fetch";
-import { getUploadConfig } from "../config";
+import type { UploadConfig } from "../config";
 import type { ProviderConfig } from "../providers/providers";
 import { createConfigError, createS3Error } from "../types/errors";
 import { logger } from "../utils/logger";
@@ -287,12 +287,15 @@ let awsClientInstance: AwsClient | null = null;
 /**
  * Creates and caches an AWS client instance using aws4fetch
  */
-export function createS3Client(): AwsClient {
-  if (awsClientInstance) {
+export function createS3Client(uploadConfig?: UploadConfig): AwsClient {
+  if (awsClientInstance && !uploadConfig) {
     return awsClientInstance;
   }
 
-  const uploadConfig = getUploadConfig();
+  if (!uploadConfig) {
+    throw new Error("UploadConfig is required");
+  }
+
   const config = getS3CompatibleConfig(uploadConfig.provider);
 
   if (!config.accessKeyId || !config.secretAccessKey || !config.bucket) {
@@ -403,11 +406,12 @@ export interface PresignedUrlResult {
  * Generates a presigned URL for downloading/viewing a file from S3
  */
 export async function generatePresignedDownloadUrl(
+  uploadConfig: UploadConfig,
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
-  const awsClient = createS3Client();
-  const config = getS3CompatibleConfig(getUploadConfig().provider);
+  const awsClient = createS3Client(uploadConfig);
+  const config = getS3CompatibleConfig(uploadConfig.provider);
 
   try {
     const s3Url = buildS3Url(key, config);
@@ -456,10 +460,11 @@ export async function generatePresignedDownloadUrl(
  * Generates a presigned URL for uploading a file to S3
  */
 export async function generatePresignedUploadUrl(
+  uploadConfig: UploadConfig,
   options: PresignedUrlOptions
 ): Promise<PresignedUrlResult> {
-  const awsClient = createS3Client();
-  const config = getS3CompatibleConfig(getUploadConfig().provider);
+  const awsClient = createS3Client(uploadConfig);
+  const config = getS3CompatibleConfig(uploadConfig.provider);
   const expiresIn = options.expiresIn || 3600; // 1 hour default
 
   try {
@@ -519,10 +524,11 @@ export async function generatePresignedUploadUrl(
  * Generates multiple presigned URLs for batch uploads
  */
 export async function generatePresignedUploadUrls(
+  uploadConfig: UploadConfig,
   requests: PresignedUrlOptions[]
 ): Promise<PresignedUrlResult[]> {
   const results = await Promise.allSettled(
-    requests.map(generatePresignedUploadUrl)
+    requests.map((options) => generatePresignedUploadUrl(uploadConfig, options))
   );
 
   const successfulResults: PresignedUrlResult[] = [];
@@ -552,9 +558,12 @@ export async function generatePresignedUploadUrls(
 /**
  * Checks if a file exists in S3
  */
-export async function checkFileExists(key: string): Promise<boolean> {
-  const awsClient = createS3Client();
-  const config = getS3CompatibleConfig(getUploadConfig().provider);
+export async function checkFileExists(
+  uploadConfig: UploadConfig,
+  key: string
+): Promise<boolean> {
+  const awsClient = createS3Client(uploadConfig);
+  const config = getS3CompatibleConfig(uploadConfig.provider);
 
   try {
     const s3Url = buildS3Url(key, config);
@@ -574,8 +583,8 @@ export async function checkFileExists(key: string): Promise<boolean> {
 /**
  * Gets the public URL for a file
  */
-export function getFileUrl(key: string): string {
-  const config = getS3CompatibleConfig(getUploadConfig().provider);
+export function getFileUrl(uploadConfig: UploadConfig, key: string): string {
+  const config = getS3CompatibleConfig(uploadConfig.provider);
 
   if (config.customDomain) {
     return `${config.customDomain}/${key}`;
@@ -611,15 +620,12 @@ export interface FileKeyOptions {
 /**
  * Generates a unique file key for S3 storage
  */
-export function generateFileKey(options: FileKeyOptions): string {
-  // Get upload config to use as defaults if available
-  let configPrefix = "uploads";
-  try {
-    const uploadConfig = getUploadConfig();
-    configPrefix = uploadConfig.paths?.prefix || "uploads";
-  } catch {
-    // Config not initialized, use hardcoded default
-  }
+export function generateFileKey(
+  uploadConfig: UploadConfig,
+  options: FileKeyOptions
+): string {
+  // Use config to get defaults
+  const configPrefix = uploadConfig.paths?.prefix || "uploads";
 
   const {
     originalName,
@@ -674,6 +680,7 @@ export type ProgressCallback = (progress: UploadProgress) => void;
  * Note: This is for server-side uploads. Client-side uploads use presigned URLs.
  */
 export async function uploadFileToS3(
+  uploadConfig: UploadConfig,
   file: File | Buffer,
   key: string,
   options: {
@@ -682,8 +689,8 @@ export async function uploadFileToS3(
     onProgress?: ProgressCallback;
   } = {}
 ): Promise<string> {
-  const awsClient = createS3Client();
-  const config = getS3CompatibleConfig(getUploadConfig().provider);
+  const awsClient = createS3Client(uploadConfig);
+  const config = getS3CompatibleConfig(uploadConfig.provider);
 
   try {
     const s3Url = buildS3Url(key, config);
@@ -730,7 +737,7 @@ export async function uploadFileToS3(
       logger.fileOperation("upload-success", key);
     }
 
-    return getFileUrl(key);
+    return getFileUrl(uploadConfig, key);
   } catch (error) {
     console.error("Failed to upload file:", error);
     throw new Error(
@@ -748,13 +755,15 @@ export async function uploadFileToS3(
 /**
  * Validates S3 connection and configuration
  */
-export async function validateS3Connection(): Promise<{
+export async function validateS3Connection(
+  uploadConfig: UploadConfig
+): Promise<{
   success: boolean;
   error?: string;
 }> {
   try {
-    const awsClient = createS3Client();
-    const config = getS3CompatibleConfig(getUploadConfig().provider);
+    const awsClient = createS3Client(uploadConfig);
+    const config = getS3CompatibleConfig(uploadConfig.provider);
 
     // Try to check if bucket exists by making a HEAD request to bucket root
     const bucketUrl = config.endpoint
@@ -813,9 +822,10 @@ export interface ListFilesResult {
  * Lists files in the bucket with optional filtering and pagination
  */
 export async function listFiles(
+  uploadConfig: UploadConfig,
   options: ListFilesOptions = {}
 ): Promise<FileInfo[]> {
-  const result = await listFilesPaginated({
+  const result = await listFilesPaginated(uploadConfig, {
     ...options,
     pageSize: options.maxFiles || 1000,
   });
@@ -826,10 +836,11 @@ export async function listFiles(
  * Lists files with pagination support
  */
 export async function listFilesPaginated(
+  uploadConfig: UploadConfig,
   options: PaginatedListOptions = {}
 ): Promise<ListFilesResult> {
-  const awsClient = createS3Client();
-  const config = getS3CompatibleConfig(getUploadConfig().provider);
+  const awsClient = createS3Client(uploadConfig);
+  const config = getS3CompatibleConfig(uploadConfig.provider);
 
   const {
     prefix = "",
@@ -872,7 +883,12 @@ export async function listFilesPaginated(
     }
 
     const xmlText = await response.text();
-    const files = parseListObjectsResponse(xmlText, config, includeMetadata);
+    const files = parseListObjectsResponse(
+      xmlText,
+      config,
+      uploadConfig,
+      includeMetadata
+    );
 
     // Parse pagination info
     const isTruncated = xmlText.includes("<IsTruncated>true</IsTruncated>");
@@ -910,59 +926,53 @@ export async function listFilesPaginated(
  * Lists files with a specific prefix (directory-like listing)
  */
 export async function listFilesWithPrefix(
+  uploadConfig: UploadConfig,
   prefix: string,
   options: ListFilesOptions = {}
 ): Promise<FileInfo[]> {
-  return listFiles({ ...options, prefix });
+  return listFiles(uploadConfig, { ...options, prefix });
 }
 
 /**
  * Lists files by file extension
  */
 export async function listFilesByExtension(
+  uploadConfig: UploadConfig,
   extension: string,
   prefix?: string
 ): Promise<FileInfo[]> {
-  const files = await listFiles({ prefix, maxFiles: 10000 });
+  const files = await listFiles(uploadConfig, { prefix, maxFiles: 10000 });
   const ext = extension.startsWith(".") ? extension : `.${extension}`;
-  return files.filter((file) =>
-    file.key.toLowerCase().endsWith(ext.toLowerCase())
-  );
+  return files.filter((file) => file.key.endsWith(ext));
 }
 
 /**
- * Lists files by size range
+ * Lists files within a size range
  */
 export async function listFilesBySize(
+  uploadConfig: UploadConfig,
   minSize?: number,
   maxSize?: number,
   prefix?: string
 ): Promise<FileInfo[]> {
-  const files = await listFiles({
-    prefix,
-    maxFiles: 10000,
-    includeMetadata: true,
-  });
+  const files = await listFiles(uploadConfig, { prefix, maxFiles: 10000 });
   return files.filter((file) => {
-    if (minSize !== undefined && file.size < minSize) return false;
-    if (maxSize !== undefined && file.size > maxSize) return false;
+    if (minSize && file.size < minSize) return false;
+    if (maxSize && file.size > maxSize) return false;
     return true;
   });
 }
 
 /**
- * Lists files by date range
+ * Lists files within a date range
  */
 export async function listFilesByDate(
+  uploadConfig: UploadConfig,
   fromDate?: Date,
   toDate?: Date,
   prefix?: string
 ): Promise<FileInfo[]> {
-  const files = await listFiles({
-    prefix,
-    maxFiles: 10000,
-    includeMetadata: true,
-  });
+  const files = await listFiles(uploadConfig, { prefix, maxFiles: 10000 });
   return files.filter((file) => {
     if (fromDate && file.lastModified < fromDate) return false;
     if (toDate && file.lastModified > toDate) return false;
@@ -971,13 +981,17 @@ export async function listFilesByDate(
 }
 
 /**
- * Lists directories (common prefixes) in a bucket
+ * Lists directories (common prefixes) under a given prefix
  */
-export async function listDirectories(prefix: string = ""): Promise<string[]> {
-  const awsClient = createS3Client();
-  const config = getS3CompatibleConfig(getUploadConfig().provider);
+export async function listDirectories(
+  uploadConfig: UploadConfig,
+  prefix: string = ""
+): Promise<string[]> {
+  const awsClient = createS3Client(uploadConfig);
+  const config = getS3CompatibleConfig(uploadConfig.provider);
 
   try {
+    // Build list objects URL with delimiter to get common prefixes
     const bucketUrl = config.endpoint
       ? `${config.endpoint}/${config.bucket}`
       : `https://${config.bucket}.s3.${config.region}.amazonaws.com/`;
@@ -1019,13 +1033,14 @@ export async function listDirectories(prefix: string = ""): Promise<string[]> {
  * Generator function for paginated file listing (handles large datasets efficiently)
  */
 export async function* listFilesPaginatedGenerator(
+  uploadConfig: UploadConfig,
   options: PaginatedListOptions = {}
 ): AsyncGenerator<FileInfo[]> {
   let continuationToken: string | undefined = options.continuationToken;
   let hasMore = true;
 
   while (hasMore) {
-    const result = await listFilesPaginated({
+    const result = await listFilesPaginated(uploadConfig, {
       ...options,
       continuationToken,
     });
@@ -1063,11 +1078,14 @@ export interface ValidationRules {
 }
 
 /**
- * Gets comprehensive file information
+ * Gets detailed information about a file
  */
-export async function getFileInfo(key: string): Promise<FileInfo> {
-  const awsClient = createS3Client();
-  const config = getS3CompatibleConfig(getUploadConfig().provider);
+export async function getFileInfo(
+  uploadConfig: UploadConfig,
+  key: string
+): Promise<FileInfo> {
+  const awsClient = createS3Client(uploadConfig);
+  const config = getS3CompatibleConfig(uploadConfig.provider);
 
   try {
     const s3Url = buildS3Url(key, config);
@@ -1076,23 +1094,16 @@ export async function getFileInfo(key: string): Promise<FileInfo> {
     });
 
     if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error(`File not found: ${key}`);
-      }
-      throw new Error(
-        `Failed to get file info: ${response.status} ${response.statusText}`
-      );
+      throw new Error(`File not found: ${key}`);
     }
 
     const size = parseInt(response.headers.get("content-length") || "0");
     const contentType =
       response.headers.get("content-type") || "application/octet-stream";
-    const lastModified = new Date(
-      response.headers.get("last-modified") || Date.now()
-    );
+    const lastModifiedStr = response.headers.get("last-modified");
     const etag = response.headers.get("etag")?.replace(/"/g, "") || "";
 
-    // Extract custom metadata (x-amz-meta-* headers)
+    // Extract metadata from x-amz-meta-* headers
     const metadata: Record<string, string> = {};
     response.headers.forEach((value, name) => {
       if (name.startsWith("x-amz-meta-")) {
@@ -1101,29 +1112,18 @@ export async function getFileInfo(key: string): Promise<FileInfo> {
       }
     });
 
-    const fileInfo: FileInfo = {
+    return {
       key,
-      url: getFileUrl(key),
+      url: getFileUrl(uploadConfig, key),
       size,
       contentType,
-      lastModified,
+      lastModified: lastModifiedStr ? new Date(lastModifiedStr) : new Date(),
       etag,
-      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+      metadata,
     };
-
-    if (config.debug) {
-      logger.fileOperation("get-file-info", key, {
-        size: `${(size / 1024).toFixed(1)}KB`,
-        contentType,
-        lastModified: lastModified.toISOString(),
-      });
-    }
-
-    return fileInfo;
   } catch (error) {
-    console.error(`Failed to get file info for ${key}:`, error);
     throw new Error(
-      `Failed to get file info: ${
+      `Failed to get file info for ${key}: ${
         error instanceof Error ? error.message : "Unknown error"
       }`
     );
@@ -1131,14 +1131,17 @@ export async function getFileInfo(key: string): Promise<FileInfo> {
 }
 
 /**
- * Gets file information for multiple files efficiently
+ * Gets information for multiple files in parallel
  */
-export async function getFilesInfo(keys: string[]): Promise<FileInfoResult[]> {
+export async function getFilesInfo(
+  uploadConfig: UploadConfig,
+  keys: string[]
+): Promise<FileInfoResult[]> {
   const results = await Promise.allSettled(
     keys.map(async (key) => {
       try {
-        const info = await getFileInfo(key);
-        return { key, info, error: undefined };
+        const info = await getFileInfo(uploadConfig, key);
+        return { key, info };
       } catch (error) {
         return {
           key,
@@ -1166,26 +1169,35 @@ export async function getFilesInfo(keys: string[]): Promise<FileInfoResult[]> {
 }
 
 /**
- * Gets just the file size
+ * Gets the size of a file
  */
-export async function getFileSize(key: string): Promise<number> {
-  const info = await getFileInfo(key);
+export async function getFileSize(
+  uploadConfig: UploadConfig,
+  key: string
+): Promise<number> {
+  const info = await getFileInfo(uploadConfig, key);
   return info.size;
 }
 
 /**
- * Gets just the file content type
+ * Gets the content type of a file
  */
-export async function getFileContentType(key: string): Promise<string> {
-  const info = await getFileInfo(key);
+export async function getFileContentType(
+  uploadConfig: UploadConfig,
+  key: string
+): Promise<string> {
+  const info = await getFileInfo(uploadConfig, key);
   return info.contentType;
 }
 
 /**
- * Gets just the file last modified date
+ * Gets the last modified date of a file
  */
-export async function getFileLastModified(key: string): Promise<Date> {
-  const info = await getFileInfo(key);
+export async function getFileLastModified(
+  uploadConfig: UploadConfig,
+  key: string
+): Promise<Date> {
+  const info = await getFileInfo(uploadConfig, key);
   return info.lastModified;
 }
 
@@ -1193,35 +1205,46 @@ export async function getFileLastModified(key: string): Promise<Date> {
  * Gets custom metadata for a file
  */
 export async function getFileMetadata(
+  uploadConfig: UploadConfig,
   key: string
 ): Promise<Record<string, string>> {
-  const info = await getFileInfo(key);
+  const info = await getFileInfo(uploadConfig, key);
   return info.metadata || {};
 }
 
 /**
- * Sets custom metadata for a file (requires copying the object)
+ * Sets custom metadata for a file
  */
 export async function setFileMetadata(
+  uploadConfig: UploadConfig,
   key: string,
   metadata: Record<string, string>
 ): Promise<void> {
-  const awsClient = createS3Client();
-  const config = getS3CompatibleConfig(getUploadConfig().provider);
+  const awsClient = createS3Client(uploadConfig);
+  const config = getS3CompatibleConfig(uploadConfig.provider);
 
   try {
+    // First get current file info
+    const currentInfo = await getFileInfo(uploadConfig, key);
+
+    // Copy the file to itself with new metadata
+    const sourceUrl = `${config.bucket}/${key}`;
     const s3Url = buildS3Url(key, config);
 
-    // Prepare headers for metadata
     const headers: Record<string, string> = {
-      "x-amz-copy-source": `/${config.bucket}/${key}`,
+      "x-amz-copy-source": sourceUrl,
       "x-amz-metadata-directive": "REPLACE",
     };
 
-    // Add custom metadata as headers
+    // Add new metadata headers
     Object.entries(metadata).forEach(([metaKey, value]) => {
       headers[`x-amz-meta-${metaKey}`] = value;
     });
+
+    // Preserve original content type
+    if (currentInfo.contentType) {
+      headers["Content-Type"] = currentInfo.contentType;
+    }
 
     const response = await awsClient.fetch(s3Url, {
       method: "PUT",
@@ -1233,14 +1256,9 @@ export async function setFileMetadata(
         `Failed to set metadata: ${response.status} ${response.statusText}`
       );
     }
-
-    if (config.debug) {
-      logger.fileOperation("set-metadata", key, metadata);
-    }
   } catch (error) {
-    console.error(`Failed to set metadata for ${key}:`, error);
     throw new Error(
-      `Failed to set metadata: ${
+      `Failed to set metadata for ${key}: ${
         error instanceof Error ? error.message : "Unknown error"
       }`
     );
@@ -1248,64 +1266,54 @@ export async function setFileMetadata(
 }
 
 /**
- * Checks if file exists and returns info if it does
+ * Checks if a file exists and returns its info if it does
  */
 export async function fileExistsWithInfo(
+  uploadConfig: UploadConfig,
   key: string
 ): Promise<FileInfo | null> {
   try {
-    return await getFileInfo(key);
+    return await getFileInfo(uploadConfig, key);
   } catch (error) {
-    // If file doesn't exist, return null instead of throwing
-    if (error instanceof Error && error.message.includes("File not found")) {
-      return null;
-    }
-    throw error;
+    return null;
   }
 }
 
 /**
- * Validates a file against specified rules
+ * Validates a file against given rules
  */
 export async function validateFile(
+  uploadConfig: UploadConfig,
   key: string,
   rules: ValidationRules
 ): Promise<FileValidationResult> {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
   try {
-    const info = await getFileInfo(key);
+    const info = await getFileInfo(uploadConfig, key);
+    const errors: string[] = [];
+    const warnings: string[] = [];
 
     // Size validation
-    if (rules.maxSize !== undefined && info.size > rules.maxSize) {
-      errors.push(
-        `File size ${info.size} bytes exceeds maximum ${rules.maxSize} bytes`
-      );
+    if (rules.maxSize && info.size > rules.maxSize) {
+      errors.push(`File size ${info.size} exceeds maximum ${rules.maxSize}`);
     }
-    if (rules.minSize !== undefined && info.size < rules.minSize) {
-      errors.push(
-        `File size ${info.size} bytes is below minimum ${rules.minSize} bytes`
-      );
+
+    if (rules.minSize && info.size < rules.minSize) {
+      errors.push(`File size ${info.size} is below minimum ${rules.minSize}`);
     }
 
     // Content type validation
     if (rules.allowedTypes && !rules.allowedTypes.includes(info.contentType)) {
       errors.push(
-        `Content type ${info.contentType} is not allowed. Allowed types: ${rules.allowedTypes.join(", ")}`
+        `Content type ${info.contentType} not in allowed types: ${rules.allowedTypes.join(", ")}`
       );
     }
 
     // Extension validation
     if (rules.requiredExtensions) {
-      const fileExtension = info.key.split(".").pop()?.toLowerCase() || "";
-      const normalizedExtensions = rules.requiredExtensions.map((ext) =>
-        ext.startsWith(".") ? ext.substring(1).toLowerCase() : ext.toLowerCase()
-      );
-
-      if (!normalizedExtensions.includes(fileExtension)) {
+      const extension = info.key.split(".").pop()?.toLowerCase();
+      if (!extension || !rules.requiredExtensions.includes(extension)) {
         errors.push(
-          `File extension .${fileExtension} is not allowed. Required extensions: ${rules.requiredExtensions.join(", ")}`
+          `File extension .${extension} not in required extensions: ${rules.requiredExtensions.join(", ")}`
         );
       }
     }
@@ -1331,22 +1339,34 @@ export async function validateFile(
   } catch (error) {
     return {
       valid: false,
-      errors: [error instanceof Error ? error.message : "Unknown error"],
-      warnings,
-      info: {} as FileInfo, // Placeholder since we couldn't get real info
+      errors: [
+        `Failed to validate file: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      ],
+      warnings: [],
+      info: {
+        key,
+        url: "",
+        size: 0,
+        contentType: "",
+        lastModified: new Date(),
+        etag: "",
+      },
     };
   }
 }
 
 /**
- * Validates multiple files against specified rules
+ * Validates multiple files against given rules
  */
 export async function validateFiles(
+  uploadConfig: UploadConfig,
   keys: string[],
   rules: ValidationRules
 ): Promise<FileValidationResult[]> {
   const results = await Promise.allSettled(
-    keys.map((key) => validateFile(key, rules))
+    keys.map((key) => validateFile(uploadConfig, key, rules))
   );
 
   return results.map((result, index) => {
@@ -1356,12 +1376,21 @@ export async function validateFiles(
       return {
         valid: false,
         errors: [
-          result.reason instanceof Error
-            ? result.reason.message
-            : "Unknown error",
+          `Failed to validate: ${
+            result.reason instanceof Error
+              ? result.reason.message
+              : "Unknown error"
+          }`,
         ],
         warnings: [],
-        info: {} as FileInfo,
+        info: {
+          key: keys[index],
+          url: "",
+          size: 0,
+          contentType: "",
+          lastModified: new Date(),
+          etag: "",
+        },
       };
     }
   });
@@ -1377,6 +1406,7 @@ export async function validateFiles(
 function parseListObjectsResponse(
   xmlText: string,
   config: S3CompatibleConfig,
+  uploadConfig: UploadConfig,
   includeMetadata: boolean
 ): FileInfo[] {
   const files: FileInfo[] = [];
@@ -1398,7 +1428,7 @@ function parseListObjectsResponse(
     if (key) {
       files.push({
         key,
-        url: getFileUrl(key),
+        url: getFileUrl(uploadConfig, key),
         size,
         contentType: "application/octet-stream", // Will be filled by HEAD request if includeMetadata
         lastModified,
@@ -1474,9 +1504,11 @@ function sortFiles(
 /**
  * Delete a single file from S3
  */
-export async function deleteFile(key: string): Promise<void> {
-  const awsClient = createS3Client();
-  const uploadConfig = getUploadConfig();
+export async function deleteFile(
+  uploadConfig: UploadConfig,
+  key: string
+): Promise<void> {
+  const awsClient = createS3Client(uploadConfig);
   const config = uploadConfig.provider;
 
   try {
@@ -1533,13 +1565,15 @@ export async function deleteFile(key: string): Promise<void> {
 /**
  * Delete multiple files from S3 in a batch operation
  */
-export async function deleteFiles(keys: string[]): Promise<DeleteFilesResult> {
+export async function deleteFiles(
+  uploadConfig: UploadConfig,
+  keys: string[]
+): Promise<DeleteFilesResult> {
   if (keys.length === 0) {
     return { deleted: [], errors: [] };
   }
 
-  const awsClient = createS3Client();
-  const uploadConfig = getUploadConfig();
+  const awsClient = createS3Client(uploadConfig);
   const config = uploadConfig.provider;
 
   try {
@@ -1592,6 +1626,7 @@ export async function deleteFiles(keys: string[]): Promise<DeleteFilesResult> {
  * Delete all files with a specific prefix (like deleting a "folder")
  */
 export async function deleteFilesByPrefix(
+  uploadConfig: UploadConfig,
   prefix: string,
   options: { dryRun?: boolean; maxFiles?: number } = {}
 ): Promise<DeleteByPrefixResult> {
@@ -1599,9 +1634,14 @@ export async function deleteFilesByPrefix(
 
   try {
     // First, list all files with the prefix
-    const files = await listFiles({ prefix, maxFiles });
+    const files = await listFiles(uploadConfig, {
+      prefix,
+      maxFiles,
+    });
 
-    if (files.length === 0) {
+    const keys = files.map((file) => file.key);
+
+    if (keys.length === 0) {
       return {
         filesFound: 0,
         deleted: [],
@@ -1610,41 +1650,29 @@ export async function deleteFilesByPrefix(
       };
     }
 
-    const keys = files.map((file) => file.key);
-
     if (dryRun) {
       return {
-        filesFound: files.length,
-        deleted: keys,
+        filesFound: keys.length,
+        deleted: keys, // In dry run, "deleted" shows what would be deleted
         errors: [],
         dryRun: true,
       };
     }
 
     // Actually delete the files
-    const deleteResult = await deleteFiles(keys);
+    const deleteResult = await deleteFiles(uploadConfig, keys);
 
     return {
-      filesFound: files.length,
+      filesFound: keys.length,
       deleted: deleteResult.deleted,
       errors: deleteResult.errors,
       dryRun: false,
     };
   } catch (error) {
-    logger.error("Failed to delete files by prefix", error, {
-      operation: "delete-by-prefix",
-      prefix,
-    });
-
-    throw createS3Error(
+    throw new Error(
       `Failed to delete files by prefix: ${
         error instanceof Error ? error.message : "Unknown error"
-      }`,
-      {
-        operation: "delete-by-prefix",
-        prefix,
-        originalError: error instanceof Error ? error : undefined,
-      }
+      }`
     );
   }
 }
