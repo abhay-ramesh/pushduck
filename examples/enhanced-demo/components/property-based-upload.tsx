@@ -6,8 +6,9 @@ import React, { useState } from "react";
 
 export function PropertyBasedImageUpload() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  // Property-based access with full type inference - no string literals!
+  // Enhanced property-based access with per-route configuration AND overall progress tracking
   const {
     uploadFiles,
     files,
@@ -17,7 +18,19 @@ export function PropertyBasedImageUpload() {
     progress,
     uploadSpeed,
     eta,
-  } = upload.imageUpload();
+  } = upload.imageUpload({
+    onSuccess: (results) => {
+      console.log("✅ Images uploaded successfully!", results);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    },
+    onError: (error) => {
+      console.error("❌ Image upload failed:", error);
+    },
+    onProgress: (progress) => {
+      console.log(`📊 Upload progress: ${progress}%`);
+    },
+  });
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
@@ -47,6 +60,7 @@ export function PropertyBasedImageUpload() {
   const handleReset = () => {
     reset();
     setSelectedFiles([]);
+    setShowSuccess(false);
     const input = document.querySelector(
       "#property-image-input"
     ) as HTMLInputElement;
@@ -61,13 +75,33 @@ export function PropertyBasedImageUpload() {
     <div className="p-6 bg-white rounded-lg border-2 border-emerald-200 shadow-md">
       <div className="flex gap-2 items-center mb-4">
         <h2 className="text-xl font-semibold text-gray-800">
-          🚀 Property-Based Client
+          🚀 Enhanced Property-Based Client
         </h2>
-        <div className="px-2 py-1 text-xs font-medium text-emerald-800 bg-emerald-100 rounded-full">
-          Enhanced Type Inference
-        </div>
-        <div className="px-2 py-1 text-xs font-medium text-orange-800 bg-orange-100 rounded-full">
-          Overall Progress Tracking
+        {showSuccess && (
+          <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+            ✅ Upload Successful!
+          </span>
+        )}
+      </div>
+
+      <div className="mb-4">
+        <p className="text-sm text-gray-600 mb-2">
+          <strong>New Features:</strong> Per-route callbacks, progress tracking,
+          and error handling
+        </p>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
+            onSuccess callback
+          </span>
+          <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded">
+            onError callback
+          </span>
+          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded">
+            onProgress tracking
+          </span>
+          <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded">
+            Overall Progress Tracking
+          </span>
         </div>
       </div>
 
@@ -79,17 +113,17 @@ export function PropertyBasedImageUpload() {
           <li>
             •{" "}
             <code className="px-1 bg-emerald-100 rounded">
-              upload.imagegUpload()
+              upload.imageUpload({`{...}`})
             </code>{" "}
-            - Hook factory pattern (tRPC-style)
+            - Enhanced hook factory with per-route config
           </li>
-          <li>• Full TypeScript inference from server router</li>
+          <li>• Per-route callbacks: onSuccess, onError, onProgress</li>
           <li>
             • <strong>Overall progress tracking</strong> - progress,
-            uploadSpeed, eta
+            uploadSpeed, eta across all files
           </li>
+          <li>• Full TypeScript inference from server router</li>
           <li>• Zero runtime overhead, compile-time safety</li>
-          <li>• Backward compatible with existing hooks</li>
         </ul>
       </div>
 
@@ -98,72 +132,55 @@ export function PropertyBasedImageUpload() {
         <input
           id="property-image-input"
           type="file"
-          accept="image/*"
           multiple
+          accept="image/*"
           onChange={handleFileSelect}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
         />
         <p className="mt-1 text-xs text-gray-500">
-          Property-based upload with enhanced type inference & overall progress
+          Enhanced property-based upload with per-route configuration & overall
+          progress tracking
         </p>
       </div>
 
-      {/* Selected Files Info */}
       {selectedFiles.length > 0 && (
-        <div className="p-3 mb-4 bg-gray-50 rounded-md">
-          <h3 className="mb-2 text-sm font-medium text-gray-700">
-            Selected Files ({selectedFiles.length}):
-          </h3>
-          <div className="space-y-2">
+        <div className="mb-4">
+          <h4 className="font-medium text-gray-700 mb-2">Selected Files:</h4>
+          <ul className="space-y-2">
             {selectedFiles.map((file, index) => (
-              <div
+              <li
                 key={index}
-                className="flex justify-between items-center p-2 bg-white rounded border"
+                className="flex items-center justify-between text-sm bg-gray-50 p-2 rounded"
               >
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-800">
-                    {file.name}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type}
-                  </p>
-                </div>
+                <span>
+                  {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                </span>
                 <button
                   onClick={() => removeSelectedFile(index)}
-                  className="ml-2 text-sm text-red-500 hover:text-red-700"
+                  className="text-red-500 hover:text-red-700"
                 >
-                  ✕
+                  Remove
                 </button>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
 
-      {/* Action Buttons */}
       <div className="flex gap-2 mb-4">
         <button
           onClick={handleUpload}
-          disabled={selectedFiles.length === 0 || isUploading}
-          className="px-4 py-2 text-white bg-emerald-600 rounded-md transition-colors hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          disabled={isUploading || selectedFiles.length === 0}
+          className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:bg-gray-400"
         >
-          {isUploading
-            ? `Uploading ${
-                files.filter((f) => f.status === "uploading").length
-              }/${files.length}...`
-            : `Upload ${selectedFiles.length} Image${
-                selectedFiles.length !== 1 ? "s" : ""
-              }`}
+          {isUploading ? "Uploading..." : "Upload Images"}
         </button>
-
-        {(files.length > 0 || errors.length > 0) && (
-          <button
-            onClick={handleReset}
-            className="px-4 py-2 text-white bg-gray-600 rounded-md transition-colors hover:bg-gray-700"
-          >
-            Reset
-          </button>
-        )}
+        <button
+          onClick={handleReset}
+          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+        >
+          Reset
+        </button>
       </div>
 
       {/* Overall Progress Tracking */}
@@ -204,6 +221,17 @@ export function PropertyBasedImageUpload() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {errors.length > 0 && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
+          <h4 className="font-medium text-red-800">Errors:</h4>
+          <ul className="text-sm text-red-600">
+            {errors.map((error, index) => (
+              <li key={index}>• {error}</li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -302,7 +330,7 @@ export function PropertyBasedImageUpload() {
                     </a>
                   )}
                   <p className="mt-1 text-xs text-green-600">
-                    ✅ Successfully uploaded via property-based client
+                    ✅ Successfully uploaded via enhanced property-based client
                   </p>
                 </div>
               )}
@@ -311,21 +339,6 @@ export function PropertyBasedImageUpload() {
               {file.status === "error" && file.error && (
                 <p className="mt-1 text-sm text-red-600">{file.error}</p>
               )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Error Messages */}
-      {errors.length > 0 && (
-        <div className="mb-4">
-          <h3 className="mb-2 text-sm font-medium text-red-700">Errors:</h3>
-          {errors.map((error, index) => (
-            <div
-              key={index}
-              className="p-2 text-sm text-red-700 bg-red-50 rounded border border-red-200"
-            >
-              {error}
             </div>
           ))}
         </div>

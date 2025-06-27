@@ -11,10 +11,10 @@ import { useCallback, useRef, useState } from "react";
 import type {
   RouterRouteNames,
   S3FileMetadata,
-  S3RouteUploadConfig,
   S3RouteUploadResult,
   S3Router,
   S3UploadedFile,
+  UploadRouteConfig,
 } from "../types";
 
 // ========================================
@@ -84,17 +84,17 @@ async function uploadToS3(
 
 export function useUploadRoute<TRouter extends S3Router<any>>(
   routeName: RouterRouteNames<TRouter>,
-  config?: S3RouteUploadConfig
+  config?: UploadRouteConfig
 ): S3RouteUploadResult;
 
 export function useUploadRoute(
   routeName: string,
-  config?: S3RouteUploadConfig
+  config?: UploadRouteConfig
 ): S3RouteUploadResult;
 
 export function useUploadRoute<TRouter extends S3Router<any>>(
   routeName: RouterRouteNames<TRouter> | string,
-  config: S3RouteUploadConfig = {}
+  config: UploadRouteConfig = {}
 ): S3RouteUploadResult {
   const [files, setFiles] = useState<S3UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -203,6 +203,12 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
   const startUpload = useCallback(
     async (uploadFiles: File[]) => {
       if (!uploadFiles.length) return;
+
+      // Check if uploads are disabled
+      if (config.disabled) {
+        console.warn(`Upload disabled for route: ${String(routeName)}`);
+        return;
+      }
 
       try {
         setIsUploading(true);

@@ -1,10 +1,19 @@
 /**
  * Enhanced Upload Client with Property-Based Access
  *
- * This implements Option 1: Property-Based Access pattern:
+ * This implements enhanced property-based access pattern with per-route configuration:
  *
  * const upload = createUploadClient<AppRouter>({ endpoint: "/api/upload" });
- * const { uploadFiles } = upload.imageUpload(); // Note: Now a function call!
+ *
+ * // Simple usage (unchanged)
+ * const { uploadFiles } = upload.imageUpload();
+ *
+ * // With per-route configuration (new!)
+ * const { uploadFiles } = upload.imageUpload({
+ *   onSuccess: (results) => console.log('Success!', results),
+ *   onError: (error) => console.error('Error:', error),
+ *   onProgress: (progress) => console.log('Progress:', progress)
+ * });
  */
 
 "use client";
@@ -16,6 +25,7 @@ import type {
   InferClientRouter,
   S3Router,
   TypedRouteHook,
+  UploadRouteConfig,
 } from "../types";
 
 // ========================================
@@ -23,23 +33,44 @@ import type {
 // ========================================
 
 /**
- * Hook for individual route access (internal)
+ * Hook for individual route access with optional per-route configuration
  */
 function useTypedRoute<TRouter extends S3Router<any>>(
   routeName: string,
-  config: ClientConfig
+  config: ClientConfig,
+  routeOptions?: UploadRouteConfig
 ): TypedRouteHook<TRouter> {
-  const hookResult = useUploadRoute(routeName, { endpoint: config.endpoint });
+  // Merge global config with route-specific options
+  const mergedConfig: UploadRouteConfig = {
+    endpoint: routeOptions?.endpoint || config.endpoint,
+    onSuccess: routeOptions?.onSuccess || config.defaultOptions?.onSuccess,
+    onError: routeOptions?.onError || config.defaultOptions?.onError,
+    onProgress: routeOptions?.onProgress || config.defaultOptions?.onProgress,
+  };
+
+  const hookResult = useUploadRoute(routeName, mergedConfig);
 
   const enhancedUploadFiles = useCallback(
     async (files: File[], metadata?: any) => {
+      // Check if disabled
+      if (routeOptions?.disabled || config.defaultOptions?.disabled) {
+        console.warn(`Upload disabled for route: ${routeName}`);
+        return [];
+      }
+
       await hookResult.uploadFiles(files);
       return hookResult.files.map((file) => ({
         ...file,
         metadata,
       }));
     },
-    [hookResult.uploadFiles, hookResult.files]
+    [
+      hookResult.uploadFiles,
+      hookResult.files,
+      routeOptions?.disabled,
+      config.defaultOptions?.disabled,
+      routeName,
+    ]
   );
 
   return {
@@ -49,6 +80,9 @@ function useTypedRoute<TRouter extends S3Router<any>>(
     isUploading: hookResult.isUploading,
     errors: hookResult.errors,
     routeName,
+    progress: hookResult.progress,
+    uploadSpeed: hookResult.uploadSpeed,
+    eta: hookResult.eta,
   };
 }
 
@@ -57,15 +91,30 @@ function useTypedRoute<TRouter extends S3Router<any>>(
 // ========================================
 
 /**
- * Create a type-safe upload client with property-based access
+ * Create a type-safe upload client with property-based access and per-route configuration
  *
- * Following tRPC pattern, each route returns a hook factory function.
- * This ensures React's rules of hooks are followed while maintaining type safety.
+ * Following tRPC pattern, each route returns a hook factory function that accepts optional configuration.
+ * This ensures React's rules of hooks are followed while maintaining type safety and flexibility.
  *
  * @example
  * ```typescript
  * const upload = createUploadClient<AppRouter>({ endpoint: "/api/upload" });
- * const { uploadFiles, files } = upload.imageUpload(); // Hook factory function!
+ *
+ * // Simple usage
+ * const { uploadFiles, files } = upload.imageUpload();
+ *
+ * // With per-route callbacks
+ * const { uploadFiles, files } = upload.imageUpload({
+ *   onSuccess: (results) => console.log('Upload successful!', results),
+ *   onError: (error) => console.error('Upload failed:', error),
+ *   onProgress: (progress) => setProgress(progress)
+ * });
+ *
+ * // With different endpoint
+ * const { uploadFiles } = upload.secureUpload({
+ *   endpoint: '/api/secure-upload',
+ *   onSuccess: handleSecureUpload
+ * });
  * ```
  */
 export function createUploadClient<TRouter extends S3Router<any>>(
@@ -79,9 +128,10 @@ export function createUploadClient<TRouter extends S3Router<any>>(
         );
       }
 
-      // Return a hook factory function (tRPC pattern)
+      // Return a hook factory function that accepts optional route configuration
       // This ensures hooks are called consistently on every render
-      return () => useTypedRoute<TRouter>(prop, config);
+      return (routeOptions?: UploadRouteConfig) =>
+        useTypedRoute<TRouter>(prop, config, routeOptions);
     },
 
     has(target, prop) {

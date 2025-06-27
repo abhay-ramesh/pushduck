@@ -1,132 +1,400 @@
 ---
 title: createUploadClient
-description: Create a type-safe upload client with enhanced property-based access
+description: Create a type-safe upload client with property-based access and optional per-route configuration
 ---
 
 import { Callout } from "fumadocs-ui/components/callout";
-import { TypeTable } from "fumadocs-ui/components/type-table";
+import { Card, Cards } from "fumadocs-ui/components/card";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { TypeTable } from "fumadocs-ui/components/type-table";
 
 # createUploadClient
 
-Creates a type-safe upload client that provides property-based access to your upload endpoints with full TypeScript inference.
+Create a type-safe upload client with **property-based access** and optional **per-route configuration**. This is the recommended approach for most projects.
 
 <Callout type="success">
-  **Recommended Approach**: This is the preferred way to handle uploads in your React components. It provides enhanced developer experience with property-based access and centralized configuration.
+  **Enhanced in v2.0**: Now supports per-route callbacks, progress tracking, and error handling while maintaining superior type safety.
 </Callout>
 
-<Callout type="info">
+## Why Use This Approach?
+
+- 🏆 **Superior Type Safety** - Route names validated at compile time
+- 🎯 **Property-Based Access** - No string literals, full IntelliSense
+- ⚡ **Per-Route Configuration** - Callbacks, endpoints, and options per route
+- 🔄 **Centralized Setup** - Single configuration for all routes
+- 🛡️ **Refactoring Safety** - Rename routes safely across codebase
+
   This utility function provides property-based access to your upload routes. You can also use the `useUploadRoute<AppRouter>()` hook if you prefer traditional React patterns.
-</Callout>
 
-## Benefits of This Approach
+## Basic Setup
 
-The structured client approach offers these advantages:
+<Steps>
+  <Step>
+    **Create the upload client**
+    
+    ```typescript title="lib/upload-client.ts"
+    import { createUploadClient } from 'pushduck/client'
+    import type { AppRouter } from './upload'
 
-- **🎯 Type Safety**: Complete inference from server router to client
-- **🔍 IntelliSense**: See all available endpoints with autocomplete
-- **🛡️ Refactoring Safety**: Rename routes confidently across your codebase
-- **🚫 No String Literals**: Property-based access eliminates typos
-- **⚡ Centralized Config**: Set up headers, timeouts, and options once
+    export const upload = createUploadClient<AppRouter>({
+      endpoint: '/api/upload'
+    })
+    ```
+  </Step>
 
-## Function Signature
+  <Step>
+    **Use in components**
+    
+    ```typescript title="components/upload-form.tsx"
+    import { upload } from '@/lib/upload-client'
 
-```typescript
-function createUploadClient<TRouter extends S3Router<any>>(
-  config: ClientConfig
-): InferClientRouter<TRouter>;
-```
+    export function UploadForm() {
+      const { uploadFiles, files, isUploading } = upload.imageUpload()
+      
+      return (
+        <input 
+          type="file" 
+          onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
+          disabled={isUploading}
+        />
+      )
+    }
+    ```
+  </Step>
+</Steps>
 
-## Parameters
+## Configuration Options
 
 <TypeTable
   type={{
     endpoint: {
-      description: "API endpoint URL for your upload router",
+      description: "Base API endpoint for upload routes",
       type: "string",
       required: true,
     },
+    defaultOptions: {
+      description: "Global default options applied to all routes",
+      type: "RouteUploadOptions",
+    },
     fetcher: {
-      description: "Custom fetch function (optional)",
+      description: "Custom fetch function for requests",
       type: "(input: RequestInfo, init?: RequestInit) => Promise<Response>",
     },
   }}
 />
 
-## Return Type
+## Per-Route Configuration
 
-The function returns an upload client with property-based access to your router endpoints:
+Each route method now accepts optional configuration:
 
+<TypeTable
+  type={{
+    onSuccess: {
+      description: "Callback when uploads complete successfully",
+      type: "(results: UploadResult[]) => void",
+    },
+    onError: {
+      description: "Callback when upload fails",
+      type: "(error: Error) => void",
+    },
+    onProgress: {
+      description: "Callback for progress updates",
+      type: "(progress: number) => void",
+    },
+    endpoint: {
+      description: "Override endpoint for this specific route",
+      type: "string",
+    },
+    disabled: {
+      description: "Disable uploads for this route",
+      type: "boolean",
+      default: "false",
+    },
+    autoUpload: {
+      description: "Automatically start upload when files are selected",
+      type: "boolean",
+      default: "true",
+    },
+  }}
+/>
+
+## Examples
+
+<Tabs items={["Basic Usage", "With Callbacks", "Multiple Routes", "Global + Per-Route", "Advanced Config"]}>
+  <Tab value="Basic Usage">
 ```typescript
-type InferClientRouter<TRouter> = {
-  readonly [K in keyof TRouter]: () => TypedRouteHook<TRouter, K>;
-};
+    import { upload } from '@/lib/upload-client'
 
-// Each route returns a hook factory function that provides:
-interface TypedRouteHook {
-  files: TypedUploadedFile[];
-  uploadFiles: (files: File[], metadata?: any) => Promise<any[]>;
-  reset: () => void;
-  isUploading: boolean;
-  errors: string[];
-  routeName: string;
-}
-```
+    export function BasicUpload() {
+      // Simple usage - no configuration needed
+      const { uploadFiles, files, isUploading, reset } = upload.imageUpload()
 
-## Usage Examples
-
-<Tabs items={["Basic", "Advanced", "With Authentication"]}>
-  <Tab value="Basic">
-    ```typescript
-    import { createUploadClient } from 'pushduck/client'
-    import type { AppRouter } from '@/lib/upload'
-
-    export const upload = createUploadClient<AppRouter>({
-      endpoint: '/api/upload'
-    })
-
-    // Property-based access with full type safety
-    const { uploadFiles, files } = upload.imageUpload
+      return (
+        <div>
+          <input 
+            type="file"
+            accept="image/*"
+            onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
+            disabled={isUploading}
+          />
+          
+          {files.map(file => (
+            <div key={file.id}>
+              <span>{file.name}</span>
+              <progress value={file.progress} max={100} />
+              {file.status === 'success' && <span>✅</span>}
+            </div>
+          ))}
+          
+          <button onClick={reset}>Reset</button>
+        </div>
+      )
+    }
     ```
+  </Tab>
 
+  <Tab value="With Callbacks">
+    ```typescript
+    import { upload } from '@/lib/upload-client'
+    import { toast } from 'sonner'
+
+    export function CallbackUpload() {
+      const [progress, setProgress] = useState(0)
+      
+      const { uploadFiles, files, isUploading } = upload.imageUpload({
+        onSuccess: (results) => {
+          toast.success(`✅ Uploaded ${results.length} images!`)
+          console.log('Upload results:', results)
+        },
+        onError: (error) => {
+          toast.error(`❌ Upload failed: ${error.message}`)
+          console.error('Upload error:', error)
+        },
+        onProgress: (progress) => {
+          setProgress(progress)
+          console.log(`📊 Progress: ${progress}%`)
+        }
+      })
+
+      return (
+        <div>
+          <input 
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
+          />
+          
+          {progress > 0 && (
+            <div>
+              <progress value={progress} max={100} />
+              <span>{progress}% complete</span>
+            </div>
+          )}
+        </div>
+      )
+    }
+    ```
+  </Tab>
+
+  <Tab value="Multiple Routes">
+    ```typescript
+    export function MultiUploadForm() {
+      // Different configuration for each upload type
+      const images = upload.imageUpload({
+        onSuccess: (results) => updateImageGallery(results)
+      })
+      
+      const documents = upload.documentUpload({
+        onSuccess: (results) => updateDocumentLibrary(results),
+        onError: (error) => logSecurityError(error)
+      })
+      
+      const videos = upload.videoUpload({
+        onProgress: (progress) => setVideoProgress(progress),
+        onSuccess: (results) => processVideoThumbnails(results)
+      })
+
+      return (
+        <div className="space-y-6">
+          <section>
+            <h3>Images</h3>
+            <FileUploadSection {...images} accept="image/*" />
+          </section>
+          
+          <section>
+            <h3>Documents</h3>
+            <FileUploadSection {...documents} accept=".pdf,.doc,.docx" />
+          </section>
+          
+          <section>
+            <h3>Videos</h3>
+            <FileUploadSection {...videos} accept="video/*" />
+          </section>
+        </div>
+      )
+    }
+    ```
   </Tab>
   
-  <Tab value="Advanced">
+  <Tab value="Global + Per-Route">
     ```typescript
-    export const upload = createUploadClient<AppRouter>({
+    // Global configuration with per-route overrides
+    const upload = createUploadClient<AppRouter>({
       endpoint: '/api/upload',
-      timeout: 60000,
-      retries: 5,
-      headers: {
-        'X-Client-Version': '1.0.0'
-      },
-      onProgress: (progress) => {
-        console.log(`Global progress: ${progress.percentage}%`)
+      
+      // These apply to all routes by default
+      defaultOptions: {
+        onProgress: (progress) => updateGlobalProgress(progress),
+        onError: (error) => logError(error)
       }
     })
+
+    export function MixedConfigUpload() {
+      // Inherits global onProgress and onError
+      const basic = upload.imageUpload()
+      
+      // Overrides global settings + adds success handler
+      const premium = upload.documentUpload({
+        endpoint: '/api/premium-upload', // Different endpoint
+        onSuccess: (results) => {
+          // This overrides global behavior
+          handlePremiumUpload(results)
+        }
+        // Still inherits global onProgress and onError
+      })
+
+      return (
+        <div>
+          <FileUploader {...basic} label="Basic Images" />
+          <FileUploader {...premium} label="Premium Documents" />
+        </div>
+      )
+    }
     ```
   </Tab>
   
-  <Tab value="With Authentication">
+  <Tab value="Advanced Config">
     ```typescript
-    export const upload = createUploadClient<AppRouter>({
+    const upload = createUploadClient<AppRouter>({
       endpoint: '/api/upload',
+      
+      // Custom fetch function
+      fetcher: async (input, init) => {
+        const token = await getAuthToken()
+        return fetch(input, {
+          ...init,
       headers: {
-        'Authorization': `Bearer ${getAuthToken()}`
+            ...init?.headers,
+            'Authorization': `Bearer ${token}`
+          }
+        })
       },
+      
+      defaultOptions: {
       onError: (error) => {
-        if (error.status === 401) {
-          redirectToLogin()
+          // Global error tracking
+          analytics.track('upload_error', { error: error.message })
+          toast.error('Upload failed. Please try again.')
         }
       }
     })
+
+    export function AdvancedUpload() {
+      const { uploadFiles, files } = upload.secureUpload({
+        endpoint: '/api/secure-upload',
+        disabled: !user.hasPermission('upload'),
+        onSuccess: (results) => {
+          // Audit log for secure uploads
+          auditLog('secure_upload_success', {
+            files: results.length,
+            user: user.id
+          })
+      }
+    })
+
+      return <SecureFileUploader {...{ uploadFiles, files }} />
+    }
     ```
   </Tab>
 </Tabs>
 
+## Type Safety Benefits
+
+The structured client provides superior TypeScript integration:
+
+```typescript
+const upload = createUploadClient<AppRouter>({ endpoint: '/api/upload' })
+
+// ✅ IntelliSense shows available routes
+upload.imageUpload()      // Autocomplete suggests this
+upload.documentUpload()   // And this
+upload.videoUpload()      // And this
+
+// ❌ TypeScript error for non-existent routes
+upload.invalidRoute()     // Error: Property 'invalidRoute' does not exist
+
+// ✅ Route rename safety
+// If you rename 'imageUpload' to 'photoUpload' in your router,
+// TypeScript will show errors everywhere it's used, making refactoring safe
+
+// ✅ Callback type inference
+upload.imageUpload({
+  onSuccess: (results) => {
+    // `results` is fully typed based on your router configuration
+    results.forEach(result => {
+      console.log(result.url)  // TypeScript knows this exists
+      console.log(result.key)  // And this
+    })
+  }
+})
+```
+
+## Comparison with Hooks
+
+| Feature | Enhanced Structured Client | Hook-Based |
+|---------|---------------------------|------------|
+| Type Safety | ✅ **Superior** - Property-based | ✅ Good - Generic types |
+| IntelliSense | ✅ **Full route autocomplete** | ⚠️ String-based routes |
+| Refactoring | ✅ **Safe rename across codebase** | ⚠️ Manual find/replace |
+| Callbacks | ✅ **Full support** | ✅ Full support |
+| Per-route Config | ✅ **Full support** | ✅ Full support |
+| Bundle Size | ✅ **Same** | ✅ Same |
+| Performance | ✅ **Identical** | ✅ Identical |
+
+## Migration from Hooks
+
+Easy migration from hook-based approach:
+
+```typescript
+// Before: Hook-based
+import { useUploadRoute } from 'pushduck/client'
+
+const { uploadFiles, files } = useUploadRoute<AppRouter>('imageUpload', {
+  onSuccess: handleSuccess,
+  onError: handleError
+})
+
+// After: Enhanced structured client
+import { upload } from '@/lib/upload-client'
+
+const { uploadFiles, files } = upload.imageUpload({
+  onSuccess: handleSuccess,
+  onError: handleError
+})
+```
+
+Benefits of migration:
+- 🎯 **Better type safety** - Route names validated at compile time
+- 🔍 **Enhanced IntelliSense** - Autocomplete for all routes
+- 🏗️ **Centralized config** - Single place for endpoint and defaults
+- 🛡️ **Refactoring safety** - Rename routes safely
+- ⚡ **Same performance** - Zero runtime overhead
+
 ---
 
 <Callout type="success">
-  **Type Safety:** The client automatically infers all available endpoints from
-  your router type, providing compile-time validation and autocomplete.
-</Callout>{" "}
+  **Recommended Approach**: Use `createUploadClient` for the best developer experience with full flexibility and type safety.
+</Callout>
+

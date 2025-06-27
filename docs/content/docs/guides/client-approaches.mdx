@@ -10,28 +10,36 @@ import { Steps, Step } from "fumadocs-ui/components/steps";
 
 # Client-Side Approaches
 
-Pushduck provides **two ways** to integrate file uploads in your React components. While both approaches provide the same functionality, we recommend the structured client for most use cases.
+Pushduck provides **two ways** to integrate file uploads in your React components. Both approaches now provide **identical functionality** including per-route callbacks, progress tracking, and error handling.
 
 <Callout type="success">
-  **Recommendation**: Use the **Structured Client** approach for the best developer experience. It provides enhanced type safety, better refactoring support, and centralized configuration.
+  **Recommendation**: Use the **Enhanced Structured Client** approach for the best developer experience. It now provides the same flexibility as hooks while maintaining superior type safety and centralized configuration.
 </Callout>
 
 ## Quick Comparison
 
 <Cards>
   <Card
-    title="🏆 Structured Client (Recommended)"
-    description="Property-based access with centralized configuration"
+    title="🏆 Enhanced Structured Client (Recommended)"
+    description="Property-based access with optional per-route configuration"
   >
     ```typescript
     const upload = createUploadClient<AppRouter>({
       endpoint: '/api/upload'
     })
     
+    // Simple usage
     const { uploadFiles, files } = upload.imageUpload()
+    
+    // With per-route callbacks (NEW!)
+    const { uploadFiles, files } = upload.imageUpload({
+      onSuccess: (results) => handleSuccess(results),
+      onError: (error) => handleError(error),
+      onProgress: (progress) => setProgress(progress)
+    })
     ```
     
-    **Best for**: Most projects - provides superior DX and type safety
+    **Best for**: Most projects - provides superior DX, type safety, and full flexibility
   </Card>
 
   <Card
@@ -39,12 +47,300 @@ Pushduck provides **two ways** to integrate file uploads in your React component
     description="Traditional React hook pattern"
   >
     ```typescript
-    const { uploadFiles, files } = useUploadRoute<AppRouter>('imageUpload')
+    const { uploadFiles, files } = useUploadRoute<AppRouter>('imageUpload', {
+      onSuccess: (results) => handleSuccess(results),
+      onError: (error) => handleError(error),
+      onProgress: (progress) => setProgress(progress)
+    })
     ```
     
-    **Best for**: Teams that strongly prefer React hooks, component-level control
+    **Best for**: Teams that strongly prefer React hooks, legacy code migration
   </Card>
 </Cards>
+
+## Feature Parity
+
+Both approaches now support **identical functionality**:
+
+| Feature | Enhanced Structured Client | Hook-Based |
+|---------|---------------------------|------------|
+| ✅ Type Safety | **Superior** - Property-based | Good - Generic types |
+| ✅ Per-route Callbacks | **✅ Full support** | ✅ Full support |
+| ✅ Progress Tracking | **✅ Full support** | ✅ Full support |
+| ✅ Error Handling | **✅ Full support** | ✅ Full support |
+| ✅ Multiple Endpoints | **✅ Per-route endpoints** | ✅ Per-route endpoints |
+| ✅ Upload Control | **✅ Enable/disable uploads** | ✅ Enable/disable uploads |
+| ✅ Auto-upload | **✅ Per-route control** | ✅ Per-route control |
+| ✅ Overall Progress | **✅ progress, uploadSpeed, eta** | ✅ progress, uploadSpeed, eta |
+
+## API Comparison: Identical Capabilities
+
+Both approaches now return **exactly the same** properties and accept **exactly the same** configuration options:
+
+```typescript
+// Hook-Based Approach
+const {
+  uploadFiles,    // (files: File[]) => Promise<void>
+  files,          // S3UploadedFile[]
+  isUploading,    // boolean
+  errors,         // string[]
+  reset,          // () => void
+  progress,       // number (0-100) - overall progress
+  uploadSpeed,    // number (bytes/sec) - overall speed
+  eta             // number (seconds) - overall ETA
+} = useUploadRoute<AppRouter>('imageUpload', {
+  onSuccess: (results) => handleSuccess(results),
+  onError: (error) => handleError(error),
+  onProgress: (progress) => setProgress(progress),
+  endpoint: '/api/custom-upload',
+  disabled: false,
+  autoUpload: true
+});
+
+// Enhanced Structured Client - IDENTICAL capabilities
+const {
+  uploadFiles,    // (files: File[]) => Promise<void>
+  files,          // S3UploadedFile[]
+  isUploading,    // boolean
+  errors,         // string[]
+  reset,          // () => void
+  progress,       // number (0-100) - overall progress
+  uploadSpeed,    // number (bytes/sec) - overall speed
+  eta             // number (seconds) - overall ETA
+} = upload.imageUpload({
+  onSuccess: (results) => handleSuccess(results),
+  onError: (error) => handleError(error),
+  onProgress: (progress) => setProgress(progress),
+  endpoint: '/api/custom-upload',
+  disabled: false,
+  autoUpload: true
+});
+```
+
+## Complete Options Parity
+
+Both approaches support **identical configuration options**:
+
+```typescript
+interface CommonUploadOptions {
+  onSuccess?: (results: UploadResult[]) => void;
+  onError?: (error: Error) => void;
+  onProgress?: (progress: number) => void;
+  endpoint?: string;           // Custom endpoint per route
+  disabled?: boolean;          // Enable/disable uploads
+  autoUpload?: boolean;        // Auto-upload when files selected
+}
+
+// Hook-based: useUploadRoute(routeName, options)
+// Structured: upload.routeName(options)
+// Both accept the same CommonUploadOptions interface
+```
+
+## Return Value Parity
+
+Both approaches return **identical properties**:
+
+```typescript
+interface CommonUploadReturn {
+  uploadFiles: (files: File[]) => Promise<void>;
+  files: S3UploadedFile[];
+  isUploading: boolean;
+  errors: string[];
+  reset: () => void;
+  
+  // Overall progress tracking (NEW in both!)
+  progress?: number;     // 0-100 percentage across all files
+  uploadSpeed?: number;  // bytes per second across all files  
+  eta?: number;          // seconds remaining for all files
+}
+```
+
+## Enhanced Structured Client Examples
+
+### Basic Usage (Unchanged)
+
+```typescript
+import { createUploadClient } from 'pushduck/client'
+import type { AppRouter } from '@/lib/upload'
+
+const upload = createUploadClient<AppRouter>({ endpoint: '/api/upload' })
+
+export function SimpleUpload() {
+  const { uploadFiles, files, isUploading } = upload.imageUpload()
+  
+  return (
+    <input 
+      type="file" 
+      onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
+      disabled={isUploading}
+    />
+  )
+}
+```
+
+### With Per-Route Configuration (NEW!)
+
+```typescript
+export function AdvancedUpload() {
+  const [progress, setProgress] = useState(0)
+  
+  const { uploadFiles, files, isUploading, errors, reset } = 
+    upload.imageUpload({
+      onSuccess: (results) => {
+        console.log('✅ Upload successful!', results)
+        showNotification('Images uploaded successfully!')
+      },
+      onError: (error) => {
+        console.error('❌ Upload failed:', error)
+        showErrorNotification(error.message)
+      },
+      onProgress: (progress) => {
+        console.log(`📊 Progress: ${progress}%`)
+        setProgress(progress)
+      }
+    })
+
+  return (
+    <div>
+      <input type="file" onChange={(e) => uploadFiles(Array.from(e.target.files || []))} />
+      {progress > 0 && <progress value={progress} max={100} />}
+      <button onClick={reset}>Reset</button>
+    </div>
+  )
+}
+```
+
+### Multiple Routes with Different Configurations
+
+```typescript
+export function MultiUploadComponent() {
+  // Images with progress tracking
+  const images = upload.imageUpload({
+    onProgress: (progress) => setImageProgress(progress)
+  })
+  
+  // Documents with different endpoint and success handler
+  const documents = upload.documentUpload({
+    endpoint: '/api/secure-upload',
+    onSuccess: (results) => updateDocumentLibrary(results)
+  })
+  
+  // Videos with upload disabled (feature flag)
+  const videos = upload.videoUpload({
+    disabled: !isVideoUploadEnabled
+  })
+
+  return (
+    <div>
+      <FileUploadSection {...images} accept="image/*" />
+      <FileUploadSection {...documents} accept=".pdf,.doc" />
+      <FileUploadSection {...videos} accept="video/*" />
+    </div>
+  )
+}
+```
+
+### Global Configuration with Per-Route Overrides
+
+```typescript
+const upload = createUploadClient<AppRouter>({
+  endpoint: '/api/upload',
+  
+  // Global defaults (optional)
+  defaultOptions: {
+    onProgress: (progress) => console.log(`Global progress: ${progress}%`),
+    onError: (error) => logError(error)
+  }
+})
+
+// This route inherits global defaults
+const basic = upload.imageUpload()
+
+// This route overrides specific options
+const custom = upload.documentUpload({
+  endpoint: '/api/secure-upload', // Override endpoint
+  onSuccess: (results) => handleSecureUpload(results) // Add success handler
+  // Still inherits global onProgress and onError
+})
+```
+
+## Hook-Based Approach (Unchanged)
+
+```typescript
+import { useUploadRoute } from 'pushduck/client'
+
+export function HookBasedUpload() {
+  const { uploadFiles, files, isUploading, error } = useUploadRoute<AppRouter>('imageUpload', {
+    onSuccess: (results) => console.log('Success:', results),
+    onError: (error) => console.error('Error:', error),
+    onProgress: (progress) => console.log('Progress:', progress)
+  })
+
+  return (
+    <input 
+      type="file" 
+      onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
+      disabled={isUploading}
+    />
+  )
+}
+```
+
+## Migration Guide
+
+### From Hook-Based to Enhanced Structured Client
+
+```typescript
+// Before: Hook-based
+const { uploadFiles, files } = useUploadRoute<AppRouter>('imageUpload', {
+  onSuccess: handleSuccess,
+  onError: handleError
+})
+
+// After: Enhanced structured client
+const upload = createUploadClient<AppRouter>({ endpoint: '/api/upload' })
+const { uploadFiles, files } = upload.imageUpload({
+  onSuccess: handleSuccess,
+  onError: handleError
+})
+```
+
+### Benefits of Migration
+
+1. **Better Type Safety**: Route names are validated at compile time
+2. **Enhanced IntelliSense**: Auto-completion for all available routes
+3. **Centralized Configuration**: Single place to configure endpoints and defaults
+4. **Refactoring Support**: Rename routes safely across your codebase
+5. **No Performance Impact**: Same underlying implementation
+
+## When to Use Each Approach
+
+### Use Enhanced Structured Client When:
+- ✅ **Starting a new project** - best overall developer experience
+- ✅ **Want superior type safety** - compile-time route validation
+- ✅ **Need centralized configuration** - single place for settings
+- ✅ **Value refactoring support** - safe route renames
+
+### Use Hook-Based When:
+- ✅ **Migrating existing code** - minimal changes required
+- ✅ **Dynamic route names** - routes determined at runtime
+- ✅ **Team strongly prefers hooks** - familiar React patterns
+- ✅ **Legacy compatibility** - maintaining older codebases
+
+## Performance Considerations
+
+Both approaches have **identical performance** characteristics:
+- Same underlying `useUploadRoute` implementation
+- Same network requests and upload logic
+- Same React hooks rules and lifecycle
+
+The enhanced structured client adds zero runtime overhead while providing compile-time benefits.
+
+---
+
+<Callout type="info">
+  **Full Feature Parity**: Both approaches now support the same functionality. The choice comes down to developer experience preferences rather than feature limitations.
+</Callout>
 
 ## Detailed Comparison
 
@@ -214,92 +510,10 @@ Pushduck provides **two ways** to integrate file uploads in your React component
   </Tab>
 </Tabs>
 
-## Migration Guide
-
-### From Hook-Based to Structured Client
-
-<Steps>
-  <Step>
-    **Create Upload Client**
-    
-    ```typescript
-    // lib/upload-client.ts
-    import { createUploadClient } from 'pushduck/client'
-    import type { AppRouter } from './upload'
-    
-    export const upload = createUploadClient<AppRouter>({
-      endpoint: '/api/upload'
-    })
-    ```
-  </Step>
-
-  <Step>
-    **Update Component Imports**
-    
-    ```typescript
-    // Before
-    import { useUploadRoute } from 'pushduck/client'
-    
-    // After
-    import { upload } from '@/lib/upload-client'
-    ```
-  </Step>
-
-  <Step>
-    **Replace Hook Calls**
-    
-    ```typescript
-    // Before
-    const { uploadFiles, files } = useUploadRoute('imageUpload')
-    
-    // After
-    const { uploadFiles, files } = upload.imageUpload()
-    ```
-  </Step>
-
-  <Step>
-    **Enjoy Enhanced Type Safety**
-    
-    Your IDE will now show:
-    - ✅ Autocomplete for all available routes
-    - ✅ Type errors for non-existent routes
-    - ✅ Safe refactoring across your codebase
-  </Step>
-</Steps>
-
-## When to Use Each Approach
-
-### Use Structured Client When:
-
-- 🆕 **Starting a new project**
-- 🎯 **Type safety is important** to your team
-- 🔍 **Developer experience matters** - you want IntelliSense and autocomplete
-- 🛡️ **Refactoring safety** - you plan to evolve your upload routes
-- ⚡ **Modern React patterns** - you prefer property-based access
-
-### Use Hook-Based When:
-
-- 🔄 **Migrating existing code** that already uses hooks
-- 👥 **Team strongly prefers** traditional React hook patterns
-- 📦 **Legacy codebase** where gradual migration is preferred
-- 🧩 **Granular control** needed over individual upload state
-- ⏰ **Short-term project** where setup time matters more than maintainability
-
-## Performance Considerations
-
-Both approaches have identical runtime performance:
-
-- **Bundle Size**: No difference - same underlying implementation
-- **Runtime Performance**: Identical - both use the same upload logic
-- **Memory Usage**: Same - both create similar React state
-- **Network Requests**: Identical - same API calls and patterns
-
-The choice is purely about **developer experience** and **type safety**.
-
 ## Conclusion
 
 <Callout type="success">
-  **Our Recommendation**: Use the **Structured Client** approach (`createUploadClient`) for most projects. It provides superior developer experience, better refactoring safety, and enhanced type inference.
+  **Our Recommendation**: Use the **Enhanced Structured Client** approach (`createUploadClient`) for most projects. It provides superior developer experience, better refactoring safety, and enhanced type inference.
 </Callout>
 
 <Callout type="info">
