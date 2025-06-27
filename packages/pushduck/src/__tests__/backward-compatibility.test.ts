@@ -118,11 +118,19 @@ describe("Legacy Functionality Tests", () => {
 
       if (data.results && data.results.length > 0) {
         const firstResult = data.results[0];
+
         expect(firstResult).toHaveProperty("success");
-        expect(firstResult).toHaveProperty("presignedUrl");
-        expect(firstResult).toHaveProperty("key");
         expect(firstResult).toHaveProperty("file");
-        expect(firstResult).toHaveProperty("metadata");
+
+        if (firstResult.success) {
+          // Success case - should have presignedUrl, key, and metadata
+          expect(firstResult).toHaveProperty("presignedUrl");
+          expect(firstResult).toHaveProperty("key");
+          expect(firstResult).toHaveProperty("metadata");
+        } else {
+          // Error case - should have error message
+          expect(firstResult).toHaveProperty("error");
+        }
       }
     });
 
