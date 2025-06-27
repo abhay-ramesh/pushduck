@@ -63,9 +63,9 @@ npx @pushduck/cli test
 
 ```typescript
 // lib/upload.ts
-import { uploadConfig } from "pushduck/server";
+import { createUploadConfig } from "pushduck/server";
 
-const { s3 } = uploadConfig
+const { s3 } = createUploadConfig()
   .provider("aws", {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -294,7 +294,7 @@ Unlike other solutions that bundle the entire AWS SDK (2MB+), Pushduck uses **[a
 
 ```typescript
 // What you get with Pushduck
-import { uploadConfig } from "pushduck/server"; // ~5KB
+import { createUploadConfig } from "pushduck/server"; // ~5KB
 // vs other solutions
 import { S3Client } from "@aws-sdk/client-s3"; // ~500KB+
 ```
@@ -324,9 +324,9 @@ Pushduck follows a **secure-by-default** architecture:
 ### Custom Configuration
 
 ```typescript
-import { uploadConfig } from "pushduck/server";
+import { createUploadConfig } from "pushduck/server";
 
-const { s3 } = uploadConfig
+const { s3 } = createUploadConfig()
   .provider("aws", {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -382,23 +382,23 @@ const router = s3.createRouter({
 
 ```typescript
 // Next.js App Router (default)
-import { uploadConfig } from "pushduck/server";
+import { createUploadConfig } from "pushduck/server";
 
 // Next.js Pages Router
-import { uploadConfig } from "pushduck/adapters/nextjs-pages";
+import { createUploadConfig } from "pushduck/adapters/nextjs-pages";
 
 // Express
-import { uploadConfig } from "pushduck/adapters/express";
+import { createUploadConfig } from "pushduck/adapters/express";
 
 // Fastify
-import { uploadConfig } from "pushduck/adapters/fastify";
+import { createUploadConfig } from "pushduck/adapters/fastify";
 ```
 
 ### Multiple Providers
 
 ```typescript
 // AWS S3
-const { s3: awsS3 } = uploadConfig
+const { s3: awsS3 } = createUploadConfig()
   .provider("aws", {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -408,7 +408,7 @@ const { s3: awsS3 } = uploadConfig
   .build();
 
 // Cloudflare R2 (S3-compatible)
-const { s3: r2S3 } = uploadConfig
+const { s3: r2S3 } = createUploadConfig()
   .provider("cloudflareR2", {
     accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
     accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID!,
@@ -419,7 +419,7 @@ const { s3: r2S3 } = uploadConfig
   .build();
 
 // DigitalOcean Spaces (S3-compatible)
-const { s3: spacesS3 } = uploadConfig
+const { s3: spacesS3 } = createUploadConfig()
   .provider("digitalOceanSpaces", {
     accessKeyId: process.env.DO_SPACES_ACCESS_KEY_ID!,
     secretAccessKey: process.env.DO_SPACES_SECRET_ACCESS_KEY!,
@@ -429,7 +429,7 @@ const { s3: spacesS3 } = uploadConfig
   .build();
 
 // MinIO (S3-compatible)
-const { s3: minioS3 } = uploadConfig
+const { s3: minioS3 } = createUploadConfig()
   .provider("minio", {
     endpoint: process.env.MINIO_ENDPOINT!,
     accessKeyId: process.env.MINIO_ACCESS_KEY_ID!,

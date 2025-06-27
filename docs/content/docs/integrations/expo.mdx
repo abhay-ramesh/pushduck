@@ -91,9 +91,9 @@ Expo Router is a file-based router for React Native and web applications that en
     **Configure upload router**
     
     ```typescript title="lib/upload.ts"
-    import { uploadConfig } from 'pushduck/server';
+    import { createUploadConfig } from 'pushduck/server';
 
-    const { s3 } = uploadConfig
+    const { s3 } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -189,10 +189,10 @@ export async function POST(request: Request) {
 ### Authentication with Expo Auth
 
 ```typescript title="lib/upload.ts"
-import { uploadConfig } from 'pushduck/server';
+import { createUploadConfig } from 'pushduck/server';
 import { jwtVerify } from 'jose';
 
-const { s3 } = uploadConfig
+const { s3 } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -818,7 +818,7 @@ const { upload } = useUpload('/api/upload', {
 Enable debug logging for development:
 
 ```typescript title="lib/upload.ts"
-const { s3 } = uploadConfig
+const { s3 } = createUploadConfig()
   .provider("cloudflareR2",{ /* config */ })
   .defaults({
     debug: __DEV__, // Only in development

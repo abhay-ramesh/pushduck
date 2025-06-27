@@ -13,9 +13,9 @@ The `storage` instance comes from your upload configuration, not created separat
 
 ```typescript
 // lib/upload.ts
-import { uploadConfig } from 'pushduck/server'
+import { createUploadConfig } from 'pushduck/server'
 
-const { storage, s3, config } = uploadConfig
+const { storage, s3, config } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,

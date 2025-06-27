@@ -52,9 +52,9 @@ Pushduck provides seamless integration with both Next.js App Router and Pages Ro
     **Configure your upload router**
     
     ```typescript title="lib/upload.ts"
-    import { uploadConfig } from 'pushduck/server';
+    import { createUploadConfig } from 'pushduck/server';
 
-    const { s3, createS3Router } = uploadConfig
+    const { s3, createS3Router } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -127,11 +127,11 @@ export const { GET, POST } = toNextJsHandler(uploadRouter.handlers);
 ### Advanced Configuration
 
 ```typescript title="app/api/upload/route.ts"
-import { uploadConfig } from 'pushduck/server';
+import { createUploadConfig } from 'pushduck/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-const { s3, createS3Router } = uploadConfig
+const { s3, createS3Router } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -213,11 +213,11 @@ export default toNextJsPagesHandler(uploadRouter.handlers);
 ### With Authentication
 
 ```typescript title="pages/api/upload/[...path].ts"
-import { uploadConfig } from 'pushduck/server';
+import { createUploadConfig } from 'pushduck/server';
 import { toNextJsPagesHandler } from 'pushduck/adapters/nextjs-pages';
 import { getSession } from 'next-auth/react';
 
-const { s3, createS3Router } = uploadConfig
+const { s3, createS3Router } = createUploadConfig()
   .provider("cloudflareR2",{
     // ... your config
   })
@@ -370,11 +370,11 @@ Here's a recommended project structure for Next.js with pushduck:
 ### Upload Configuration
 
 ```typescript title="lib/upload.ts"
-import { uploadConfig } from 'pushduck/server';
+import { createUploadConfig } from 'pushduck/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from './auth';
 
-const { s3, createS3Router } = uploadConfig
+const { s3, createS3Router } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,

@@ -51,9 +51,9 @@ SvelteKit is the official application framework for Svelte. It uses Web Standard
     **Configure upload router**
     
     ```typescript title="src/lib/upload.ts"
-    import { uploadConfig } from 'pushduck/server';
+    import { createUploadConfig } from 'pushduck/server';
 
-    const { s3, createS3Router } = uploadConfig
+    const { s3, createS3Router } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -150,10 +150,10 @@ export const handle = sequence(corsHandler);
 ### Authentication with SvelteKit
 
 ```typescript title="src/lib/upload.ts"
-import { uploadConfig } from 'pushduck/server';
+import { createUploadConfig } from 'pushduck/server';
 import { getUserFromSession } from '$lib/auth';
 
-const { s3, createS3Router } = uploadConfig
+const { s3, createS3Router } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,

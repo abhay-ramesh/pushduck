@@ -161,10 +161,10 @@ async function createUploadConfig(
   const providerMethod = getProviderMethodName(provider);
   const envVars = getProviderEnvVars(provider);
 
-  const content = `import { uploadConfig } from "pushduck/server";
+  const content = `import { createUploadConfig } from "pushduck/server";
 
 // Initialize upload configuration with simplified one-step process
-const { s3, config } = uploadConfig
+const { s3, config } = createUploadConfig()
   .${providerMethod}({
     ${envVars}
   })

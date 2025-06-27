@@ -51,9 +51,9 @@ Hono is a fast, lightweight web framework built on Web Standards. Since Hono use
     **Configure upload router**
     
     ```typescript title="lib/upload.ts"
-    import { uploadConfig } from 'pushduck/server';
+    import { createUploadConfig } from 'pushduck/server';
 
-    const { s3, createS3Router } = uploadConfig
+    const { s3, createS3Router } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -146,10 +146,10 @@ export default app;
 ### Authentication with Hono
 
 ```typescript title="lib/upload.ts"
-import { uploadConfig } from 'pushduck/server';
+import { createUploadConfig } from 'pushduck/server';
 import { verify } from 'hono/jwt';
 
-const { s3, createS3Router } = uploadConfig
+const { s3, createS3Router } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,

@@ -90,10 +90,10 @@ First, create your upload configuration:
 
 ```typescript
 // lib/upload.ts
-import { uploadConfig } from "pushduck/server";
+import { createUploadConfig } from "pushduck/server";
 
 // Configure your S3-compatible storage
-export const { s3, storage } = uploadConfig  
+export const { s3, storage } = createUploadConfig()  
   .provider("cloudflareR2",{
     accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
     secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,

@@ -1,6 +1,6 @@
 # pushduck Demo Setup
 
-This demo shows the new configuration-first approach where everything flows from the `upload.ts` initialization.
+This demo shows the configuration-first approach using `createUploadConfig()` where everything flows from the `upload.ts` initialization.
 
 ## 🚀 Quick Start
 
@@ -33,16 +33,20 @@ DO_SPACES_BUCKET=your-bucket
 The `upload.ts` file initializes the configuration and returns configured instances:
 
 ```typescript
-import { initializeUploadConfig, uploadConfig } from "pushduck";
+import { createUploadConfig } from "pushduck/server";
 
 // Initialize and get configured instances
-const { s3,  config } = initializeUploadConfig(
-  uploadConfig
-    .auto() // Auto-detects provider from env vars
-    .defaults({ maxFileSize: "10MB" })
-    .security({ allowedOrigins: ["http://localhost:3000"] })
-    .build()
-);
+const { s3, config } = createUploadConfig()
+  .provider("cloudflareR2", {
+    // Provider auto-detected from env vars
+    accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
+    bucket: process.env.CLOUDFLARE_R2_BUCKET,
+    accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+  })
+  .defaults({ maxFileSize: "10MB" })
+  .security({ allowedOrigins: ["http://localhost:3000"] })
+  .build();
 
 // Export the configured instances
 export { s3 }; 
@@ -78,8 +82,7 @@ Change providers by updating environment variables or the config:
 
 ```typescript
 // Explicit provider configuration
-const { s3 } = initializeUploadConfig(
-  uploadConfig
+const { s3 } = createUploadConfig()
     .cloudflareR2() // or .aws(), .digitalOceanSpaces(), .minio()
     .defaults({ maxFileSize: "10MB" })
     .build()

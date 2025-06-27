@@ -197,9 +197,9 @@ Configure pushduck to use your S3-compatible service:
 
 ```typescript
 // lib/upload.ts
-import { uploadConfig } from "pushduck/server";
+import { createUploadConfig } from "pushduck/server";
 
-export const { s3, config } = uploadConfig
+export const { s3, config } = createUploadConfig()
   .provider("s3Compatible", {
     endpoint: process.env.S3_ENDPOINT!,
     bucket: process.env.S3_BUCKET_NAME!,
@@ -224,7 +224,7 @@ export { s3 };
 
 ```typescript
 // For services with specific requirements
-export const { s3, config } = uploadConfig
+export const { s3, config } = createUploadConfig()
   .provider("s3Compatible", {
     endpoint: process.env.S3_ENDPOINT!,
     bucket: process.env.S3_BUCKET_NAME!,
@@ -311,7 +311,7 @@ Your S3-compatible storage is now configured! You can now:
 ### SeaweedFS
 
 ```typescript
-export const { s3, config } = uploadConfig
+export const { s3, config } = createUploadConfig()
   .provider("s3Compatible", {
     endpoint: "https://seaweedfs.yourdomain.com:8333",
     bucket: "uploads",
@@ -326,7 +326,7 @@ export const { s3, config } = uploadConfig
 ### Garage
 
 ```typescript
-export const { s3, config } = uploadConfig
+export const { s3, config } = createUploadConfig()
   .provider("s3Compatible", {
     endpoint: "https://garage.yourdomain.com",
     bucket: "my-app-files",
@@ -341,7 +341,7 @@ export const { s3, config } = uploadConfig
 ### Wasabi (Alternative to dedicated provider)
 
 ```typescript
-export const { s3, config } = uploadConfig
+export const { s3, config } = createUploadConfig()
   .provider("s3Compatible", {
     endpoint: "https://s3.wasabisys.com",
     bucket: "my-wasabi-bucket",
@@ -356,7 +356,7 @@ export const { s3, config } = uploadConfig
 ### Backblaze B2 (S3-Compatible API)
 
 ```typescript
-export const { s3, config } = uploadConfig
+export const { s3, config } = createUploadConfig()
   .provider("s3Compatible", {
     endpoint: "https://s3.us-west-000.backblazeb2.com",
     bucket: "my-b2-bucket",
@@ -497,7 +497,7 @@ const getStorageMetrics = async () => {
 
 ```typescript
 // Optimize for high throughput
-export const { s3, config } = uploadConfig
+export const { s3, config } = createUploadConfig()
   .provider("s3Compatible", {
     // ... config
     maxRetries: 3,

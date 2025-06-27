@@ -51,9 +51,9 @@ Remix is a full-stack React framework focused on web standards and modern UX. It
     **Configure upload router**
     
     ```typescript title="app/lib/upload.ts"
-    import { uploadConfig } from 'pushduck/server';
+    import { createUploadConfig } from 'pushduck/server';
 
-    const { s3, createS3Router } = uploadConfig
+    const { s3, createS3Router } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -168,10 +168,10 @@ export async function action({ request }: ActionFunctionArgs) {
 ### Authentication with Remix
 
 ```typescript title="app/lib/upload.ts"
-import { uploadConfig } from 'pushduck/server';
+import { createUploadConfig } from 'pushduck/server';
 import { getSession } from '~/sessions';
 
-const { s3, createS3Router } = uploadConfig
+const { s3, createS3Router } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,

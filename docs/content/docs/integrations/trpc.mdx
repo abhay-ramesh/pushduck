@@ -80,10 +80,10 @@ graph TD
     **Configure storage and upload router**
     
     ```typescript title="lib/storage.ts"
-    import { uploadConfig } from 'pushduck/server';
+    import { createUploadConfig } from 'pushduck/server';
 
     // Configure storage
-    export const { s3, storage, createS3Router } = uploadConfig
+    export const { s3, storage, createS3Router } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,

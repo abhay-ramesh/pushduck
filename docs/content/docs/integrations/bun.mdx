@@ -50,9 +50,9 @@ Bun is an ultra-fast JavaScript runtime with native Web Standards support. Since
     **Configure upload router**
     
     ```typescript title="lib/upload.ts"
-    import { uploadConfig } from 'pushduck/server';
+    import { createUploadConfig } from 'pushduck/server';
 
-    const { s3, createS3Router } = uploadConfig
+    const { s3, createS3Router } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -195,9 +195,9 @@ console.log('🚀 Bun server running on http://localhost:3000');
 ### Authentication and Rate Limiting
 
 ```typescript title="lib/upload.ts"
-import { uploadConfig } from 'pushduck/server';
+import { createUploadConfig } from 'pushduck/server';
 
-const { s3, createS3Router } = uploadConfig
+const { s3, createS3Router } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,

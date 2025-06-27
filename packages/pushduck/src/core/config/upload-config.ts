@@ -228,12 +228,13 @@ export function createUploadConfig(): UploadConfigBuilder {
 }
 
 /**
+ * @deprecated Use createUploadConfig() instead
  * Create upload configuration with type-safe provider setup
  */
 export const uploadConfig = {
   /**
    * Type-safe provider configuration
-   * Usage: uploadConfig.provider("aws", { bucket: "my-bucket", region: "us-west-2" })
+   * Usage: createUploadConfig().provider("aws", { bucket: "my-bucket", region: "us-west-2" })
    */
   provider: <T extends ProviderType>(
     type: T,
@@ -257,7 +258,7 @@ export interface UploadInitResult {
   s3: typeof s3;
 }
 
-// initializeUploadConfig removed - use uploadConfig.build() directly
+// initializeUploadConfig removed - use createUploadConfig().build() directly
 
 /**
  * Get the global upload configuration
@@ -268,9 +269,9 @@ export function getUploadConfig(): UploadConfig {
       "Upload configuration not initialized. Auto-configuration is disabled for security.\n\n" +
         "Please explicitly initialize with a provider:\n" +
         "1. Create an upload.ts file:\n" +
-        '   export const config = uploadConfig.provider("aws", { bucket: "...", region: "..." }).build();\n' +
+        '   export const config = createUploadConfig().provider("aws", { bucket: "...", region: "..." }).build();\n' +
         "   export const { s3 } = config;\n\n" +
-        "2. Or call uploadConfig.build() directly with your provider configuration."
+        "2. Or call createUploadConfig().build() directly with your provider configuration."
     );
   }
   return globalUploadConfig;

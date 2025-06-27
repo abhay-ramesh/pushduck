@@ -51,7 +51,7 @@ export async function addRouteCommand() {
 }
 
 function generateRouteConfig(routeName: string, fileType: string): string {
-  const baseConfig = `  ${routeName}: uploadConfig
+  const baseConfig = `  ${routeName}: createUploadConfig()
     .aws() // or your provider
     .${fileType}()`;
 

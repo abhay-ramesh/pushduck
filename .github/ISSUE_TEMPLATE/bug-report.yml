@@ -68,9 +68,9 @@ body:
       description: Minimal code that reproduces the issue
       placeholder: |
         // Your code here
-        import { uploadConfig } from 'pushduck/server';
+        import { createUploadConfig } from 'pushduck/server';
 
-        export const { uploadRouter } = uploadConfig
+        export const { uploadRouter } = createUploadConfig()
           .provider("cloudflareR2", {
             // your config
           })
@@ -211,7 +211,7 @@ body:
       placeholder: |
         ```typescript
         // Your pushduck configuration
-        export const { uploadRouter } = uploadConfig
+        export const { uploadRouter } = createUploadConfig()
           .provider("cloudflareR2", {
             // your config (without secrets)
           })
