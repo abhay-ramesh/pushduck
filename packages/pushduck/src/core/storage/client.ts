@@ -1,19 +1,57 @@
 /**
- * Lightweight S3 Client Implementation using aws4fetch
+ * @fileoverview Lightweight S3 Client Implementation using aws4fetch
  *
- * This replaces the heavy AWS SDK v3 with a minimal 6.4kB alternative
- * that provides the same functionality with ~99% bundle size reduction
+ * This module replaces the heavy AWS SDK v3 with a minimal 6.4kB alternative
+ * that provides the same functionality with ~99% bundle size reduction.
  *
- * Supported Providers:
- * - AWS S3 (native)
- * - Cloudflare R2 (zero egress)
- * - DigitalOcean Spaces (simple pricing)
- * - MinIO (self-hosted)
+ * Features:
+ * - Multi-provider support (AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO)
+ * - Presigned URL generation for secure uploads/downloads
+ * - File operations (upload, download, delete, list, metadata)
+ * - Progress tracking and validation
+ * - Type-safe configuration with comprehensive error handling
  *
- * Future Provider Support Framework:
- * - Enterprise: Azure Blob, IBM Cloud, Oracle OCI
- * - Cost-Optimized: Wasabi, Backblaze B2, Storj DCS
- * - Specialized: Telnyx, Tigris, Cloudian HyperStore
+ * @example Basic Usage
+ * ```typescript
+ * import { generatePresignedUploadUrl, uploadFileToS3 } from 'pushduck/server';
+ *
+ * // Generate presigned URL
+ * const result = await generatePresignedUploadUrl(config, {
+ *   key: 'uploads/image.jpg',
+ *   contentType: 'image/jpeg',
+ *   expiresIn: 3600,
+ * });
+ *
+ * // Upload file directly
+ * const url = await uploadFileToS3(config, file, 'uploads/document.pdf', {
+ *   contentType: 'application/pdf',
+ *   onProgress: (progress) => console.log(`${progress.percentage}%`),
+ * });
+ * ```
+ *
+ * @example Multi-Provider Configuration
+ * ```typescript
+ * // AWS S3
+ * const awsConfig = createUploadConfig()
+ *   .provider("aws", { bucket: "my-bucket", region: "us-east-1" })
+ *   .build();
+ *
+ * // Cloudflare R2
+ * const r2Config = createUploadConfig()
+ *   .provider("cloudflareR2", {
+ *     accountId: "...",
+ *     bucket: "my-bucket",
+ *     region: "auto"
+ *   })
+ *   .build();
+ *
+ * // Both use the same API
+ * const files = await listFiles(awsConfig.config);
+ * const r2Files = await listFiles(r2Config.config);
+ * ```
+ *
+ * @author Pushduck Team
+ * @since 1.0.0
  */
 
 import { AwsClient } from "aws4fetch";
@@ -26,26 +64,64 @@ import { logger } from "../utils/logger";
 // Configuration Helper
 // ========================================
 
+/**
+ * S3-compatible configuration interface for internal use.
+ * Normalizes different provider configurations into a common format.
+ *
+ * @interface S3CompatibleConfig
+ * @internal
+ */
 interface S3CompatibleConfig {
+  /** AWS access key ID */
   accessKeyId: string;
+  /** AWS secret access key */
   secretAccessKey: string;
+  /** AWS region (or equivalent for other providers) */
   region: string;
+  /** S3 bucket name */
   bucket: string;
+  /** Custom endpoint URL for S3-compatible providers */
   endpoint?: string;
+  /** Whether to use path-style URLs (required for some providers) */
   forcePathStyle?: boolean;
+  /** Default ACL for uploaded objects */
   acl?: string;
+  /** Custom domain for public URLs */
   customDomain?: string;
+  /** Enable debug logging */
   debug?: boolean;
 }
 
 /**
- * Extracts S3-compatible configuration from provider config
+ * Extracts S3-compatible configuration from provider config.
+ * This function normalizes different provider configurations into a common format
+ * that can be used with the aws4fetch client.
  *
- * Provider Implementation Guide:
- * 1. Add case to switch statement
- * 2. Configure endpoint, region, and forcePathStyle
- * 3. Test with aws4fetch client
- * 4. Update provider types in ./providers.ts
+ * @param config - Provider configuration object
+ * @returns Normalized S3-compatible configuration
+ * @throws {Error} For unsupported providers
+ *
+ * @internal
+ *
+ * @example
+ * ```typescript
+ * const awsConfig = getS3CompatibleConfig({
+ *   provider: "aws",
+ *   bucket: "my-bucket",
+ *   region: "us-east-1",
+ *   accessKeyId: "...",
+ *   secretAccessKey: "...",
+ * });
+ *
+ * const r2Config = getS3CompatibleConfig({
+ *   provider: "cloudflare-r2",
+ *   bucket: "my-bucket",
+ *   region: "auto",
+ *   endpoint: "https://abc123.r2.cloudflarestorage.com",
+ *   accessKeyId: "...",
+ *   secretAccessKey: "...",
+ * });
+ * ```
  */
 function getS3CompatibleConfig(config: ProviderConfig): S3CompatibleConfig {
   const baseConfig = {
@@ -287,6 +363,36 @@ let awsClientInstance: AwsClient | null = null;
 /**
  * Creates and caches an AWS client instance using aws4fetch
  */
+/**
+ * Creates and caches an AWS client instance using aws4fetch.
+ * This function creates a lightweight S3-compatible client that works with multiple providers.
+ * The client is cached for performance and reused across requests.
+ *
+ * @param uploadConfig - Optional upload configuration. If not provided, uses global config.
+ * @returns Configured AwsClient instance
+ * @throws {Error} If configuration is missing or invalid
+ *
+ * @example Basic Usage
+ * ```typescript
+ * const client = createS3Client(config);
+ *
+ * // Use with aws4fetch methods
+ * const response = await client.fetch('https://bucket.s3.amazonaws.com/file.jpg');
+ * ```
+ *
+ * @example Provider-Specific Clients
+ * ```typescript
+ * // AWS S3 client
+ * const awsClient = createS3Client(awsConfig);
+ *
+ * // Cloudflare R2 client
+ * const r2Client = createS3Client(r2Config);
+ *
+ * // Both use the same interface
+ * ```
+ *
+ * @since 1.0.0
+ */
 export function createS3Client(uploadConfig?: UploadConfig): AwsClient {
   if (awsClientInstance && !uploadConfig) {
     return awsClientInstance;
@@ -388,17 +494,72 @@ function buildS3Url(key: string, config: S3CompatibleConfig): string {
 // Presigned URL Generation
 // ========================================
 
+/**
+ * Options for generating presigned URLs for file uploads.
+ * These URLs allow clients to upload files directly to S3 without exposing credentials.
+ *
+ * @interface PresignedUrlOptions
+ * @since 1.0.0
+ *
+ * @example
+ * ```typescript
+ * const options: PresignedUrlOptions = {
+ *   key: 'uploads/user-123/avatar.jpg',
+ *   contentType: 'image/jpeg',
+ *   contentLength: 1024000, // 1MB
+ *   expiresIn: 3600, // 1 hour
+ *   metadata: {
+ *     userId: '123',
+ *     uploadedBy: 'web-app',
+ *   },
+ * };
+ * ```
+ */
 export interface PresignedUrlOptions {
+  /** S3 object key (file path) where the file will be stored */
   key: string;
-  contentType?: string; // Made optional to avoid signing issues
+  /** MIME type of the file (optional to avoid signing issues) */
+  contentType?: string;
+  /** Expected file size in bytes (for validation) */
   contentLength?: number;
-  expiresIn?: number; // seconds, default 3600 (1 hour)
+  /** URL expiration time in seconds (default: 3600 = 1 hour) */
+  expiresIn?: number;
+  /** Custom metadata to attach to the uploaded object */
   metadata?: Record<string, string>;
 }
 
+/**
+ * Result object returned from presigned URL generation.
+ * Contains the URL and metadata needed for uploading files.
+ *
+ * @interface PresignedUrlResult
+ * @since 1.0.0
+ *
+ * @example
+ * ```typescript
+ * const result: PresignedUrlResult = {
+ *   url: 'https://bucket.s3.amazonaws.com/uploads/file.jpg?AWSAccessKeyId=...',
+ *   key: 'uploads/file.jpg',
+ *   fields: {
+ *     'Content-Type': 'image/jpeg',
+ *     'x-amz-meta-user-id': '123',
+ *   },
+ * };
+ *
+ * // Use the URL for direct upload
+ * await fetch(result.url, {
+ *   method: 'PUT',
+ *   headers: result.fields,
+ *   body: file,
+ * });
+ * ```
+ */
 export interface PresignedUrlResult {
+  /** The presigned URL for uploading the file */
   url: string;
+  /** The S3 object key where the file will be stored */
   key: string;
+  /** Additional form fields required for the upload (for POST uploads) */
   fields?: Record<string, string>;
 }
 
@@ -458,6 +619,46 @@ export async function generatePresignedDownloadUrl(
 
 /**
  * Generates a presigned URL for uploading a file to S3
+ */
+/**
+ * Generates a presigned URL for uploading a single file to S3.
+ * This allows clients to upload files directly without exposing AWS credentials.
+ *
+ * @param uploadConfig - Upload configuration containing provider settings
+ * @param options - Presigned URL generation options
+ * @returns Promise resolving to presigned URL result
+ * @throws {Error} If URL generation fails
+ *
+ * @example Basic Usage
+ * ```typescript
+ * const result = await generatePresignedUploadUrl(config, {
+ *   key: 'uploads/image.jpg',
+ *   contentType: 'image/jpeg',
+ *   expiresIn: 3600, // 1 hour
+ * });
+ *
+ * // Client can now upload directly
+ * const response = await fetch(result.url, {
+ *   method: 'PUT',
+ *   headers: { 'Content-Type': 'image/jpeg' },
+ *   body: file,
+ * });
+ * ```
+ *
+ * @example With Metadata
+ * ```typescript
+ * const result = await generatePresignedUploadUrl(config, {
+ *   key: 'documents/report.pdf',
+ *   contentType: 'application/pdf',
+ *   metadata: {
+ *     userId: '123',
+ *     department: 'marketing',
+ *     confidential: 'true',
+ *   },
+ * });
+ * ```
+ *
+ * @since 1.0.0
  */
 export async function generatePresignedUploadUrl(
   uploadConfig: UploadConfig,

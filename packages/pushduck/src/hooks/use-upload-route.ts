@@ -1,10 +1,56 @@
 "use client";
 
 /**
- * Modern Upload Route Hook
+ * @fileoverview Modern Upload Route Hook
  *
- * Provides type-safe file upload functionality with route-based configuration.
- * Supports both type-safe usage with router types and string-based usage.
+ * This module provides a React hook for type-safe file upload functionality with
+ * route-based configuration. Supports progress tracking, error handling, cancellation,
+ * and comprehensive upload state management.
+ *
+ * @example Basic Usage
+ * ```typescript
+ * import { useUploadRoute } from 'pushduck/client';
+ * import type { AppRouter } from '@/lib/upload';
+ *
+ * function ImageUploader() {
+ *   const { uploadFiles, files, isUploading, progress } = useUploadRoute<AppRouter>('imageUpload');
+ *
+ *   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+ *     const selectedFiles = Array.from(e.target.files || []);
+ *     uploadFiles(selectedFiles);
+ *   };
+ *
+ *   return (
+ *     <div>
+ *       <input type="file" multiple accept="image/*" onChange={handleFileSelect} />
+ *       <progress value={progress} max={100} />
+ *       {files.map(file => (
+ *         <div key={file.id}>
+ *           {file.name} - {file.status} ({file.progress}%)
+ *         </div>
+ *       ))}
+ *     </div>
+ *   );
+ * }
+ * ```
+ *
+ * @example Advanced Usage with Callbacks
+ * ```typescript
+ * const { uploadFiles, files, cancel, retry } = useUploadRoute('documentUpload', {
+ *   onProgress: (progress) => console.log(`Overall progress: ${progress.percentage}%`),
+ *   onSuccess: (results) => {
+ *     console.log('Upload completed:', results);
+ *     // Update UI, show success message, etc.
+ *   },
+ *   onError: (error) => {
+ *     console.error('Upload failed:', error);
+ *     // Show error message, retry logic, etc.
+ *   },
+ * });
+ * ```
+ *
+ * @author Pushduck Team
+ * @since 1.0.0
  */
 
 import { useCallback, useRef, useState } from "react";
@@ -21,12 +67,39 @@ import type {
 // Utility Functions
 // ========================================
 
+/**
+ * Formats estimated time remaining into a human-readable string.
+ *
+ * @param seconds - Time remaining in seconds
+ * @returns Formatted time string (e.g., "30s", "2m", "1h")
+ *
+ * @example
+ * ```typescript
+ * formatETA(45);     // "45s"
+ * formatETA(120);    // "2m"
+ * formatETA(3600);   // "1h"
+ * formatETA(7200);   // "2h"
+ * ```
+ */
 function formatETA(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
   if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
   return `${Math.round(seconds / 3600)}h`;
 }
 
+/**
+ * Formats upload speed into a human-readable string with appropriate units.
+ *
+ * @param bytesPerSecond - Upload speed in bytes per second
+ * @returns Formatted speed string (e.g., "1.5 MB/s", "500 KB/s")
+ *
+ * @example
+ * ```typescript
+ * formatUploadSpeed(1024);        // "1.0 KB/s"
+ * formatUploadSpeed(1048576);     // "1.0 MB/s"
+ * formatUploadSpeed(1073741824);  // "1.0 GB/s"
+ * ```
+ */
 function formatUploadSpeed(bytesPerSecond: number): string {
   const units = ["B/s", "KB/s", "MB/s", "GB/s"];
   let size = bytesPerSecond;
@@ -40,6 +113,24 @@ function formatUploadSpeed(bytesPerSecond: number): string {
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
+/**
+ * Uploads a file to S3 using a presigned URL with progress tracking.
+ *
+ * @param file - The file to upload
+ * @param presignedUrl - Presigned URL for the upload
+ * @param onProgress - Optional progress callback
+ * @returns Promise that resolves when upload completes
+ * @throws {Error} If upload fails or is aborted
+ *
+ * @internal
+ *
+ * @example
+ * ```typescript
+ * await uploadToS3(file, presignedUrl, (progress, speed, eta) => {
+ *   console.log(`Progress: ${progress}%, Speed: ${formatUploadSpeed(speed)}, ETA: ${formatETA(eta)}`);
+ * });
+ * ```
+ */
 async function uploadToS3(
   file: File,
   presignedUrl: string,
@@ -82,6 +173,107 @@ async function uploadToS3(
 // Main Hook Implementation
 // ========================================
 
+/**
+ * React hook for managing file uploads with type-safe route configuration.
+ * Provides comprehensive upload state management, progress tracking, and error handling.
+ *
+ * @template TRouter - The router type for type-safe route names
+ * @param routeName - Name of the upload route (type-safe when TRouter is provided)
+ * @param config - Optional configuration for upload behavior and callbacks
+ * @returns Upload state and control functions
+ *
+ * @overload
+ * @template TRouter - Router type extending S3Router
+ * @param routeName - Type-safe route name from the router
+ * @param config - Optional upload configuration
+ * @returns Upload result object with type-safe route handling
+ *
+ * @overload
+ * @param routeName - Route name as string (for dynamic usage)
+ * @param config - Optional upload configuration
+ * @returns Upload result object with standard route handling
+ *
+ * @example Type-Safe Usage
+ * ```typescript
+ * import type { AppRouter } from '@/lib/upload';
+ *
+ * function TypedUploader() {
+ *   // TypeScript will validate 'imageUpload' exists in AppRouter
+ *   const { uploadFiles, files, isUploading, progress, cancel } =
+ *     useUploadRoute<AppRouter>('imageUpload', {
+ *       onProgress: (progress) => {
+ *         console.log(`Upload progress: ${progress.percentage}%`);
+ *         console.log(`Speed: ${formatUploadSpeed(progress.speed)}`);
+ *         console.log(`ETA: ${formatETA(progress.eta)}`);
+ *       },
+ *       onSuccess: (results) => {
+ *         console.log('All uploads completed:', results);
+ *         // Handle successful uploads
+ *       },
+ *       onError: (error) => {
+ *         console.error('Upload error:', error);
+ *         // Handle upload errors
+ *       },
+ *     });
+ *
+ *   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+ *     const files = Array.from(e.target.files || []);
+ *     uploadFiles(files);
+ *   };
+ *
+ *   return (
+ *     <div>
+ *       <input
+ *         type="file"
+ *         multiple
+ *         accept="image/*"
+ *         onChange={handleFileSelect}
+ *         disabled={isUploading}
+ *       />
+ *
+ *       <div>Overall Progress: {progress}%</div>
+ *
+ *       {files.map((file) => (
+ *         <div key={file.id}>
+ *           <span>{file.name}</span>
+ *           <progress value={file.progress} max={100} />
+ *           <span>{file.status}</span>
+ *           {file.status === 'uploading' && (
+ *             <button onClick={() => cancel(file.id)}>Cancel</button>
+ *           )}
+ *         </div>
+ *       ))}
+ *     </div>
+ *   );
+ * }
+ * ```
+ *
+ * @example Dynamic Route Usage
+ * ```typescript
+ * function DynamicUploader({ routeName }: { routeName: string }) {
+ *   const { uploadFiles, files, retry, reset } = useUploadRoute(routeName, {
+ *     onError: (error) => {
+ *       console.error(`Upload to ${routeName} failed:`, error);
+ *     },
+ *   });
+ *
+ *   return (
+ *     <div>
+ *       <input
+ *         type="file"
+ *         onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
+ *       />
+ *
+ *       {files.filter(f => f.status === 'error').length > 0 && (
+ *         <button onClick={retry}>Retry Failed Uploads</button>
+ *       )}
+ *
+ *       <button onClick={reset}>Clear All</button>
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
 export function useUploadRoute<TRouter extends S3Router<any>>(
   routeName: RouterRouteNames<TRouter>,
   config?: UploadRouteConfig
