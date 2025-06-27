@@ -90,9 +90,9 @@ DIGITALOCEAN_CDN_ENDPOINT=https://your-space-name.nyc3.cdn.digitaloceanspaces.co
 
 ```typescript
 // lib/upload.ts
-import { uploadConfig } from "pushduck/server";
+import { createUploadConfig } from "pushduck/server";
 
-export const { s3,  } = uploadConfig
+export const { s3,  } = createUploadConfig()
   .provider("digitalOceanSpaces",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -176,13 +176,13 @@ Deploy across multiple regions for redundancy:
 
 ```typescript
 // Primary region (closest to users)
-const primarySpaces = uploadConfig.provider("digitalOceanSpaces",{
+const primarySpaces = createUploadConfig().provider("digitalOceanSpaces",{
   region: "nyc3", // New York
   bucket: "my-app-uploads-us",
 });
 
 // Backup region
-const backupSpaces = uploadConfig.provider("digitalOceanSpaces",{
+const backupSpaces = createUploadConfig().provider("digitalOceanSpaces",{
   region: "ams3", // Amsterdam
   bucket: "my-app-uploads-eu",
 });
@@ -223,7 +223,7 @@ For sensitive files:
 
 ```typescript
 // Configure private access
-export const { s3,  } = uploadConfig
+export const { s3,  } = createUploadConfig()
   .provider("digitalOceanSpaces",{
     // ... config
     acl: "private", // Files not publicly accessible

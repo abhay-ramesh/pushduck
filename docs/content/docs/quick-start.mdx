@@ -155,9 +155,9 @@ Create an API route to handle file uploads:
 
 ```typescript
 // app/api/s3-upload/route.ts
-import { uploadConfig } from "pushduck/server";
+import { createUploadConfig } from "pushduck/server";
 
-const { s3 } = uploadConfig
+const { s3 } = createUploadConfig()
   .provider("cloudflareR2",{
     accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
     accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID!,

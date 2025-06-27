@@ -83,10 +83,10 @@ A typical Next.js project with pushduck follows this structure:
     Create a separate file to export your router types for client-side usage:
 
     ```typescript title="lib/upload.ts"
-    import { uploadConfig } from 'pushduck/server'
+    import { createUploadConfig } from 'pushduck/server'
 
     // Configure upload with provider and settings
-    const { s3, storage } = uploadConfig
+    const { s3, storage } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -262,7 +262,7 @@ Configure settings that apply to all upload endpoints:
 </Callout>
 
 ```typescript
-// ❌ Deprecated approach - use modern uploadConfig instead
+// ❌ Deprecated approach - use modern createUploadConfig() instead
 // This section is kept for reference only
 ```
 
@@ -270,7 +270,7 @@ Configure settings that apply to all upload endpoints:
 
 ```typescript
 // ✅ Modern approach with hierarchical paths
-const { s3 } = uploadConfig
+const { s3 } = createUploadConfig()
   .provider("cloudflareR2",{ /* config */ })
   .paths({
     prefix: "uploads",
@@ -292,9 +292,9 @@ Support different storage providers for different upload types:
 
 ```typescript
 // ✅ Modern approach with multiple provider configurations
-import { uploadConfig } from "pushduck/server";
+import { createUploadConfig } from "pushduck/server";
 
-const primaryConfig = uploadConfig
+const primaryConfig = createUploadConfig()
   .provider("cloudflareR2",{
     // Primary R2 config for production files
     accessKeyId: process.env.R2_ACCESS_KEY_ID!,
@@ -304,7 +304,7 @@ const primaryConfig = uploadConfig
   })
   .build();
 
-const backupConfig = uploadConfig
+const backupConfig = createUploadConfig()
   .provider("aws",{
     // AWS S3 config for backups
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
@@ -444,9 +444,9 @@ const s3Router = s3.createRouter({
 Export your router type for end-to-end type safety:
 
 ```typescript title="lib/upload.ts"
-import { uploadConfig } from "pushduck/server";
+import { createUploadConfig } from "pushduck/server";
 
-const { s3 } = uploadConfig
+const { s3 } = createUploadConfig()
   .provider("cloudflareR2",{ /* your config */ })
   .build();
 

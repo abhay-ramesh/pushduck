@@ -58,9 +58,9 @@ The path system works in **layers** that build upon each other:
 Configure the base structure that all uploads will use:
 
 ```typescript title="lib/upload.ts"
-import { uploadConfig } from "pushduck/server";
+import { createUploadConfig } from "pushduck/server";
 
-const { s3 } = uploadConfig
+const { s3 } = createUploadConfig()
   .provider("cloudflareR2",{
     // ... provider config
   })
@@ -194,7 +194,7 @@ Override the default structure for specific use cases:
 Organize files by environment for clean separation:
 
 ```typescript title="lib/upload.ts"
-const { s3 } = uploadConfig
+const { s3 } = createUploadConfig()
   .provider("cloudflareR2",{
     // ... provider config
   })
@@ -493,7 +493,7 @@ export const { POST, GET } = s3Router.handlers;
 
 ```typescript
 // New way - hierarchical configuration
-const { s3 } = uploadConfig
+const { s3 } = createUploadConfig()
   .provider("cloudflareR2",{ /* config */ })
   .paths({
     prefix: "uploads",

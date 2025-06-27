@@ -9,9 +9,9 @@ description: Essential storage operations at a glance
 
 ```typescript
 // lib/upload.ts
-import { uploadConfig } from 'pushduck/server'
+import { createUploadConfig } from 'pushduck/server'
 
-const { storage } = uploadConfig
+const { storage } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,

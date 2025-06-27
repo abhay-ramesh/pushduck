@@ -121,9 +121,9 @@ await imageUpload.uploadFiles(selectedFiles);
   <Tab value="Advanced Configuration">
     ```typescript
     // app/api/upload/route.ts
-    import { uploadConfig } from "pushduck/server";
+    import { createUploadConfig } from "pushduck/server";
     
-    const { s3,  } = uploadConfig
+    const { s3,  } = createUploadConfig()
       .provider("cloudflareR2",{
         accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
         bucket: process.env.R2_BUCKET!,

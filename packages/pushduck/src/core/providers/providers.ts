@@ -396,7 +396,7 @@ export type ProviderType = keyof ProviderSpecsType;
 
 /**
  * Maps each provider type to its corresponding configuration interface
- * This enables type-safe provider configuration in uploadConfig.provider()
+ * This enables type-safe provider configuration in createUploadConfig().provider()
  */
 export type ProviderConfigMap = {
   aws: Partial<Omit<AWSProviderConfig, "provider">>;

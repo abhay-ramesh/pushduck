@@ -2,12 +2,12 @@
  * Test script to verify framework-agnostic handlers work with proper configuration
  */
 
-import { initializeUploadConfig, uploadConfig } from "./dist/server.mjs";
+import { createUploadConfig } from "./dist/server.mjs";
 
 console.log("🧪 Testing Framework-Agnostic Handlers with Configuration...\n");
 
 // Initialize upload config with mock AWS settings
-const config = uploadConfig
+const { s3, createS3Router } = createUploadConfig()
     .provider("aws", {
         accessKeyId: "test-key",
         secretAccessKey: "test-secret",
@@ -15,8 +15,6 @@ const config = uploadConfig
         bucket: "test-bucket",
     })
     .build();
-
-const { s3, createS3Router } = initializeUploadConfig(config);
 
 console.log("✅ Upload configuration initialized");
 

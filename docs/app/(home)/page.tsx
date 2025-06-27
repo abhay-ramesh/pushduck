@@ -24,10 +24,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BundledTheme, codeToHtml } from "shiki";
 
-const codeExample = `import { uploadConfig } from "pushduck/server";
+const codeExample = `import { createUploadConfig } from "pushduck/server";
 
 // Universal API - works with ANY framework
-export const { s3, uploadRouter } = uploadConfig
+export const { s3, uploadRouter } = createUploadConfig()
   .provider("cloudflareR2", {
     bucket: process.env.S3_BUCKET!,
     region: process.env.AWS_REGION!,

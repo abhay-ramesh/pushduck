@@ -2,11 +2,11 @@
  * Upload Configuration for pushduck Demo
  *
  * This file configures the upload client and exports the configured instances.
- * Now simplified - no wrapper function needed! Just call uploadConfig.build()
+ * Now simplified - no wrapper function needed! Just call createUploadConfig().build()
  * and destructure { s3,  config } directly.
  */
 
-import { uploadConfig } from "pushduck/server";
+import { createUploadConfig } from "pushduck/server";
 
 // ========================================
 // Types
@@ -28,7 +28,7 @@ interface UploadMetadata {
 // ========================================
 
 // Configure and initialize upload client directly
-const { s3, config, storage } = uploadConfig
+const { s3, config, storage } = createUploadConfig()
   .provider("cloudflareR2", {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -155,7 +155,7 @@ export { s3, storage };
 // ========================================
 
 // For AWS S3:
-// const { s3: awsS3, config: awsConfig } = uploadConfig
+// const { s3: awsS3, config: awsConfig } = createUploadConfig()
 //   .provider("aws",{
 //     region: "us-east-1",
 //     bucket: "my-s3-bucket",
@@ -170,7 +170,7 @@ export { s3, storage };
 //   .build();
 
 // For DigitalOcean Spaces:
-// const { s3: doS3, config: doConfig } = uploadConfig
+// const { s3: doS3, config: doConfig } = createUploadConfig()
 //   .provider("digitalOceanSpaces",{
 //     region: "nyc3",
 //     bucket: "my-spaces-bucket",
@@ -182,7 +182,7 @@ export { s3, storage };
 //   .build();
 
 // For MinIO:
-// const { s3: minioS3, config: minioConfig } = uploadConfig
+// const { s3: minioS3, config: minioConfig } = createUploadConfig()
 //   .provider("minio",{
 //     endpoint: "localhost:9000",
 //     bucket: "my-minio-bucket",

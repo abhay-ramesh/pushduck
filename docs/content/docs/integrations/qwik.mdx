@@ -51,9 +51,9 @@ Qwik is a revolutionary web framework focused on resumability and edge optimizat
     **Configure upload router**
     
     ```typescript title="src/lib/upload.ts"
-    import { uploadConfig } from 'pushduck/server';
+    import { createUploadConfig } from 'pushduck/server';
 
-    const { s3, createS3Router } = uploadConfig
+    const { s3, createS3Router } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID!,
         secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY!,
@@ -144,9 +144,9 @@ export const onRequest: RequestHandler = async ({ request, headers }) => {
 ### Authentication with Qwik
 
 ```typescript title="src/lib/upload.ts"
-import { uploadConfig } from 'pushduck/server';
+import { createUploadConfig } from 'pushduck/server';
 
-const { s3, createS3Router } = uploadConfig
+const { s3, createS3Router } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID!,
     secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY!,

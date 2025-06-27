@@ -93,7 +93,7 @@ body:
       description: How do you think the provider configuration should work?
       placeholder: |
         // Example of how you'd like to configure this provider
-        export const { uploadRouter } = uploadConfig
+        export const { uploadRouter } = createUploadConfig()
           .provider("yourProvider", {
             apiKey: process.env.PROVIDER_API_KEY,
             bucket: process.env.PROVIDER_BUCKET,
