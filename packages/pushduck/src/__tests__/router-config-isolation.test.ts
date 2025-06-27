@@ -105,7 +105,9 @@ describe("Phase 2: Router System with Config-Aware Instances", () => {
       expect(r2Router.getRoute("data")).toBeDefined();
 
       // Verify cross-router isolation (testing with correct route names)
+      // @ts-expect-error - testing with incorrect route names
       expect(awsRouter.getRoute("data")).toBeUndefined();
+      // @ts-expect-error - testing with incorrect route names
       expect(r2Router.getRoute("documents")).toBeUndefined();
     });
   });
@@ -208,9 +210,11 @@ describe("Phase 2: Router System with Config-Aware Instances", () => {
 
       // Verify routes exist in their respective routers
       expect(router1.getRoute("uploads")).toBeDefined();
+      // @ts-expect-error - testing with incorrect route names
       expect(router1.getRoute("nonexistent")).toBeUndefined();
 
       expect(router2.getRoute("files")).toBeDefined();
+      // @ts-expect-error - testing with incorrect route names
       expect(router2.getRoute("nonexistent")).toBeUndefined();
     });
   });
