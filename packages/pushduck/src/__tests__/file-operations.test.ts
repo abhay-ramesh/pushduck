@@ -12,10 +12,10 @@ import {
   type FileInfo,
   type ListFilesOptions,
   type ValidationRules,
-} from "./storage/client";
+} from "../core/storage/client";
 
 // Mock the upload config
-vi.mock("./upload-config", () => ({
+vi.mock("../core/config/upload-config", () => ({
   getUploadConfig: () => ({
     provider: {
       provider: "aws",

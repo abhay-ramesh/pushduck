@@ -10,7 +10,7 @@
 
 import { NextRequest } from "next/server";
 
-import { getUploadConfig } from "../config/upload-config";
+import { UploadConfig } from "../config/upload-config";
 import { createUniversalHandler } from "../handler/universal-handler";
 import { InferS3Input, InferS3Output, S3Schema } from "../schema";
 import {
@@ -178,7 +178,8 @@ function generateHierarchicalPath<TMetadata>(
           metadata: any
         ) => string;
       }
-    | undefined
+    | undefined,
+  uploadConfig: UploadConfig
 ): string {
   // Build path context for route-level functions
   const pathContext: PathContext<TMetadata> = {
@@ -217,7 +218,7 @@ function generateHierarchicalPath<TMetadata>(
     }
   } else {
     // Use default generation for the file part
-    filePath = generateFileKey({
+    filePath = generateFileKey(uploadConfig, {
       originalName: file.name,
       userId: (metadata as any)?.userId || (metadata as any)?.user?.id,
       prefix: "", // Don't add prefix here, we're building it hierarchically
@@ -242,21 +243,24 @@ function generateHierarchicalPath<TMetadata>(
 export type S3RouterDefinition = Record<string, S3Route<any, any>>;
 
 export class S3Router<TRoutes extends S3RouterDefinition> {
-  constructor(private routes: TRoutes) {}
+  private config: UploadConfig;
+  private routes: TRoutes;
 
-  // Get route configuration
+  constructor(routes: TRoutes, config: UploadConfig) {
+    this.routes = routes;
+    this.config = config;
+  }
+
   getRoute<K extends keyof TRoutes>(routeName: K): TRoutes[K] | undefined {
     return this.routes[routeName];
   }
 
-  // Get all route names
   getRouteNames(): (keyof TRoutes)[] {
     return Object.keys(this.routes);
   }
 
-  // Framework-agnostic handlers using Web Standards
   get handlers() {
-    return createUniversalHandler(this);
+    return createUniversalHandler(this, this.config);
   }
 
   // Generate presigned URLs for upload
@@ -271,7 +275,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     }
 
     const routeConfig = route._getConfig();
-    const uploadConfig = getUploadConfig();
+    const uploadConfig = this.config;
     const results: PresignedUrlResponse[] = [];
 
     for (const file of files) {
@@ -306,10 +310,11 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           metadata,
           String(routeName),
           routeConfig.paths,
-          uploadConfig.paths
+          uploadConfig.paths,
+          uploadConfig
         );
 
-        const presignedResult = await generatePresignedUploadUrl({
+        const presignedResult = await generatePresignedUploadUrl(uploadConfig, {
           key,
           contentType: file.type,
           contentLength: file.size,
@@ -366,7 +371,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     for (const completion of completions) {
       try {
         // Get file URL
-        const url = getFileUrl(completion.key);
+        const url = getFileUrl(this.config, completion.key);
 
         // Call onUploadComplete hook
         if (routeConfig.onUploadComplete) {
@@ -442,10 +447,15 @@ export interface CompletionResponse {
 // Factory Functions
 // ========================================
 
-export function createS3Router<TRoutes extends S3RouterDefinition>(
-  routes: TRoutes
+/**
+ * ✅ Config-aware router factory
+ * Creates router with explicit config dependency
+ */
+export function createS3RouterWithConfig<TRoutes extends S3RouterDefinition>(
+  routes: TRoutes,
+  config: UploadConfig
 ): S3Router<TRoutes> {
-  return new S3Router(routes);
+  return new S3Router(routes, config);
 }
 
 // ========================================

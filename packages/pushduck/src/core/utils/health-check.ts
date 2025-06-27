@@ -4,7 +4,7 @@
  * Validates configuration, connectivity, and system health
  */
 
-import type { ProviderConfig } from "../providers/providers";
+import type { UploadConfig } from "../config/upload-config";
 import { logger } from "./logger";
 import { metrics } from "./metrics";
 
@@ -34,7 +34,7 @@ export class HealthChecker {
   /**
    * Run all health checks
    */
-  async runHealthChecks(config?: ProviderConfig): Promise<HealthCheckResult> {
+  async runHealthChecks(config?: UploadConfig): Promise<HealthCheckResult> {
     this.checks = [];
     const startTime = Date.now();
 
@@ -74,7 +74,7 @@ export class HealthChecker {
   /**
    * Check configuration validity
    */
-  private async checkConfiguration(config?: ProviderConfig): Promise<void> {
+  private async checkConfiguration(config?: UploadConfig): Promise<void> {
     const startTime = performance.now();
 
     try {
@@ -95,7 +95,7 @@ export class HealthChecker {
         "bucket",
       ];
       const missingFields = requiredFields.filter(
-        (field) => !config[field as keyof ProviderConfig]
+        (field) => !config[field as keyof UploadConfig]
       );
 
       if (missingFields.length > 0) {
@@ -211,14 +211,14 @@ export class HealthChecker {
   /**
    * Check S3 connectivity
    */
-  private async checkConnectivity(config: ProviderConfig): Promise<void> {
+  private async checkConnectivity(config: UploadConfig): Promise<void> {
     const startTime = performance.now();
 
     try {
       // Import the validation function dynamically to avoid circular dependencies
       const { validateS3Connection } = await import("../storage/client");
 
-      const result = await validateS3Connection();
+      const result = await validateS3Connection(config);
 
       if (result.success) {
         this.addCheck(
@@ -323,45 +323,45 @@ export class HealthChecker {
   /**
    * Validate provider-specific configuration
    */
-  private validateProviderConfig(config: ProviderConfig): {
+  private validateProviderConfig(config: UploadConfig): {
     valid: boolean;
     errors: string[];
   } {
     const errors: string[] = [];
 
-    switch (config.provider) {
+    switch (config.provider.provider) {
       case "aws":
-        if (!config.region) {
+        if (!config.provider.region) {
           errors.push("AWS region is required");
         }
         break;
 
       case "cloudflare-r2":
-        if (!config.endpoint) {
+        if (!config.provider.endpoint) {
           errors.push("Cloudflare R2 endpoint is required");
         }
         break;
 
       case "digitalocean-spaces":
-        if (!config.endpoint) {
+        if (!config.provider.endpoint) {
           errors.push("DigitalOcean Spaces endpoint is required");
         }
         break;
 
       case "minio":
-        if (!config.endpoint) {
+        if (!config.provider.endpoint) {
           errors.push("MinIO endpoint is required");
         }
         break;
 
       case "s3-compatible":
-        if (!config.endpoint) {
+        if (!config.provider.endpoint) {
           errors.push("S3-compatible endpoint is required");
         }
         break;
 
       default:
-        errors.push(`Unsupported provider: ${config.provider}`);
+        errors.push(`Unsupported provider: ${config.provider.provider}`);
     }
 
     return {
@@ -452,7 +452,7 @@ ${result.checks
 export const healthChecker = new HealthChecker();
 
 // Convenience function
-export const runHealthCheck = (config?: ProviderConfig) =>
+export const runHealthCheck = (config?: UploadConfig) =>
   healthChecker.runHealthChecks(config);
 
 export const getHealthReport = (result: HealthCheckResult) =>

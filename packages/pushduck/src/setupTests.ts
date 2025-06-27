@@ -1,7 +1,19 @@
 import "@testing-library/react";
+import { webcrypto } from "node:crypto";
 import { afterEach, vi } from "vitest";
 
-// Mock fetch globally
+// Polyfill crypto for Node.js 18 compatibility
+if (typeof globalThis.crypto === "undefined") {
+  globalThis.crypto = webcrypto as any;
+}
+if (typeof global.crypto === "undefined") {
+  global.crypto = webcrypto as any;
+}
+
+// Mock fetch globally - ensure compatibility with Node.js 18
+if (typeof globalThis.fetch === "undefined") {
+  globalThis.fetch = vi.fn();
+}
 global.fetch = vi.fn();
 
 // Mock AbortController
@@ -21,9 +33,13 @@ class MockAbortController {
   }
 }
 
+// Ensure AbortController is available globally for Node.js 18 compatibility
+if (typeof globalThis.AbortController === "undefined") {
+  globalThis.AbortController = MockAbortController as any;
+}
 global.AbortController = MockAbortController as any;
 
-// Mock File API
+// Mock File API - ensure compatibility with Node.js 18
 class MockFile {
   name: string;
   size: number;
@@ -42,6 +58,10 @@ class MockFile {
   }
 }
 
+// Ensure File is available globally for Node.js 18 compatibility
+if (typeof globalThis.File === "undefined") {
+  globalThis.File = MockFile as any;
+}
 global.File = MockFile as any;
 
 // Mock Blob
