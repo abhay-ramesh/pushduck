@@ -3,22 +3,24 @@
 ![npm](https://img.shields.io/npm/dm/pushduck)
 ![npm](https://img.shields.io/npm/v/pushduck)
 ![GitHub](https://img.shields.io/github/license/abhay-ramesh/pushduck)
-![example workflow](https://github.com/abhay-ramesh/pushduck/actions/workflows/release.yml/badge.svg)
+![example workflow](https://github.com/abhay-ramesh/pushduck/actions/workflows/ci.yml/badge.svg)
 
-**Pushduck** is a powerful utility package for handling file uploads to Amazon S3 or compatible services like MinIO in Next.js applications. It provides a seamless integration with modern features like chunked uploads, progress tracking, and comprehensive error handling.
+![](https://pushduck.dev/banner.png)
+
+**Pushduck** is a powerful, type-safe file upload library for Next.js applications with S3-compatible storage providers. Built with modern React patterns and comprehensive TypeScript support.
 
 ## Features
 
-- **Easy Integration**: Seamlessly integrate file upload functionality into your Next.js applications
-- **Chunked Uploads**: Support for large file uploads with automatic chunking
-- **Progress Tracking**: Real-time upload progress with time remaining estimation
-- **Error Handling**: Comprehensive error handling with retries and validation
-- **Type Safety**: Full TypeScript support with detailed type definitions
-- **Cancellation**: Support for cancelling ongoing uploads
-- **Configurable**: Flexible configuration for both S3 and MinIO services
-- **Private Buckets**: Support for both public and private bucket uploads
-- **Validation**: Built-in file type and size validation
-- **Modern**: Built for the Next.js App Router and modern React
+- **🔧 Easy Integration**: Seamless setup with Next.js App Router
+- **🏗️ Config-Aware Architecture**: Type-safe configuration with multiple provider support
+- **🔒 Type Safety**: Full TypeScript support with schema validation
+- **📊 Progress Tracking**: Real-time upload progress with comprehensive state management
+- **🔄 Error Handling**: Robust error handling with retry mechanisms
+- **🚫 Cancellation**: Cancel uploads with AbortController support
+- **🌐 Multi-Provider**: AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, and more
+- **🔐 Security**: Private/public bucket support with presigned URLs
+- **✅ Validation**: Built-in file type, size, and custom validation
+- **🎯 Modern**: Built for React 18+ and Next.js App Router
 
 ## Installation
 
@@ -35,265 +37,413 @@ pnpm add pushduck
 
 ## Quick Start
 
-1. Set up your environment variables:
-
-```dotenv
-# .env.local
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_REGION=your_region
-AWS_BUCKET_NAME=your_bucket_name
-```
-
-2. Create an API route for generating presigned URLs:
+### 1. Configure Your Upload Settings
 
 ```typescript
-// app/api/s3upload/route.ts
-import { createS3Client, generatePresignedUrls } from 'pushduck';
-import { NextResponse } from 'next/server';
+// lib/upload.ts
+import { createUploadConfig } from 'pushduck/server';
 
-export async function POST(request: Request) {
-  try {
-    const { keys, isPrivate } = await request.json();
+const { s3, config } = createUploadConfig()
+  .provider("aws", {
+    bucket: process.env.AWS_BUCKET_NAME!,
+    region: process.env.AWS_REGION!,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  })
+  .defaults({
+    maxFileSize: '10MB',
+    acl: 'public-read',
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      const userId = metadata.userId || 'anonymous';
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      return `${userId}/${timestamp}/${randomId}/${file.name}`;
+    },
+  })
+  .build();
 
-    const s3Client = createS3Client({
-      provider: 'aws', // or 'minio'
-      region: process.env.AWS_REGION!,
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-      },
-    });
+// Create router with your upload routes
+const router = s3.createRouter({
+  imageUpload: s3.image().max('5MB'),
+  documentUpload: s3.file({ maxSize: '10MB' }),
+  avatarUpload: s3.image().max('2MB').middleware(async ({ metadata }) => ({
+    ...metadata,
+    userId: metadata.userId || 'anonymous',
+  })),
+});
 
-    const urls = await generatePresignedUrls(
-      s3Client,
-      keys,
-      process.env.AWS_BUCKET_NAME!,
-      'uploads/', // optional prefix
-      isPrivate
-    );
-
-    return NextResponse.json(urls);
-  } catch (error) {
-    console.error('Error generating presigned URLs:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate presigned URLs' },
-      { status: 500 }
-    );
-  }
-}
+export { router };
+export type AppRouter = typeof router;
 ```
 
-3. Use the hook in your component:
+### 2. Create API Route
+
+```typescript
+// app/api/upload/route.ts
+import { router } from '@/lib/upload';
+
+export const { GET, POST } = router.handlers;
+```
+
+### 3. Use in Your Components
 
 ```typescript
 // app/upload/page.tsx
 'use client';
 
-import { useS3FileUpload } from 'pushduck';
+import { useUpload } from 'pushduck/client';
+import type { AppRouter } from '@/lib/upload';
 
 export default function UploadPage() {
-  const {
-    uploadedFiles,
-    uploadFiles,
-    reset,
-    cancelUpload,
-    isUploading,
-  } = useS3FileUpload({
-    multiple: true,
-    maxFiles: 5,
-    maxFileSize: 10 * 1024 * 1024, // 10MB
-    allowedFileTypes: ['image/jpeg', 'image/png'],
-    isPrivate: false,
-    onProgress: (progress, file) => {
-      console.log(`Upload progress for ${file.name}: ${progress}%`);
-    },
-    onError: (error, file) => {
-      console.error(`Error uploading ${file.name}:`, error);
-    },
-    onSuccess: (url, file) => {
-      console.log(`Successfully uploaded ${file.name} to ${url}`);
-    },
-  });
+  const { uploadFiles, files, isUploading, error, reset } = useUpload<AppRouter>('imageUpload');
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      try {
-        await uploadFiles(files);
-      } catch (error) {
-        console.error('Upload failed:', error);
-      }
-    }
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    uploadFiles(selectedFiles);
   };
 
   return (
-    <div>
+    <div className="p-6">
       <input
         type="file"
         multiple
-        onChange={handleFileChange}
-        accept="image/jpeg,image/png"
+        accept="image/*"
+        onChange={handleFileSelect}
+        disabled={isUploading}
+        className="mb-4"
       />
-      
-      {uploadedFiles.map((file, index) => (
-        <div key={index}>
-          <p>File: {file.key}</p>
-          <p>Status: {file.status}</p>
-          <p>Progress: {file.progress}%</p>
-          {file.timeLeft && <p>Time left: {file.timeLeft}</p>}
-          {file.status === 'uploading' && (
-            <button onClick={() => cancelUpload(file.key)}>Cancel</button>
+
+      {files.map((file) => (
+        <div key={file.id} className="mb-2 p-2 border rounded">
+          <div className="flex justify-between items-center">
+            <span className="font-medium">{file.name}</span>
+            <span className="text-sm text-gray-500">{file.status}</span>
+          </div>
+          
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all"
+              style={{ width: `${file.progress}%` }}
+            />
+          </div>
+          
+          {file.status === 'success' && file.url && (
+            <a 
+              href={file.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline text-sm"
+            >
+              View uploaded file
+            </a>
           )}
-          {file.status === 'success' && (
-            <img src={file.url} alt={file.key} width={200} />
-          )}
+          
           {file.status === 'error' && (
-            <p>Error: {file.error?.message}</p>
+            <p className="text-red-600 text-sm mt-1">Error: {file.error}</p>
           )}
         </div>
       ))}
-      
-      <button onClick={() => reset()}>Reset</button>
+
+      <button 
+        onClick={reset} 
+        disabled={isUploading}
+        className="px-4 py-2 bg-gray-500 text-white rounded disabled:opacity-50"
+      >
+        Reset
+      </button>
     </div>
   );
 }
 ```
 
-## API Reference
+## Configuration
 
-### `useS3FileUpload` Hook
+### Provider Setup
 
-The main hook for handling file uploads.
-
-#### Options
+#### AWS S3
 
 ```typescript
-type UploadOptions = {
-  multiple?: boolean;              // Allow multiple file uploads
-  maxFiles?: number;              // Maximum number of files
-  maxFileSize?: number;           // Maximum file size in bytes
-  allowedFileTypes?: string[];    // Allowed MIME types
-  isPrivate?: boolean;            // Use private bucket
-  onProgress?: (progress: number, file: File) => void;
-  onError?: (error: Error, file: File) => void;
-  onSuccess?: (url: string, file: File) => void;
-  retryAttempts?: number;         // Number of retry attempts
-  chunkSize?: number;             // Size of chunks in bytes
-};
+createUploadConfig().provider("aws", {
+  bucket: 'your-bucket',
+  region: 'us-east-1',
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+})
 ```
 
-#### Return Value
+#### Cloudflare R2
 
 ```typescript
-{
-  uploadedFiles: UploadedFile[];  // Array of uploaded files
-  uploadFiles: (files: FileList | File[], customKeys?: string[]) => Promise<void>;
-  reset: (ref?: RefObject<HTMLInputElement>) => void;
-  cancelUpload: (key: string) => void;
-  isUploading: boolean;           // Upload status
+createUploadConfig().provider("cloudflareR2", {
+  accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
+  bucket: process.env.R2_BUCKET!,
+  accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
+  region: 'auto',
+})
+```
+
+#### DigitalOcean Spaces
+
+```typescript
+createUploadConfig().provider("digitalOceanSpaces", {
+  region: 'nyc3',
+  bucket: 'your-space',
+  accessKeyId: process.env.DO_SPACES_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.DO_SPACES_SECRET_ACCESS_KEY!,
+})
+```
+
+#### MinIO
+
+```typescript
+createUploadConfig().provider("minio", {
+  endpoint: 'localhost:9000',
+  bucket: 'your-bucket',
+  accessKeyId: process.env.MINIO_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.MINIO_SECRET_ACCESS_KEY!,
+  useSSL: false,
+})
+```
+
+### Advanced Configuration
+
+#### File Validation & Defaults
+
+```typescript
+.defaults({
+  maxFileSize: '10MB',
+  allowedFileTypes: ['image/*', 'application/pdf'],
+  acl: 'public-read',
+  metadata: {
+    uploadedBy: 'system',
+    environment: process.env.NODE_ENV,
+  },
+})
+```
+
+#### Path Configuration
+
+```typescript
+.paths({
+  prefix: 'uploads',
+  generateKey: (file, metadata) => {
+    const userId = metadata.userId || 'anonymous';
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 8);
+    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    return `${userId}/${timestamp}/${randomId}/${sanitizedName}`;
+  },
+})
+```
+
+#### Lifecycle Hooks
+
+```typescript
+.hooks({
+  onUploadStart: async ({ file, metadata }) => {
+    console.log(`Starting upload: ${file.name}`);
+  },
+  onUploadComplete: async ({ file, metadata, url, key }) => {
+    console.log(`Upload complete: ${file.name} -> ${url}`);
+    // Save to database, send notifications, etc.
+  },
+  onUploadError: async ({ file, metadata, error }) => {
+    console.error(`Upload failed: ${file.name}`, error);
+    // Log error, send alerts, etc.
+  },
+})
+```
+
+## API Reference
+
+### Router Schema Methods
+
+```typescript
+// Image validation
+s3.image().max('5MB')
+
+// File validation
+s3.file({ maxSize: '10MB', allowedTypes: ['application/pdf'] })
+
+// Custom validation
+s3.file().validate(async (file) => {
+  if (file.name.includes('virus')) {
+    throw new Error('Suspicious file detected');
+  }
+})
+
+// Middleware for metadata
+s3.image().middleware(async ({ file, metadata }) => ({
+  ...metadata,
+  processedAt: new Date().toISOString(),
+}))
+
+// Route-specific paths
+s3.image().paths({
+  prefix: 'avatars',
+  generateKey: (file, metadata) => `user-${metadata.userId}/avatar.${file.name.split('.').pop()}`,
+})
+
+// Lifecycle hooks per route
+s3.image().onUploadComplete(async ({ file, url, metadata }) => {
+  await updateUserAvatar(metadata.userId, url);
+})
+```
+
+### Client Hooks
+
+#### useUpload Hook
+
+```typescript
+const {
+  uploadFiles,     // (files: File[]) => Promise<void>
+  files,          // UploadFile[] - reactive file state
+  isUploading,    // boolean
+  error,          // Error | null
+  reset,          // () => void
+} = useUpload<AppRouter>('routeName', {
+  onSuccess: (results) => console.log('Success:', results),
+  onError: (error) => console.error('Error:', error),
+});
+```
+
+#### useUploadRoute Hook
+
+```typescript
+const {
+  uploadFiles,
+  files,
+  isUploading,
+  progress,
+  cancel,
+  retry,
+} = useUploadRoute('routeName', {
+  onProgress: (progress) => console.log(`${progress.percentage}%`),
+  onComplete: (results) => console.log('Complete:', results),
+});
+```
+
+### Upload Client
+
+For more control, use the upload client directly:
+
+```typescript
+import { createUploadClient } from 'pushduck/client';
+import type { AppRouter } from '@/lib/upload';
+
+const client = createUploadClient<AppRouter>({
+  endpoint: '/api/upload',
+});
+
+// Upload files
+await client.imageUpload.upload(files, {
+  onProgress: (progress) => console.log(`${progress.percentage}%`),
+  metadata: { userId: '123' },
+});
+```
+
+## Examples
+
+### Multi-Route Upload Form
+
+```typescript
+function MultiUploadForm() {
+  const imageUpload = useUpload<AppRouter>('imageUpload');
+  const documentUpload = useUpload<AppRouter>('documentUpload');
+
+  return (
+    <div>
+      <div>
+        <h3>Images</h3>
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(e) => imageUpload.uploadFiles(Array.from(e.target.files || []))}
+        />
+        {/* Render image upload state */}
+      </div>
+
+      <div>
+        <h3>Documents</h3>
+        <input
+          type="file"
+          accept=".pdf,.doc,.docx"
+          multiple
+          onChange={(e) => documentUpload.uploadFiles(Array.from(e.target.files || []))}
+        />
+        {/* Render document upload state */}
+      </div>
+    </div>
+  );
 }
 ```
 
-### `createS3Client`
-
-Creates an S3 client instance.
+### Custom Upload Component
 
 ```typescript
-type S3Config = {
-  provider: "aws" | "minio" | "other";
-  endpoint?: string;              // Required for non-AWS providers
-  region: string;
-  forcePathStyle?: boolean;
-  credentials: {
-    accessKeyId: string;
-    secretAccessKey: string;
+function CustomUploader() {
+  const { uploadFiles, files, isUploading } = useUpload<AppRouter>('imageUpload');
+  const [dragActive, setDragActive] = useState(false);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(false);
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    uploadFiles(droppedFiles);
   };
-  maxRetries?: number;
-  timeout?: number;
-  customUserAgent?: string;
-};
-```
 
-### `generatePresignedUrls`
-
-Generates presigned URLs for file uploads.
-
-```typescript
-function generatePresignedUrls(
-  s3Client: S3Client,
-  keys: string[],
-  bucket: string,
-  prefix?: string,
-  privateBucket?: boolean,
-  operation?: "upload" | "download",
-  options?: {
-    expiresIn?: number;
-    contentType?: string;
-    metadata?: Record<string, string>;
-    acl?: string;
-  }
-): Promise<Array<{
-  key: string;
-  presignedPutUrl: string;
-  s3ObjectUrl: string;
-}>>;
-```
-
-## Advanced Usage
-
-### Chunked Uploads
-
-For large files, the package automatically handles chunked uploads:
-
-```typescript
-const { uploadFiles } = useS3FileUpload({
-  chunkSize: 5 * 1024 * 1024, // 5MB chunks
-  onProgress: (progress) => {
-    console.log(`Overall progress: ${progress}%`);
-  },
-});
-```
-
-### Private Bucket Access
-
-For private buckets, the package generates signed URLs for both upload and download:
-
-```typescript
-const { uploadFiles } = useS3FileUpload({
-  isPrivate: true,
-});
-```
-
-### Custom Upload Keys
-
-You can specify custom keys for uploaded files:
-
-```typescript
-const handleUpload = async (files: FileList) => {
-  const customKeys = Array.from(files).map(
-    file => `custom/${Date.now()}-${file.name}`
+  return (
+    <div
+      className={`border-2 border-dashed p-8 text-center ${
+        dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+      }`}
+      onDragOver={(e) => e.preventDefault()}
+      onDragEnter={() => setDragActive(true)}
+      onDragLeave={() => setDragActive(false)}
+      onDrop={handleDrop}
+    >
+      {isUploading ? (
+        <p>Uploading...</p>
+      ) : (
+        <p>Drag and drop files here, or click to select</p>
+      )}
+    </div>
   );
-  await uploadFiles(files, customKeys);
-};
+}
 ```
 
-### MinIO Configuration
+## Environment Variables
 
-For MinIO or other S3-compatible services:
+```bash
+# AWS S3
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=us-east-1
+AWS_BUCKET_NAME=your_bucket
 
-```typescript
-const s3Client = createS3Client({
-  provider: 'minio',
-  endpoint: 'http://localhost:9000',
-  region: 'us-east-1',
-  forcePathStyle: true,
-  credentials: {
-    accessKeyId: 'minioadmin',
-    secretAccessKey: 'minioadmin',
-  },
-});
+# Cloudflare R2
+CLOUDFLARE_ACCOUNT_ID=your_account_id
+CLOUDFLARE_R2_ACCESS_KEY_ID=your_access_key
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_secret_key
+R2_BUCKET=your_bucket
+
+# DigitalOcean Spaces
+DO_SPACES_ACCESS_KEY_ID=your_access_key
+DO_SPACES_SECRET_ACCESS_KEY=your_secret_key
+
+# MinIO
+MINIO_ACCESS_KEY_ID=your_access_key
+MINIO_SECRET_ACCESS_KEY=your_secret_key
 ```
+
+## Migration Guide
+
+If you're upgrading from an older version, see our [Migration Guide](https://pushduck.abhayramesh.com/docs/guides/migration) for step-by-step instructions.
 
 ## Contributing
 
@@ -305,6 +455,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- Documentation: [pushduck.abhayramesh.com](https://pushduck.abhayramesh.com)
-- Issues: [GitHub Issues](https://github.com/abhay-ramesh/pushduck/issues)
-- Discussions: [GitHub Discussions](https://github.com/abhay-ramesh/pushduck/discussions)
+- **Documentation**: [pushduck.abhayramesh.com](https://pushduck.abhayramesh.com)
+- **Issues**: [GitHub Issues](https://github.com/abhay-ramesh/pushduck/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/abhay-ramesh/pushduck/discussions)
