@@ -50,8 +50,6 @@
  * const r2Files = await listFiles(r2Config.config);
  * ```
  *
- * @author Pushduck Team
- * @since 1.0.0
  */
 
 import { AwsClient } from "aws4fetch";
@@ -391,7 +389,6 @@ let awsClientInstance: AwsClient | null = null;
  * // Both use the same interface
  * ```
  *
- * @since 1.0.0
  */
 export function createS3Client(uploadConfig?: UploadConfig): AwsClient {
   if (awsClientInstance && !uploadConfig) {
@@ -499,7 +496,6 @@ function buildS3Url(key: string, config: S3CompatibleConfig): string {
  * These URLs allow clients to upload files directly to S3 without exposing credentials.
  *
  * @interface PresignedUrlOptions
- * @since 1.0.0
  *
  * @example
  * ```typescript
@@ -533,7 +529,6 @@ export interface PresignedUrlOptions {
  * Contains the URL and metadata needed for uploading files.
  *
  * @interface PresignedUrlResult
- * @since 1.0.0
  *
  * @example
  * ```typescript
@@ -658,7 +653,6 @@ export async function generatePresignedDownloadUrl(
  * });
  * ```
  *
- * @since 1.0.0
  */
 export async function generatePresignedUploadUrl(
   uploadConfig: UploadConfig,

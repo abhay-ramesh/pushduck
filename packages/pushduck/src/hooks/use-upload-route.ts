@@ -49,8 +49,6 @@
  * });
  * ```
  *
- * @author Pushduck Team
- * @since 1.0.0
  */
 
 import { useCallback, useRef, useState } from "react";

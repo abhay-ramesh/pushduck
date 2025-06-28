@@ -42,8 +42,6 @@
  *   .build();
  * ```
  *
- * @author Pushduck Team
- * @since 1.0.0
  */
 
 import {
@@ -227,7 +225,6 @@ function createS3Instance(config: UploadConfig) {
  * This configuration is created by the UploadConfigBuilder and used throughout the system.
  *
  * @interface UploadConfig
- * @since 1.0.0
  *
  * @example
  * ```typescript
@@ -336,7 +333,6 @@ export interface UploadConfig {
  * Provides type-safe configuration of providers, defaults, paths, security, and hooks.
  *
  * @class UploadConfigBuilder
- * @since 1.0.0
  *
  * @example Basic Usage
  * ```typescript
@@ -616,7 +612,6 @@ export class UploadConfigBuilder {
  * Contains the built configuration and helper instances for creating routes and managing storage.
  *
  * @interface UploadInitResult
- * @since 1.0.0
  *
  * @example
  * ```typescript
@@ -652,7 +647,6 @@ export interface UploadInitResult {
  * This is the main entry point for configuring pushduck with providers, defaults, and settings.
  *
  * @returns A new UploadConfigBuilder instance
- * @since 1.0.0
  *
  * @example Basic AWS Setup
  * ```typescript

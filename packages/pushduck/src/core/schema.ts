@@ -64,8 +64,6 @@
  * });
  * ```
  *
- * @author Pushduck Team
- * @since 1.0.0
  */
 
 import { S3Route } from "./router/router-v2";
@@ -80,7 +78,6 @@ import { S3Route } from "./router/router-v2";
  * meet the specified requirements.
  *
  * @interface S3FileConstraints
- * @since 1.0.0
  *
  * @example
  * ```typescript
@@ -111,7 +108,6 @@ export interface S3FileConstraints {
  * Used when validating multiple files uploaded together.
  *
  * @interface S3ArrayConstraints
- * @since 1.0.0
  *
  * @example
  * ```typescript
@@ -136,7 +132,6 @@ export interface S3ArrayConstraints {
  * Contains information about the file being validated and the validation environment.
  *
  * @interface S3ValidationContext
- * @since 1.0.0
  *
  * @example
  * ```typescript
@@ -169,7 +164,6 @@ export interface S3ValidationContext {
  * Indicates whether validation passed and provides error details if it failed.
  *
  * @interface S3ValidationResult
- * @since 1.0.0
  *
  * @example Success Result
  * ```typescript
@@ -213,7 +207,6 @@ export interface S3ValidationResult {
  *
  * @template T - Type of the original data being transformed
  * @interface S3TransformContext
- * @since 1.0.0
  *
  * @example
  * ```typescript
@@ -253,7 +246,6 @@ export interface S3TransformContext<T = any> {
  * @template TOutput - The output type after validation and transformation
  * @abstract
  * @class S3Schema
- * @since 1.0.0
  *
  * @example Creating a Custom Schema
  * ```typescript
@@ -540,7 +532,6 @@ export abstract class S3Schema<TInput = any, TOutput = TInput> {
  *
  * @class S3FileSchema
  * @extends S3Schema<File, File>
- * @since 1.0.0
  *
  * @example Basic File Validation
  * ```typescript

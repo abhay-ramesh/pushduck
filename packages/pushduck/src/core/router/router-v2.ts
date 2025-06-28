@@ -54,8 +54,6 @@
  * }, config);
  * ```
  *
- * @author Pushduck Team
- * @since 1.0.0
  */
 
 import { NextRequest } from "next/server";
@@ -78,7 +76,6 @@ import {
  * Contains the request object and optional metadata.
  *
  * @interface S3RouteContext
- * @since 1.0.0
  */
 export interface S3RouteContext {
   /** The incoming HTTP request */
@@ -92,7 +89,6 @@ export interface S3RouteContext {
  * Contains essential information about the file being uploaded.
  *
  * @interface S3FileMetadata
- * @since 1.0.0
  *
  * @example
  * ```typescript
@@ -118,7 +114,6 @@ export interface S3FileMetadata {
  *
  * @interface S3MiddlewareContext
  * @extends S3RouteContext
- * @since 1.0.0
  */
 export interface S3MiddlewareContext extends S3RouteContext {
   /** Metadata about the file being processed */
@@ -131,7 +126,6 @@ export interface S3MiddlewareContext extends S3RouteContext {
  *
  * @template T - Type of the metadata object
  * @interface S3LifecycleContext
- * @since 1.0.0
  *
  * @example
  * ```typescript
@@ -160,7 +154,6 @@ export interface S3LifecycleContext<T = any> {
  *
  * @template TInput - Input metadata type
  * @template TOutput - Output metadata type
- * @since 1.0.0
  *
  * @example Authentication Middleware
  * ```typescript
@@ -180,7 +173,6 @@ export type S3Middleware<TInput = any, TOutput = any> = (
  * Hooks are called at specific points in the upload process.
  *
  * @template T - Metadata type
- * @since 1.0.0
  *
  * @example Upload Complete Hook
  * ```typescript
@@ -203,7 +195,6 @@ export type S3LifecycleHook<T = any> = (
  *
  * @template TMetadata - Type of the metadata object
  * @interface PathContext
- * @since 1.0.0
  *
  * @example
  * ```typescript
@@ -240,7 +231,6 @@ export interface PathContext<TMetadata = any> {
  *
  * @template TMetadata - Type of the metadata object
  * @interface S3RoutePathConfig
- * @since 1.0.0
  *
  * @example Basic Prefix
  * ```typescript
@@ -284,7 +274,6 @@ export interface S3RoutePathConfig<TMetadata = any> {
  * @template TSchema - The schema type for validation
  * @template TMetadata - The metadata type from middleware
  * @class S3Route
- * @since 1.0.0
  *
  * @example Basic Route
  * ```typescript
@@ -602,7 +591,6 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
  *
  * @template TMetadata - Type of metadata from middleware
  * @interface S3RouteConfig
- * @since 1.0.0
  * @internal
  */
 interface S3RouteConfig<TMetadata = any> {

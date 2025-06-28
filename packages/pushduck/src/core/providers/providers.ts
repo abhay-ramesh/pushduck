@@ -66,8 +66,6 @@
  * export DO_SPACES_REGION="nyc3"
  * ```
  *
- * @author Pushduck Team
- * @since 1.0.0
  */
 
 // ========================================
@@ -79,7 +77,6 @@
  * Contains common properties shared across all provider implementations.
  *
  * @interface BaseProviderConfig
- * @since 1.0.0
  */
 export interface BaseProviderConfig {
   /** Provider identifier string */
@@ -106,7 +103,6 @@ export interface BaseProviderConfig {
  *
  * @interface AWSProviderConfig
  * @extends BaseProviderConfig
- * @since 1.0.0
  *
  * @example Basic Configuration
  * ```typescript
@@ -150,7 +146,6 @@ export interface AWSProviderConfig extends BaseProviderConfig {
  *
  * @interface CloudflareR2Config
  * @extends BaseProviderConfig
- * @since 1.0.0
  *
  * @example Basic Configuration
  * ```typescript
@@ -195,7 +190,6 @@ export interface CloudflareR2Config extends BaseProviderConfig {
  *
  * @interface DigitalOceanSpacesConfig
  * @extends BaseProviderConfig
- * @since 1.0.0
  *
  * @example Basic Configuration
  * ```typescript
@@ -238,7 +232,6 @@ export interface DigitalOceanSpacesConfig extends BaseProviderConfig {
  *
  * @interface MinIOConfig
  * @extends BaseProviderConfig
- * @since 1.0.0
  *
  * @example Local Development
  * ```typescript
@@ -675,7 +668,6 @@ export type ProviderConfigMap = {
  * ```
  *
  * @throws {Error} When required configuration is missing and not available in environment
- * @since 1.0.0
  */
 export function createProvider<T extends ProviderType>(
   type: T,
@@ -750,7 +742,6 @@ export function createProvider<T extends ProviderType>(
  * }
  * ```
  *
- * @since 1.0.0
  */
 export function validateProviderConfig(config: ProviderConfig): {
   valid: boolean;
@@ -899,7 +890,6 @@ function getProviderDisplayName(provider: ProviderConfig["provider"]): string {
  * ```
  *
  * @throws {Error} When endpoint cannot be determined or is invalid
- * @since 1.0.0
  */
 export function getProviderEndpoint(config: ProviderConfig): string {
   switch (config.provider) {
