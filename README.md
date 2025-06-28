@@ -501,7 +501,7 @@ Built with ❤️ using:
 - ⭐ **Star us on GitHub** — it helps!
 - 🐛 **Report bugs** — [Create an issue](https://github.com/abhay-ramesh/pushduck/issues)
 - 💡 **Request features** — [Start a discussion](https://github.com/abhay-ramesh/pushduck/discussions)
-- 📧 **Contact** — [abhayramesh@duck.com](mailto:abhayramesh@duck.com)
+- 📧 **Contact** — [ramesh.abhay14@gmail.com](ramesh.abhay14@gmail.com)
 
 ---
 
