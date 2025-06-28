@@ -1,28 +1,98 @@
 /**
- * Cloud Storage Providers System
+ * @fileoverview Cloud Storage Providers System
  *
- * This provides a clean way to configure different cloud storage providers
- * with environment-based configuration and type-safe initialization.
+ * This module provides a comprehensive system for configuring different cloud storage providers
+ * with environment-based configuration, type-safe initialization, and automatic endpoint resolution.
  *
- * Supported Providers:
- * - AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO
+ * The provider system supports multiple tiers of cloud storage services:
+ * - **Tier 1**: Fully supported with comprehensive testing (AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO)
+ * - **Tier 2**: Enterprise/Hyperscale providers (Azure Blob, IBM Cloud, Oracle OCI)
+ * - **Tier 3**: Cost-optimized providers (Wasabi, Backblaze B2, Storj DCS)
+ * - **Tier 4**: Performance/Specialized providers (Telnyx, Tigris, Cloudian)
  *
- * Future Provider Support:
- * - Enterprise: Azure Blob, IBM Cloud, Oracle OCI
- * - Cost-Optimized: Wasabi, Backblaze B2, Storj DCS
- * - Specialized: Telnyx, Tigris, Cloudian HyperStore
+ * Features:
+ * - Environment variable auto-detection with fallbacks
+ * - Type-safe configuration with TypeScript inference
+ * - Automatic endpoint generation for known providers
+ * - Validation and error reporting
+ * - Custom domain and ACL support
+ *
+ * @example Basic AWS S3 Configuration
+ * ```typescript
+ * import { createProvider } from 'pushduck/server';
+ *
+ * const s3Config = createProvider('aws', {
+ *   bucket: 'my-uploads',
+ *   region: 'us-east-1',
+ *   // Credentials auto-loaded from AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+ * });
+ * ```
+ *
+ * @example Cloudflare R2 Configuration
+ * ```typescript
+ * const r2Config = createProvider('cloudflareR2', {
+ *   bucket: 'my-r2-bucket',
+ *   accountId: 'your-account-id',
+ *   // Credentials from CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY
+ * });
+ * ```
+ *
+ * @example MinIO Self-hosted Configuration
+ * ```typescript
+ * const minioConfig = createProvider('minio', {
+ *   endpoint: 'http://localhost:9000',
+ *   bucket: 'uploads',
+ *   accessKeyId: 'minioadmin',
+ *   secretAccessKey: 'minioadmin',
+ *   useSSL: false,
+ * });
+ * ```
+ *
+ * @example Environment Variable Setup
+ * ```bash
+ * # AWS S3
+ * export AWS_ACCESS_KEY_ID="your-access-key"
+ * export AWS_SECRET_ACCESS_KEY="your-secret-key"
+ * export AWS_REGION="us-east-1"
+ *
+ * # Cloudflare R2
+ * export CLOUDFLARE_R2_ACCESS_KEY_ID="your-r2-access-key"
+ * export CLOUDFLARE_R2_SECRET_ACCESS_KEY="your-r2-secret-key"
+ * export CLOUDFLARE_ACCOUNT_ID="your-account-id"
+ *
+ * # DigitalOcean Spaces
+ * export DO_SPACES_ACCESS_KEY_ID="your-spaces-key"
+ * export DO_SPACES_SECRET_ACCESS_KEY="your-spaces-secret"
+ * export DO_SPACES_REGION="nyc3"
+ * ```
+ *
+ * @author Pushduck Team
+ * @since 1.0.0
  */
 
 // ========================================
 // Provider Types
 // ========================================
 
+/**
+ * Base configuration interface for all cloud storage providers.
+ * Contains common properties shared across all provider implementations.
+ *
+ * @interface BaseProviderConfig
+ * @since 1.0.0
+ */
 export interface BaseProviderConfig {
+  /** Provider identifier string */
   provider: string;
+  /** Geographic region for the storage service */
   region?: string;
+  /** Name of the storage bucket/container */
   bucket: string;
+  /** Access Control List permissions (e.g., 'public-read', 'private') */
   acl?: string;
+  /** Custom domain for file URLs (e.g., 'cdn.example.com') */
   customDomain?: string;
+  /** Force path-style URLs instead of virtual-hosted style */
   forcePathStyle?: boolean;
 }
 
@@ -30,37 +100,182 @@ export interface BaseProviderConfig {
 // TIER 1: Currently Supported Providers
 // ========================================
 
+/**
+ * Configuration for Amazon Web Services S3.
+ * The most widely used object storage service with global availability.
+ *
+ * @interface AWSProviderConfig
+ * @extends BaseProviderConfig
+ * @since 1.0.0
+ *
+ * @example Basic Configuration
+ * ```typescript
+ * const awsConfig: AWSProviderConfig = {
+ *   provider: 'aws',
+ *   bucket: 'my-app-uploads',
+ *   region: 'us-east-1',
+ *   accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+ *   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+ * };
+ * ```
+ *
+ * @example With Custom Domain
+ * ```typescript
+ * const awsWithCDN: AWSProviderConfig = {
+ *   provider: 'aws',
+ *   bucket: 'my-uploads',
+ *   region: 'us-east-1',
+ *   accessKeyId: 'AKIA...',
+ *   secretAccessKey: 'secret...',
+ *   customDomain: 'cdn.myapp.com',
+ *   acl: 'public-read',
+ * };
+ * ```
+ */
 export interface AWSProviderConfig extends BaseProviderConfig {
   provider: "aws";
+  /** AWS Access Key ID */
   accessKeyId: string;
+  /** AWS Secret Access Key */
   secretAccessKey: string;
+  /** AWS region (required) */
   region: string;
+  /** AWS Session Token for temporary credentials */
   sessionToken?: string;
 }
 
+/**
+ * Configuration for Cloudflare R2 object storage.
+ * S3-compatible storage with zero egress fees and global distribution.
+ *
+ * @interface CloudflareR2Config
+ * @extends BaseProviderConfig
+ * @since 1.0.0
+ *
+ * @example Basic Configuration
+ * ```typescript
+ * const r2Config: CloudflareR2Config = {
+ *   provider: 'cloudflare-r2',
+ *   bucket: 'my-r2-bucket',
+ *   accountId: 'your-cloudflare-account-id',
+ *   accessKeyId: 'your-r2-access-key',
+ *   secretAccessKey: 'your-r2-secret-key',
+ * };
+ * ```
+ *
+ * @example With Custom Domain
+ * ```typescript
+ * const r2WithDomain: CloudflareR2Config = {
+ *   provider: 'cloudflare-r2',
+ *   bucket: 'assets',
+ *   accountId: 'abc123',
+ *   accessKeyId: 'key123',
+ *   secretAccessKey: 'secret123',
+ *   customDomain: 'assets.myapp.com',
+ * };
+ * ```
+ */
 export interface CloudflareR2Config extends BaseProviderConfig {
   provider: "cloudflare-r2";
+  /** Cloudflare Account ID */
   accountId: string;
+  /** R2 Access Key ID */
   accessKeyId: string;
+  /** R2 Secret Access Key */
   secretAccessKey: string;
+  /** Region (typically 'auto' for R2) */
   region?: "auto";
-  endpoint?: string; // Auto-generated from accountId if not provided
+  /** Custom endpoint (auto-generated from accountId if not provided) */
+  endpoint?: string;
 }
 
+/**
+ * Configuration for DigitalOcean Spaces object storage.
+ * S3-compatible storage service integrated with DigitalOcean's ecosystem.
+ *
+ * @interface DigitalOceanSpacesConfig
+ * @extends BaseProviderConfig
+ * @since 1.0.0
+ *
+ * @example Basic Configuration
+ * ```typescript
+ * const spacesConfig: DigitalOceanSpacesConfig = {
+ *   provider: 'digitalocean-spaces',
+ *   bucket: 'my-space',
+ *   region: 'nyc3',
+ *   accessKeyId: 'your-spaces-key',
+ *   secretAccessKey: 'your-spaces-secret',
+ * };
+ * ```
+ *
+ * @example Available Regions
+ * ```typescript
+ * const regions = ['nyc3', 'ams3', 'sgp1', 'sfo3', 'fra1'];
+ * const spacesConfig: DigitalOceanSpacesConfig = {
+ *   provider: 'digitalocean-spaces',
+ *   bucket: 'global-assets',
+ *   region: 'fra1', // Frankfurt
+ *   accessKeyId: process.env.DO_SPACES_ACCESS_KEY_ID!,
+ *   secretAccessKey: process.env.DO_SPACES_SECRET_ACCESS_KEY!,
+ * };
+ * ```
+ */
 export interface DigitalOceanSpacesConfig extends BaseProviderConfig {
   provider: "digitalocean-spaces";
+  /** Spaces Access Key ID */
   accessKeyId: string;
+  /** Spaces Secret Access Key */
   secretAccessKey: string;
+  /** DigitalOcean region */
   region: string;
-  endpoint?: string; // Auto-generated from region if not provided
+  /** Custom endpoint (auto-generated from region if not provided) */
+  endpoint?: string;
 }
 
+/**
+ * Configuration for MinIO object storage.
+ * Self-hosted S3-compatible storage for on-premises or private cloud deployments.
+ *
+ * @interface MinIOConfig
+ * @extends BaseProviderConfig
+ * @since 1.0.0
+ *
+ * @example Local Development
+ * ```typescript
+ * const minioConfig: MinIOConfig = {
+ *   provider: 'minio',
+ *   endpoint: 'http://localhost:9000',
+ *   bucket: 'uploads',
+ *   accessKeyId: 'minioadmin',
+ *   secretAccessKey: 'minioadmin',
+ *   useSSL: false,
+ * };
+ * ```
+ *
+ * @example Production Setup
+ * ```typescript
+ * const minioProduction: MinIOConfig = {
+ *   provider: 'minio',
+ *   endpoint: 'https://minio.mycompany.com',
+ *   bucket: 'production-uploads',
+ *   accessKeyId: process.env.MINIO_ACCESS_KEY!,
+ *   secretAccessKey: process.env.MINIO_SECRET_KEY!,
+ *   useSSL: true,
+ *   port: 9000,
+ * };
+ * ```
+ */
 export interface MinIOConfig extends BaseProviderConfig {
   provider: "minio";
+  /** MinIO server endpoint URL */
   endpoint: string;
+  /** MinIO access key */
   accessKeyId: string;
+  /** MinIO secret key */
   secretAccessKey: string;
+  /** Whether to use SSL/TLS */
   useSSL?: boolean;
+  /** Custom port (default: 9000) */
   port?: number;
 }
 
@@ -411,6 +626,57 @@ export type ProviderConfigMap = {
  * Type-safe provider configuration function
  * Usage: createProvider("aws", { bucket: "my-bucket", region: "us-west-2" })
  */
+/**
+ * Creates a provider configuration with automatic environment variable detection.
+ * This is the main factory function for creating type-safe provider configurations
+ * with automatic credential loading from environment variables.
+ *
+ * @template T - The provider type
+ * @param type - The provider type identifier
+ * @param config - Partial configuration object (missing values loaded from env)
+ * @returns Complete provider configuration
+ *
+ * @example AWS S3 Provider
+ * ```typescript
+ * // Environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+ * const s3Config = createProvider('aws', {
+ *   bucket: 'my-uploads',
+ *   // region, accessKeyId, secretAccessKey auto-loaded from env
+ * });
+ * ```
+ *
+ * @example Cloudflare R2 Provider
+ * ```typescript
+ * // Environment variables: CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_ACCOUNT_ID
+ * const r2Config = createProvider('cloudflareR2', {
+ *   bucket: 'my-r2-bucket',
+ *   // accountId, accessKeyId, secretAccessKey auto-loaded from env
+ * });
+ * ```
+ *
+ * @example MinIO Provider
+ * ```typescript
+ * const minioConfig = createProvider('minio', {
+ *   endpoint: 'http://localhost:9000',
+ *   bucket: 'uploads',
+ *   accessKeyId: 'minioadmin',
+ *   secretAccessKey: 'minioadmin',
+ *   useSSL: false,
+ * });
+ * ```
+ *
+ * @example DigitalOcean Spaces
+ * ```typescript
+ * // Environment variables: DO_SPACES_ACCESS_KEY_ID, DO_SPACES_SECRET_ACCESS_KEY, DO_SPACES_REGION
+ * const spacesConfig = createProvider('digitalOceanSpaces', {
+ *   bucket: 'my-space',
+ *   // region, accessKeyId, secretAccessKey auto-loaded from env
+ * });
+ * ```
+ *
+ * @throws {Error} When required configuration is missing and not available in environment
+ * @since 1.0.0
+ */
 export function createProvider<T extends ProviderType>(
   type: T,
   config: ProviderConfigMap[T] = {} as ProviderConfigMap[T]
@@ -431,6 +697,61 @@ export function createProvider<T extends ProviderType>(
 // Provider Configuration Validation
 // ========================================
 
+/**
+ * Validates a provider configuration and returns detailed error information.
+ * This function checks for required fields, validates endpoints, and ensures
+ * the configuration is complete and correct.
+ *
+ * @param config - The provider configuration to validate
+ * @returns Validation result with success status and error details
+ *
+ * @example Validating AWS Configuration
+ * ```typescript
+ * const awsConfig = createProvider('aws', {
+ *   bucket: 'my-uploads',
+ *   region: 'us-east-1',
+ *   accessKeyId: 'AKIA...',
+ *   secretAccessKey: 'secret...',
+ * });
+ *
+ * const validation = validateProviderConfig(awsConfig);
+ * if (!validation.valid) {
+ *   console.error('Configuration errors:', validation.errors);
+ *   // ["Missing required field: accessKeyId", "Invalid region format"]
+ * }
+ * ```
+ *
+ * @example Handling Validation Errors
+ * ```typescript
+ * const config = createProvider('cloudflareR2', {
+ *   bucket: 'test-bucket',
+ *   // Missing accountId, accessKeyId, secretAccessKey
+ * });
+ *
+ * const { valid, errors } = validateProviderConfig(config);
+ * if (!valid) {
+ *   throw new Error(`Provider configuration invalid: ${errors.join(', ')}`);
+ * }
+ * ```
+ *
+ * @example Validation in Setup
+ * ```typescript
+ * function setupStorage(providerConfig: ProviderConfig) {
+ *   const validation = validateProviderConfig(providerConfig);
+ *
+ *   if (!validation.valid) {
+ *     console.error('❌ Storage configuration errors:');
+ *     validation.errors.forEach(error => console.error(`  - ${error}`));
+ *     process.exit(1);
+ *   }
+ *
+ *   console.log('✅ Storage configuration valid');
+ *   return createStorageClient(providerConfig);
+ * }
+ * ```
+ *
+ * @since 1.0.0
+ */
 export function validateProviderConfig(config: ProviderConfig): {
   valid: boolean;
   errors: string[];
@@ -525,6 +846,61 @@ function getProviderDisplayName(provider: ProviderConfig["provider"]): string {
   return names[provider] || provider;
 }
 
+/**
+ * Generates the appropriate endpoint URL for a given provider configuration.
+ * This function handles automatic endpoint generation for known providers and
+ * validates custom endpoints for self-hosted or specialized providers.
+ *
+ * @param config - The provider configuration
+ * @returns The complete endpoint URL for the provider
+ *
+ * @example AWS S3 Endpoint
+ * ```typescript
+ * const awsConfig = createProvider('aws', {
+ *   bucket: 'my-uploads',
+ *   region: 'us-west-2',
+ * });
+ *
+ * const endpoint = getProviderEndpoint(awsConfig);
+ * // Returns: "https://s3.us-west-2.amazonaws.com"
+ * ```
+ *
+ * @example Cloudflare R2 Endpoint
+ * ```typescript
+ * const r2Config = createProvider('cloudflareR2', {
+ *   bucket: 'my-bucket',
+ *   accountId: 'abc123def456',
+ * });
+ *
+ * const endpoint = getProviderEndpoint(r2Config);
+ * // Returns: "https://abc123def456.r2.cloudflarestorage.com"
+ * ```
+ *
+ * @example DigitalOcean Spaces Endpoint
+ * ```typescript
+ * const spacesConfig = createProvider('digitalOceanSpaces', {
+ *   bucket: 'my-space',
+ *   region: 'nyc3',
+ * });
+ *
+ * const endpoint = getProviderEndpoint(spacesConfig);
+ * // Returns: "https://nyc3.digitaloceanspaces.com"
+ * ```
+ *
+ * @example MinIO Custom Endpoint
+ * ```typescript
+ * const minioConfig = createProvider('minio', {
+ *   endpoint: 'https://minio.mycompany.com:9000',
+ *   bucket: 'uploads',
+ * });
+ *
+ * const endpoint = getProviderEndpoint(minioConfig);
+ * // Returns: "https://minio.mycompany.com:9000"
+ * ```
+ *
+ * @throws {Error} When endpoint cannot be determined or is invalid
+ * @since 1.0.0
+ */
 export function getProviderEndpoint(config: ProviderConfig): string {
   switch (config.provider) {
     case "aws":
