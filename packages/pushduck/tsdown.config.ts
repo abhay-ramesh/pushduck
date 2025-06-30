@@ -30,7 +30,8 @@ export default defineConfig({
       if (
         chunk.fileName === "client.js" ||
         chunk.fileName === "client.mjs" ||
-        (chunk.fileName.includes("use-upload-route") &&
+        ((chunk.fileName.includes("hook") ||
+          chunk.fileName.includes("use-upload-route")) &&
           !chunk.fileName.includes("server"))
       ) {
         return '"use client";';
