@@ -57,6 +57,10 @@ Keep public access disabled - files will only be accessible via presigned URLs.
 
 ## 4. Configure CORS (If Using Custom Domain)
 
+<Callout type="info">
+**Comprehensive CORS Guide**: For detailed CORS configuration, testing, and troubleshooting, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).
+</Callout>
+
 In your R2 bucket settings, add this CORS policy:
 
 ```json
@@ -193,7 +197,7 @@ Track upload performance:
 
 ## 🆘 Common Issues
 
-**CORS errors?** → Check your domain is in AllowedOrigins and verify custom domain setup  
+**CORS errors?** → Check your domain is in AllowedOrigins and verify custom domain setup. For detailed CORS configuration, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).  
 **Access denied?** → Verify API token has Object:Read and Object:Write permissions  
 **Slow uploads?** → Ensure you're using the correct endpoint URL with your account ID  
 **Custom domain not working?** → Verify CNAME record and bucket public access settings
