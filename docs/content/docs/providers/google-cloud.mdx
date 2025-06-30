@@ -79,6 +79,10 @@ Keep default settings - files will only be accessible via signed URLs.
 
 ## 5. Configure CORS
 
+<Callout type="info">
+**Comprehensive CORS Guide**: For detailed CORS configuration, testing, and troubleshooting, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).
+</Callout>
+
 ```bash
 # Create cors.json file
 cat > cors.json << EOF
@@ -371,7 +375,7 @@ export const { s3,  } = createUploadConfig()
 ## 🆘 Common Issues
 
 **Authentication errors?** → Check service account key path and permissions  
-**CORS errors?** → Verify CORS configuration and allowed origins  
+**CORS errors?** → Verify CORS configuration and allowed origins. For detailed CORS configuration, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).  
 **Access denied?** → Check IAM roles and bucket permissions  
 **Slow uploads?** → Choose region closer to your users  
 **Quota exceeded?** → Check project quotas and billing account
