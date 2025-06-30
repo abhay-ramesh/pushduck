@@ -5,6 +5,77 @@ import type { ProjectInfo } from "./project-detector";
 import type { ProviderCredentials, ProviderType } from "./provider-setup";
 import { generateEnvVariables } from "./provider-setup";
 
+// Utility function to resolve import paths based on tsconfig path mappings
+function resolveImportPath(
+  projectInfo: ProjectInfo,
+  targetPath: string, // e.g., "lib/upload-config"
+  fromPath: string // e.g., "src/app/api/upload" or "app/api/upload"
+): string {
+  const { pathMappings, baseUrl, useSrcDir } = projectInfo;
+
+  // First, try to find a matching path mapping
+  for (const mapping of pathMappings) {
+    const { alias, target } = mapping;
+
+    // Check if we can use this alias for the target path
+    if (alias.endsWith("/*")) {
+      const aliasBase = alias.slice(0, -2); // Remove "/*"
+      const targetBase = target.replace(/^\.\//, "").replace(/\/\*$/, ""); // Clean up target
+
+      // For common patterns like "@/*" -> "./src/*" or "@/*" -> "./*"
+      if (aliasBase === "@") {
+        // Check if the target path matches the expected structure
+        const expectedBase = useSrcDir ? "src" : "";
+
+        if (target === "./*" || target === "./src/*" || target === "src/*") {
+          // Use alias if target structure matches our actual structure
+          const shouldUseAlias =
+            (target.includes("src") && useSrcDir) ||
+            (!target.includes("src") && !useSrcDir) ||
+            target === "./*"; // ./* works for both
+
+          if (shouldUseAlias) {
+            return `"@/${targetPath}"`;
+          }
+        }
+      }
+    }
+  }
+
+  // Fall back to relative imports
+  const fromDir = path.dirname(fromPath);
+
+  // Calculate the correct target path based on the actual file structure
+  let targetFullPath: string;
+  if (targetPath.startsWith("lib/")) {
+    // For lib imports (like lib/upload-config)
+    const libDir = useSrcDir ? "src/lib" : "lib";
+    targetFullPath = path.join(libDir, targetPath.replace(/^lib\//, ""));
+  } else if (targetPath.startsWith("components/")) {
+    // For component imports (like components/ui/upload-zone)
+    const componentsDir = useSrcDir ? "src/components" : "components";
+    targetFullPath = path.join(
+      componentsDir,
+      targetPath.replace(/^components\//, "")
+    );
+  } else if (targetPath.startsWith("app/")) {
+    // For app imports (like app/api/upload/route)
+    const appDir = useSrcDir ? "src/app" : "app";
+    targetFullPath = path.join(appDir, targetPath.replace(/^app\//, ""));
+  } else {
+    // Default case
+    targetFullPath = targetPath;
+  }
+
+  const relativePath = path.relative(fromDir, targetFullPath);
+
+  // Ensure forward slashes for imports and add ./ if needed
+  const normalizedPath = relativePath.replace(/\\/g, "/");
+  return `"${
+    normalizedPath.startsWith(".") ? normalizedPath : `./${normalizedPath}`
+  }"`;
+}
+
 interface GenerateFilesOptions {
   projectInfo: ProjectInfo;
   provider: ProviderType;
@@ -46,18 +117,22 @@ async function createDirectories(
   apiPath: string,
   generateExamples: boolean
 ): Promise<void> {
-  const { rootDir, router } = projectInfo;
+  const { rootDir, router, useSrcDir } = projectInfo;
 
   if (router === "app") {
-    await fs.ensureDir(path.join(rootDir, `app${apiPath}`));
+    const appDir = useSrcDir ? "src/app" : "app";
+    await fs.ensureDir(path.join(rootDir, `${appDir}${apiPath}`));
   }
 
-  await fs.ensureDir(path.join(rootDir, "lib"));
+  const libDir = useSrcDir ? "src/lib" : "lib";
+  await fs.ensureDir(path.join(rootDir, libDir));
 
   if (generateExamples) {
-    await fs.ensureDir(path.join(rootDir, "components/ui"));
+    const componentsDir = useSrcDir ? "src/components/ui" : "components/ui";
+    await fs.ensureDir(path.join(rootDir, componentsDir));
     if (router === "app") {
-      await fs.ensureDir(path.join(rootDir, "app/upload"));
+      const appDir = useSrcDir ? "src/app" : "app";
+      await fs.ensureDir(path.join(rootDir, `${appDir}/upload`));
     }
   }
 }
@@ -67,15 +142,21 @@ async function createApiRoute(
   apiPath: string,
   verbose?: boolean
 ): Promise<void> {
-  const { rootDir, router, typescript } = projectInfo;
+  const { rootDir, router, typescript, useSrcDir } = projectInfo;
   const ext = typescript ? "ts" : "js";
 
   let filePath: string;
   let content: string;
 
   if (router === "app") {
-    filePath = path.join(rootDir, `app${apiPath}/route.${ext}`);
-    content = `import { s3 } from "@/lib/upload-config"; 
+    const appDir = useSrcDir ? "src/app" : "app";
+    filePath = path.join(rootDir, `${appDir}${apiPath}/route.${ext}`);
+    const uploadConfigImport = resolveImportPath(
+      projectInfo,
+      "lib/upload-config",
+      `${appDir}${apiPath}`
+    );
+    content = `import { s3 } from ${uploadConfigImport}; 
 
 // Define upload routes with proper validation and lifecycle hooks  
 const uploadRouter = s3.createRouter({
@@ -128,8 +209,12 @@ export type AppUploadRouter = typeof uploadRouter;
 export const { GET, POST } = uploadRouter.handlers;
 `;
   } else {
-    filePath = path.join(rootDir, `pages${apiPath}.${ext}`);
-    content = `import { s3 } from "../lib/upload-config";
+    const pagesDir = useSrcDir ? "src/pages" : "pages";
+    filePath = path.join(rootDir, `${pagesDir}${apiPath}.${ext}`);
+    const importPath = useSrcDir
+      ? "../../lib/upload-config"
+      : "../lib/upload-config";
+    content = `import { s3 } from "${importPath}";
 
 const uploadRouter = s3.createRouter({
   imageUpload: s3.image().max("5MB").formats(["jpeg", "jpg", "png", "webp"]),
@@ -154,18 +239,19 @@ async function createUploadConfig(
   provider: ProviderType,
   verbose?: boolean
 ): Promise<void> {
-  const { rootDir, typescript } = projectInfo;
+  const { rootDir, typescript, useSrcDir } = projectInfo;
   const ext = typescript ? "ts" : "js";
-  const filePath = path.join(rootDir, `lib/upload-config.${ext}`);
+  const libDir = useSrcDir ? "src/lib" : "lib";
+  const filePath = path.join(rootDir, `${libDir}/upload-config.${ext}`);
 
-  const providerMethod = getProviderMethodName(provider);
+  const providerKey = getProviderConfigKey(provider);
   const envVars = getProviderEnvVars(provider);
 
   const content = `import { createUploadConfig } from "pushduck/server";
 
 // Initialize upload configuration with simplified one-step process
 const { s3, config } = createUploadConfig()
-  .${providerMethod}({
+  .provider("${providerKey}", {
     ${envVars}
   })
   .defaults({
@@ -190,14 +276,28 @@ async function createUploadClient(
   apiPath: string,
   verbose?: boolean
 ): Promise<void> {
-  const { rootDir, typescript } = projectInfo;
+  const { rootDir, typescript, router, useSrcDir } = projectInfo;
   const ext = typescript ? "ts" : "js";
-  const filePath = path.join(rootDir, `lib/upload-client.${ext}`);
+  const libDir = useSrcDir ? "src/lib" : "lib";
+  const filePath = path.join(rootDir, `${libDir}/upload-client.${ext}`);
 
-  const routePath =
-    projectInfo.router === "app"
-      ? `"@/app${apiPath}/route"`
-      : `"../pages${apiPath}"`;
+  let routePath: string;
+  if (router === "app") {
+    const appDir = useSrcDir ? "src/app" : "app";
+    routePath = resolveImportPath(
+      projectInfo,
+      `app${apiPath}/route`,
+      `${libDir}`
+    );
+  } else {
+    // For pages router, use relative import
+    const pagesDir = useSrcDir ? "src/pages" : "pages";
+    const relativePath = path.relative(libDir, `${pagesDir}${apiPath}`);
+    const normalizedPath = relativePath.replace(/\\/g, "/");
+    routePath = `"${
+      normalizedPath.startsWith(".") ? normalizedPath : `./${normalizedPath}`
+    }"`;
+  }
 
   const content = `/**
  * Enhanced Upload Client with Property-Based Access
@@ -234,11 +334,15 @@ async function createComponents(
   projectInfo: ProjectInfo,
   verbose?: boolean
 ): Promise<void> {
-  const { rootDir, typescript } = projectInfo;
+  const { rootDir, typescript, useSrcDir } = projectInfo;
   const ext = typescript ? "tsx" : "jsx";
+  const componentsDir = useSrcDir ? "src/components/ui" : "components/ui";
 
   // Enhanced Upload Zone with better UX
-  const uploadZonePath = path.join(rootDir, `components/ui/upload-zone.${ext}`);
+  const uploadZonePath = path.join(
+    rootDir,
+    `${componentsDir}/upload-zone.${ext}`
+  );
   const uploadZoneContent = `"use client";
 
 import { useCallback } from "react";
@@ -302,7 +406,7 @@ export function UploadZone({
   await fs.writeFile(uploadZonePath, uploadZoneContent);
 
   // Enhanced File List with progress and status
-  const fileListPath = path.join(rootDir, `components/ui/file-list.${ext}`);
+  const fileListPath = path.join(rootDir, `${componentsDir}/file-list.${ext}`);
   const fileListContent = `"use client";
 
 import { formatETA, formatUploadSpeed } from "pushduck";
@@ -423,20 +527,52 @@ async function createExamplePage(
   apiPath: string,
   verbose?: boolean
 ): Promise<void> {
-  const { rootDir, router, typescript } = projectInfo;
+  const { rootDir, router, typescript, useSrcDir } = projectInfo;
   const ext = typescript ? "tsx" : "jsx";
 
-  const filePath =
+  let filePath: string;
+  if (router === "app") {
+    const appDir = useSrcDir ? "src/app" : "app";
+    filePath = path.join(rootDir, `${appDir}/upload/page.${ext}`);
+  } else {
+    const pagesDir = useSrcDir ? "src/pages" : "pages";
+    filePath = path.join(rootDir, `${pagesDir}/upload.${ext}`);
+  }
+
+  // Resolve import paths based on tsconfig
+  const currentDir =
     router === "app"
-      ? path.join(rootDir, `app/upload/page.${ext}`)
-      : path.join(rootDir, `pages/upload.${ext}`);
+      ? useSrcDir
+        ? `src/app/upload`
+        : `app/upload`
+      : useSrcDir
+      ? `src/pages`
+      : `pages`;
+
+  const uploadClientImport = resolveImportPath(
+    projectInfo,
+    "lib/upload-client",
+    currentDir
+  );
+
+  const uploadZoneImport = resolveImportPath(
+    projectInfo,
+    "components/ui/upload-zone",
+    currentDir
+  );
+
+  const fileListImport = resolveImportPath(
+    projectInfo,
+    "components/ui/file-list",
+    currentDir
+  );
 
   const content = `"use client";
 
 import { useState } from "react";
-import { upload } from "@/lib/upload-client";
-import { UploadZone } from "@/components/ui/upload-zone";
-import { FileList } from "@/components/ui/file-list";
+import { upload } from ${uploadClientImport};
+import { UploadZone } from ${uploadZoneImport};
+import { FileList } from ${fileListImport};
 
 export default function UploadPage() {
   const [activeTab, setActiveTab] = useState<"images" | "files">("images");
@@ -601,14 +737,14 @@ async function updateEnvFile(
   }
 }
 
-function getProviderMethodName(provider: ProviderType): string {
+function getProviderConfigKey(provider: ProviderType): string {
   switch (provider) {
     case "aws":
       return "aws";
     case "cloudflare-r2":
       return "cloudflareR2";
     case "digitalocean":
-      return "digitalocean";
+      return "digitalOceanSpaces";
     case "minio":
       return "minio";
     case "gcs":

@@ -1,6 +1,46 @@
 import fs from "fs-extra";
 import path from "path";
 
+export interface PathMapping {
+  alias: string; // e.g., "@/*"
+  target: string; // e.g., "./src/*" or "./*"
+}
+
+async function parseTsConfig(cwd: string): Promise<{
+  pathMappings: PathMapping[];
+  baseUrl?: string;
+}> {
+  const tsconfigPath = path.join(cwd, "tsconfig.json");
+
+  if (!(await fs.pathExists(tsconfigPath))) {
+    return { pathMappings: [] };
+  }
+
+  try {
+    const tsconfig = await fs.readJson(tsconfigPath);
+    const compilerOptions = tsconfig.compilerOptions || {};
+    const paths = compilerOptions.paths || {};
+    const baseUrl = compilerOptions.baseUrl;
+
+    const pathMappings: PathMapping[] = [];
+
+    // Parse path mappings from tsconfig.json
+    for (const [alias, targets] of Object.entries(paths)) {
+      if (Array.isArray(targets) && targets.length > 0) {
+        pathMappings.push({
+          alias,
+          target: targets[0] as string, // Use the first target
+        });
+      }
+    }
+
+    return { pathMappings, baseUrl };
+  } catch (error) {
+    // If tsconfig.json is malformed, fall back to no path mappings
+    return { pathMappings: [] };
+  }
+}
+
 export interface ProjectInfo {
   framework: "nextjs" | "unknown";
   version: string;
@@ -10,6 +50,9 @@ export interface ProjectInfo {
   packageManager: "npm" | "yarn" | "pnpm";
   hasExistingUpload: boolean;
   rootDir: string;
+  useSrcDir: boolean;
+  pathMappings: PathMapping[];
+  baseUrl?: string;
 }
 
 export async function detectProject(
@@ -34,15 +77,27 @@ export async function detectProject(
     );
   }
 
-  // Detect router type
+  // Detect router type and src directory structure
   const hasAppDir = await fs.pathExists(path.join(cwd, "app"));
   const hasPagesDir = await fs.pathExists(path.join(cwd, "pages"));
+  const hasSrcAppDir = await fs.pathExists(path.join(cwd, "src", "app"));
+  const hasSrcPagesDir = await fs.pathExists(path.join(cwd, "src", "pages"));
 
   let router: ProjectInfo["router"] = "unknown";
-  if (hasAppDir) {
+  let useSrcDir = false;
+
+  if (hasSrcAppDir) {
     router = "app";
+    useSrcDir = true;
+  } else if (hasAppDir) {
+    router = "app";
+    useSrcDir = false;
+  } else if (hasSrcPagesDir) {
+    router = "pages";
+    useSrcDir = true;
   } else if (hasPagesDir) {
     router = "pages";
+    useSrcDir = false;
   }
 
   // Detect TypeScript
@@ -79,6 +134,9 @@ export async function detectProject(
     (await fs.pathExists(path.join(cwd, "upload.js"))) ||
     packageJson.dependencies?.["pushduck"] !== undefined;
 
+  // Parse TypeScript config for path mappings
+  const { pathMappings, baseUrl } = await parseTsConfig(cwd);
+
   return {
     framework: "nextjs",
     version: nextVersion,
@@ -88,6 +146,9 @@ export async function detectProject(
     packageManager,
     hasExistingUpload,
     rootDir: cwd,
+    useSrcDir,
+    pathMappings,
+    baseUrl,
   };
 }
 
