@@ -1,0 +1,499 @@
+---
+title: "CORS & ACL Configuration Guide"
+description: "Complete guide to configuring CORS policies and understanding ACL differences across cloud providers"
+---
+
+# CORS & ACL Configuration Guide
+
+This guide covers Cross-Origin Resource Sharing (CORS) configuration for file uploads and provides an overview of Access Control Lists (ACLs) across different cloud storage providers.
+
+## Table of Contents
+
+- [CORS Configuration](#cors-configuration)
+- [Understanding ACLs](#understanding-acls)
+- [Provider-Specific Considerations](#provider-specific-considerations)
+- [Common Issues & Troubleshooting](#common-issues--troubleshooting)
+
+## CORS Configuration
+
+Cross-Origin Resource Sharing (CORS) is essential for allowing your web application to upload files directly to cloud storage from the browser.
+
+### Why CORS is Required
+
+When uploading files directly from the browser to cloud storage, you're making requests from your domain (e.g., `https://myapp.com`) to a different domain (e.g., `https://mybucket.s3.amazonaws.com`). Browsers block these cross-origin requests by default unless the target server explicitly allows them via CORS headers.
+
+### Basic CORS Configuration
+
+#### AWS S3 CORS Configuration
+
+```json
+[
+  {
+    "AllowedHeaders": [
+      "*"
+    ],
+    "AllowedMethods": [
+      "GET",
+      "PUT",
+      "POST",
+      "DELETE",
+      "HEAD"
+    ],
+    "AllowedOrigins": [
+      "https://yourdomain.com",
+      "https://www.yourdomain.com"
+    ],
+    "ExposeHeaders": [
+      "ETag",
+      "x-amz-meta-custom-header"
+    ],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+#### Setting CORS via AWS CLI
+
+```bash
+# Save the above JSON to cors-config.json
+aws s3api put-bucket-cors \
+  --bucket your-bucket-name \
+  --cors-configuration file://cors-config.json
+```
+
+#### Setting CORS via AWS Console
+
+1. Go to S3 Console → Your Bucket → Permissions
+2. Scroll to "Cross-origin resource sharing (CORS)"
+3. Click "Edit" and paste your CORS configuration
+4. Save changes
+
+### Development vs Production CORS
+
+#### Development Configuration (Permissive)
+
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://127.0.0.1:3000",
+      "https://yourdomain.com"
+    ],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+#### Production Configuration (Restrictive)
+
+```json
+[
+  {
+    "AllowedHeaders": [
+      "Content-Type",
+      "Content-MD5",
+      "Authorization",
+      "x-amz-date",
+      "x-amz-content-sha256"
+    ],
+    "AllowedMethods": ["PUT", "POST"],
+    "AllowedOrigins": [
+      "https://yourdomain.com",
+      "https://www.yourdomain.com"
+    ],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 86400
+  }
+]
+```
+
+### Provider-Specific CORS Setup
+
+#### Cloudflare R2
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://yourdomain.com"],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Set via Cloudflare Dashboard:
+1. Go to R2 Object Storage → Your Bucket
+2. Navigate to Settings → CORS policy
+3. Add your CORS rules
+
+#### DigitalOcean Spaces
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://yourdomain.com"],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag", "x-amz-meta-*"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Set via DigitalOcean Control Panel:
+1. Go to Spaces → Your Space → Settings
+2. Add CORS configuration
+
+#### MinIO (Self-Hosted)
+
+```bash
+# Using MinIO Client (mc)
+mc admin config set myminio api cors_allow_origin="https://yourdomain.com"
+mc admin service restart myminio
+```
+
+Or via MinIO Console:
+1. Access MinIO Console → Buckets → Your Bucket
+2. Navigate to Anonymous → Access Rules
+3. Configure CORS policy
+
+### Advanced CORS Configurations
+
+#### Multiple Environment Setup
+
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["PUT", "POST"],
+    "AllowedOrigins": [
+      "https://yourdomain.com",
+      "https://staging.yourdomain.com"
+    ],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 86400
+  },
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET"],
+    "AllowedOrigins": ["*"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+#### CDN Integration
+
+When using CloudFront or other CDNs:
+
+```json
+[
+  {
+    "AllowedHeaders": [
+      "Origin",
+      "Access-Control-Request-Method",
+      "Access-Control-Request-Headers"
+    ],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+    "AllowedOrigins": [
+      "https://yourdomain.com",
+      "https://d1234567890.cloudfront.net"
+    ],
+    "ExposeHeaders": ["ETag", "x-amz-version-id"],
+    "MaxAgeSeconds": 86400
+  }
+]
+```
+
+### Testing CORS Configuration
+
+#### Browser Developer Tools
+
+1. Open your web app
+2. Try uploading a file
+3. Check Network tab for CORS errors
+4. Look for preflight OPTIONS requests
+
+#### Command Line Testing
+
+```bash
+# Test preflight request
+curl -X OPTIONS \
+  -H "Origin: https://yourdomain.com" \
+  -H "Access-Control-Request-Method: PUT" \
+  -H "Access-Control-Request-Headers: Content-Type" \
+  https://yourbucket.s3.amazonaws.com/
+
+# Should return CORS headers if configured correctly
+```
+
+#### Programmatic Testing
+
+```javascript
+// Test CORS from browser console
+fetch('https://yourbucket.s3.amazonaws.com/', {
+  method: 'OPTIONS',
+  headers: {
+    'Origin': window.location.origin,
+    'Access-Control-Request-Method': 'PUT'
+  }
+})
+.then(response => {
+  console.log('CORS Headers:', response.headers);
+})
+.catch(error => {
+  console.error('CORS Error:', error);
+});
+```
+
+## Understanding ACLs
+
+Access Control Lists (ACLs) define who can access your uploaded files and what permissions they have. **Important: ACL implementation varies significantly across providers.**
+
+### What are ACLs?
+
+ACLs are permission sets that determine:
+- **Who** can access files (users, groups, public)
+- **What** they can do (read, write, delete)
+- **How** permissions are inherited
+
+### Common ACL Types
+
+#### Public Access Levels
+
+- **`public-read`**: Anyone can download the file
+- **`public-read-write`**: Anyone can download and upload
+- **`private`**: Only bucket owner has access
+- **`authenticated-read`**: Only authenticated users can read
+
+#### AWS S3 ACL Examples
+
+```typescript
+// Using PushDuck with S3 ACLs
+const uploadConfig = createUploadConfig({
+  provider: s3({
+    bucket: "my-bucket",
+    region: "us-east-1",
+    acl: "public-read" // File will be publicly accessible
+  }),
+  // ... other config
+});
+```
+
+### Provider-Specific ACL Differences
+
+#### AWS S3
+- **Full ACL Support**: Comprehensive ACL system
+- **Canned ACLs**: Predefined permission sets
+- **Custom ACLs**: Granular user/group permissions
+- **Bucket Policies**: Override ACL settings
+
+```typescript
+// S3 supports traditional ACLs
+const s3Config = s3({
+  bucket: "my-bucket",
+  acl: "public-read", // ✅ Supported
+  // Custom ACL with specific permissions
+  customAcl: {
+    Owner: { ID: "owner-id", DisplayName: "Owner" },
+    Grants: [
+      {
+        Grantee: { Type: "Group", URI: "http://acs.amazonaws.com/groups/global/AllUsers" },
+        Permission: "READ"
+      }
+    ]
+  }
+});
+```
+
+#### Cloudflare R2
+- **Limited ACL Support**: Basic public/private only
+- **No Canned ACLs**: Doesn't support AWS-style ACL names
+- **Bucket-Level Permissions**: Access controlled at bucket level
+
+```typescript
+// R2 has limited ACL support
+const r2Config = cloudflareR2({
+  bucket: "my-bucket",
+  // ❌ acl: "public-read" // Not supported
+  // Access controlled via Cloudflare dashboard or API
+});
+```
+
+#### DigitalOcean Spaces
+- **S3-Compatible ACLs**: Supports most S3 ACL types
+- **Public/Private Toggle**: Simple public access control
+- **CDN Integration**: Automatic CDN for public files
+
+```typescript
+// Spaces supports basic S3 ACLs
+const spacesConfig = digitalOceanSpaces({
+  bucket: "my-space",
+  acl: "public-read", // ✅ Supported
+  region: "nyc3"
+});
+```
+
+#### MinIO (Self-Hosted)
+- **Policy-Based**: Uses bucket policies instead of ACLs
+- **No Traditional ACLs**: Custom permission system
+- **IAM Integration**: Role-based access control
+
+```typescript
+// MinIO uses policies, not ACLs
+const minioConfig = minio({
+  endpoint: "https://minio.yourdomain.com",
+  bucket: "my-bucket",
+  // ❌ acl: "public-read" // Not supported
+  // Access controlled via MinIO policies
+});
+```
+
+### ACL Best Practices
+
+#### Security Considerations
+
+1. **Default to Private**: Start with `private` ACL
+2. **Explicit Public Access**: Only make files public when necessary
+3. **Regular Audits**: Review public files periodically
+4. **Bucket Policies**: Use bucket policies for complex permissions
+
+#### Implementation Strategy
+
+```typescript
+// Environment-based ACL configuration
+const getAcl = () => {
+  if (process.env.NODE_ENV === 'development') {
+    return 'public-read'; // Easy testing
+  }
+  
+  if (process.env.FILE_TYPE === 'profile-images') {
+    return 'public-read'; // Profile images need public access
+  }
+  
+  return 'private'; // Default to private
+};
+
+const uploadConfig = createUploadConfig({
+  provider: s3({
+    bucket: process.env.S3_BUCKET!,
+    acl: getAcl()
+  })
+});
+```
+
+## Provider-Specific Considerations
+
+### AWS S3
+- **Bucket Policies Override ACLs**: Bucket policies take precedence
+- **Block Public Access**: May prevent ACL-based public access
+- **IAM Permissions**: Required for ACL operations
+
+### Cloudflare R2
+- **Dashboard Configuration**: Set public access via Cloudflare dashboard
+- **Custom Domains**: Use custom domains for public files
+- **Workers Integration**: Use Cloudflare Workers for access control
+
+### DigitalOcean Spaces
+- **CDN Integration**: Automatic CDN for public files
+- **Subdomain Access**: Public files accessible via subdomain
+- **CORS + ACL**: Both required for browser uploads
+
+### MinIO
+- **Policy-Only**: No ACL support, use bucket policies
+- **Admin Configuration**: Set policies via MinIO admin
+- **Custom Authentication**: Integrate with your auth system
+
+## Common Issues & Troubleshooting
+
+### CORS Issues
+
+#### Symptom: "CORS policy" errors in browser console
+
+**Solution:**
+1. Check CORS configuration includes your domain
+2. Verify all required methods are allowed
+3. Ensure preflight requests are handled
+
+```bash
+# Debug CORS with curl
+curl -X OPTIONS \
+  -H "Origin: https://yourdomain.com" \
+  -H "Access-Control-Request-Method: PUT" \
+  -v https://yourbucket.s3.amazonaws.com/
+```
+
+#### Symptom: Uploads work locally but fail in production
+
+**Solution:**
+1. Add production domain to CORS origins
+2. Check for HTTPS vs HTTP mismatches
+3. Verify subdomain configurations
+
+### ACL Issues
+
+#### Symptom: Files uploaded but not accessible
+
+**Solution:**
+1. Check if bucket has "Block Public Access" enabled
+2. Verify ACL permissions match requirements
+3. Review bucket policies for conflicts
+
+#### Symptom: ACL settings ignored
+
+**Solution:**
+1. Provider may not support ACLs (R2, MinIO)
+2. Bucket policies may override ACL settings
+3. Check IAM permissions for ACL operations
+
+### Mixed Issues
+
+#### Symptom: Uploads succeed but files have wrong permissions
+
+**Solution:**
+```typescript
+// Ensure ACL is set correctly for your provider
+const config = createUploadConfig({
+  provider: s3({
+    bucket: "my-bucket",
+    acl: "public-read", // Only for S3-compatible providers
+  }),
+  onUploadComplete: async ({ file, url }) => {
+    // Verify file accessibility
+    const response = await fetch(url, { method: 'HEAD' });
+    if (!response.ok) {
+      console.error('File not publicly accessible:', response.status);
+    }
+  }
+});
+```
+
+### Debug Checklist
+
+- [ ] CORS configuration includes all required origins
+- [ ] All HTTP methods needed are allowed
+- [ ] Headers match what your client sends
+- [ ] ACL settings match provider capabilities
+- [ ] Bucket policies don't conflict with ACLs
+- [ ] IAM permissions allow required operations
+- [ ] Block Public Access settings reviewed
+- [ ] CDN/proxy configurations considered
+
+### Provider Support Matrix
+
+| Feature | AWS S3 | Cloudflare R2 | DigitalOcean Spaces | MinIO |
+|---------|---------|---------------|---------------------|-------|
+| CORS | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| Canned ACLs | ✅ Yes | ❌ No | ✅ Limited | ❌ No |
+| Custom ACLs | ✅ Yes | ❌ No | ❌ No | ❌ No |
+| Bucket Policies | ✅ Yes | ✅ Yes | ❌ No | ✅ Yes |
+| Public Access | ✅ Yes | ✅ Dashboard | ✅ Yes | ✅ Policies |
+
+This guide should help you configure CORS properly and understand how ACLs work differently across providers. Remember to test your configuration thoroughly in both development and production environments. 
