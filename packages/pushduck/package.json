@@ -144,7 +144,7 @@
     "gzip-size-cli": "^5.1.0",
     "happy-dom": "^15.11.7",
     "next": "^15.3.4",
-    "prettier": "^3.0.3",
+    "prettier": "^3.6.2",
     "react": "^19.1.0",
     "tsdown": "^0.12.8",
     "typescript": "^5.2.2",
