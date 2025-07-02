@@ -47,13 +47,15 @@ interface S3CompatibleConfig {
  * 3. Test with aws4fetch client
  * 4. Update provider types in ./providers.ts
  */
-function getS3CompatibleConfig(config: ProviderConfig): S3CompatibleConfig {
+function getS3CompatibleConfig(
+  config: ProviderConfig,
+  options: { debug?: boolean } = {}
+): S3CompatibleConfig {
   const baseConfig = {
     bucket: config.bucket,
     acl: config.acl,
     customDomain: config.customDomain,
-    debug:
-      process.env.NODE_ENV === "development" || process.env.DEBUG === "true",
+    debug: options.debug ?? false,
   };
 
   switch (config.provider) {
@@ -296,7 +298,9 @@ export function createS3Client(uploadConfig?: UploadConfig): AwsClient {
     throw new Error("UploadConfig is required");
   }
 
-  const config = getS3CompatibleConfig(uploadConfig.provider);
+  const config = getS3CompatibleConfig(uploadConfig.provider, {
+    debug: uploadConfig.debug,
+  });
 
   if (!config.accessKeyId || !config.secretAccessKey || !config.bucket) {
     throw createConfigError(
