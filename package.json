@@ -24,7 +24,7 @@
     "release:ui": "node scripts/release-methods.js"
   },
   "devDependencies": {
-    "eslint": "^7.32.0",
+    "eslint": "^9.30.0",
     "prettier": "^2.5.1",
     "turbo": "^2.5.4"
   },
