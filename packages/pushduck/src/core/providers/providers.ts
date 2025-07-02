@@ -204,7 +204,7 @@ interface ProviderSpec {
 
 /**
  * Generic provider configuration builder
- * Eliminates repetitive environment variable reading and config merging
+ * Validates required configuration fields
  */
 function createProviderBuilder<T extends ProviderConfig>(
   spec: ProviderSpec
@@ -212,13 +212,9 @@ function createProviderBuilder<T extends ProviderConfig>(
   return (config: Partial<T> = {}): T => {
     const result: any = { provider: spec.provider };
 
-    // Process environment variables and defaults
-    for (const [key, envKeys] of Object.entries(spec.envVars)) {
-      result[key] =
-        config[key as keyof T] ||
-        readEnvVar(envKeys) ||
-        spec.defaults[key] ||
-        "";
+    // Only use explicit config and defaults (no env vars)
+    for (const [key] of Object.entries(spec.envVars)) {
+      result[key] = config[key as keyof T] || spec.defaults[key] || "";
     }
 
     // Apply custom logic if provided
@@ -226,19 +222,16 @@ function createProviderBuilder<T extends ProviderConfig>(
       Object.assign(result, spec.customLogic(config, result));
     }
 
+    // Validate the final configuration
+    const validation = validateProviderConfig(result);
+    if (!validation.valid) {
+      throw new Error(
+        `Provider validation failed: ${validation.errors.join(", ")}`
+      );
+    }
+
     return result as T;
   };
-}
-
-/**
- * Read first available environment variable from a list
- */
-function readEnvVar(envKeys: readonly string[]): string | undefined {
-  for (const key of envKeys) {
-    const value = process.env[key];
-    if (value) return value;
-  }
-  return undefined;
 }
 
 // ========================================
@@ -335,12 +328,8 @@ const PROVIDER_SPECS = {
       acl: "private",
     },
     customLogic: (config: any, computed: any) => ({
-      useSSL: config.useSSL ?? process.env.MINIO_USE_SSL === "true",
-      port: config.port
-        ? Number(config.port)
-        : process.env.MINIO_PORT
-          ? Number(process.env.MINIO_PORT)
-          : undefined,
+      useSSL: config.useSSL ?? false,
+      port: config.port ? Number(config.port) : undefined,
     }),
   },
 

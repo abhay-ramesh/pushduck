@@ -22,6 +22,7 @@ import {
 } from "../schema";
 import { createStorage, type StorageInstance } from "../storage/storage-api";
 import { logger } from "../utils/logger";
+import { metrics } from "../utils/metrics";
 
 // ========================================
 // Smart Schema Builders (for upload-config)
@@ -82,6 +83,8 @@ function createS3Instance(config: UploadConfig) {
 
 export interface UploadConfig {
   provider: ProviderConfig;
+  debug?: boolean;
+  enableMetrics?: boolean;
   defaults?: {
     maxFileSize?: string | number;
     allowedFileTypes?: string[];
@@ -186,6 +189,22 @@ export class UploadConfigBuilder {
   }
 
   /**
+   * Enable debug mode
+   */
+  debug(enabled: boolean = true): UploadConfigBuilder {
+    this.config.debug = enabled;
+    return this;
+  }
+
+  /**
+   * Enable metrics collection
+   */
+  metrics(enabled: boolean = true): UploadConfigBuilder {
+    this.config.enableMetrics = enabled;
+    return this;
+  }
+
+  /**
    * Build the final configuration and return configured instances
    */
   build(): UploadInitResult {
@@ -201,6 +220,15 @@ export class UploadConfigBuilder {
     }
 
     const config = this.config as UploadConfig;
+
+    // Configure logger and metrics based on config
+    if (config.debug !== undefined) {
+      logger.setDebugMode(config.debug);
+    }
+
+    if (config.enableMetrics !== undefined) {
+      metrics.setEnabled(config.enableMetrics);
+    }
 
     const storage = createStorage(config);
     const s3Instance = createS3Instance(config);
