@@ -191,13 +191,13 @@ export type ProviderConfig =
 // DRY Provider Factory System
 // ========================================
 
-interface EnvVarMapping {
+interface ConfigKeyMapping {
   readonly [key: string]: readonly string[];
 }
 
 interface ProviderSpec {
   readonly provider: string;
-  readonly envVars: EnvVarMapping;
+  readonly configKeys: ConfigKeyMapping;
   readonly defaults: Record<string, any>;
   readonly customLogic?: (config: any, computed: any) => any;
 }
@@ -213,7 +213,7 @@ function createProviderBuilder<T extends ProviderConfig>(
     const result: any = { provider: spec.provider };
 
     // Only use explicit config and defaults (no env vars)
-    for (const [key] of Object.entries(spec.envVars)) {
+    for (const [key] of Object.entries(spec.configKeys)) {
       result[key] = config[key as keyof T] || spec.defaults[key] || "";
     }
 
@@ -241,7 +241,7 @@ function createProviderBuilder<T extends ProviderConfig>(
 const PROVIDER_SPECS = {
   aws: {
     provider: "aws",
-    envVars: {
+    configKeys: {
       region: ["AWS_REGION", "S3_REGION"],
       bucket: ["AWS_S3_BUCKET", "S3_BUCKET", "S3_BUCKET_NAME"],
       accessKeyId: ["AWS_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID"],
@@ -258,7 +258,7 @@ const PROVIDER_SPECS = {
 
   cloudflareR2: {
     provider: "cloudflare-r2",
-    envVars: {
+    configKeys: {
       accountId: ["CLOUDFLARE_ACCOUNT_ID", "R2_ACCOUNT_ID"],
       bucket: ["CLOUDFLARE_R2_BUCKET", "R2_BUCKET"],
       accessKeyId: ["CLOUDFLARE_R2_ACCESS_KEY_ID", "R2_ACCESS_KEY_ID"],
@@ -285,7 +285,7 @@ const PROVIDER_SPECS = {
 
   digitalOceanSpaces: {
     provider: "digitalocean-spaces",
-    envVars: {
+    configKeys: {
       region: ["DO_SPACES_REGION", "DIGITALOCEAN_SPACES_REGION"],
       bucket: ["DO_SPACES_BUCKET", "DIGITALOCEAN_SPACES_BUCKET"],
       accessKeyId: [
@@ -313,7 +313,7 @@ const PROVIDER_SPECS = {
 
   minio: {
     provider: "minio",
-    envVars: {
+    configKeys: {
       endpoint: ["MINIO_ENDPOINT"],
       bucket: ["MINIO_BUCKET"],
       accessKeyId: ["MINIO_ACCESS_KEY_ID", "MINIO_ACCESS_KEY"],
@@ -335,7 +335,7 @@ const PROVIDER_SPECS = {
 
   gcs: {
     provider: "gcs",
-    envVars: {
+    configKeys: {
       projectId: ["GOOGLE_CLOUD_PROJECT_ID", "GCS_PROJECT_ID"],
       bucket: ["GCS_BUCKET", "GOOGLE_CLOUD_STORAGE_BUCKET"],
       keyFilename: ["GOOGLE_APPLICATION_CREDENTIALS", "GCS_KEY_FILE"],
@@ -354,7 +354,7 @@ const PROVIDER_SPECS = {
 
   s3Compatible: {
     provider: "s3-compatible",
-    envVars: {
+    configKeys: {
       endpoint: ["S3_ENDPOINT", "S3_COMPATIBLE_ENDPOINT"],
       bucket: ["S3_BUCKET", "S3_BUCKET_NAME"],
       accessKeyId: ["S3_ACCESS_KEY_ID", "ACCESS_KEY_ID"],
