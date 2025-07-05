@@ -14,6 +14,15 @@ const config = {
   reactStrictMode: true,
   // This is required to support PostHog trailing slash API requests
   skipTrailingSlashRedirect: true,
+  async redirects() {
+    return [
+      {
+        source: '/discord',
+        destination: 'https://discord.gg/CXu3432XGM',
+        permanent: false, // Use 302 so you can easily change the Discord invite later
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

@@ -1,0 +1,157 @@
+---
+title: Storage Providers
+description: Connect pushduck to your preferred cloud storage provider with simple, unified configuration
+---
+
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Callout } from "fumadocs-ui/components/callout";
+
+## Supported Storage Providers
+
+Pushduck supports multiple cloud storage providers through a unified S3-compatible API. Choose the provider that best fits your needs, budget, and infrastructure requirements.
+
+<Callout type="info">
+  **Universal S3 API**: All providers use the same configuration pattern, making it easy to switch between them or use multiple providers in the same project.
+</Callout>
+
+## Supported Providers
+
+<Cards>
+  <Card 
+    title="AWS S3" 
+    description="The original cloud storage service with global availability and advanced features"
+    href="/docs/providers/aws-s3"
+  >
+    **Best for**: Enterprise applications, complex workflows, global scale
+    
+    ✅ Global edge locations  
+    ✅ Advanced security features  
+    ✅ Comprehensive ecosystem  
+    ✅ 99.999999999% durability
+  </Card>
+  
+  <Card 
+    title="Cloudflare R2" 
+    description="Zero egress fees with global edge network performance"
+    href="/docs/providers/cloudflare-r2"
+  >
+    **Best for**: High-traffic applications, cost optimization
+    
+    ✅ No egress fees  
+    ✅ Global edge network  
+    ✅ Fast performance  
+    ✅ Simple pricing
+  </Card>
+  
+  <Card 
+    title="DigitalOcean Spaces" 
+    description="Simple, predictable pricing with built-in CDN"
+    href="/docs/providers/digitalocean-spaces"
+  >
+    **Best for**: Small to medium applications, predictable costs
+    
+    ✅ Flat-rate pricing  
+    ✅ Built-in CDN  
+    ✅ Simple setup  
+    ✅ Developer-friendly
+  </Card>
+  
+  <Card 
+    title="Google Cloud Storage" 
+    description="AI-powered insights with global infrastructure"
+    href="/docs/providers/google-cloud"
+  >
+    **Best for**: AI/ML workloads, Google ecosystem integration
+    
+    ✅ AI integration  
+    ✅ Global network  
+    ✅ Strong consistency  
+    ✅ Advanced analytics
+  </Card>
+  
+  <Card 
+    title="MinIO" 
+    description="Self-hosted S3-compatible storage for complete control"
+    href="/docs/providers/minio"
+  >
+    **Best for**: Self-hosted deployments, data sovereignty
+    
+    ✅ Self-hosted  
+    ✅ Full control  
+    ✅ High performance  
+    ✅ Open source
+  </Card>
+  
+  <Card 
+    title="S3-Compatible (Generic)" 
+    description="Use any S3-compatible storage service"
+    href="/docs/providers/s3-compatible"
+  >
+    **Best for**: Custom deployments, other S3-compatible services
+    
+    ✅ Universal compatibility  
+    ✅ Custom endpoints  
+    ✅ Flexible configuration  
+    ✅ Vendor independence
+  </Card>
+</Cards>
+
+## Quick Setup
+
+All providers follow the same configuration pattern:
+
+```typescript
+import { createS3Router, s3 } from 'pushduck/server';
+
+const uploadRouter = createS3Router({
+  // Configure your storage provider
+  storage: {
+    provider: 'aws-s3', // or 'cloudflare-r2', 'digitalocean-spaces', etc.
+    region: 'us-east-1',
+    bucket: 'your-bucket-name',
+    credentials: {
+      accessKeyId: process.env.ACCESS_KEY_ID!,
+      secretAccessKey: process.env.SECRET_ACCESS_KEY!,
+    },
+  },
+  
+  // Define your upload routes
+  routes: {
+    imageUpload: s3.image().max("5MB"),
+    documentUpload: s3.file().max("10MB"),
+  },
+});
+```
+
+## Provider Comparison
+
+| Provider | Pricing Model | Egress Fees | CDN Included | Best For |
+|----------|--------------|-------------|--------------|----------|
+| **AWS S3** | Pay-per-use | Yes | Separate service | Enterprise, global scale |
+| **Cloudflare R2** | Pay-per-use | **No** | Yes | High-traffic, cost-sensitive |
+| **DigitalOcean Spaces** | Flat-rate | Included quota | Yes | Predictable costs |
+| **Google Cloud** | Pay-per-use | Yes | Separate service | AI/ML integration |
+| **MinIO** | Self-hosted | None | Self-managed | Data sovereignty |
+
+## Need Help Choosing?
+
+<Callout type="tip">
+  **Quick Recommendation**:
+  - **Starting out?** → DigitalOcean Spaces (simple, predictable)
+  - **High traffic?** → Cloudflare R2 (no egress fees)
+  - **Enterprise?** → AWS S3 (full ecosystem)
+  - **Self-hosted?** → MinIO (complete control)
+</Callout>
+
+## Next Steps
+
+1. Choose your provider from the cards above
+2. Follow the provider-specific setup guide
+3. Configure your upload routes
+4. Start uploading files!
+
+Each provider guide includes:
+- Step-by-step setup instructions
+- Environment variable configuration
+- Production deployment tips
+- Troubleshooting common issues 
