@@ -269,7 +269,7 @@ export async function initCommand(options: InitOptions = {}) {
       console.log("  3. Build your upload interface!");
     }
 
-    console.log(chalk.cyan("\n📚 Documentation: https://docs.pushduck.com"));
+    console.log(chalk.cyan("\n📚 Documentation: https://pushduck.dev/docs"));
 
     // Step 10: Test configuration
     if (credentials.accessKeyId && credentials.secretAccessKey) {
@@ -304,7 +304,9 @@ export async function initCommand(options: InitOptions = {}) {
     }
 
     console.log(
-      chalk.gray("\nFor help, visit: https://docs.pushduck.com/troubleshooting")
+      chalk.gray(
+        "\nFor help, visit: https://pushduck.dev/docs/api/troubleshooting"
+      )
     );
     process.exit(1);
   }

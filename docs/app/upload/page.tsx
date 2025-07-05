@@ -42,7 +42,7 @@ export default function UploadPage() {
             📚 Quick Start Guide
           </a>
           <a
-            href="/docs/api/utilities/create-upload-client"
+            href="/docs/api/client/create-upload-client"
             className="text-blue-600 hover:text-blue-800 hover:underline"
           >
             🔧 Property-Based Client API
@@ -240,7 +240,7 @@ export default function UploadPage() {
               Get Started in 2 Minutes
             </a>
             <a
-              href="/docs/api/utilities/create-upload-client"
+              href="/docs/api/client/create-upload-client"
               className="inline-flex items-center px-4 py-2 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
             >
               Enhanced Client Docs

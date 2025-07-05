@@ -168,9 +168,7 @@ export async function selectProvider(
   console.log(chalk.blue("💡 Why " + selectedInfo.name + "?"));
   console.log(chalk.gray("   • " + selectedInfo.description));
   console.log(
-    chalk.gray(
-      "   • Need help choosing? https://docs.pushduck.com/providers/comparison\n"
-    )
+    chalk.gray("   • Need help choosing? https://pushduck.dev/docs/providers\n")
   );
 
   return provider;
