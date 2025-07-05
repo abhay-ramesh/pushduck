@@ -677,6 +677,64 @@ export default function UploadPage() {
             console.log("Remove file:", fileId);
           }}
         />
+        
+        {/* Image Gallery */}
+        {activeTab === "images" &&
+          currentUpload.files.filter((f) => f.status === "success" && f.url)
+            .length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-800">
+                📸 Uploaded Images
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {currentUpload.files
+                  .filter((f) => f.status === "success" && f.url)
+                  .map((file) => (
+                    <div
+                      key={file.id}
+                      className="group relative aspect-square border border-gray-200 rounded-lg overflow-hidden bg-gray-50 hover:border-gray-300 transition-colors"
+                    >
+                      <img
+                        src={file.url}
+                        alt={file.name}
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity" />
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                        <p className="text-white text-xs truncate font-medium">
+                          {file.name}
+                        </p>
+                        <p className="text-white/80 text-xs">
+                          {(file.size / 1024 / 1024).toFixed(1)} MB
+                        </p>
+                      </div>
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 hover:bg-white rounded-full p-1.5"
+                        title="Open full size"
+                      >
+                        <svg
+                          className="w-4 h-4 text-gray-700"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                          />
+                        </svg>
+                      </a>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
 
         {/* Error Display */}
         {currentUpload.errors.length > 0 && (
@@ -757,15 +815,15 @@ function getProviderConfigKey(provider: ProviderType): string {
 function getProviderEnvVars(provider: ProviderType): string {
   switch (provider) {
     case "aws":
-      return "region: process.env.AWS_REGION!,\n      bucket: process.env.S3_BUCKET!,";
+      return "region: process.env.AWS_REGION!,\n      bucket: process.env.S3_BUCKET!,\n      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,";
     case "cloudflare-r2":
-      return "accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,\n      bucket: process.env.R2_BUCKET!,";
+      return "accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,\n      bucket: process.env.R2_BUCKET!,\n      accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,";
     case "digitalocean":
-      return "region: process.env.DO_SPACES_REGION!,\n      bucket: process.env.DO_SPACES_BUCKET!,";
+      return "region: process.env.DO_SPACES_REGION!,\n      bucket: process.env.DO_SPACES_BUCKET!,\n      accessKeyId: process.env.DO_SPACES_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.DO_SPACES_SECRET_ACCESS_KEY!,";
     case "minio":
-      return "endpoint: process.env.MINIO_ENDPOINT!,\n      bucket: process.env.MINIO_BUCKET!,";
+      return "endpoint: process.env.MINIO_ENDPOINT!,\n      bucket: process.env.MINIO_BUCKET!,\n      accessKeyId: process.env.MINIO_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.MINIO_SECRET_ACCESS_KEY!,\n      region: process.env.MINIO_REGION!,";
     case "gcs":
-      return "projectId: process.env.GCS_PROJECT_ID!,\n      bucket: process.env.GCS_BUCKET!,";
+      return "projectId: process.env.GCS_PROJECT_ID!,\n      bucket: process.env.GCS_BUCKET!,\n      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS!,\n      region: process.env.GCS_REGION!,";
     default:
       return "";
   }

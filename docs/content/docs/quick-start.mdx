@@ -149,6 +149,43 @@ AWS_S3_BUCKET_NAME=your-bucket-name
 
 <Step>
 
+## Configure CORS (Required!)
+
+<Callout type="warn">
+  **⚠️ Critical Step**: Without CORS configuration, your uploads will fail with "CORS error" in the browser. This is required for web uploads.
+</Callout>
+
+Your storage bucket needs to allow cross-origin requests from your web application. Here's a quick setup for development:
+
+**For AWS S3:**
+1. Open your S3 bucket in AWS Console
+2. Go to **Permissions** → **CORS**
+3. Add this configuration:
+
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://yourdomain.com"
+    ],
+    "ExposeHeaders": ["ETag"]
+  }
+]
+```
+
+**For other providers**, see our [CORS configuration guide](/docs/guides/security/cors-and-acl) for detailed instructions.
+
+<Callout type="info">
+  **Production Ready**: Replace `http://localhost:3000` with your actual domain(s). Never use wildcards (`*`) in production.
+</Callout>
+
+</Step>
+
+<Step>
+
 ## Create Your Upload Router
 
 Create an API route to handle file uploads:
