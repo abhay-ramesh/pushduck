@@ -5343,6 +5343,8 @@ packages:
     resolution: {integrity: sha512-4yf0QO/sllf/1zbZWYnvWw3NxCQwLXKzIj0G849LSufP15BXKM0rbD2Z3wVnkMfjdn/CB0Dpp444gYAACdsplg==}
     engines: {node: '>=18'}
 
+  process-warning@4.0.1:
+    resolution: {integrity: sha512-3c2LzQ3rY9d0hc1emcsHhfT9Jwz0cChib/QN89oME2R451w5fy3f0afAhERFZAwrbDU43wk12d0ORBpDVME50Q==}
 
   process-warning@5.0.0:
     resolution: {integrity: sha512-a39t9ApHNx2L4+HBnQKqxxHNs1r7KF+Intd8Q/g1bUh6q0WIp9voPXJ/x0j+ZL45KF1pJd9+q2jLIRMfvEshkA==}
@@ -12472,12 +12474,11 @@ snapshots:
       ansi-styles: 5.2.0
       react-is: 17.0.2
 
-
-  process-warning@4.0.1: {}
-
   pretty-ms@9.2.0:
     dependencies:
       parse-ms: 4.0.0
+
+  process-warning@4.0.1: {}
 
   process-warning@5.0.0: {}
 
