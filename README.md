@@ -23,6 +23,7 @@ Upload files directly to S3-compatible storage with just 3 lines of code. No hea
 - 🔒 **Enterprise Security** - Presigned URLs, CORS handling, file validation
 - 🌍 **Edge Runtime** - Runs on Vercel Edge, Cloudflare Workers, and more
 - 📊 **Progress Tracking** - Real-time progress, upload speed, and ETA estimation
+- 🔄 **Lifecycle Callbacks** - Complete upload control with `onStart`, `onProgress`, `onSuccess`, and `onError`
 - 🗄️ **Storage Operations** - Complete file management API (list, delete, metadata)
 - 🛠️ **CLI Tools** - Interactive setup and project scaffolding
 - 🛡️ **Production Ready** - Used by thousands of applications
