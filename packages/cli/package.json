@@ -42,7 +42,7 @@
     "execa": "^9.6.0",
     "fs-extra": "^11.1.0",
     "handlebars": "^4.7.8",
-    "inquirer": "^9.2.0",
+    "inquirer": "^12.7.0",
     "ora": "^8.2.0"
   },
   "devDependencies": {
