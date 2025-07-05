@@ -1,0 +1,175 @@
+---
+title: Configuration
+description: Complete guide to configuring pushduck for your application. Learn about upload configuration, client options, server routing, and path management.
+---
+
+import { Cards, Card } from "fumadocs-ui/components/card";
+import { Callout } from "fumadocs-ui/components/callout";
+
+## Configuration Overview
+
+Configure pushduck to match your application's specific needs. From basic upload settings to advanced path generation and middleware, pushduck provides flexible configuration options for every use case.
+
+## Configuration Categories
+
+<Cards>
+  <Card 
+    title="📁 Upload Configuration" 
+    description="Basic upload settings, file validation, and schema definitions"
+    href="/docs/api/configuration/upload-config"
+  >
+    **Core upload settings** for your application.
+    
+    - File size and type validation
+    - Schema definitions (image, file, object)
+    - Default configurations
+    - Environment-based settings
+    
+    **Start here** for basic pushduck setup.
+  </Card>
+  
+  <Card 
+    title="🎯 Client Options" 
+    description="Client-side configuration for upload behavior and UI integration"
+    href="/docs/api/configuration/client-options"
+  >
+    **Enhanced client configuration** with property-based access.
+    
+    - Property-based vs hook-based clients
+    - Upload callbacks and progress tracking
+    - Error handling and retry logic
+    - TypeScript integration
+    
+    **Perfect for** modern React applications.
+  </Card>
+  
+  <Card 
+    title="🌐 Server Router" 
+    description="Server-side route configuration and API endpoint setup"
+    href="/docs/api/configuration/server-router"
+  >
+    **Server route configuration** for API endpoints.
+    
+    - Router setup and handlers
+    - Middleware integration
+    - Lifecycle hooks (onStart, onComplete, onError)
+    - Multi-route configurations
+    
+    **Essential for** API route setup.
+  </Card>
+  
+  <Card 
+    title="📂 Path Configuration" 
+    description="Custom file paths, naming patterns, and storage organization"
+    href="/docs/api/configuration/path-configuration"
+  >
+    **Advanced path management** for organized storage.
+    
+    - Custom path generation
+    - Dynamic naming patterns
+    - Hierarchical organization
+    - User-based separation
+    
+    **Great for** complex applications.
+  </Card>
+</Cards>
+
+## Quick Configuration Examples
+
+### Basic Setup
+```typescript
+// lib/upload.ts
+import { createUploadConfig } from 'pushduck/server'
+
+export const { s3, storage } = createUploadConfig()
+  .provider("cloudflareR2", {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    accountId: process.env.R2_ACCOUNT_ID,
+    bucket: process.env.S3_BUCKET_NAME,
+  })
+  .defaults({
+    maxFileSize: '10MB',
+    acl: 'public-read',
+  })
+  .build()
+```
+
+### Advanced Configuration
+```typescript
+// lib/upload.ts - Advanced setup
+export const { s3, storage } = createUploadConfig()
+  .provider("aws", { /* credentials */ })
+  .defaults({
+    maxFileSize: '100MB',
+    acl: 'private',
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => {
+      const userId = metadata.userId || 'anonymous'
+      const timestamp = Date.now()
+      return `${userId}/${timestamp}/${file.name}`
+    },
+  })
+  .hooks({
+    onUploadStart: async ({ file, metadata }) => {
+      console.log(`Starting upload: ${file.name}`)
+    },
+    onUploadComplete: async ({ file, url, metadata }) => {
+      await saveToDatabase({ file, url, userId: metadata.userId })
+    },
+  })
+  .build()
+```
+
+## Configuration Flow
+
+The configuration system follows a builder pattern:
+
+1. **Provider Setup** → Choose your storage provider
+2. **Defaults** → Set global upload settings  
+3. **Paths** → Configure file organization
+4. **Hooks** → Add lifecycle callbacks
+5. **Build** → Generate final configuration
+
+<Callout type="tip">
+  **Best Practice**: Start with basic configuration and gradually add advanced features as your application grows.
+</Callout>
+
+## Environment Variables
+
+Common environment variables across all configurations:
+
+```bash
+# Storage Provider
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=us-east-1
+S3_BUCKET_NAME=your-bucket
+
+# Optional: Custom endpoints
+AWS_ENDPOINT_URL=https://your-custom-endpoint.com
+```
+
+## TypeScript Integration
+
+All configuration options are fully typed:
+
+```typescript
+import type { UploadConfig, S3ProviderConfig } from 'pushduck/server'
+
+// Full type safety throughout configuration
+const config: UploadConfig = createUploadConfig()
+  .provider("aws", providerConfig as S3ProviderConfig)
+  .build()
+```
+
+---
+
+## Next Steps
+
+- **New to pushduck?** Start with [Upload Configuration](/docs/api/configuration/upload-config)
+- **Building a client?** See [Client Options](/docs/api/configuration/client-options)  
+- **Setting up routes?** Check [Server Router](/docs/api/configuration/server-router)
+- **Need custom paths?** Explore [Path Configuration](/docs/api/configuration/path-configuration) 

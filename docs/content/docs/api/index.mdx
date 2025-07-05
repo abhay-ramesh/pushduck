@@ -1,0 +1,241 @@
+---
+title: API Reference
+description: Complete API reference for pushduck - from client hooks to server configuration and storage operations
+---
+
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Callout } from "fumadocs-ui/components/callout";
+
+## Complete API Documentation
+
+Complete reference documentation for all pushduck APIs, from client-side hooks to server configuration and storage operations.
+
+<Callout type="info">
+  **Type-Safe by Design**: All pushduck APIs are built with TypeScript-first design, providing excellent developer experience with full type inference and autocompletion.
+</Callout>
+
+## Client APIs
+
+<Cards>
+  <Card 
+    title="React Hooks" 
+    description="Reactive hooks for file uploads with built-in state management"
+    href="/docs/api/hooks"
+  >
+    - `useUpload` - Core upload hook with progress tracking
+    - `useUploadRoute` - Route-specific uploads with validation
+    
+    **Perfect for**: React applications, reactive UIs
+  </Card>
+  
+  <Card 
+    title="Upload Client" 
+    description="Property-based client for structured upload access"
+    href="/docs/api/utilities/create-upload-client"
+  >
+    - `createUploadClient` - Type-safe upload client
+    - Property-based route access
+    - Enhanced type inference
+    
+    **Perfect for**: Complex applications, better DX
+  </Card>
+</Cards>
+
+## Server Configuration
+
+<Cards>
+  <Card 
+    title="Upload Configuration" 
+    description="Configure upload behavior, validation, and storage"
+    href="/docs/api/configuration/upload-config"
+  >
+    - Route definitions and validation
+    - File type and size restrictions
+    - Custom naming strategies
+    
+    **Essential for**: Setting up upload routes
+  </Card>
+  
+  <Card 
+    title="Server Router" 
+    description="Configure the server-side upload router"
+    href="/docs/api/configuration/server-router"
+  >
+    - Router configuration options
+    - Middleware integration
+    - Advanced routing patterns
+    
+    **Essential for**: Server setup and customization
+  </Card>
+  
+  <Card 
+    title="Client Options" 
+    description="Configure client-side behavior and defaults"
+    href="/docs/api/configuration/client-options"
+  >
+    - Default upload options
+    - Error handling configuration
+    - Progress tracking settings
+    
+    **Essential for**: Client-side configuration
+  </Card>
+  
+  <Card 
+    title="Path Configuration" 
+    description="Configure file paths and naming patterns"
+    href="/docs/api/configuration/path-configuration"
+  >
+    - Dynamic path generation
+    - Custom naming strategies
+    - Folder organization
+    
+    **Essential for**: File organization
+  </Card>
+</Cards>
+
+## Server APIs
+
+<Cards>
+  <Card 
+    title="S3 Router" 
+    description="Create type-safe upload routes with validation"
+    href="/docs/api/s3-router"
+  >
+    - Route definition and configuration
+    - Built-in validation and middleware
+    - Type-safe request/response handling
+    
+    **Core API**: The heart of pushduck
+  </Card>
+  
+  <Card 
+    title="Storage Operations" 
+    description="Direct storage API for file management"
+    href="/docs/api/storage"
+  >
+    - File listing and metadata
+    - Delete operations
+    - Presigned URL generation
+    
+    **Perfect for**: File management features
+  </Card>
+</Cards>
+
+## Developer Tools
+
+<Cards>
+  <Card 
+    title="CLI Reference" 
+    description="Command-line tools for setup and development"
+    href="/docs/api/cli"
+  >
+    - Project initialization
+    - Component generation
+    - Development utilities
+    
+    **Perfect for**: Quick setup and scaffolding
+  </Card>
+  
+  <Card 
+    title="Troubleshooting" 
+    description="Common issues and debugging guides"
+    href="/docs/api/troubleshooting"
+  >
+    - Error diagnosis and solutions
+    - Performance optimization
+    - Common gotchas and fixes
+    
+    **Essential for**: Problem solving
+  </Card>
+</Cards>
+
+## Quick Reference
+
+### Basic Server Setup
+
+```typescript
+import { createS3Router, s3 } from 'pushduck/server';
+
+const uploadRouter = createS3Router({
+  storage: {
+    provider: 'aws-s3',
+    region: 'us-east-1',
+    bucket: 'my-bucket',
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+  },
+  routes: {
+    imageUpload: s3.image().max("5MB"),
+    documentUpload: s3.file().max("10MB"),
+  },
+});
+
+export const { GET, POST } = uploadRouter.handlers;
+```
+
+### Basic Client Usage
+
+```typescript
+import { useUpload } from 'pushduck/client';
+
+function UploadComponent() {
+  const { upload, uploading, progress } = useUpload({
+    endpoint: '/api/upload',
+    route: 'imageUpload',
+  });
+
+  const handleUpload = async (file: File) => {
+    const result = await upload(file);
+    console.log('Uploaded:', result.url);
+  };
+
+  return (
+    <div>
+      <input type="file" onChange={(e) => handleUpload(e.target.files![0])} />
+      {uploading && <div>Progress: {progress}%</div>}
+    </div>
+  );
+}
+```
+
+## Architecture Overview
+
+<Mermaid
+diagram="
+graph TD
+    A[Client Component] --> B[Upload Hook/Client]
+    B --> C[HTTP Request]
+    C --> D[S3 Router]
+    D --> E[Validation & Middleware]
+    E --> F[Storage Provider]
+    F --> G[File Storage]
+    
+    H[Storage API] --> F
+    I[Presigned URLs] --> F
+    J[File Operations] --> F
+"
+/>
+
+<Callout type="tip">
+  **Getting Started**: New to pushduck? Start with the [Quick Start](/docs/quick-start) guide, then explore the specific APIs you need for your use case.
+</Callout>
+
+## API Categories
+
+| Category | Purpose | Best For |
+|----------|---------|----------|
+| **Client APIs** | Frontend file uploads | React components, user interactions |
+| **Server APIs** | Backend upload handling | Route definitions, validation |
+| **Storage APIs** | File management | Listing, deleting, URL generation |
+| **Configuration** | Setup and customization | Project configuration, advanced features |
+| **Developer Tools** | Development workflow | Setup, debugging, optimization |
+
+## Next Steps
+
+1. **New to pushduck?** → Start with [Quick Start](/docs/quick-start)
+2. **Setting up uploads?** → Check [S3 Router](/docs/api/s3-router)
+3. **Building UI?** → Explore [React Hooks](/docs/api/hooks)
+4. **Managing files?** → Use [Storage API](/docs/api/storage)
+5. **Need help?** → Visit [Troubleshooting](/docs/api/troubleshooting) 

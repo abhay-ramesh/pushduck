@@ -4,9 +4,6 @@
         "upload-config",
         "client-options",
         "server-router",
-        "path-configuration",
-        "middleware",
-        "validation",
-        "providers"
+        "path-configuration"
     ]
 }

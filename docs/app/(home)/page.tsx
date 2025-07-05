@@ -66,7 +66,7 @@ const frameworks = [
     name: "SvelteKit",
     category: "Full-Stack",
     logo: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/svelte/svelte-original.svg",
-    url: "https://kit.svelte.dev",
+    url: "https://svelte.dev/",
   },
   {
     name: "Nuxt.js",
@@ -78,7 +78,7 @@ const frameworks = [
     name: "TanStack Start",
     category: "Full-Stack",
     logo: "https://github.com/tanstack.png",
-    url: "https://tanstack.com/start",
+    url: "https://tanstack.com/start/latest",
   },
   {
     name: "SolidJS Start",
@@ -125,8 +125,8 @@ const frameworks = [
   {
     name: "Nitro H3",
     category: "Runtime/Edge",
-    logo: "https://nitro.unjs.io/icon.svg",
-    url: "https://nitro.unjs.io",
+    logo: "https://nitro.build/icon.svg",
+    url: "https://nitro.build/",
   },
   {
     name: "Express",
@@ -189,7 +189,7 @@ const providers = [
     name: "Backblaze B2",
     icon: "https://github.com/backblaze.png",
     description: "Affordable cloud storage",
-    url: "https://www.backblaze.com/b2/cloud-storage.html",
+    url: "https://www.backblaze.com/cloud-storage",
   },
   {
     name: "Linode Object Storage",
