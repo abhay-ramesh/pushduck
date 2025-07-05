@@ -259,8 +259,8 @@ const recentFiles = await storage.list.byDate(new Date("2024-01-01"));
 - **[API Reference](https://pushduck.dev/docs/api)** - Full API documentation
 - **[Examples](https://pushduck.dev/docs/examples)** - Real-world examples
 - **[Providers](https://pushduck.dev/docs/providers)** - S3, R2, Spaces, MinIO
-- **[Security](https://pushduck.dev/docs/security)** - Security best practices
-- **[CLI Guide](https://pushduck.dev/docs/cli)** - CLI commands and usage
+- **[Security](https://pushduck.dev/docs/guides/security)** - Security best practices
+- **[CLI Guide](https://pushduck.dev/docs/api/cli)** - CLI commands and usage
 
 ## 🎯 Why Pushduck?
 

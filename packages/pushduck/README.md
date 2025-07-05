@@ -506,7 +506,7 @@ MINIO_SECRET_ACCESS_KEY=your_secret_key
 
 ## Migration Guide
 
-If you're upgrading from an older version, see our [Migration Guide](https://pushduck.abhayramesh.com/docs/guides/migration) for step-by-step instructions.
+If you're upgrading from an older version, see our [Migration Guide](https://pushduck.dev/docs/guides/migration) for step-by-step instructions.
 
 ## Contributing
 
@@ -518,6 +518,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- **Documentation**: [pushduck.abhayramesh.com](https://pushduck.abhayramesh.com)
+- **Documentation**: [pushduck.dev](https://pushduck.dev)
 - **Issues**: [GitHub Issues](https://github.com/abhay-ramesh/pushduck/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/abhay-ramesh/pushduck/discussions)
