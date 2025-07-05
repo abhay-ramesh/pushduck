@@ -202,7 +202,8 @@ function UploadComponent() {
 
 ## Architecture Overview
 
-```mermaid
+<Mermaid
+diagram="
 graph TD
     A[Client Component] --> B[Upload Hook/Client]
     B --> C[HTTP Request]
@@ -214,7 +215,8 @@ graph TD
     H[Storage API] --> F
     I[Presigned URLs] --> F
     J[File Operations] --> F
-```
+"
+/>
 
 <Callout type="tip">
   **Getting Started**: New to pushduck? Start with the [Quick Start](/docs/quick-start) guide, then explore the specific APIs you need for your use case.
