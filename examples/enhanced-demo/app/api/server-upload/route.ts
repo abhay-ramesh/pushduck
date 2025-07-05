@@ -47,7 +47,6 @@ export async function POST(request: NextRequest) {
     const uploadKey = `server-uploads/${userId}/${Date.now()}-${finalFilename}`;
 
     const uploadResult = await storage.upload.file(uploadFile, uploadKey, {
-      contentType: contentType || "application/octet-stream",
       metadata: {
         "original-url": url,
         "upload-source": "server-side",
