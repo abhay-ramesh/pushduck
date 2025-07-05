@@ -41,7 +41,7 @@ GET /docs/{page-path}.mdx
 **Examples:**
 
 - `/docs/quick-start.mdx` - Quick start guide content
-- `/docs/api/hooks/use-upload.mdx` - Hook documentation
+- `/docs/api/client/use-upload-route.mdx` - Hook documentation
 - `/docs/providers/aws-s3.mdx` - AWS S3 setup guide
 
 ## Use Cases
@@ -132,7 +132,7 @@ const quickStart = await fetch("/docs/quick-start.mdx").then((r) => r.text());
 curl -o pushduck-docs.txt https://your-domain.com/llms.txt
 
 # Get specific page content
-curl https://your-domain.com/docs/api/hooks/use-upload.mdx
+curl https://your-domain.com/docs/api/client/use-upload-route.mdx
 ```
 
 ## Integration with Popular AI Tools
