@@ -1,3 +1,4 @@
+import { CallbackTestDemo } from "../components/callback-test-demo";
 import { FileManagementDemo } from "../components/file-management-demo";
 import {
   PropertyBasedDocumentUpload,
@@ -42,6 +43,11 @@ export default function Home() {
         {/* Server-Side Upload Demo */}
         <div className="mb-8">
           <ServerUploadDemo />
+        </div>
+
+        {/* Callback Testing Demo */}
+        <div className="mb-8">
+          <CallbackTestDemo />
         </div>
 
         {/* File Management Demo */}
