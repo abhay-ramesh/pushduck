@@ -12,7 +12,7 @@ const s3Router = s3.createRouter({
   // Image uploads: uploads/images/{userId}/{timestamp}/{randomId}/filename.jpg
   imageUpload: s3
     .image()
-    .max("5MB")
+    .max("1MB")
     .formats(["jpeg", "jpg", "png", "webp"])
     .middleware(async ({ file, metadata }) => {
       console.log("Processing image upload:", file.name);

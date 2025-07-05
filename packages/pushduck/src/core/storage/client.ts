@@ -725,6 +725,22 @@ export async function uploadFileToS3(
       body = file;
     }
 
+    // Set Content-Length header (required by many S3-compatible services)
+    headers["Content-Length"] = body.byteLength.toString();
+
+    const totalBytes = body.byteLength;
+
+    // Report upload start
+    if (options.onProgress) {
+      options.onProgress({
+        loaded: 0,
+        total: totalBytes,
+        percentage: 0,
+        key,
+      });
+    }
+
+    const startTime = Date.now();
     const response = await awsClient.fetch(s3Url, {
       method: "PUT",
       headers,
@@ -735,6 +751,21 @@ export async function uploadFileToS3(
       throw new Error(
         `Upload failed: ${response.status} ${response.statusText}`
       );
+    }
+
+    // Report upload completion
+    if (options.onProgress) {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const uploadSpeed = totalBytes / elapsed;
+
+      options.onProgress({
+        loaded: totalBytes,
+        total: totalBytes,
+        percentage: 100,
+        key,
+        uploadSpeed,
+        eta: 0,
+      });
     }
 
     if (config.debug) {
