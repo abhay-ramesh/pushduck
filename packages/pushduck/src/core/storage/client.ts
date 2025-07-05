@@ -725,6 +725,9 @@ export async function uploadFileToS3(
       body = file;
     }
 
+    // Set Content-Length header (required by many S3-compatible services)
+    headers["Content-Length"] = body.byteLength.toString();
+
     const response = await awsClient.fetch(s3Url, {
       method: "PUT",
       headers,
