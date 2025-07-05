@@ -1,12 +1,12 @@
 {
     "title": "API Reference",
     "pages": [
-        "cli",
+        "cli-setup",
         "configuration",
         "s3-router",
         "storage",
         "hooks",
-        "utilities",
+        "create-upload-client",
         "troubleshooting"
     ]
 }
