@@ -143,6 +143,64 @@ export default function UploadPage() {
           }}
         />
 
+        {/* Image Gallery */}
+        {activeTab === "images" &&
+          currentUpload.files.filter((f) => f.status === "success" && f.url)
+            .length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-800">
+                📸 Uploaded Images
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {currentUpload.files
+                  .filter((f) => f.status === "success" && f.url)
+                  .map((file) => (
+                    <div
+                      key={file.id}
+                      className="group relative aspect-square border border-gray-200 rounded-lg overflow-hidden bg-gray-50 hover:border-gray-300 transition-colors"
+                    >
+                      <img
+                        src={file.url}
+                        alt={file.name}
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity" />
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                        <p className="text-white text-xs truncate font-medium">
+                          {file.name}
+                        </p>
+                        <p className="text-white/80 text-xs">
+                          {(file.size / 1024 / 1024).toFixed(1)} MB
+                        </p>
+                      </div>
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 hover:bg-white rounded-full p-1.5"
+                        title="Open full size"
+                      >
+                        <svg
+                          className="w-4 h-4 text-gray-700"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                          />
+                        </svg>
+                      </a>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
         {/* Error Display */}
         {currentUpload.errors.length > 0 && (
           <div className="p-4 bg-red-50 rounded-lg border border-red-200">

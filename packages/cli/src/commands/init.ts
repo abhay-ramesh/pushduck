@@ -22,6 +22,46 @@ interface InitOptions {
   verbose?: boolean;
 }
 
+function getCORSLinks(provider: ProviderType): {
+  corsSetup: string;
+  providerDocs: string;
+} {
+  const baseUrl = "https://pushduck.dev";
+
+  switch (provider) {
+    case "aws":
+      return {
+        corsSetup: `${baseUrl}/docs/guides/security/cors-and-acl`,
+        providerDocs: `${baseUrl}/docs/providers/aws-s3`,
+      };
+    case "cloudflare-r2":
+      return {
+        corsSetup: `${baseUrl}/docs/guides/security/cors-and-acl`,
+        providerDocs: `${baseUrl}/docs/providers/cloudflare-r2`,
+      };
+    case "digitalocean":
+      return {
+        corsSetup: `${baseUrl}/docs/guides/security/cors-and-acl`,
+        providerDocs: `${baseUrl}/docs/providers/digitalocean-spaces`,
+      };
+    case "minio":
+      return {
+        corsSetup: `${baseUrl}/docs/guides/security/cors-and-acl`,
+        providerDocs: `${baseUrl}/docs/providers/minio`,
+      };
+    case "gcs":
+      return {
+        corsSetup: `${baseUrl}/docs/guides/security/cors-and-acl`,
+        providerDocs: `${baseUrl}/docs/providers/google-cloud`,
+      };
+    default:
+      return {
+        corsSetup: `${baseUrl}/docs/guides/security/cors-and-acl`,
+        providerDocs: `${baseUrl}/docs/providers`,
+      };
+  }
+}
+
 export async function initCommand(options: InitOptions = {}) {
   console.log(
     chalk.cyan(`
@@ -41,6 +81,56 @@ export async function initCommand(options: InitOptions = {}) {
     const projectInfo = await detectProject();
     const infoLines = formatProjectInfo(projectInfo);
     infoLines.forEach((line) => console.log(`  ${line}`));
+
+    // Check if using Next.js - CLI currently only supports Next.js
+    if (projectInfo.framework !== "nextjs") {
+      const frameworkName =
+        projectInfo.framework === "react"
+          ? "React"
+          : projectInfo.framework === "vue"
+          ? "Vue"
+          : projectInfo.framework === "svelte"
+          ? "Svelte"
+          : "Unknown framework";
+
+      console.log(chalk.yellow(`\n⚠ ${frameworkName} Not Supported by CLI`));
+      console.log(
+        chalk.gray("This CLI currently only works with Next.js projects.")
+      );
+      console.log(
+        chalk.gray(
+          `For ${frameworkName.toLowerCase()} projects, please use manual setup.\n`
+        )
+      );
+
+      console.log(chalk.cyan("📖 Manual Setup Documentation:"));
+      console.log("  https://pushduck.dev/docs/getting-started/manual-setup");
+
+      console.log(chalk.cyan("\n🔧 Integration Guides:"));
+
+      // Show specific framework integration if detected
+      if (projectInfo.framework === "react") {
+        console.log("  React: https://pushduck.dev/docs/integrations/overview");
+      } else if (projectInfo.framework === "vue") {
+        console.log("  Vue: https://pushduck.dev/docs/integrations/overview");
+      } else if (projectInfo.framework === "svelte") {
+        console.log(
+          "  Svelte: https://pushduck.dev/docs/integrations/overview"
+        );
+      } else {
+        console.log(
+          "  General: https://pushduck.dev/docs/integrations/overview"
+        );
+      }
+
+      console.log(chalk.gray("\nThe manual setup will guide you through:"));
+      console.log(chalk.gray("  • Installing pushduck"));
+      console.log(chalk.gray("  • Configuring your storage provider"));
+      console.log(chalk.gray("  • Setting up API routes"));
+      console.log(chalk.gray("  • Adding client-side components"));
+
+      return;
+    }
 
     if (projectInfo.hasExistingUpload) {
       const { overwrite } = await inquirer.prompt([
@@ -227,6 +317,12 @@ export async function initCommand(options: InitOptions = {}) {
         projectInfo.packageManager,
         projectInfo.rootDir
       );
+    } else if (generateExamples) {
+      // Install dependencies if we're generating examples but pushduck already exists
+      await installDependencies(
+        projectInfo.packageManager,
+        projectInfo.rootDir
+      );
     }
 
     // Step 9: Configuration summary
@@ -295,6 +391,44 @@ export async function initCommand(options: InitOptions = {}) {
           )
         );
       }
+    }
+
+    // Step 11: CORS Setup Reminder
+    console.log(chalk.cyan("\n🔒 Important: CORS Configuration"));
+    console.log(chalk.yellow("Have you configured CORS for your bucket?"));
+    console.log(
+      chalk.gray("File uploads from browsers require proper CORS settings.")
+    );
+
+    const corsLinks = getCORSLinks(provider);
+    console.log(chalk.cyan("\n📖 Setup guides:"));
+    console.log(`  CORS Setup: ${corsLinks.corsSetup}`);
+    console.log(`  Provider Docs: ${corsLinks.providerDocs}`);
+
+    const { corsConfigured } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "corsConfigured",
+        message: "Have you already configured CORS?",
+        default: false,
+      },
+    ]);
+
+    if (!corsConfigured) {
+      console.log(
+        chalk.yellow("\n⚠ Please configure CORS before testing uploads:")
+      );
+      console.log(chalk.gray("  1. Follow the CORS setup guide above"));
+      console.log(
+        chalk.gray("  2. Test your configuration with: npx @pushduck/cli test")
+      );
+      console.log(
+        chalk.gray("  3. If uploads fail, double-check your CORS settings")
+      );
+    } else {
+      console.log(
+        chalk.green("\n✅ Great! Your CORS configuration should be ready.")
+      );
     }
   } catch (error) {
     console.error(chalk.red("\n❌ Setup failed:"), error);

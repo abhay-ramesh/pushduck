@@ -42,7 +42,7 @@ async function parseTsConfig(cwd: string): Promise<{
 }
 
 export interface ProjectInfo {
-  framework: "nextjs" | "unknown";
+  framework: "nextjs" | "react" | "vue" | "svelte" | "unknown";
   version: string;
   router: "app" | "pages" | "unknown";
   typescript: boolean;
@@ -71,10 +71,44 @@ export async function detectProject(
   // Detect Next.js
   const nextVersion =
     packageJson.dependencies?.next || packageJson.devDependencies?.next;
+
+  // If not Next.js, detect other frameworks
   if (!nextVersion) {
-    throw new Error(
-      "Next.js not detected. This tool only works with Next.js projects."
-    );
+    const reactVersion =
+      packageJson.dependencies?.react || packageJson.devDependencies?.react;
+    const vueVersion =
+      packageJson.dependencies?.vue || packageJson.devDependencies?.vue;
+    const svelteVersion =
+      packageJson.dependencies?.svelte || packageJson.devDependencies?.svelte;
+
+    let framework: "nextjs" | "react" | "vue" | "svelte" | "unknown" =
+      "unknown";
+    let version = "unknown";
+
+    if (reactVersion) {
+      framework = "react";
+      version = reactVersion;
+    } else if (vueVersion) {
+      framework = "vue";
+      version = vueVersion;
+    } else if (svelteVersion) {
+      framework = "svelte";
+      version = svelteVersion;
+    }
+
+    return {
+      framework,
+      version,
+      router: "unknown",
+      typescript: false,
+      cssFramework: "none",
+      packageManager: "npm",
+      hasExistingUpload: false,
+      rootDir: cwd,
+      useSrcDir: false,
+      pathMappings: [],
+      baseUrl: undefined,
+    };
   }
 
   // Detect router type and src directory structure
@@ -155,7 +189,17 @@ export async function detectProject(
 export function formatProjectInfo(info: ProjectInfo): string[] {
   const lines = [];
 
-  lines.push(`✓ Next.js ${info.version} detected`);
+  if (info.framework === "nextjs") {
+    lines.push(`✓ Next.js ${info.version} detected`);
+  } else if (info.framework === "react") {
+    lines.push(`✓ React ${info.version} detected`);
+  } else if (info.framework === "vue") {
+    lines.push(`✓ Vue ${info.version} detected`);
+  } else if (info.framework === "svelte") {
+    lines.push(`✓ Svelte ${info.version} detected`);
+  } else {
+    lines.push("⚠ Unknown framework detected");
+  }
 
   if (info.typescript) {
     lines.push("✓ TypeScript enabled");

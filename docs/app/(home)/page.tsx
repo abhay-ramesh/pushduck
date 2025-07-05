@@ -27,7 +27,7 @@ import { BundledTheme, codeToHtml } from "shiki";
 const codeExample = `import { createUploadConfig } from "pushduck/server";
 
 // Universal API - works with ANY framework
-export const { s3, uploadRouter } = createUploadConfig()
+export const { s3, uploadRouter, storage } = createUploadConfig()
   .provider("cloudflareR2", {
     bucket: process.env.S3_BUCKET!,
     region: process.env.AWS_REGION!,
@@ -38,10 +38,10 @@ export const { s3, uploadRouter } = createUploadConfig()
 export const { GET, POST } = uploadRouter.handlers;`;
 
 const packageManagers = [
-  { name: "npm", command: "npm install pushduck" },
-  { name: "pnpm", command: "pnpm add pushduck" },
-  { name: "yarn", command: "yarn add pushduck" },
-  { name: "bun", command: "bun add pushduck" },
+  { name: "npm", command: "npx @pushduck/cli init" },
+  { name: "pnpm", command: "pnpm dlx @pushduck/cli init" },
+  { name: "yarn", command: "yarn dlx @pushduck/cli init" },
+  { name: "bun", command: "bunx @pushduck/cli init" },
 ];
 
 const themes = {
