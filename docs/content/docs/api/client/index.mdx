@@ -1,12 +1,16 @@
 ---
-title: React Hooks
-description: Reactive hooks for file uploads with built-in state management and progress tracking
+title: Client API
+description: Client-side APIs for file uploads including React hooks and property-based client access with built-in state management and progress tracking
 ---
 
 import { Card, Cards } from "fumadocs-ui/components/card";
 import { Callout } from "fumadocs-ui/components/callout";
 
-## Available Upload Hooks
+## Client API Overview
+
+Pushduck provides two powerful client-side approaches for handling file uploads: **useUploadRoute hook** for reactive state management and **Property-Based Client** for enhanced type safety and modern developer experience.
+
+## Available Client APIs
 
 Pushduck provides powerful React hooks for handling file uploads with reactive state management, progress tracking, and seamless integration with your components.
 
@@ -14,13 +18,25 @@ Pushduck provides powerful React hooks for handling file uploads with reactive s
   **Choose Your Hook**: Use `useUpload` for basic uploads or `useUploadRoute` when you need route-specific validation and enhanced type safety.
 </Callout>
 
-## Available Hooks
+## Available APIs
 
 <Cards>
   <Card 
+    title="createUploadClient (Property-Based)" 
+    description="Modern property-based client with enhanced type safety and developer experience"
+    href="/docs/api/client/create-upload-client"
+  >
+    - Enhanced type safety with IntelliSense
+    - Property-based access (`client.imageUpload()` returns hook)
+    - Built-in progress tracking and error handling
+    - Modern developer experience
+    
+    **Perfect for**: New projects, enhanced type safety, modern React patterns
+  </Card>
+  <Card 
     title="useUpload" 
     description="Core upload hook with progress tracking and reactive state management"
-    href="/docs/api/hooks/use-upload"
+    href="/docs/api/client/use-upload"
   >
     - File upload with progress tracking
     - Reactive state management
@@ -33,7 +49,7 @@ Pushduck provides powerful React hooks for handling file uploads with reactive s
   <Card 
     title="useUploadRoute" 
     description="Route-specific uploads with enhanced validation and type safety"
-    href="/docs/api/hooks/use-upload-route"
+    href="/docs/api/client/use-upload-route"
   >
     - Route-specific validation
     - Enhanced type inference
@@ -46,45 +62,55 @@ Pushduck provides powerful React hooks for handling file uploads with reactive s
 
 ## Quick Comparison
 
-| Feature | `useUpload` | `useUploadRoute` |
-|---------|-------------|------------------|
-| **Simplicity** | ✅ Simple setup | 🔧 More configuration |
-| **Type Safety** | ✅ Good | ✅ Excellent |
-| **Validation** | ✅ Basic | ✅ Advanced |
-| **Multi-route** | ❌ Single route | ✅ Multiple routes |
-| **Bundle Size** | ✅ Smaller | 🔧 Slightly larger |
+| Feature | `createUploadClient` | `useUploadRoute` |
+|---------|---------------------|------------------|
+| **Approach** | 🔧 Property-based | ⚛️ React Hook |
+| **Type Safety** | ✅ Excellent (IntelliSense) | ✅ Excellent |
+| **Developer Experience** | ✅ Modern | ✅ Advanced |
+| **Simplicity** | ✅ Intuitive | ✅ Straightforward |
+| **Validation** | ✅ Enhanced | ✅ Advanced |
+| **Multi-route** | ✅ Multiple routes | ✅ Single route per hook |
+| **Progress Tracking** | ✅ Built-in | ✅ Built-in |
+| **Error Handling** | ✅ Enhanced | ✅ Comprehensive |
+| **Best For** | 🆕 New projects, modern patterns | 🔧 All upload scenarios |
 
 ## Basic Usage Examples
 
-### useUpload Hook
+### createUploadClient (Property-Based)
 
 ```typescript
-import { useUpload } from 'pushduck/client';
+import { createUploadClient } from 'pushduck/client';
 
-function SimpleUpload() {
-  const { upload, uploading, progress, error } = useUpload({
-    endpoint: '/api/upload',
-    route: 'imageUpload',
+const client = createUploadClient<AppRouter>({
+  endpoint: '/api/upload',
+});
+
+function ModernUpload() {
+  // Each route returns a hook with all upload functionality
+  const { 
+    uploadFiles, 
+    files, 
+    isUploading, 
+    progress 
+  } = client.imageUpload({
+    onSuccess: (results) => console.log('Upload successful!', results),
+    onError: (error) => console.error('Upload failed:', error),
   });
-
-  const handleFileSelect = async (file: File) => {
-    try {
-      const result = await upload(file);
-      console.log('Upload successful:', result.url);
-    } catch (err) {
-      console.error('Upload failed:', err);
-    }
+  
+  const handleFileSelect = async (selectedFiles: File[]) => {
+    await uploadFiles(selectedFiles);
   };
-
+  
   return (
     <div>
       <input 
         type="file" 
-        onChange={(e) => handleFileSelect(e.target.files![0])} 
-        disabled={uploading}
+        multiple
+        onChange={(e) => e.target.files && handleFileSelect(Array.from(e.target.files))}
+        disabled={isUploading}
       />
-      {uploading && <div>Progress: {progress}%</div>}
-      {error && <div>Error: {error.message}</div>}
+      {isUploading && <div>Progress: {progress}%</div>}
+      <div>Uploaded: {files.filter(f => f.status === 'success').length} files</div>
     </div>
   );
 }
@@ -96,16 +122,35 @@ function SimpleUpload() {
 import { useUploadRoute } from 'pushduck/client';
 
 function AdvancedUpload() {
-  const upload = useUploadRoute('/api/upload');
+  const { 
+    uploadFiles, 
+    files, 
+    isUploading, 
+    progress, 
+    errors 
+  } = useUploadRoute('imageUpload', {
+    endpoint: '/api/upload',
+    onSuccess: (results) => console.log('Upload successful!', results),
+    onError: (error) => console.error('Upload failed:', error),
+  });
 
-  const handleImageUpload = async (file: File) => {
-    const result = await upload.imageUpload(file);
-    console.log('Image uploaded:', result.url);
+  const handleFileSelect = async (selectedFiles: File[]) => {
+    await uploadFiles(selectedFiles);
   };
 
-  const handleDocumentUpload = async (file: File) => {
-    const result = await upload.documentUpload(file);
-    console.log('Document uploaded:', result.url);
+  return (
+    <div>
+      <input 
+        type="file" 
+        multiple
+        onChange={(e) => e.target.files && handleFileSelect(Array.from(e.target.files))}
+        disabled={isUploading}
+      />
+      {isUploading && <div>Progress: {progress}%</div>}
+      {errors.length > 0 && <div>Errors: {errors.join(', ')}</div>}
+      <div>Uploaded files: {files.filter(f => f.status === 'success').length}</div>
+    </div>
+  );
   };
 
   return (

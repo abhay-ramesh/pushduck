@@ -5,8 +5,7 @@
         "configuration",
         "s3-router",
         "storage",
-        "hooks",
-        "create-upload-client",
+        "client",
         "troubleshooting"
     ]
 }
