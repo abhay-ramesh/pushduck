@@ -140,7 +140,7 @@
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.0.0",
     "express": "^5.1.0",
-    "fastify": "^4.0.0",
+    "fastify": "^5.4.0",
     "gzip-size-cli": "^5.1.0",
     "happy-dom": "^18.0.1",
     "next": "^15.3.4",
