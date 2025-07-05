@@ -1,6 +1,6 @@
 {
   "name": "@pushduck/cli",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "type": "module",
   "description": "Official CLI for pushduck - Add S3 upload functionality to your Next.js project",
   "main": "dist/index.cjs",
