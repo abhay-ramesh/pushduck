@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "15.3.3",
+    "next": "15.3.4",
     "pushduck": "workspace:*",
     "react": "^19.1.0",
     "react-dom": "^19.0.0"
@@ -20,7 +20,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^8.57.0",
+    "eslint": "^9.30.0",
     "eslint-config-next": "15.3.3",
     "tailwindcss": "^4",
     "typescript": "^5"

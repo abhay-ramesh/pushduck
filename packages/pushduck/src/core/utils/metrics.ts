@@ -33,10 +33,8 @@ class MetricsCollector {
   private maxMetricsHistory = 1000;
   private isEnabled: boolean;
 
-  constructor() {
-    this.isEnabled =
-      process.env.NODE_ENV === "development" ||
-      process.env.PUSHDUCK_METRICS === "true";
+  constructor(options: { enabled?: boolean } = {}) {
+    this.isEnabled = options.enabled ?? false;
   }
 
   /**

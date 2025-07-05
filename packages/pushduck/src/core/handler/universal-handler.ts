@@ -125,7 +125,7 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
         JSON.stringify({
           success: false,
           error: err.message,
-          details: process.env.NODE_ENV === "development" ? error : undefined,
+          details: uploadConfig.debug ? error : undefined,
         }),
         {
           status: 500,
