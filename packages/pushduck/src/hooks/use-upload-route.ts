@@ -111,7 +111,6 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
         setProgress(0);
         setUploadSpeed(0);
         setEta(0);
-        config.onProgress?.(0);
         return;
       }
 
@@ -123,7 +122,6 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
         setProgress(0);
         setUploadSpeed(0);
         setEta(0);
-        config.onProgress?.(0);
         return;
       }
 
@@ -288,6 +286,14 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
           config.onError?.(new Error(errorMessage));
           return;
         }
+
+        // Upload validation passed - call onStart callback and initialize progress
+        if (config.onStart) {
+          await config.onStart(fileMetadata);
+        }
+
+        // Initialize progress at 0% after validation passes
+        config.onProgress?.(0);
 
         const uploadPromises = presignData.results.map(
           async (result: any, index: number) => {

@@ -184,6 +184,10 @@ const { uploadFiles } = useUploadRoute("imageUpload");
 
 <TypeTable
   type={{
+    onStart: {
+      description: "Callback when upload process begins (after validation)",
+      type: "(files: S3FileMetadata[]) => void",
+    },
     onSuccess: {
       description: "Callback when uploads complete successfully",
       type: "(results: UploadResult[]) => void",
@@ -194,7 +198,7 @@ const { uploadFiles } = useUploadRoute("imageUpload");
     },
     onProgress: {
       description: "Callback for progress updates",
-      type: "(progress: UploadProgress) => void",
+      type: "(progress: number) => void",
     },
     disabled: {
       description: "Disable upload functionality",
@@ -252,21 +256,68 @@ const { uploadFiles } = useUploadRoute("imageUpload");
   }}
 />
 
+## Callback Execution Order
+
+The callbacks follow a predictable order to provide clear upload lifecycle management:
+
+<Callout type="info">
+  **Proper Callback Sequence:** `onStart` → `onProgress(0)` → `onProgress(n)` → `onSuccess/onError`
+</Callout>
+
+```typescript
+const { uploadFiles } = useUploadRoute<AppRouter>('imageUpload', {
+  // 1. Called first after validation passes
+  onStart: (files) => {
+    console.log('🚀 Upload starting for', files.length, 'files');
+    setUploading(true);
+  },
+  
+  // 2. Called with progress updates (0-100)
+  onProgress: (progress) => {
+    console.log('📊 Progress:', progress + '%');
+    setProgress(progress);
+  },
+  
+  // 3. Called on completion
+  onSuccess: (results) => {
+    console.log('✅ Upload complete!');
+    setUploading(false);
+  },
+  
+  // OR 3. Called on error (no progress callbacks for validation errors)
+  onError: (error) => {
+    console.log('❌ Upload failed:', error.message);
+    setUploading(false);
+  }
+});
+```
+
+### Validation Errors vs Upload Errors
+
+- **Validation errors** (size limits, file types): Only `onError` is called
+- **Upload errors** (network issues): `onStart` → `onProgress(0)` → `onError`
+
 ## Advanced Examples
 
-<Tabs items={["With Callbacks", "Multiple Files", "Form Integration"]}>
-  <Tab value="With Callbacks">
+<Tabs items={["With All Callbacks", "Multiple Files", "Form Integration"]}>
+  <Tab value="With All Callbacks">
     ```typescript
     const { uploadFiles, files } = useUploadRoute<AppRouter>('documentUpload', {
+      onStart: (files) => {
+        toast.info(`Starting upload of ${files.length} files...`);
+        setUploadStarted(true);
+      },
       onSuccess: (results) => {
-        toast.success(`Uploaded ${results.length} files`)
-        updateDocuments(results)
+        toast.success(`Uploaded ${results.length} files`);
+        updateDocuments(results);
+        setUploadStarted(false);
       },
       onError: (error) => {
-        toast.error(`Upload failed: ${error.message}`)
+        toast.error(`Upload failed: ${error.message}`);
+        setUploadStarted(false);
       },
       onProgress: (progress) => {
-        setGlobalProgress(progress.percentage)
+        setGlobalProgress(progress);
       }
     })
     ```

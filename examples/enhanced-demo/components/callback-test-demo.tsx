@@ -31,6 +31,9 @@ export function CallbackTestDemo() {
     uploadSpeed,
     eta,
   } = upload.imageUpload({
+    onStart: (files) => {
+      addLog(`🚀 onStart called with ${files.length} files`);
+    },
     onProgress: (progress) => {
       addLog(`📊 onProgress called: ${progress}%`);
     },
@@ -52,6 +55,9 @@ export function CallbackTestDemo() {
     errors: sizeLimitErrors,
     reset: resetSizeLimit,
   } = upload.imageUpload({
+    onStart: (files) => {
+      addLog(`🚀 Size limit test - onStart: ${files.length} files`);
+    },
     onProgress: (progress) => {
       addLog(`📊 Size limit test - onProgress: ${progress}%`);
     },

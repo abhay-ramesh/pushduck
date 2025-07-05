@@ -103,6 +103,10 @@ export function ImageUploader() {
 
 <TypeTable
   type={{
+    onStart: {
+      description: "Callback when upload process begins (after validation)",
+      type: "(files: S3FileMetadata[]) => void",
+    },
     onSuccess: {
       description: "Callback when all uploads complete successfully",
       type: "(results: UploadResult[]) => void",
@@ -113,7 +117,7 @@ export function ImageUploader() {
     },
     onProgress: {
       description: "Callback for upload progress updates",
-      type: "(progress: UploadProgress) => void",
+      type: "(progress: number) => void",
     },
     disabled: {
       description: "Disable upload functionality",
@@ -141,21 +145,28 @@ export function AdvancedUploader() {
   const { uploadFiles, files, isUploading } = useUpload<AppRouter>(
     "documentUpload",
     {
+      onStart: (files) => {
+        toast.info(`Starting upload of ${files.length} files...`);
+        setUploadStarted(true);
+      },
+
       onSuccess: (results) => {
         toast.success(`Successfully uploaded ${results.length} files`);
         // Update your app state
         updateDocuments(results);
+        setUploadStarted(false);
       },
 
       onError: (error) => {
         toast.error(`Upload failed: ${error.message}`);
         // Log error for debugging
         console.error("Upload error:", error);
+        setUploadStarted(false);
       },
 
       onProgress: (progress) => {
         // Update global progress indicator
-        setGlobalProgress(progress.percentage);
+        setGlobalProgress(progress);
       },
 
       maxFiles: 5,

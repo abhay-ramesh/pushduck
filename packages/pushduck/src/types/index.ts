@@ -35,6 +35,7 @@ export interface S3FileMetadata {
 // Unified upload configuration interface
 export interface UploadRouteConfig {
   endpoint?: string;
+  onStart?: (files: S3FileMetadata[]) => void | Promise<void>;
   onSuccess?: (results: S3UploadedFile[]) => void | Promise<void>;
   onError?: (error: Error) => void;
   onProgress?: (progress: number) => void;
