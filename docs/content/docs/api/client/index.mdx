@@ -10,12 +10,8 @@ import { Callout } from "fumadocs-ui/components/callout";
 
 Pushduck provides two powerful client-side approaches for handling file uploads: **useUploadRoute hook** for reactive state management and **Property-Based Client** for enhanced type safety and modern developer experience.
 
-## Available Client APIs
-
-Pushduck provides powerful React hooks for handling file uploads with reactive state management, progress tracking, and seamless integration with your components.
-
 <Callout type="info">
-  **Choose Your Hook**: Use `useUpload` for basic uploads or `useUploadRoute` when you need route-specific validation and enhanced type safety.
+  All hooks follow React's rules of hooks - call them only from React function components or custom hooks, not from regular JavaScript functions.
 </Callout>
 
 ## Available APIs
@@ -34,29 +30,17 @@ Pushduck provides powerful React hooks for handling file uploads with reactive s
     **Perfect for**: New projects, enhanced type safety, modern React patterns
   </Card>
   <Card 
-    title="useUpload" 
-    description="Core upload hook with progress tracking and reactive state management"
-    href="/docs/api/client/use-upload"
-  >
-    - File upload with progress tracking
-    - Reactive state management
-    - Error handling and retry logic
-    - Flexible configuration options
-    
-    **Perfect for**: Basic file uploads, simple UI components
-  </Card>
-  
-  <Card 
     title="useUploadRoute" 
     description="Route-specific uploads with enhanced validation and type safety"
     href="/docs/api/client/use-upload-route"
   >
     - Route-specific validation
     - Enhanced type inference
-    - Multiple upload routes
-    - Advanced configuration
+    - Multi-file support with progress tracking
+    - Advanced configuration and callbacks
+    - Reactive state management
     
-    **Perfect for**: Complex applications, multiple upload types
+    **Perfect for**: All upload scenarios, the main React hook for uploads
   </Card>
 </Cards>
 
@@ -151,22 +135,6 @@ function AdvancedUpload() {
       <div>Uploaded files: {files.filter(f => f.status === 'success').length}</div>
     </div>
   );
-  };
-
-  return (
-    <div>
-      <input 
-        type="file" 
-        accept="image/*"
-        onChange={(e) => handleImageUpload(e.target.files![0])} 
-      />
-      <input 
-        type="file" 
-        accept=".pdf,.doc,.docx"
-        onChange={(e) => handleDocumentUpload(e.target.files![0])} 
-      />
-    </div>
-  );
 }
 ```
 
@@ -174,16 +142,20 @@ function AdvancedUpload() {
 
 ### State Management
 
-Both hooks provide reactive state management:
+Both approaches provide reactive state management:
 
 ```typescript
+// useUploadRoute returns:
 const { 
-  upload,     // Upload function
-  uploading,  // Boolean: upload in progress
-  progress,   // Number: upload progress (0-100)
-  error,      // Error object if upload fails
-  reset       // Function to reset state
-} = useUpload(config);
+  uploadFiles,  // Function to start upload
+  files,        // Array of uploaded files with status
+  isUploading,  // Boolean: upload in progress
+  progress,     // Number: overall progress (0-100)
+  errors,       // Array of error messages
+  reset,        // Function to reset state
+  uploadSpeed,  // Current upload speed (bytes/sec)
+  eta           // Estimated time remaining (seconds)
+} = useUploadRoute('routeName', config);
 ```
 
 ### Progress Tracking
@@ -192,13 +164,15 @@ Real-time progress updates during file uploads:
 
 ```typescript
 // Progress updates automatically during upload
-{uploading && (
+{isUploading && (
   <div className="progress-bar">
     <div 
       className="progress-fill" 
       style={{ width: `${progress}%` }}
     />
     <span>{progress}% uploaded</span>
+    <span>Speed: {formatUploadSpeed(uploadSpeed)}</span>
+    <span>ETA: {formatETA(eta)}</span>
   </div>
 )}
 ```
@@ -208,11 +182,13 @@ Real-time progress updates during file uploads:
 Comprehensive error handling with detailed messages:
 
 ```typescript
-{error && (
-  <div className="error-message">
-    {error.code === 'FILE_TOO_LARGE' && 'File is too large'}
-    {error.code === 'INVALID_FILE_TYPE' && 'Invalid file type'}
-    {error.code === 'NETWORK_ERROR' && 'Network error, please retry'}
+{errors.length > 0 && (
+  <div className="error-messages">
+    {errors.map((error, index) => (
+      <div key={index} className="error-message">
+        {error}
+      </div>
+    ))}
   </div>
 )}
 ```
@@ -221,42 +197,33 @@ Comprehensive error handling with detailed messages:
 
 ### Common Options
 
-Both hooks support these configuration options:
+Both approaches support these configuration options:
 
 ```typescript
 const config = {
-  endpoint: '/api/upload',        // Upload endpoint
-  headers: { Authorization: 'Bearer token' }, // Custom headers
-  onProgress: (progress) => {},   // Progress callback
-  onSuccess: (result) => {},      // Success callback
-  onError: (error) => {},         // Error callback
-  retries: 3,                     // Retry attempts
-  retryDelay: 1000,              // Retry delay (ms)
+  endpoint: '/api/upload',           // Upload endpoint (default: '/api/s3-upload')
+  onStart: (files) => {},            // Called when upload starts
+  onProgress: (progress) => {},      // Progress callback (0-100)
+  onSuccess: (results) => {},        // Success callback with file results
+  onError: (error) => {},            // Error callback
+  disabled: false,                   // Disable uploads
 };
 ```
 
-### Hook-Specific Options
+### useUploadRoute Specific Options
 
-**useUpload** specific:
 ```typescript
-{
-  route: 'imageUpload',           // Single route name
-  metadata: { userId: '123' },    // Upload metadata
-}
-```
-
-**useUploadRoute** specific:
-```typescript
-{
-  routes: ['imageUpload', 'documentUpload'], // Available routes
-  defaultMetadata: { userId: '123' },        // Default metadata
-}
+const routeConfig = {
+  // All common options plus:
+  endpoint: '/api/upload',           // Route-specific endpoint
+  metadata: { userId: '123' },       // Upload metadata
+};
 ```
 
 ## Best Practices
 
 <Callout type="tip">
-  **Performance**: Use `useUploadRoute` when you have multiple upload types in the same component. Use `useUpload` for simple, single-purpose upload components.
+  **Performance**: Use `createUploadClient` for multiple upload types in the same component. Use `useUploadRoute` directly for single-purpose upload components.
 </Callout>
 
 <Callout type="warn">
@@ -264,12 +231,12 @@ const config = {
 </Callout>
 
 <Callout type="info">
-  **Error Recovery**: Implement retry logic for network errors and provide clear error messages to users for validation failures.
+  **Error Recovery**: Both approaches include built-in retry logic for network errors and provide clear error messages for validation failures.
 </Callout>
 
 ## Next Steps
 
-1. **Basic uploads?** → Start with [useUpload](/docs/api/hooks/use-upload)
-2. **Multiple routes?** → Use [useUploadRoute](/docs/api/hooks/use-upload-route)
-3. **Enhanced client?** → Try [createUploadClient](/docs/api/utilities/create-upload-client)
-4. **Examples?** → Check [complete examples](/docs/examples) 
+1. **Property-based client?** → Start with [createUploadClient](/docs/api/client/create-upload-client)
+2. **Direct hook usage?** → Use [useUploadRoute](/docs/api/client/use-upload-route)
+3. **Complete examples?** → Check [examples documentation](/docs/examples)
+4. **Server setup?** → See [server configuration](/docs/api/s3-router) 
