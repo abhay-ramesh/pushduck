@@ -48,7 +48,7 @@
         "@types/node": "^20.0.0",
         "@types/react": "^19.1.8",
         "@types/react-dom": "^18.2.0",
-        "@typescript-eslint/eslint-plugin": "^8.34.1",
+        "@typescript-eslint/eslint-plugin": "^8.35.1",
         "@typescript-eslint/parser": "^8.35.0",
         "eslint": "^9.30.0",
         "react": "^19.1.0",
