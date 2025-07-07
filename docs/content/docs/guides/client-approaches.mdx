@@ -96,8 +96,7 @@ const {
   onError: (error) => handleError(error),
   onProgress: (progress) => setProgress(progress),
   endpoint: '/api/custom-upload',
-  disabled: false,
-  autoUpload: true
+
 });
 
 // Enhanced Structured Client - IDENTICAL capabilities
@@ -116,8 +115,7 @@ const {
   onError: (error) => handleError(error),
   onProgress: (progress) => setProgress(progress),
   endpoint: '/api/custom-upload',
-  disabled: false,
-  autoUpload: true
+
 });
 ```
 
@@ -132,8 +130,6 @@ interface CommonUploadOptions {
   onError?: (error: Error) => void;
   onProgress?: (progress: number) => void;
   endpoint?: string;           // Custom endpoint per route
-  disabled?: boolean;          // Enable/disable uploads
-  autoUpload?: boolean;        // Auto-upload when files selected
 }
 
 // Hook-based: useUploadRoute(routeName, options)
@@ -238,9 +234,8 @@ export function MultiUploadComponent() {
     onSuccess: (results) => updateDocumentLibrary(results)
   })
   
-  // Videos with upload disabled (feature flag)
+  // Videos with conditional logic in component
   const videos = upload.videoUpload({
-    disabled: !isVideoUploadEnabled,
     onStart: (files) => setUploadingVideos(true)
   })
 

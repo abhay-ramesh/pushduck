@@ -106,16 +106,6 @@ Each route method now accepts optional configuration:
       description: "Override endpoint for this specific route",
       type: "string",
     },
-    disabled: {
-      description: "Disable uploads for this route",
-      type: "boolean",
-      default: "false",
-    },
-    autoUpload: {
-      description: "Automatically start upload when files are selected",
-      type: "boolean",
-      default: "true",
-    },
   }}
 />
 
@@ -304,15 +294,23 @@ Each route method now accepts optional configuration:
     export function AdvancedUpload() {
       const { uploadFiles, files } = upload.secureUpload({
         endpoint: '/api/secure-upload',
-        disabled: !user.hasPermission('upload'),
         onSuccess: (results) => {
           // Audit log for secure uploads
           auditLog('secure_upload_success', {
             files: results.length,
             user: user.id
           })
+        }
+      })
+      
+      // Handle permissions in component logic
+      const handleUpload = (files: File[]) => {
+        if (user.hasPermission('upload')) {
+          uploadFiles(files)
+        } else {
+          toast.error('You don\'t have permission to upload files')
+        }
       }
-    })
 
       return <SecureFileUploader {...{ uploadFiles, files }} />
     }

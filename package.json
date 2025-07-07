@@ -5,7 +5,7 @@
     "build": "pnpm build:packages && pnpm build:docs",
     "build:packages": "pnpm --filter=\"./packages/*\" build",
     "build:docs": "cd docs && pnpm build",
-    "dev": "pnpm --filter=\"./packages/*\" dev",
+    "dev": "turbo dev",
     "lint": "turbo lint",
     "test": "pnpm --filter=\"./packages/*\" test",
     "test:coverage": "pnpm --filter=\"./packages/*\" test:coverage",
