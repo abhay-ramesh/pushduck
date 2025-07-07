@@ -188,7 +188,8 @@ function UploadComponent() {
 
   const handleUpload = async (file: File) => {
     const result = await upload(file);
-    console.log('Uploaded:', result.url);
+    console.log('Public URL:', result.url);           // Permanent access
+    console.log('Download URL:', result.presignedUrl); // Temporary access (1 hour)
   };
 
   return (

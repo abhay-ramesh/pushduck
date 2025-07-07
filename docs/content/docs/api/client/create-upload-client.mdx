@@ -193,17 +193,42 @@ Each route method now accepts optional configuration:
     export function MultiUploadForm() {
       // Different configuration for each upload type
       const images = upload.imageUpload({
-        onSuccess: (results) => updateImageGallery(results)
+        onSuccess: (results) => {
+          // Store images with both permanent and temporary URLs
+          updateImageGallery(results.map(file => ({
+            id: file.id,
+            url: file.url,                    // Permanent access URL
+            downloadUrl: file.presignedUrl,   // Temporary download URL (1 hour)
+            name: file.name,
+            key: file.key
+          })));
+        }
       })
       
       const documents = upload.documentUpload({
-        onSuccess: (results) => updateDocumentLibrary(results),
+        onSuccess: (results) => {
+          updateDocumentLibrary(results.map(file => ({
+            id: file.id,
+            name: file.name,
+            url: file.url,                    // Permanent access
+            downloadUrl: file.presignedUrl,   // Temporary download (1 hour)
+            key: file.key
+          })));
+        },
         onError: (error) => logSecurityError(error)
       })
       
       const videos = upload.videoUpload({
         onProgress: (progress) => setVideoProgress(progress),
-        onSuccess: (results) => processVideoThumbnails(results)
+        onSuccess: (results) => {
+          processVideoThumbnails(results.map(file => ({
+            id: file.id,
+            name: file.name,
+            url: file.url,                    // Permanent URL for video player
+            downloadUrl: file.presignedUrl,   // Temporary download URL
+            key: file.key
+          })));
+        }
       })
 
       return (

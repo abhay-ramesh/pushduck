@@ -425,9 +425,13 @@ const s3Router = s3.createRouter({
     .max("4MB")
     .count(10)
     .onUploadComplete(async ({ file, url, metadata }) => {
-      // Process uploaded image
+      // Process uploaded image - use permanent URL for processing
       await generateThumbnail(url);
-      await updateDatabase(file.key, metadata.userId);
+      await updateDatabase({
+        key: file.key,
+        publicUrl: url,
+        userId: metadata.userId
+      });
     })
     .onUploadError(async ({ error, metadata }) => {
       // Log errors and notify admins
