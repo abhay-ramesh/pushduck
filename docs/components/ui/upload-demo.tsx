@@ -271,14 +271,36 @@ export function UploadDemo({
 
                     {/* Success State */}
                     {file.status === "success" && file.url && (
-                      <a
-                        href={file.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-fd-primary hover:underline"
-                      >
-                        View file →
-                      </a>
+                      <div className="mt-2 space-y-2">
+                        {/* Image Preview */}
+                        {activeTab === "images" &&
+                          file.type?.startsWith("image/") && (
+                            <div className="overflow-hidden rounded-md border border-fd-border">
+                              <img
+                                src={file.presignedUrl || file.url}
+                                alt={file.name}
+                                className="w-full h-32 object-cover"
+                                onError={(e) => {
+                                  // Fallback if image fails to load
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                            </div>
+                          )}
+
+                        {/* File Link */}
+                        <a
+                          href={file.presignedUrl || file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-fd-primary hover:underline"
+                        >
+                          {activeTab === "images"
+                            ? "🖼️ View full size"
+                            : "📄 Open file"}{" "}
+                          →
+                        </a>
+                      </div>
                     )}
 
                     {/* Error State */}
@@ -310,6 +332,65 @@ export function UploadDemo({
                 </ul>
               </div>
             )}
+
+            {/* Image Gallery */}
+            {activeTab === "images" &&
+              currentUpload.files.filter(
+                (f) =>
+                  f.status === "success" &&
+                  f.url &&
+                  f.type?.startsWith("image/")
+              ).length > 0 && (
+                <div className="mt-4 p-4 rounded-md border bg-fd-muted/20 border-fd-border">
+                  <h4 className="mb-3 text-sm font-medium text-fd-foreground">
+                    🖼️ Uploaded Images Gallery
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {currentUpload.files
+                      .filter(
+                        (f) =>
+                          f.status === "success" &&
+                          f.url &&
+                          f.type?.startsWith("image/")
+                      )
+                      .map((file) => (
+                        <div key={file.id} className="group relative">
+                          <div className="aspect-square overflow-hidden rounded-md border border-fd-border bg-fd-background">
+                            <img
+                              src={file.presignedUrl || file.url}
+                              alt={file.name}
+                              className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                            />
+                          </div>
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-md" />
+                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <a
+                              href={file.presignedUrl || file.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center w-8 h-8 bg-white/90 rounded-full text-fd-primary hover:bg-white transition-colors"
+                              title="View full size"
+                            >
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                />
+                              </svg>
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
 
             {/* Empty State */}
             {currentUpload.files.length === 0 && (
