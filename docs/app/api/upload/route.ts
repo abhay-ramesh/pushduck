@@ -1,17 +1,52 @@
-// app/api/s3-upload/route.ts
 import { s3 } from "@/lib/upload";
 
-const s3Router = s3.createRouter({
-  // Define your upload routes with validation
-  imageUpload: s3.image().max("10MB").formats(["jpg", "jpeg", "png", "webp"]),
+// Define upload routes with proper validation and lifecycle hooks
+const uploadRouter = s3.createRouter({
+  // Image upload route with size and format validation
+  imageUpload: s3
+    .image()
+    .max("5MB")
+    .formats(["jpeg", "jpg", "png", "webp"])
+    .middleware(async ({ file, metadata }) => {
+      console.log("Processing image upload:", file.name);
+      return {
+        ...metadata,
+        userId: "demo-user", // Replace with actual auth
+        uploadedAt: new Date().toISOString(),
+        category: "images",
+      };
+    })
+    .onUploadComplete(async ({ file, url, metadata }) => {
+      console.log(`✅ Image upload complete: ${file.name} -> ${url}`, metadata);
+    }),
 
-  documentUpload: s3
+  // File upload route
+  fileUpload: s3
     .file()
-    .max("50MB")
-    .types(["application/pdf", "application/msword"]),
+    .max("10MB")
+    .types([
+      "application/pdf",
+      "application/msword",
+      "text/plain",
+      "image/*",
+      "video/*",
+    ])
+    .middleware(async ({ file, metadata }) => {
+      console.log("Processing file upload:", file.name);
+      return {
+        ...metadata,
+        userId: "demo-user", // Replace with actual auth
+        uploadedAt: new Date().toISOString(),
+        category: "documents",
+      };
+    })
+    .onUploadComplete(async ({ file, url, metadata }) => {
+      console.log(`✅ File upload complete: ${file.name} -> ${url}`, metadata);
+    }),
 });
 
-export const { GET, POST } = s3Router.handlers;
+// Export router type for enhanced client type inference
+export type AppUploadRouter = typeof uploadRouter;
 
-// Export the router type for client-side type safety
-export type Router = typeof s3Router;
+// Export the HTTP handlers
+export const { GET, POST } = uploadRouter.handlers;
