@@ -16,7 +16,6 @@ const { uploadFiles, files } = upload.imageUpload({
   onError: (error) => console.error('Error:', error),
   onProgress: (progress) => setProgress(progress),
   endpoint: '/api/custom-upload',
-  disabled: false
 })
 ```
 
@@ -163,9 +162,8 @@ export function MultiUploadDemo() {
     onSuccess: (results) => updateDocumentLibrary(results)
   });
   
-  // Videos with upload disabled (feature flag)
+  // Videos with conditional logic in component
   const videos = upload.videoUpload({
-    disabled: !isVideoUploadEnabled,
     onSuccess: (results) => processVideoThumbnails(results)
   });
 

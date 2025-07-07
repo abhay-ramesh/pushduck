@@ -206,11 +206,8 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
   const startUpload = useCallback(
     async (uploadFiles: File[]) => {
-      if (!uploadFiles.length) return;
-
-      // Check if uploads are disabled
-      if (config.disabled) {
-        console.warn(`Upload disabled for route: ${String(routeName)}`);
+      if (!uploadFiles.length) {
+        setIsUploading(false);
         return;
       }
 

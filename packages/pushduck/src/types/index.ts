@@ -39,8 +39,6 @@ export interface UploadRouteConfig {
   onSuccess?: (results: S3UploadedFile[]) => void | Promise<void>;
   onError?: (error: Error) => void;
   onProgress?: (progress: number) => void;
-  disabled?: boolean;
-  autoUpload?: boolean;
 }
 
 // Legacy aliases for backward compatibility
