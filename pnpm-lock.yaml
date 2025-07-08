@@ -173,8 +173,8 @@ importers:
         specifier: ^3.0.1
         version: 3.0.2
       dotenv:
-        specifier: ^16.3.0
-        version: 16.5.0
+        specifier: ^17.1.0
+        version: 17.1.0
       execa:
         specifier: ^9.6.0
         version: 9.6.0
@@ -3505,8 +3505,8 @@ packages:
     resolution: {integrity: sha512-7GO6HghkA5fYG9TYnNxi14/7K9f5occMlp3zXAuSxn7CKCxt9xbNWG7yF8hTCSUchlfWSe3uLmlPfigevRItzQ==}
     engines: {node: '>=12'}
 
-  dotenv@16.5.0:
-    resolution: {integrity: sha512-m/C+AwOAr9/W1UOIZUo232ejMNnJAJtYQjUbHoNTBNTJSvqzzDh7vnrei3o3r3m9blf6ZoDkvcw0VmozNRFJxg==}
+  dotenv@17.1.0:
+    resolution: {integrity: sha512-tG9VUTJTuju6GcXgbdsOuRhupE8cb4mRgY5JLRCh4MtGoVo3/gfGUtOMwmProM6d0ba2mCFvv+WrpYJV6qgJXQ==}
     engines: {node: '>=12'}
 
   dts-resolver@2.1.1:
@@ -9937,7 +9937,7 @@ snapshots:
 
   dotenv@16.0.3: {}
 
-  dotenv@16.5.0: {}
+  dotenv@17.1.0: {}
 
   dts-resolver@2.1.1: {}
 
