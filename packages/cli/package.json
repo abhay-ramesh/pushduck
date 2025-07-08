@@ -38,7 +38,7 @@
     "chalk": "^5.4.1",
     "commander": "^14.0.0",
     "detect-package-manager": "^3.0.1",
-    "dotenv": "^16.3.0",
+    "dotenv": "^17.1.0",
     "execa": "^9.6.0",
     "fs-extra": "^11.1.0",
     "handlebars": "^4.7.8",
