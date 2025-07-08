@@ -384,6 +384,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                         updateFileStatus(fileToUpdate.id, "success", {
                           url: result.url,
                           key: result.key,
+                          presignedUrl: result.presignedUrl,
                           progress: 100,
                         });
                       }

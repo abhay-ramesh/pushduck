@@ -271,6 +271,10 @@ const { uploadFiles } = useUploadRoute<AppRouter>('imageUpload', {
   // 3. Called on completion
   onSuccess: (results) => {
     console.log('✅ Upload complete!');
+    results.forEach(file => {
+      console.log('File URL:', file.url);                // Permanent URL
+      console.log('Download URL:', file.presignedUrl);   // Temporary access (1 hour)
+    });
     setUploading(false);
   },
   
@@ -287,6 +291,92 @@ const { uploadFiles } = useUploadRoute<AppRouter>('imageUpload', {
 - **Validation errors** (size limits, file types): Only `onError` is called
 - **Upload errors** (network issues): `onStart` → `onProgress(0)` → `onError`
 
+## Upload Result Structure
+
+Each successfully uploaded file includes the following properties:
+
+<TypeTable
+  type={{
+    id: {
+      description: "Unique file identifier for this upload session",
+      type: "string",
+    },
+    name: {
+      description: "Original filename",
+      type: "string",
+    },
+    size: {
+      description: "File size in bytes",
+      type: "number",
+    },
+    type: {
+      description: "MIME type of the file",
+      type: "string",
+    },
+    status: {
+      description: "Upload status",
+      type: '"pending" | "uploading" | "success" | "error"',
+    },
+    progress: {
+      description: "Upload progress (0-100)",
+      type: "number",
+    },
+    url: {
+      description: "Permanent file URL for public access",
+      type: "string | undefined",
+    },
+    key: {
+      description: "S3 object key/path",
+      type: "string | undefined",
+    },
+    presignedUrl: {
+      description: "Temporary download URL (expires in 1 hour)",
+      type: "string | undefined",
+    },
+    error: {
+      description: "Error message if upload failed",
+      type: "string | undefined",
+    },
+    file: {
+      description: "Original File object reference",
+      type: "File | undefined",
+    },
+    uploadStartTime: {
+      description: "Timestamp when upload started (for ETA calculation)",
+      type: "number | undefined",
+    },
+    uploadSpeed: {
+      description: "Current upload speed in bytes per second",
+      type: "number | undefined",
+    },
+    eta: {
+      description: "Estimated time remaining in seconds",
+      type: "number | undefined",
+    },
+  }}
+/>
+
+### URL Usage Examples
+
+```typescript
+const { uploadFiles } = useUploadRoute('fileUpload', {
+  onSuccess: (results) => {
+    results.forEach(file => {
+      // Use permanent URL for public files
+      if (file.url) {
+        console.log('Public URL:', file.url);
+      }
+      
+      // Use presigned URL for private files or temporary access
+      if (file.presignedUrl) {
+        console.log('Download URL:', file.presignedUrl);
+        // This URL expires in 1 hour and can be used for secure downloads
+      }
+    });
+  }
+});
+```
+
 ## Advanced Examples
 
 <Tabs items={["With All Callbacks", "Multiple Files", "Form Integration"]}>
@@ -299,7 +389,13 @@ const { uploadFiles } = useUploadRoute<AppRouter>('imageUpload', {
       },
       onSuccess: (results) => {
         toast.success(`Uploaded ${results.length} files`);
-        updateDocuments(results);
+        // Store both permanent and temporary URLs
+        updateDocuments(results.map(file => ({
+          url: file.url,                    // Permanent access
+          downloadUrl: file.presignedUrl,   // Temporary access (1 hour)
+          name: file.name,
+          key: file.key
+        })));
         setUploadStarted(false);
       },
       onError: (error) => {

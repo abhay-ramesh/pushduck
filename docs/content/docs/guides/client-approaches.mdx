@@ -193,6 +193,10 @@ export function AdvancedUpload() {
       },
       onSuccess: (results) => {
         console.log('✅ Upload successful!', results)
+        results.forEach(file => {
+          console.log('Public URL:', file.url);           // Permanent access
+          console.log('Download URL:', file.presignedUrl); // Temporary access (1 hour)
+        });
         showNotification('Images uploaded successfully!')
         setUploadStarted(false)
       },
@@ -231,7 +235,16 @@ export function MultiUploadComponent() {
   const documents = upload.documentUpload({
     endpoint: '/api/secure-upload',
     onStart: (files) => setUploadingDocuments(true),
-    onSuccess: (results) => updateDocumentLibrary(results)
+    onSuccess: (results) => {
+      // Use presigned URLs for private document downloads
+      updateDocumentLibrary(results.map(file => ({
+        id: file.id,
+        name: file.name,
+        downloadUrl: file.presignedUrl,   // Secure, time-limited access
+        permanentUrl: file.url,           // For internal operations
+        key: file.key
+      })));
+    }
   })
   
   // Videos with conditional logic in component

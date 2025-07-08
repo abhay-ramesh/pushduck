@@ -441,7 +441,8 @@ export default function DocumentUploader() {
           const newFiles = uploadResult.results.map(file => ({
             name: file.name,
             size: file.size,
-            url: file.url,
+            url: file.url,                    // Permanent URL
+            downloadUrl: file.presignedUrl,   // Temporary download URL (1 hour)
           }));
           
           setUploadedFiles(prev => [...prev, ...newFiles]);

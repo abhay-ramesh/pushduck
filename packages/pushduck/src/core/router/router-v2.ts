@@ -15,6 +15,7 @@ import { createUniversalHandler } from "../handler/universal-handler";
 import { InferS3Input, InferS3Output, S3Schema } from "../schema";
 import {
   generateFileKey,
+  generatePresignedDownloadUrl,
   generatePresignedUploadUrl,
   getFileUrl,
 } from "../storage/client";
@@ -373,6 +374,13 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         // Get file URL
         const url = getFileUrl(this.config, completion.key);
 
+        // Generate presigned download URL (expires in 1 hour by default)
+        const presignedUrl = await generatePresignedDownloadUrl(
+          this.config,
+          completion.key,
+          3600
+        );
+
         // Call onUploadComplete hook
         if (routeConfig.onUploadComplete) {
           await routeConfig.onUploadComplete({
@@ -387,6 +395,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           success: true,
           key: completion.key,
           url,
+          presignedUrl,
           file: completion.file,
         });
       } catch (error) {
@@ -439,6 +448,7 @@ export interface CompletionResponse {
   success: boolean;
   key: string;
   url?: string;
+  presignedUrl?: string; // Temporary download URL (expires in 1 hour)
   file?: S3FileMetadata;
   error?: string;
 }
