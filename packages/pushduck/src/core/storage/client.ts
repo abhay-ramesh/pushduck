@@ -375,8 +375,11 @@ function buildS3Url(key: string, config: S3CompatibleConfig): string {
     if (config.forcePathStyle !== false) {
       return `${baseUrl}/${config.bucket}/${key}`;
     } else {
-      // Virtual hosted-style for custom endpoints (rare)
-      return `${baseUrl}/${key}`;
+      // Virtual hosted-style for custom endpoints (e.g., Backblaze B2)
+      // Convert https://s3.region.provider.com to https://bucket.s3.region.provider.com
+      const url = new URL(baseUrl);
+      url.hostname = `${config.bucket}.${url.hostname}`;
+      return `${url.origin}/${key}`;
     }
   }
 
@@ -597,10 +600,14 @@ export function getFileUrl(uploadConfig: UploadConfig, key: string): string {
   if (config.endpoint) {
     // Custom endpoint (MinIO, R2, etc.)
     const baseUrl = config.endpoint.replace(/\/$/, "");
-    if (config.forcePathStyle) {
+    if (config.forcePathStyle !== false) {
       return `${baseUrl}/${config.bucket}/${key}`;
     } else {
-      return `${baseUrl}/${key}`;
+      // Virtual hosted-style for custom endpoints (e.g., Backblaze B2)
+      // Convert https://s3.region.provider.com to https://bucket.s3.region.provider.com
+      const url = new URL(baseUrl);
+      url.hostname = `${config.bucket}.${url.hostname}`;
+      return `${url.origin}/${key}`;
     }
   }
 
