@@ -8,7 +8,7 @@ import { TypeTable } from "fumadocs-ui/components/type-table";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { formatETA, formatUploadSpeed } from "pushduck";
 
-# useUploadRoute
+## useUploadRoute Hook
 
 A React hook that provides reactive state management for file uploads with progress tracking and error handling.
 
@@ -184,6 +184,10 @@ const { uploadFiles } = useUploadRoute("imageUpload");
 
 <TypeTable
   type={{
+    onStart: {
+      description: "Callback when upload process begins (after validation)",
+      type: "(files: S3FileMetadata[]) => void",
+    },
     onSuccess: {
       description: "Callback when uploads complete successfully",
       type: "(results: UploadResult[]) => void",
@@ -194,17 +198,7 @@ const { uploadFiles } = useUploadRoute("imageUpload");
     },
     onProgress: {
       description: "Callback for progress updates",
-      type: "(progress: UploadProgress) => void",
-    },
-    disabled: {
-      description: "Disable upload functionality",
-      type: "boolean",
-      default: "false",
-    },
-    autoUpload: {
-      description: "Automatically upload files when added",
-      type: "boolean",
-      default: "true",
+      type: "(progress: number) => void",
     },
   }}
 />
@@ -252,21 +246,164 @@ const { uploadFiles } = useUploadRoute("imageUpload");
   }}
 />
 
+## Callback Execution Order
+
+The callbacks follow a predictable order to provide clear upload lifecycle management:
+
+<Callout type="info">
+  **Proper Callback Sequence:** `onStart` → `onProgress(0)` → `onProgress(n)` → `onSuccess/onError`
+</Callout>
+
+```typescript
+const { uploadFiles } = useUploadRoute<AppRouter>('imageUpload', {
+  // 1. Called first after validation passes
+  onStart: (files) => {
+    console.log('🚀 Upload starting for', files.length, 'files');
+    setUploading(true);
+  },
+  
+  // 2. Called with progress updates (0-100)
+  onProgress: (progress) => {
+    console.log('📊 Progress:', progress + '%');
+    setProgress(progress);
+  },
+  
+  // 3. Called on completion
+  onSuccess: (results) => {
+    console.log('✅ Upload complete!');
+    results.forEach(file => {
+      console.log('File URL:', file.url);                // Permanent URL
+      console.log('Download URL:', file.presignedUrl);   // Temporary access (1 hour)
+    });
+    setUploading(false);
+  },
+  
+  // OR 3. Called on error (no progress callbacks for validation errors)
+  onError: (error) => {
+    console.log('❌ Upload failed:', error.message);
+    setUploading(false);
+  }
+});
+```
+
+### Validation Errors vs Upload Errors
+
+- **Validation errors** (size limits, file types): Only `onError` is called
+- **Upload errors** (network issues): `onStart` → `onProgress(0)` → `onError`
+
+## Upload Result Structure
+
+Each successfully uploaded file includes the following properties:
+
+<TypeTable
+  type={{
+    id: {
+      description: "Unique file identifier for this upload session",
+      type: "string",
+    },
+    name: {
+      description: "Original filename",
+      type: "string",
+    },
+    size: {
+      description: "File size in bytes",
+      type: "number",
+    },
+    type: {
+      description: "MIME type of the file",
+      type: "string",
+    },
+    status: {
+      description: "Upload status",
+      type: '"pending" | "uploading" | "success" | "error"',
+    },
+    progress: {
+      description: "Upload progress (0-100)",
+      type: "number",
+    },
+    url: {
+      description: "Permanent file URL for public access",
+      type: "string | undefined",
+    },
+    key: {
+      description: "S3 object key/path",
+      type: "string | undefined",
+    },
+    presignedUrl: {
+      description: "Temporary download URL (expires in 1 hour)",
+      type: "string | undefined",
+    },
+    error: {
+      description: "Error message if upload failed",
+      type: "string | undefined",
+    },
+    file: {
+      description: "Original File object reference",
+      type: "File | undefined",
+    },
+    uploadStartTime: {
+      description: "Timestamp when upload started (for ETA calculation)",
+      type: "number | undefined",
+    },
+    uploadSpeed: {
+      description: "Current upload speed in bytes per second",
+      type: "number | undefined",
+    },
+    eta: {
+      description: "Estimated time remaining in seconds",
+      type: "number | undefined",
+    },
+  }}
+/>
+
+### URL Usage Examples
+
+```typescript
+const { uploadFiles } = useUploadRoute('fileUpload', {
+  onSuccess: (results) => {
+    results.forEach(file => {
+      // Use permanent URL for public files
+      if (file.url) {
+        console.log('Public URL:', file.url);
+      }
+      
+      // Use presigned URL for private files or temporary access
+      if (file.presignedUrl) {
+        console.log('Download URL:', file.presignedUrl);
+        // This URL expires in 1 hour and can be used for secure downloads
+      }
+    });
+  }
+});
+```
+
 ## Advanced Examples
 
-<Tabs items={["With Callbacks", "Multiple Files", "Form Integration"]}>
-  <Tab value="With Callbacks">
+<Tabs items={["With All Callbacks", "Multiple Files", "Form Integration"]}>
+  <Tab value="With All Callbacks">
     ```typescript
     const { uploadFiles, files } = useUploadRoute<AppRouter>('documentUpload', {
+      onStart: (files) => {
+        toast.info(`Starting upload of ${files.length} files...`);
+        setUploadStarted(true);
+      },
       onSuccess: (results) => {
-        toast.success(`Uploaded ${results.length} files`)
-        updateDocuments(results)
+        toast.success(`Uploaded ${results.length} files`);
+        // Store both permanent and temporary URLs
+        updateDocuments(results.map(file => ({
+          url: file.url,                    // Permanent access
+          downloadUrl: file.presignedUrl,   // Temporary access (1 hour)
+          name: file.name,
+          key: file.key
+        })));
+        setUploadStarted(false);
       },
       onError: (error) => {
-        toast.error(`Upload failed: ${error.message}`)
+        toast.error(`Upload failed: ${error.message}`);
+        setUploadStarted(false);
       },
       onProgress: (progress) => {
-        setGlobalProgress(progress.percentage)
+        setGlobalProgress(progress);
       }
     })
     ```

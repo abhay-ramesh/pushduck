@@ -336,11 +336,15 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
       const timeRemaining =
         currentTransferRate > 0 ? remainingBytes / currentTransferRate : 0;
 
-      setProgress(Math.min(100, Math.max(0, overallProgressPercent)));
+      const finalProgress = Math.min(100, Math.max(0, overallProgressPercent));
+      setProgress(finalProgress);
       setUploadSpeed(currentTransferRate);
       setEta(timeRemaining);
+
+      // Call the onProgress callback with the overall progress
+      config.onProgress?.(finalProgress);
     },
-    []
+    [config.onProgress]
   );
 
   const reset = useCallback(() => {
@@ -392,11 +396,8 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
   const startUpload = useCallback(
     async (uploadFiles: File[]) => {
-      if (!uploadFiles.length) return;
-
-      // Check if uploads are disabled
-      if (config.disabled) {
-        console.warn(`Upload disabled for route: ${String(routeName)}`);
+      if (!uploadFiles.length) {
+        setIsUploading(false);
         return;
       }
 
@@ -436,16 +437,50 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
         if (!presignResponse.ok) {
           const errorData = await presignResponse.json();
-          throw new Error(
-            errorData.error || `Server error: ${presignResponse.statusText}`
+          const errorMessage =
+            errorData.error || `Server error: ${presignResponse.statusText}`;
+
+          // Update all files with error status
+          setFiles((prev) =>
+            prev.map((file) => ({
+              ...file,
+              status: "error" as const,
+              error: errorMessage,
+            }))
           );
+
+          // Call onError callback for server errors
+          config.onError?.(new Error(errorMessage));
+          return;
         }
 
         const presignData = await presignResponse.json();
 
         if (!presignData.success) {
-          throw new Error(presignData.error || "Failed to get presigned URLs");
+          const errorMessage =
+            presignData.error || "Failed to get presigned URLs";
+
+          // Update all files with error status
+          setFiles((prev) =>
+            prev.map((file) => ({
+              ...file,
+              status: "error" as const,
+              error: errorMessage,
+            }))
+          );
+
+          // Call onError callback for presigned URL failures
+          config.onError?.(new Error(errorMessage));
+          return;
         }
+
+        // Upload validation passed - call onStart callback and initialize progress
+        if (config.onStart) {
+          await config.onStart(fileMetadata);
+        }
+
+        // Initialize progress at 0% after validation passes
+        config.onProgress?.(0);
 
         const uploadPromises = presignData.results.map(
           async (result: any, index: number) => {
@@ -453,9 +488,15 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
             const fileState = initialFiles[index];
 
             if (!result.success) {
+              const errorMessage =
+                result.error || "Failed to get presigned URL";
               updateFileStatus(fileState.id, "error", {
-                error: result.error || "Failed to get presigned URL",
+                error: errorMessage,
               });
+
+              // Call onError callback for presigned URL failures (including validation errors)
+              config.onError?.(new Error(errorMessage));
+
               return null;
             }
 
@@ -489,6 +530,12 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
               const errorMessage =
                 error instanceof Error ? error.message : "Upload failed";
               updateFileStatus(fileState.id, "error", { error: errorMessage });
+
+              // Call onError callback for individual file failures
+              config.onError?.(
+                error instanceof Error ? error : new Error(errorMessage)
+              );
+
               return null;
             }
           }
@@ -527,6 +574,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                         updateFileStatus(fileToUpdate.id, "success", {
                           url: result.url,
                           key: result.key,
+                          presignedUrl: result.presignedUrl,
                           progress: 100,
                         });
                       }

@@ -3,7 +3,7 @@ title: Google Cloud Storage
 description: Set up Google Cloud Storage for scalable, global file uploads
 ---
 
-# Using Google Cloud Storage
+## Using Google Cloud Storage
 
 Set up Google Cloud Storage (GCS) for scalable, global file uploads with Google's infrastructure.
 
@@ -78,6 +78,10 @@ Keep default settings - files will only be accessible via signed URLs.
 5. **Download and securely store the JSON file**
 
 ## 5. Configure CORS
+
+<Callout type="info">
+**Comprehensive CORS Guide**: For detailed CORS configuration, testing, and troubleshooting, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).
+</Callout>
 
 ```bash
 # Create cors.json file
@@ -371,7 +375,7 @@ export const { s3,  } = createUploadConfig()
 ## 🆘 Common Issues
 
 **Authentication errors?** → Check service account key path and permissions  
-**CORS errors?** → Verify CORS configuration and allowed origins  
+**CORS errors?** → Verify CORS configuration and allowed origins. For detailed CORS configuration, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).  
 **Access denied?** → Check IAM roles and bucket permissions  
 **Slow uploads?** → Choose region closer to your users  
 **Quota exceeded?** → Check project quotas and billing account
@@ -387,4 +391,4 @@ export const { s3,  } = createUploadConfig()
 
 ---
 
-**Next:** [Upload Your First Image](/guides/uploads/images) or check out our [Examples](/examples)
+**Next:** [Upload Your First Image](/docs/guides/uploads/images) or check out our [Examples](/docs/examples)

@@ -3,7 +3,7 @@ title: Upload Configuration
 description: Complete guide to configuring pushduck with the createUploadConfig builder
 ---
 
-# Upload Configuration
+## Router Configuration Options
 
 The `createUploadConfig()` builder provides a fluent API for configuring your S3 uploads with providers, security, paths, and lifecycle hooks.
 
@@ -286,6 +286,35 @@ DO_SPACES_ACCESS_KEY_ID=your_key
 DO_SPACES_SECRET_ACCESS_KEY=your_secret
 ```
 
+## Client Upload Results
+
+After successful upload completion, clients receive file objects with both permanent and temporary URLs:
+
+```typescript
+// Client-side usage
+const { uploadFiles } = useUploadRoute('fileUpload', {
+  onSuccess: (results) => {
+    results.forEach(file => {
+      console.log('File:', file.name);
+      console.log('Public URL:', file.url);           // Permanent access
+      console.log('Download URL:', file.presignedUrl); // Temporary access (1 hour)
+      console.log('S3 Key:', file.key);               // Object key/path
+    });
+  }
+});
+```
+
+### URL Types
+
+- **`url`** - Permanent URL for public file access, CDN caching, and embedding
+- **`presignedUrl`** - Temporary download URL (expires in 1 hour) for secure access
+- **`key`** - S3 object key/path for direct storage operations
+
+Use the appropriate URL based on your access requirements:
+- Public files: Use `url` for permanent access
+- Private files: Use `presignedUrl` for time-limited access
+- File operations: Use `key` with storage API
+
 ## Type Definitions
 
 ```typescript
@@ -316,7 +345,7 @@ interface UploadConfig {
     onUploadStart?: (ctx: { file: any; metadata: any }) => Promise<void> | void
     onUploadComplete?: (ctx: {
       file: any
-      url: string
+      url: string          // Permanent file URL
       metadata: any
     }) => Promise<void> | void
     onUploadError?: (ctx: {

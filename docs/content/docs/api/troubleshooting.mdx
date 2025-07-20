@@ -1,12 +1,12 @@
 ---
 title: Troubleshooting
-description: Common issues and solutions for pushduck
+description: Fix common pushduck issues including CORS errors, TypeScript problems, upload failures, and environment variable configuration. Complete troubleshooting guide with solutions.
 ---
 
 import { Callout } from "fumadocs-ui/components/callout";
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
-# Troubleshooting
+## Common Issues and Solutions
 
 Common issues and solutions when using pushduck.
 
@@ -62,7 +62,17 @@ Access to XMLHttpRequest at 'https://bucket.s3.amazonaws.com/...'
 from origin 'http://localhost:3000' has been blocked by CORS policy
 ```
 
-**Solution:** Configure CORS on your S3 bucket. See the [provider setup guides](/docs/providers) for detailed CORS configuration.
+**Solution:** Configure CORS on your storage bucket. 
+
+<Callout type="info">
+**Comprehensive CORS Guide:** For detailed CORS configuration, testing, and troubleshooting across all providers, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).
+</Callout>
+
+**Quick fixes:**
+- See the [provider setup guides](/docs/providers) for basic CORS configuration
+- Ensure your domain is included in `AllowedOrigins`
+- Verify all required HTTP methods are allowed (`PUT`, `POST`, `GET`)
+- Check that required headers are included in `AllowedHeaders`
 
 ### Environment Variables Not Found
 
@@ -154,9 +164,10 @@ await uploadFiles(largeFiles); // ✅ Streams automatically
 If you're still experiencing issues:
 
 1. **Check the documentation** for your specific provider
-2. **Enable debug logging** by setting `NODE_ENV=development`
-3. **Check browser console** for detailed error messages
-4. **Verify your provider configuration** is correct
+2. **For CORS/ACL issues** see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl)
+3. **Enable debug logging** by setting `NODE_ENV=development`
+4. **Check browser console** for detailed error messages
+5. **Verify your provider configuration** is correct
 
 <Callout type="info">
 **Need more help?** Create an issue on [GitHub](https://github.com/abhay-ramesh/pushduck/issues) with detailed information about your setup and the error you're experiencing.

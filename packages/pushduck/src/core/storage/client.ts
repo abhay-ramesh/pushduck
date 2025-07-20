@@ -121,13 +121,15 @@ interface S3CompatibleConfig {
  * });
  * ```
  */
-function getS3CompatibleConfig(config: ProviderConfig): S3CompatibleConfig {
+function getS3CompatibleConfig(
+  config: ProviderConfig,
+  options: { debug?: boolean } = {}
+): S3CompatibleConfig {
   const baseConfig = {
     bucket: config.bucket,
     acl: config.acl,
     customDomain: config.customDomain,
-    debug:
-      process.env.NODE_ENV === "development" || process.env.DEBUG === "true",
+    debug: options.debug ?? false,
   };
 
   switch (config.provider) {
@@ -399,7 +401,9 @@ export function createS3Client(uploadConfig?: UploadConfig): AwsClient {
     throw new Error("UploadConfig is required");
   }
 
-  const config = getS3CompatibleConfig(uploadConfig.provider);
+  const config = getS3CompatibleConfig(uploadConfig.provider, {
+    debug: uploadConfig.debug,
+  });
 
   if (!config.accessKeyId || !config.secretAccessKey || !config.bucket) {
     throw createConfigError(
@@ -474,8 +478,11 @@ function buildS3Url(key: string, config: S3CompatibleConfig): string {
     if (config.forcePathStyle !== false) {
       return `${baseUrl}/${config.bucket}/${key}`;
     } else {
-      // Virtual hosted-style for custom endpoints (rare)
-      return `${baseUrl}/${key}`;
+      // Virtual hosted-style for custom endpoints (e.g., Backblaze B2)
+      // Convert https://s3.region.provider.com to https://bucket.s3.region.provider.com
+      const url = new URL(baseUrl);
+      url.hostname = `${config.bucket}.${url.hostname}`;
+      return `${url.origin}/${key}`;
     }
   }
 
@@ -788,10 +795,14 @@ export function getFileUrl(uploadConfig: UploadConfig, key: string): string {
   if (config.endpoint) {
     // Custom endpoint (MinIO, R2, etc.)
     const baseUrl = config.endpoint.replace(/\/$/, "");
-    if (config.forcePathStyle) {
+    if (config.forcePathStyle !== false) {
       return `${baseUrl}/${config.bucket}/${key}`;
     } else {
-      return `${baseUrl}/${key}`;
+      // Virtual hosted-style for custom endpoints (e.g., Backblaze B2)
+      // Convert https://s3.region.provider.com to https://bucket.s3.region.provider.com
+      const url = new URL(baseUrl);
+      url.hostname = `${config.bucket}.${url.hostname}`;
+      return `${url.origin}/${key}`;
     }
   }
 
@@ -916,6 +927,22 @@ export async function uploadFileToS3(
       body = file;
     }
 
+    // Set Content-Length header (required by many S3-compatible services)
+    headers["Content-Length"] = body.byteLength.toString();
+
+    const totalBytes = body.byteLength;
+
+    // Report upload start
+    if (options.onProgress) {
+      options.onProgress({
+        loaded: 0,
+        total: totalBytes,
+        percentage: 0,
+        key,
+      });
+    }
+
+    const startTime = Date.now();
     const response = await awsClient.fetch(s3Url, {
       method: "PUT",
       headers,
@@ -926,6 +953,21 @@ export async function uploadFileToS3(
       throw new Error(
         `Upload failed: ${response.status} ${response.statusText}`
       );
+    }
+
+    // Report upload completion
+    if (options.onProgress) {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const uploadSpeed = totalBytes / elapsed;
+
+      options.onProgress({
+        loaded: totalBytes,
+        total: totalBytes,
+        percentage: 100,
+        key,
+        uploadSpeed,
+        eta: 0,
+      });
     }
 
     if (config.debug) {

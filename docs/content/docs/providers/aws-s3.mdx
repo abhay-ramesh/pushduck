@@ -1,13 +1,13 @@
 ---
 title: AWS S3
-description: Set up AWS S3 for production file uploads in under 5 minutes
+description: Complete AWS S3 setup guide for production file uploads in under 5 minutes. Includes bucket creation, IAM user configuration, CORS setup, and security best practices for scalable storage.
 ---
 
 import { Step, Steps } from "fumadocs-ui/components/steps";
 import { Callout } from "fumadocs-ui/components/callout";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
-# AWS S3 Setup
+## AWS S3 Setup
 
 Get **AWS S3** configured for production file uploads in under 5 minutes. This guide covers everything from bucket creation to security best practices.
 
@@ -58,6 +58,10 @@ Region: us-east-1 (or closest to your users)
 <Step>
 
 ## Configure CORS for Web Access
+
+<Callout type="info">
+**Comprehensive CORS Guide**: For detailed CORS configuration, testing, and troubleshooting, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).
+</Callout>
 
 Your web application needs permission to upload files directly to S3.
 
@@ -321,54 +325,54 @@ Now that AWS S3 is configured, explore these advanced features:
 
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
   <div className="p-4 border rounded-lg">
-    <h3 className="font-semibold mb-2">📈 CloudFront CDN</h3>
+    <h3 className="font-semibold mb-2">🖼️ Image Uploads</h3>
     <p className="text-sm text-gray-600 mb-3">
-      Speed up file delivery globally with AWS CloudFront
+      Handle image uploads with optimization and validation
     </p>
     <a
-      href="/docs/guides/setup/cloudfront"
+      href="/docs/guides/uploads/images"
       className="text-blue-600 text-sm hover:underline"
     >
-      CloudFront Setup →
+      Image Guide →
     </a>
   </div>
 
   <div className="p-4 border rounded-lg">
-    <h3 className="font-semibold mb-2">🔄 Lambda Processing</h3>
+    <h3 className="font-semibold mb-2">🔐 Authentication</h3>
     <p className="text-sm text-gray-600 mb-3">
-      Automatically resize images and process files
+      Secure your uploads with proper authentication
     </p>
     <a
-      href="/docs/guides/setup/lambda-processing"
-      className="text-blue-600 text-sm hover:underline"
-    >
-      Lambda Integration →
-    </a>
-  </div>
-
-  <div className="p-4 border rounded-lg">
-    <h3 className="font-semibold mb-2">📊 Analytics & Monitoring</h3>
-    <p className="text-sm text-gray-600 mb-3">
-      Track upload metrics and usage patterns
-    </p>
-    <a
-      href="/docs/guides/going-live/monitoring"
-      className="text-blue-600 text-sm hover:underline"
-    >
-      Monitoring Guide →
-    </a>
-  </div>
-
-  <div className="p-4 border rounded-lg">
-    <h3 className="font-semibold mb-2">🔐 Advanced Security</h3>
-    <p className="text-sm text-gray-600 mb-3">
-      Implement encryption, access logging, and compliance
-    </p>
-    <a
-      href="/docs/guides/security/encryption"
+      href="/docs/guides/security/authentication"
       className="text-blue-600 text-sm hover:underline"
     >
       Security Guide →
+    </a>
+  </div>
+
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">🚀 Production Deploy</h3>
+    <p className="text-sm text-gray-600 mb-3">
+      Essential checklist for production deployment
+    </p>
+    <a
+      href="/docs/guides/going-live/production-checklist"
+      className="text-blue-600 text-sm hover:underline"
+    >
+      Production Guide →
+    </a>
+  </div>
+
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-2">🛠️ API Reference</h3>
+    <p className="text-sm text-gray-600 mb-3">
+      Complete API documentation and examples
+    </p>
+    <a
+      href="/docs/api"
+      className="text-blue-600 text-sm hover:underline"
+    >
+      API Docs →
     </a>
   </div>
 </div>
@@ -392,4 +396,4 @@ Now that AWS S3 is configured, explore these advanced features:
 
 ---
 
-**Need help with AWS S3 setup?** Join our [Discord community](https://discord.gg/pushduck) or check out the [troubleshooting guide](/docs/guides/going-live/troubleshooting) for common issues.
+**Need help with AWS S3 setup?** Join our [Discord community](https://pushduck.dev/discord) or check out the [troubleshooting guide](/docs/api/troubleshooting) for common issues.

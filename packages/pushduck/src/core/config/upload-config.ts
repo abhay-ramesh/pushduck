@@ -61,6 +61,7 @@ import {
 } from "../schema";
 import { createStorage, type StorageInstance } from "../storage/storage-api";
 import { logger } from "../utils/logger";
+import { metrics } from "../utils/metrics";
 
 // ========================================
 // Smart Schema Builders (for upload-config)
@@ -250,7 +251,10 @@ function createS3Instance(config: UploadConfig) {
 export interface UploadConfig {
   /** Storage provider configuration (AWS S3, Cloudflare R2, etc.) */
   provider: ProviderConfig;
-
+  /** Enable debug logging */
+  debug?: boolean;
+  /** Enable metrics collection */
+  enableMetrics?: boolean;
   /** Default constraints and settings applied to all uploads */
   defaults?: {
     /** Maximum file size (string like '10MB' or number in bytes) */
@@ -552,6 +556,24 @@ export class UploadConfigBuilder {
   }
 
   /**
+   * Enable debug mode
+   * @param enabled - Whether to enable debug mode
+   * @returns This builder instance for method chaining
+   */
+  debug(enabled: boolean = true): UploadConfigBuilder {
+    this.config.debug = enabled;
+    return this;
+  }
+
+  /**
+   * Enable metrics collection
+   */
+  metrics(enabled: boolean = true): UploadConfigBuilder {
+    this.config.enableMetrics = enabled;
+    return this;
+  }
+
+  /**
    * Builds the final configuration and returns configured instances.
    * Validates the configuration and creates the upload config, storage instance, and S3 builder.
    *
@@ -589,6 +611,16 @@ export class UploadConfigBuilder {
 
     const finalConfig = this.config as UploadConfig;
 
+    // Configure logger and metrics based on config
+    if (finalConfig.debug !== undefined) {
+      logger.setDebugMode(finalConfig.debug);
+    }
+
+    if (finalConfig.enableMetrics !== undefined) {
+      metrics.setEnabled(finalConfig.enableMetrics);
+    }
+
+    // Log successful configuration
     logger.info("📦 Upload configuration initialized", {
       provider: finalConfig.provider.provider,
     });

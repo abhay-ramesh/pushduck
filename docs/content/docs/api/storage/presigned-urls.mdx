@@ -3,13 +3,30 @@ title: Presigned URLs
 description: Secure file access with presigned URLs for private buckets
 ---
 
-# Presigned URLs
+## Generating Presigned URLs
 
 Presigned URLs allow secure access to private S3 files without exposing credentials. They're essential for serving files from private buckets.
 
 ## Download URLs
 
-### Basic Presigned URL
+### Automatic Download URLs
+
+When files are uploaded through pushduck, download presigned URLs are automatically generated:
+
+```typescript
+const { uploadFiles } = useUploadRoute('fileUpload', {
+  onSuccess: (results) => {
+    results.forEach(file => {
+      console.log('Public URL:', file.url);           // Permanent access
+      console.log('Download URL:', file.presignedUrl); // Temporary access (1 hour)
+    });
+  }
+});
+```
+
+### Manual Presigned URL Generation
+
+You can also generate presigned URLs manually using the storage API:
 
 ```typescript
 // Generate URL valid for 1 hour (default)

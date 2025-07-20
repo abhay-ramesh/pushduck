@@ -17,11 +17,12 @@ interface LogContext {
 class Logger {
   private isDebugMode: boolean;
 
-  constructor() {
-    this.isDebugMode =
-      process.env.NODE_ENV === "development" ||
-      process.env.DEBUG === "true" ||
-      process.env.PUSHDUCK_DEBUG === "true";
+  constructor(options: { debug?: boolean } = {}) {
+    this.isDebugMode = options.debug ?? false;
+  }
+
+  setDebugMode(enabled: boolean): void {
+    this.isDebugMode = enabled;
   }
 
   private formatMessage(

@@ -1,0 +1,257 @@
+---
+title: Guides & Tutorials
+description: Comprehensive guides to help you master pushduck - from basic uploads to advanced patterns and production deployment
+---
+
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Callout } from "fumadocs-ui/components/callout";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+
+## Learning Path & Tutorials
+
+Learn how to build robust file upload features with pushduck through comprehensive guides covering everything from basic uploads to advanced production patterns.
+
+<Callout type="info">
+  **Progressive Learning**: These guides are organized from basic concepts to advanced patterns. Start with client approaches and work your way up to production deployment.
+</Callout>
+
+## Getting Started
+
+<Cards>
+  <Card 
+    title="Client-Side Approaches" 
+    description="Compare different ways to implement file uploads in your frontend"
+    href="/docs/guides/client-approaches"
+  >
+    - Hook-based vs Property-based clients
+    - When to use each approach
+    - Migration strategies
+    - Performance considerations
+    
+    **Perfect for**: Understanding client patterns
+  </Card>
+</Cards>
+
+## Upload Patterns
+
+<Cards>
+  <Card 
+    title="Image Uploads" 
+    description="Specialized guide for handling image uploads with optimization"
+    href="/docs/guides/uploads/images"
+  >
+    - Image validation and processing
+    - Automatic resizing and optimization
+    - Format conversion
+    - Progressive loading patterns
+    
+    **Perfect for**: Photo sharing, profile pictures, galleries
+  </Card>
+</Cards>
+
+## Security & Authentication
+
+<Cards>
+  <Card 
+    title="Authentication & Authorization" 
+    description="Secure your uploads with proper authentication patterns"
+    href="/docs/guides/security/authentication"
+  >
+    - User authentication strategies
+    - Role-based access control
+    - JWT integration
+    - Session management
+    
+    **Essential for**: Secure applications
+  </Card>
+  
+  <Card 
+    title="CORS & ACL Configuration" 
+    description="Configure cross-origin requests and access control"
+    href="/docs/guides/security/cors-and-acl"
+  >
+    - CORS setup for different providers
+    - Access Control Lists (ACL)
+    - Public vs private uploads
+    - Security best practices
+    
+    **Essential for**: Production deployments
+  </Card>
+</Cards>
+
+## Migration & Upgrades
+
+<Cards>
+  <Card 
+    title="Enhanced Client Migration" 
+    description="Migrate from hook-based to property-based client"
+    href="/docs/guides/migration/enhanced-client"
+  >
+    - Step-by-step migration process
+    - Breaking changes and compatibility
+    - Performance improvements
+    - Type safety enhancements
+    
+    **Perfect for**: Upgrading existing projects
+  </Card>
+</Cards>
+
+## Production Deployment
+
+<Cards>
+  <Card 
+    title="Production Checklist" 
+    description="Essential checklist for deploying pushduck to production"
+    href="/docs/guides/going-live/production-checklist"
+  >
+    - Environment configuration
+    - Security considerations
+    - Performance optimization
+    - Monitoring and logging
+    
+    **Essential for**: Going live safely
+  </Card>
+</Cards>
+
+## Common Patterns
+
+### Basic Upload Flow
+
+<Steps>
+  <Step>
+    **Configure Server Router**
+    
+    Set up your upload routes with validation:
+    
+    ```typescript
+    const uploadRouter = createS3Router({
+      routes: {
+        imageUpload: s3.image().max("5MB"),
+        documentUpload: s3.file().max("10MB"),
+      },
+    });
+    ```
+  </Step>
+  
+  <Step>
+    **Implement Client Upload**
+    
+    Use hooks or client for reactive uploads:
+    
+    ```typescript
+    const { upload, uploading, progress } = useUpload({
+      endpoint: '/api/upload',
+      route: 'imageUpload',
+    });
+    ```
+  </Step>
+  
+  <Step>
+    **Handle Upload Results**
+    
+    Process successful uploads and errors:
+    
+    ```typescript
+    const result = await upload(file);
+    console.log('File uploaded:', result.url);
+    ```
+  </Step>
+</Steps>
+
+### Authentication Pattern
+
+```typescript
+// Server: Add authentication middleware
+const uploadRouter = createS3Router({
+  middleware: [
+    async (req) => {
+      const user = await authenticate(req);
+      if (!user) throw new Error('Unauthorized');
+      return { user };
+    }
+  ],
+  routes: {
+    userAvatar: s3.image()
+      .max("2MB")
+      .path(({ metadata }) => `avatars/${metadata.user.id}`),
+  },
+});
+
+// Client: Include auth headers
+const { upload } = useUpload({
+  endpoint: '/api/upload',
+  route: 'userAvatar',
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+});
+```
+
+## Architecture Patterns
+
+### Multi-Provider Setup
+
+```typescript
+// Support multiple storage providers
+const uploadRouter = createS3Router({
+  storage: process.env.NODE_ENV === 'production' 
+    ? { provider: 'aws-s3', ... }
+    : { provider: 'minio', ... },
+  routes: {
+    // Your routes remain the same
+  },
+});
+```
+
+### Route-Based Organization
+
+```typescript
+const uploadRouter = createS3Router({
+  routes: {
+    // Public uploads
+    publicImages: s3.image().max("5MB").public(),
+    
+    // User-specific uploads
+    userDocuments: s3.file()
+      .max("10MB")
+      .path(({ metadata }) => `users/${metadata.userId}/documents`),
+      
+    // Admin uploads
+    adminAssets: s3.file()
+      .max("50MB")
+      .middleware([requireAdmin]),
+  },
+});
+```
+
+## Performance Tips
+
+<Callout type="tip">
+  **Optimization Strategies**:
+  - Use appropriate file size limits for your use case
+  - Implement client-side validation before upload
+  - Consider using presigned URLs for large files
+  - Enable CDN for frequently accessed files
+  - Implement progressive upload for large files
+</Callout>
+
+## Troubleshooting Quick Links
+
+| Issue | Solution |
+|-------|----------|
+| **CORS errors** | Check [CORS Configuration](/docs/guides/security/cors-and-acl) |
+| **Auth failures** | Review [Authentication Guide](/docs/guides/security/authentication) |
+| **Slow uploads** | See [Production Checklist](/docs/guides/going-live/production-checklist) |
+| **Type errors** | Check [Enhanced Client Migration](/docs/guides/migration/enhanced-client) |
+
+## What's Next?
+
+1. **New to pushduck?** → Start with [Client Approaches](/docs/guides/client-approaches)
+2. **Building image features?** → Check [Image Uploads](/docs/guides/uploads/images)
+3. **Adding security?** → Review [Authentication](/docs/guides/security/authentication)
+4. **Going to production?** → Use [Production Checklist](/docs/guides/going-live/production-checklist)
+5. **Need help?** → Visit our [troubleshooting guide](/docs/api/troubleshooting)
+
+<Callout type="note">
+  **Community Guides**: Have a useful pattern or solution? Consider contributing to our documentation to help other developers!
+</Callout> 

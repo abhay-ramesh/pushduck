@@ -18,6 +18,7 @@ export interface S3UploadedFile {
   progress: number;
   url?: string;
   key?: string;
+  presignedUrl?: string; // Temporary download URL (expires in 1 hour)
   error?: string;
   file?: File;
   // ETA tracking
@@ -35,11 +36,10 @@ export interface S3FileMetadata {
 // Unified upload configuration interface
 export interface UploadRouteConfig {
   endpoint?: string;
+  onStart?: (files: S3FileMetadata[]) => void | Promise<void>;
   onSuccess?: (results: S3UploadedFile[]) => void | Promise<void>;
   onError?: (error: Error) => void;
   onProgress?: (progress: number) => void;
-  disabled?: boolean;
-  autoUpload?: boolean;
 }
 
 // Legacy aliases for backward compatibility

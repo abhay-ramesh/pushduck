@@ -1,0 +1,263 @@
+---
+title: Storage API
+description: Complete guide to pushduck's storage API. Learn file operations, presigned URLs, storage instance management, and troubleshooting storage issues.
+---
+
+import { Cards, Card } from "fumadocs-ui/components/card";
+import { Callout } from "fumadocs-ui/components/callout";
+
+## Storage API Overview
+
+The Storage API provides direct access to file operations, metadata retrieval, and storage management. Use it for building custom file management interfaces, bulk operations, and advanced storage workflows.
+
+## API Categories
+
+<Cards>
+  <Card 
+    title="⚡ Quick Reference" 
+    description="Essential storage operations at a glance with code examples"
+    href="/docs/api/storage/quick-reference"
+  >
+    **Get started quickly** with common operations.
+    
+    - File listing and searching
+    - Basic upload/download operations
+    - Quick delete and metadata operations
+    - Essential API patterns
+    
+    **Perfect for** getting up to speed fast.
+  </Card>
+  
+  <Card 
+    title="🏗️ Storage Instance" 
+    description="Object-style API for organized storage operations"
+    href="/docs/api/storage/storage-instance"
+  >
+    **Structured API interface** with organized methods.
+    
+    - `storage.list.*` - File listing operations
+    - `storage.metadata.*` - File information
+    - `storage.delete.*` - Deletion operations
+    - `storage.download.*` - URL generation
+    
+    **Great for** organized code architecture.
+  </Card>
+  
+  <Card 
+    title="📁 File Operations" 
+    description="Comprehensive file management and manipulation"
+    href="/docs/api/storage/file-operations"
+  >
+    **Complete file management** capabilities.
+    
+    - List files with filtering and pagination
+    - Delete single files or batches
+    - Move and copy operations
+    - File metadata retrieval
+    
+    **Essential for** file management features.
+  </Card>
+  
+  <Card 
+    title="🔗 Presigned URLs" 
+    description="Secure URL generation for direct storage access"
+    href="/docs/api/storage/presigned-urls"
+  >
+    **Secure, temporary URLs** for storage operations.
+    
+    - Download presigned URLs
+    - Upload presigned URLs
+    - Custom expiration times
+    - Access control integration
+    
+    **Perfect for** secure file access.
+  </Card>
+  
+  <Card 
+    title="🔧 Troubleshooting" 
+    description="Common storage issues and solutions"
+    href="/docs/api/storage/troubleshooting"
+  >
+    **Debug storage problems** effectively.
+    
+    - Access denied errors
+    - Empty file lists
+    - Presigned URL issues
+    - Performance optimization
+    
+    **When you need** to solve problems.
+  </Card>
+</Cards>
+
+## Getting Started
+
+### Basic Storage Setup
+
+```typescript
+// lib/upload.ts
+import { createUploadConfig } from 'pushduck/server'
+
+const { storage } = createUploadConfig()
+  .provider("cloudflareR2", {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    accountId: process.env.R2_ACCOUNT_ID,
+    bucket: process.env.S3_BUCKET_NAME,
+  })
+  .build()
+
+export { storage }
+```
+
+### Using in API Routes
+
+```typescript
+// app/api/files/route.ts
+import { storage } from '@/lib/upload'
+
+export async function GET() {
+  try {
+    const files = await storage.list.files()
+    return Response.json({ files })
+  } catch (error) {
+    return Response.json({ error: 'Failed to list files' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: Request) {
+  const { key } = await request.json()
+  
+  try {
+    await storage.delete.file(key)
+    return Response.json({ success: true })
+  } catch (error) {
+    return Response.json({ error: 'Failed to delete file' }, { status: 500 })
+  }
+}
+```
+
+## Common Operations
+
+### File Listing with Pagination
+
+```typescript
+// Get paginated file list
+const result = await storage.list.paginated({
+  maxResults: 50,
+  prefix: 'uploads/',
+})
+
+console.log(`Found ${result.files.length} files`)
+if (result.hasMore) {
+  console.log('More files available')
+}
+```
+
+### Bulk File Operations
+
+```typescript
+// Delete multiple files
+const filesToDelete = ['file1.jpg', 'file2.pdf', 'file3.png']
+await storage.delete.files(filesToDelete)
+
+// Get metadata for multiple files
+const fileInfos = await Promise.all(
+  fileKeys.map(key => storage.metadata.getInfo(key))
+)
+```
+
+### Secure Downloads
+
+```typescript
+// Generate secure download URL
+const downloadUrl = await storage.download.presignedUrl(
+  'private/document.pdf',
+  3600 // 1 hour expiration
+)
+
+// Use with fetch or window.open
+window.open(downloadUrl)
+```
+
+## Storage Instance Structure
+
+The storage instance organizes operations into logical namespaces:
+
+```typescript
+storage.list.*       // File listing operations
+storage.metadata.*   // File metadata operations  
+storage.download.*   // Download and URL operations
+storage.upload.*     // Upload operations
+storage.delete.*     // Delete operations
+storage.validation.* // Validation operations
+```
+
+## Error Handling
+
+All storage operations use structured error handling:
+
+```typescript
+import { isPushduckError } from 'pushduck/server'
+
+try {
+  const files = await storage.list.files()
+} catch (error) {
+  if (isPushduckError(error)) {
+    console.log('Storage error:', error.code, error.context)
+    
+    switch (error.code) {
+      case 'ACCESS_DENIED':
+        // Handle permission errors
+        break
+      case 'NETWORK_ERROR':
+        // Handle connectivity issues
+        break
+      default:
+        // Handle other errors
+    }
+  }
+}
+```
+
+<Callout type="info">
+  **TypeScript Support**: All storage operations are fully typed with intelligent autocomplete and error detection.
+</Callout>
+
+## Performance Considerations
+
+### Efficient File Listing
+
+```typescript
+// ❌ Inefficient - loads all files
+const allFiles = await storage.list.files()
+
+// ✅ Efficient - use pagination
+const result = await storage.list.paginated({ maxResults: 50 })
+
+// ✅ Even better - filter with prefix
+const userFiles = await storage.list.files({ 
+  prefix: `users/${userId}/`,
+  maxResults: 100 
+})
+```
+
+### Batch Operations
+
+```typescript
+// ❌ Inefficient - multiple API calls
+for (const key of fileKeys) {
+  await storage.delete.file(key)
+}
+
+// ✅ Efficient - single batch operation
+await storage.delete.files(fileKeys)
+```
+
+---
+
+## Next Steps
+
+- **New to storage?** Start with [Quick Reference](/docs/api/storage/quick-reference)
+- **Building file management?** See [File Operations](/docs/api/storage/file-operations)
+- **Need secure access?** Check [Presigned URLs](/docs/api/storage/presigned-urls)
+- **Having issues?** Visit [Troubleshooting](/docs/api/storage/troubleshooting) 

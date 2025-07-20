@@ -8,7 +8,7 @@ import { Card, Cards } from "fumadocs-ui/components/card";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { Steps, Step } from "fumadocs-ui/components/steps";
 
-# TanStack Start
+## Using pushduck with TanStack Start
 
 TanStack Start is a full-stack React framework with built-in Web Standards support. Since TanStack Start provides `event.request` as a Web Standard `Request` object, pushduck handlers work directly without any adapters!
 
@@ -303,11 +303,20 @@ export function UploadDemo() {
                 <strong>File:</strong> {result.name}
               </div>
               <div className="text-sm">
-                <strong>URL:</strong> 
+                <strong>Public URL:</strong> 
                 <a href={result.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline ml-1">
                   {result.url}
                 </a>
               </div>
+              {result.presignedUrl && (
+                <div className="text-sm">
+                  <strong>Download URL:</strong> 
+                  <a href={result.presignedUrl} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline ml-1">
+                    {result.presignedUrl}
+                  </a>
+                  <span className="text-xs text-gray-500 ml-2">(expires in 1 hour)</span>
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -366,7 +366,7 @@ describe("Integration Tests: End-to-End Multi-Configuration", () => {
             secretAccessKey: "secret",
           })
           .build();
-      }).toThrow("Invalid provider configuration");
+      }).toThrow("Provider validation failed: Bucket name is required");
 
       // Valid config should still work despite invalid one
       expect(validConfig.provider.bucket).toBe("valid-bucket");

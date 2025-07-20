@@ -5,7 +5,7 @@
     "build": "pnpm build:packages && pnpm build:docs",
     "build:packages": "pnpm --filter=\"./packages/*\" build",
     "build:docs": "cd docs && pnpm build",
-    "dev": "pnpm --filter=\"./packages/*\" dev",
+    "dev": "turbo dev",
     "lint": "turbo lint",
     "test": "pnpm --filter=\"./packages/*\" test",
     "test:coverage": "pnpm --filter=\"./packages/*\" test:coverage",
@@ -24,7 +24,7 @@
     "release:ui": "node scripts/release-methods.js"
   },
   "devDependencies": {
-    "eslint": "^7.32.0",
+    "eslint": "^9.30.0",
     "prettier": "^2.5.1",
     "turbo": "^2.5.4"
   },

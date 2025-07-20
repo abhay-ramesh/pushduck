@@ -8,7 +8,7 @@ import { Card, Cards } from "fumadocs-ui/components/card";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { Steps, Step } from "fumadocs-ui/components/steps";
 
-# Client-Side Approaches
+## Client-Side Approaches
 
 Pushduck provides **two ways** to integrate file uploads in your React components. Both approaches now provide **identical functionality** including per-route callbacks, progress tracking, and error handling.
 
@@ -33,6 +33,7 @@ Pushduck provides **two ways** to integrate file uploads in your React component
     
     // With per-route callbacks (NEW!)
     const { uploadFiles, files } = upload.imageUpload({
+      onStart: (files) => setUploadStarted(true),
       onSuccess: (results) => handleSuccess(results),
       onError: (error) => handleError(error),
       onProgress: (progress) => setProgress(progress)
@@ -48,6 +49,7 @@ Pushduck provides **two ways** to integrate file uploads in your React component
   >
     ```typescript
     const { uploadFiles, files } = useUploadRoute<AppRouter>('imageUpload', {
+      onStart: (files) => setUploadStarted(true),
       onSuccess: (results) => handleSuccess(results),
       onError: (error) => handleError(error),
       onProgress: (progress) => setProgress(progress)
@@ -89,12 +91,12 @@ const {
   uploadSpeed,    // number (bytes/sec) - overall speed
   eta             // number (seconds) - overall ETA
 } = useUploadRoute<AppRouter>('imageUpload', {
+  onStart: (files) => setUploadStarted(true),
   onSuccess: (results) => handleSuccess(results),
   onError: (error) => handleError(error),
   onProgress: (progress) => setProgress(progress),
   endpoint: '/api/custom-upload',
-  disabled: false,
-  autoUpload: true
+
 });
 
 // Enhanced Structured Client - IDENTICAL capabilities
@@ -108,12 +110,12 @@ const {
   uploadSpeed,    // number (bytes/sec) - overall speed
   eta             // number (seconds) - overall ETA
 } = upload.imageUpload({
+  onStart: (files) => setUploadStarted(true),
   onSuccess: (results) => handleSuccess(results),
   onError: (error) => handleError(error),
   onProgress: (progress) => setProgress(progress),
   endpoint: '/api/custom-upload',
-  disabled: false,
-  autoUpload: true
+
 });
 ```
 
@@ -123,12 +125,11 @@ Both approaches support **identical configuration options**:
 
 ```typescript
 interface CommonUploadOptions {
+  onStart?: (files: S3FileMetadata[]) => void;
   onSuccess?: (results: UploadResult[]) => void;
   onError?: (error: Error) => void;
   onProgress?: (progress: number) => void;
   endpoint?: string;           // Custom endpoint per route
-  disabled?: boolean;          // Enable/disable uploads
-  autoUpload?: boolean;        // Auto-upload when files selected
 }
 
 // Hook-based: useUploadRoute(routeName, options)
@@ -186,13 +187,23 @@ export function AdvancedUpload() {
   
   const { uploadFiles, files, isUploading, errors, reset } = 
     upload.imageUpload({
+      onStart: (files) => {
+        console.log('🚀 Upload starting!', files)
+        setUploadStarted(true)
+      },
       onSuccess: (results) => {
         console.log('✅ Upload successful!', results)
+        results.forEach(file => {
+          console.log('Public URL:', file.url);           // Permanent access
+          console.log('Download URL:', file.presignedUrl); // Temporary access (1 hour)
+        });
         showNotification('Images uploaded successfully!')
+        setUploadStarted(false)
       },
       onError: (error) => {
         console.error('❌ Upload failed:', error)
         showErrorNotification(error.message)
+        setUploadStarted(false)
       },
       onProgress: (progress) => {
         console.log(`📊 Progress: ${progress}%`)
@@ -216,18 +227,29 @@ export function AdvancedUpload() {
 export function MultiUploadComponent() {
   // Images with progress tracking
   const images = upload.imageUpload({
+    onStart: (files) => setUploadingImages(true),
     onProgress: (progress) => setImageProgress(progress)
   })
   
   // Documents with different endpoint and success handler
   const documents = upload.documentUpload({
     endpoint: '/api/secure-upload',
-    onSuccess: (results) => updateDocumentLibrary(results)
+    onStart: (files) => setUploadingDocuments(true),
+    onSuccess: (results) => {
+      // Use presigned URLs for private document downloads
+      updateDocumentLibrary(results.map(file => ({
+        id: file.id,
+        name: file.name,
+        downloadUrl: file.presignedUrl,   // Secure, time-limited access
+        permanentUrl: file.url,           // For internal operations
+        key: file.key
+      })));
+    }
   })
   
-  // Videos with upload disabled (feature flag)
+  // Videos with conditional logic in component
   const videos = upload.videoUpload({
-    disabled: !isVideoUploadEnabled
+    onStart: (files) => setUploadingVideos(true)
   })
 
   return (
@@ -248,6 +270,7 @@ const upload = createUploadClient<AppRouter>({
   
   // Global defaults (optional)
   defaultOptions: {
+    onStart: (files) => console.log(`Starting upload of ${files.length} files`),
     onProgress: (progress) => console.log(`Global progress: ${progress}%`),
     onError: (error) => logError(error)
   }
@@ -271,6 +294,7 @@ import { useUploadRoute } from 'pushduck/client'
 
 export function HookBasedUpload() {
   const { uploadFiles, files, isUploading, error } = useUploadRoute<AppRouter>('imageUpload', {
+    onStart: (files) => console.log('Starting upload:', files),
     onSuccess: (results) => console.log('Success:', results),
     onError: (error) => console.error('Error:', error),
     onProgress: (progress) => console.log('Progress:', progress)
@@ -293,6 +317,7 @@ export function HookBasedUpload() {
 ```typescript
 // Before: Hook-based
 const { uploadFiles, files } = useUploadRoute<AppRouter>('imageUpload', {
+  onStart: handleStart,
   onSuccess: handleSuccess,
   onError: handleError
 })
@@ -300,6 +325,7 @@ const { uploadFiles, files } = useUploadRoute<AppRouter>('imageUpload', {
 // After: Enhanced structured client
 const upload = createUploadClient<AppRouter>({ endpoint: '/api/upload' })
 const { uploadFiles, files } = upload.imageUpload({
+  onStart: handleStart,
   onSuccess: handleSuccess,
   onError: handleError
 })
@@ -528,6 +554,6 @@ The enhanced structured client adds zero runtime overhead while providing compil
 
 ### Next Steps
 
-- **New Project**: Start with [createUploadClient](/docs/api/utilities/create-upload-client)
+- **New Project**: Start with [createUploadClient](/docs/api/client/create-upload-client)
 - **Existing Hook Code**: Consider [migrating gradually](/docs/guides/migration/enhanced-client)
-- **Need Help**: Join our [Discord community](https://discord.gg/pushduck) for guidance 
+- **Need Help**: Join our [Discord community](https://pushduck.dev/discord) for guidance 

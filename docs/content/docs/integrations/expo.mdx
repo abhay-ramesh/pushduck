@@ -9,7 +9,7 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { Steps, Step } from "fumadocs-ui/components/steps";
 import { File, Folder, Files } from "fumadocs-ui/components/files";
 
-# Expo Router Integration
+## Using pushduck with Expo Router
 
 Expo Router is a file-based router for React Native and web applications that enables full-stack development with API routes. Since Expo Router uses Web Standards APIs, pushduck handlers work directly without any adapters!
 
@@ -441,7 +441,8 @@ export default function DocumentUploader() {
           const newFiles = uploadResult.results.map(file => ({
             name: file.name,
             size: file.size,
-            url: file.url,
+            url: file.url,                    // Permanent URL
+            downloadUrl: file.presignedUrl,   // Temporary download URL (1 hour)
           }));
           
           setUploadedFiles(prev => [...prev, ...newFiles]);

@@ -13,6 +13,10 @@ import { Files, Folder, File } from 'fumadocs-ui/components/files'
 **🚀 Recommended**: Use our CLI for the fastest setup experience
 </Callout>
 
+<Callout type="warning">
+**Next.js Only**: The pushduck CLI currently only supports Next.js projects. Support for other frameworks is coming soon.
+</Callout>
+
 ## Quick Start
 
 Get your file uploads working in under 2 minutes with our interactive CLI tool.
@@ -25,17 +29,17 @@ Get your file uploads working in under 2 minutes with our interactive CLI tool.
   </Tab>
   <Tab value="pnpm">
     ```bash
-    pnpm dlx pushduck init
+    pnpm dlx @pushduck/cli@latest init
     ```
   </Tab>
   <Tab value="yarn">
     ```bash
-    yarn dlx pushduck init
+    yarn dlx @pushduck/cli@latest init
     ```
   </Tab>
   <Tab value="bun">
     ```bash
-    bunx pushduck init
+    bunx @pushduck/cli@latest init
     ```
   </Tab>
 </Tabs>
@@ -538,5 +542,5 @@ npx @pushduck/cli@latest init \
 ---
 
 <Callout type="success">
-**Complete CLI Reference**: This guide covers all CLI commands, options, and use cases. For a quick start, see our [Getting Started guide](/docs/getting-started/cli-setup).
+**Complete CLI Reference**: This guide covers all CLI commands, options, and use cases. For a quick start, see our [Getting Started guide](/docs/getting-started/quick-start).
 </Callout>

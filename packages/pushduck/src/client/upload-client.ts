@@ -52,25 +52,13 @@ function useTypedRoute<TRouter extends S3Router<any>>(
 
   const enhancedUploadFiles = useCallback(
     async (files: File[], metadata?: any) => {
-      // Check if disabled
-      if (routeOptions?.disabled || config.defaultOptions?.disabled) {
-        console.warn(`Upload disabled for route: ${routeName}`);
-        return [];
-      }
-
       await hookResult.uploadFiles(files);
       return hookResult.files.map((file) => ({
         ...file,
         metadata,
       }));
     },
-    [
-      hookResult.uploadFiles,
-      hookResult.files,
-      routeOptions?.disabled,
-      config.defaultOptions?.disabled,
-      routeName,
-    ]
+    [hookResult.uploadFiles, hookResult.files, routeName]
   );
 
   return {

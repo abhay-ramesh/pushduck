@@ -2,6 +2,7 @@
 
 # 🦆 Pushduck - Universal S3 File Upload Library
 
+[![NPM Downloads per month](https://img.shields.io/npm/dm/pushduck)](https://www.npmjs.com/package/pushduck)
 [![NPM Version](https://img.shields.io/npm/v/pushduck)](https://www.npmjs.com/package/pushduck)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
@@ -23,6 +24,7 @@ Upload files directly to S3-compatible storage with just 3 lines of code. No hea
 - 🔒 **Enterprise Security** - Presigned URLs, CORS handling, file validation
 - 🌍 **Edge Runtime** - Runs on Vercel Edge, Cloudflare Workers, and more
 - 📊 **Progress Tracking** - Real-time progress, upload speed, and ETA estimation
+- 🔄 **Lifecycle Callbacks** - Complete upload control with `onStart`, `onProgress`, `onSuccess`, and `onError`
 - 🗄️ **Storage Operations** - Complete file management API (list, delete, metadata)
 - 🛠️ **CLI Tools** - Interactive setup and project scaffolding
 - 🛡️ **Production Ready** - Used by thousands of applications
@@ -258,8 +260,8 @@ const recentFiles = await storage.list.byDate(new Date("2024-01-01"));
 - **[API Reference](https://pushduck.dev/docs/api)** - Full API documentation
 - **[Examples](https://pushduck.dev/docs/examples)** - Real-world examples
 - **[Providers](https://pushduck.dev/docs/providers)** - S3, R2, Spaces, MinIO
-- **[Security](https://pushduck.dev/docs/security)** - Security best practices
-- **[CLI Guide](https://pushduck.dev/docs/cli)** - CLI commands and usage
+- **[Security](https://pushduck.dev/docs/guides/security)** - Security best practices
+- **[CLI Guide](https://pushduck.dev/docs/api/cli)** - CLI commands and usage
 
 ## 🎯 Why Pushduck?
 

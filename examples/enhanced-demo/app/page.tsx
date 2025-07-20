@@ -1,8 +1,10 @@
+import { CallbackTestDemo } from "../components/callback-test-demo";
 import { FileManagementDemo } from "../components/file-management-demo";
 import {
   PropertyBasedDocumentUpload,
   PropertyBasedImageUpload,
 } from "../components/property-based-upload";
+import { ServerUploadDemo } from "../components/server-upload-demo";
 import {
   SimpleDocumentUpload,
   SimpleImageUpload,
@@ -21,6 +23,9 @@ export default function Home() {
           </p>
           <div className="flex flex-col gap-2 items-center">
             <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-orange-800 bg-orange-100 rounded-full">
+              ⚡ NEW: Server-Side Upload from URLs
+            </div>
+            <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-orange-800 bg-orange-100 rounded-full">
               ⚡ NEW: Overall Progress Tracking
             </div>
             <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full">
@@ -33,6 +38,16 @@ export default function Home() {
               🔧 Real S3 API Implementation
             </div>
           </div>
+        </div>
+
+        {/* Server-Side Upload Demo */}
+        <div className="mb-8">
+          <ServerUploadDemo />
+        </div>
+
+        {/* Callback Testing Demo */}
+        <div className="mb-8">
+          <CallbackTestDemo />
         </div>
 
         {/* File Management Demo */}
@@ -220,7 +235,7 @@ export default function Home() {
           <h2 className="mb-4 text-2xl font-semibold text-gray-900">
             🎯 Complete S3 Operations
           </h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <div className="space-y-3">
               <h3 className="text-lg font-medium text-gray-800">
                 ✅ Upload Operations
@@ -230,6 +245,19 @@ export default function Home() {
                 <div>• Direct server uploads</div>
                 <div>• Progress tracking</div>
                 <div>• Multi-file batching</div>
+                <div>• Custom metadata</div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-lg font-medium text-gray-800">
+                ✅ Server-Side Uploads
+              </h3>
+              <div className="space-y-1 text-sm text-gray-600">
+                <div>• Download from URLs</div>
+                <div>• storage.upload.file() API</div>
+                <div>• Automatic content-type detection</div>
+                <div>• Error handling & retry</div>
                 <div>• Custom metadata</div>
               </div>
             </div>
@@ -265,10 +293,21 @@ export default function Home() {
         {/* Code Example */}
         <div className="p-6 mt-8 text-white bg-gray-900 rounded-lg">
           <h3 className="mb-4 text-lg font-semibold">
-            📝 Real S3 API Usage Examples + Overall Progress Tracking
+            📝 Real S3 API Usage Examples + Server-Side Upload
           </h3>
           <pre className="overflow-x-auto text-sm">
-            <code>{`// Upload with overall progress tracking
+            <code>{`// Server-side upload from URL
+const { fileData, contentType } = await downloadFileUseFetch(url);
+const uploadFile = new File([fileData], filename, { type: contentType });
+const uploadResult = await storage.upload.file(uploadFile, key, {
+  contentType,
+  metadata: {
+    "original-url": url,
+    "upload-source": "server-side"
+  }
+});
+
+// Upload with overall progress tracking
 const { uploadFiles, files, progress, uploadSpeed, eta } = useUploadRoute("imageUpload");
 
 // Real-time overall metrics
@@ -293,36 +332,6 @@ console.log({
   contentType: fileInfo.contentType,
   lastModified: fileInfo.lastModified,
   customMetadata: fileInfo.metadata
-});
-
-// Batch operations for efficiency
-const filesInfo = await getFilesInfo([
-  "users/123/avatar.jpg",
-  "users/123/document.pdf",
-  "users/123/report.docx"
-]);
-
-// Filter files by criteria
-const images = await listFilesByExtension("jpg", "users/123/");
-const largeFiles = await listFilesBySize(5000000, undefined, "users/123/");
-const recentFiles = await listFilesByDate(
-  new Date("2024-01-01"),
-  new Date(),
-  "users/123/"
-);
-
-// Paginated listing for large datasets
-const result = await listFilesPaginated({
-  prefix: "users/123/",
-  pageSize: 50,
-  continuationToken: nextPageToken
-});
-
-// File validation
-const validation = await validateFile("users/123/avatar.jpg", {
-  maxSize: 5000000,
-  allowedTypes: ["image/jpeg", "image/png"],
-  requiredExtensions: ["jpg", "jpeg", "png"]
 });`}</code>
           </pre>
         </div>
@@ -334,12 +343,16 @@ const validation = await validateFile("users/123/avatar.jpg", {
           </h4>
           <ul className="space-y-1 text-sm text-blue-700">
             <li>
-              • <strong>File Management:</strong> Top section demonstrates list
-              files, metadata operations, and filtering
+              • <strong>Server-Side Upload:</strong> Top section demonstrates
+              downloading from URLs and uploading to S3
             </li>
             <li>
-              • <strong>Pagination:</strong> Shows how to handle large datasets
-              efficiently with continuation tokens
+              • <strong>File Management:</strong> Shows list files, metadata
+              operations, and filtering
+            </li>
+            <li>
+              • <strong>Pagination:</strong> Handles large datasets efficiently
+              with continuation tokens
             </li>
             <li>
               • <strong>Real API:</strong> Uses actual S3 operations from

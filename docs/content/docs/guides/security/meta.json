@@ -1,6 +1,7 @@
 {
     "title": "Security",
     "pages": [
-        "authentication"
+        "authentication",
+        "cors-and-acl"
     ]
 }

@@ -15,6 +15,7 @@
 - **🏗️ Config-Aware Architecture**: Type-safe configuration with multiple provider support
 - **🔒 Type Safety**: Full TypeScript support with schema validation
 - **📊 Progress Tracking**: Real-time upload progress with comprehensive state management
+- **🎯 Lifecycle Callbacks**: Complete upload lifecycle with `onStart`, `onProgress`, `onSuccess`, and `onError`
 - **🔄 Error Handling**: Robust error handling with retry mechanisms
 - **🚫 Cancellation**: Cancel uploads with AbortController support
 - **🌐 Multi-Provider**: AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, and more
@@ -156,6 +157,68 @@ export default function UploadPage() {
       </button>
     </div>
   );
+}
+```
+
+## Upload Lifecycle Callbacks
+
+Pushduck provides comprehensive callback support for handling the complete upload lifecycle:
+
+```typescript
+const { uploadFiles } = useUpload<AppRouter>('imageUpload', {
+  // Called when upload process begins (after validation passes)
+  onStart: (files) => {
+    console.log(`🚀 Starting upload of ${files.length} files`);
+    setUploadStarted(true);
+  },
+  
+  // Called with progress updates (0-100)
+  onProgress: (progress) => {
+    console.log(`📊 Progress: ${progress}%`);
+    setProgress(progress);
+  },
+  
+  // Called when all uploads complete successfully
+  onSuccess: (results) => {
+    console.log('✅ Upload complete!', results);
+    setUploadStarted(false);
+    // Update your UI with uploaded file URLs
+  },
+  
+  // Called when upload fails
+  onError: (error) => {
+    console.error('❌ Upload failed:', error.message);
+    setUploadStarted(false);
+    // Show error message to user
+  },
+});
+```
+
+### Callback Execution Order
+
+The callbacks follow a predictable sequence:
+
+- **Validation errors** (size limits, file types): Only `onError` is called
+- **Successful uploads**: `onStart` → `onProgress(0)` → `onProgress(n)` → `onSuccess`
+- **Upload errors** (network issues): `onStart` → `onProgress(0)` → `onError`
+
+### Using onStart for Better UX
+
+The `onStart` callback is perfect for:
+
+```typescript
+onStart: (files) => {
+  // Show loading state immediately
+  setIsUploading(true);
+  
+  // Display file list being uploaded
+  setUploadingFiles(files);
+  
+  // Show toast notification
+  toast.info(`Uploading ${files.length} files...`);
+  
+  // Disable form submission
+  setFormDisabled(true);
 }
 ```
 
@@ -443,7 +506,7 @@ MINIO_SECRET_ACCESS_KEY=your_secret_key
 
 ## Migration Guide
 
-If you're upgrading from an older version, see our [Migration Guide](https://pushduck.abhayramesh.com/docs/guides/migration) for step-by-step instructions.
+If you're upgrading from an older version, see our [Migration Guide](https://pushduck.dev/docs/guides/migration) for step-by-step instructions.
 
 ## Contributing
 
@@ -455,6 +518,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- **Documentation**: [pushduck.abhayramesh.com](https://pushduck.abhayramesh.com)
+- **Documentation**: [pushduck.dev](https://pushduck.dev)
 - **Issues**: [GitHub Issues](https://github.com/abhay-ramesh/pushduck/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/abhay-ramesh/pushduck/discussions)

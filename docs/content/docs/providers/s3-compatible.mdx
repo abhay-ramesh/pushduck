@@ -7,7 +7,7 @@ import { Step, Steps } from "fumadocs-ui/components/steps";
 import { Callout } from "fumadocs-ui/components/callout";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
-# S3-Compatible Storage
+## S3-Compatible Storage
 
 Connect to any S3-compatible storage service for flexible, vendor-agnostic file uploads with full type safety.
 
@@ -114,11 +114,15 @@ aws s3 ls s3://your-bucket --endpoint-url https://your-endpoint.com
 
 ## Configure CORS (If Required)
 
+<Callout type="info">
+**Comprehensive CORS Guide**: For detailed CORS configuration, testing, and troubleshooting, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).
+</Callout>
+
 Many S3-compatible services require CORS configuration for web uploads:
 
 ### Standard CORS Configuration
 
-<Tabs items={['MinIO/SeaweedFS', 'Generic JSON']}>
+<Tabs items={['Generic JSON', 'MinIO/SeaweedFS' ]}>
 <Tab value="MinIO/SeaweedFS">
 ```bash
 # Using MinIO client (mc)
@@ -538,7 +542,7 @@ export const { s3, config } = createUploadConfig()
 
 ### Upload Issues
 
-**CORS errors?** → Configure CORS policy on your storage service  
+**CORS errors?** → Configure CORS policy on your storage service. For detailed CORS configuration, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).  
 **File size errors?** → Check service limits and adjust `maxFileSize`  
 **Path errors?** → Enable `forcePathStyle: true` for most self-hosted services
 

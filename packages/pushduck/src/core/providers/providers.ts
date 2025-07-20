@@ -399,20 +399,20 @@ export type ProviderConfig =
 // DRY Provider Factory System
 // ========================================
 
-interface EnvVarMapping {
+interface ConfigKeyMapping {
   readonly [key: string]: readonly string[];
 }
 
 interface ProviderSpec {
   readonly provider: string;
-  readonly envVars: EnvVarMapping;
+  readonly configKeys: ConfigKeyMapping;
   readonly defaults: Record<string, any>;
   readonly customLogic?: (config: any, computed: any) => any;
 }
 
 /**
  * Generic provider configuration builder
- * Eliminates repetitive environment variable reading and config merging
+ * Validates required configuration fields
  */
 function createProviderBuilder<T extends ProviderConfig>(
   spec: ProviderSpec
@@ -420,13 +420,9 @@ function createProviderBuilder<T extends ProviderConfig>(
   return (config: Partial<T> = {}): T => {
     const result: any = { provider: spec.provider };
 
-    // Process environment variables and defaults
-    for (const [key, envKeys] of Object.entries(spec.envVars)) {
-      result[key] =
-        config[key as keyof T] ||
-        readEnvVar(envKeys) ||
-        spec.defaults[key] ||
-        "";
+    // Only use explicit config and defaults (no env vars)
+    for (const [key] of Object.entries(spec.configKeys)) {
+      result[key] = config[key as keyof T] || spec.defaults[key] || "";
     }
 
     // Apply custom logic if provided
@@ -434,19 +430,16 @@ function createProviderBuilder<T extends ProviderConfig>(
       Object.assign(result, spec.customLogic(config, result));
     }
 
+    // Validate the final configuration
+    const validation = validateProviderConfig(result);
+    if (!validation.valid) {
+      throw new Error(
+        `Provider validation failed: ${validation.errors.join(", ")}`
+      );
+    }
+
     return result as T;
   };
-}
-
-/**
- * Read first available environment variable from a list
- */
-function readEnvVar(envKeys: readonly string[]): string | undefined {
-  for (const key of envKeys) {
-    const value = process.env[key];
-    if (value) return value;
-  }
-  return undefined;
 }
 
 // ========================================
@@ -456,7 +449,7 @@ function readEnvVar(envKeys: readonly string[]): string | undefined {
 const PROVIDER_SPECS = {
   aws: {
     provider: "aws",
-    envVars: {
+    configKeys: {
       region: ["AWS_REGION", "S3_REGION"],
       bucket: ["AWS_S3_BUCKET", "S3_BUCKET", "S3_BUCKET_NAME"],
       accessKeyId: ["AWS_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID"],
@@ -473,7 +466,7 @@ const PROVIDER_SPECS = {
 
   cloudflareR2: {
     provider: "cloudflare-r2",
-    envVars: {
+    configKeys: {
       accountId: ["CLOUDFLARE_ACCOUNT_ID", "R2_ACCOUNT_ID"],
       bucket: ["CLOUDFLARE_R2_BUCKET", "R2_BUCKET"],
       accessKeyId: ["CLOUDFLARE_R2_ACCESS_KEY_ID", "R2_ACCESS_KEY_ID"],
@@ -500,7 +493,7 @@ const PROVIDER_SPECS = {
 
   digitalOceanSpaces: {
     provider: "digitalocean-spaces",
-    envVars: {
+    configKeys: {
       region: ["DO_SPACES_REGION", "DIGITALOCEAN_SPACES_REGION"],
       bucket: ["DO_SPACES_BUCKET", "DIGITALOCEAN_SPACES_BUCKET"],
       accessKeyId: [
@@ -528,7 +521,7 @@ const PROVIDER_SPECS = {
 
   minio: {
     provider: "minio",
-    envVars: {
+    configKeys: {
       endpoint: ["MINIO_ENDPOINT"],
       bucket: ["MINIO_BUCKET"],
       accessKeyId: ["MINIO_ACCESS_KEY_ID", "MINIO_ACCESS_KEY"],
@@ -543,18 +536,14 @@ const PROVIDER_SPECS = {
       acl: "private",
     },
     customLogic: (config: any, computed: any) => ({
-      useSSL: config.useSSL ?? process.env.MINIO_USE_SSL === "true",
-      port: config.port
-        ? Number(config.port)
-        : process.env.MINIO_PORT
-          ? Number(process.env.MINIO_PORT)
-          : undefined,
+      useSSL: config.useSSL ?? false,
+      port: config.port ? Number(config.port) : undefined,
     }),
   },
 
   gcs: {
     provider: "gcs",
-    envVars: {
+    configKeys: {
       projectId: ["GOOGLE_CLOUD_PROJECT_ID", "GCS_PROJECT_ID"],
       bucket: ["GCS_BUCKET", "GOOGLE_CLOUD_STORAGE_BUCKET"],
       keyFilename: ["GOOGLE_APPLICATION_CREDENTIALS", "GCS_KEY_FILE"],
@@ -573,7 +562,7 @@ const PROVIDER_SPECS = {
 
   s3Compatible: {
     provider: "s3-compatible",
-    envVars: {
+    configKeys: {
       endpoint: ["S3_ENDPOINT", "S3_COMPATIBLE_ENDPOINT"],
       bucket: ["S3_BUCKET", "S3_BUCKET_NAME"],
       accessKeyId: ["S3_ACCESS_KEY_ID", "ACCESS_KEY_ID"],

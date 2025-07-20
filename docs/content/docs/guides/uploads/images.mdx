@@ -9,7 +9,7 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { TypeTable } from "fumadocs-ui/components/type-table";
 import { Files, Folder, File } from "fumadocs-ui/components/files";
 
-# Image Uploads
+## Image Upload Guide
 
 Handle image uploads with built-in optimization, validation, and processing features for the best user experience.
 
@@ -72,7 +72,7 @@ export function ImageUploader() {
         {files.map((file) => (
           <div key={file.id} className="image-preview">
             {file.status === "success" && (
-              <img src={file.url} alt={file.name} className="preview-image" />
+              <img src={file.presignedUrl || file.url} alt={file.name} className="preview-image" />
             )}
             {file.status === "uploading" && (
               <div className="upload-progress">
@@ -517,7 +517,7 @@ export function ImageGalleryUploader() {
             <div key={file.id} className="image-item">
               {file.status === "success" && (
                 <div className="image-wrapper">
-                  <img src={file.url} alt={file.name} />
+                  <img src={file.presignedUrl || file.url} alt={file.name} />
                   <button
                     className="remove-button"
                     onClick={() => removeFile(file.id)}

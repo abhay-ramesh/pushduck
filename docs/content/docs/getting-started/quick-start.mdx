@@ -25,17 +25,17 @@ Get everything set up instantly with our interactive CLI:
   </Tab>
   <Tab value="pnpm">
     ```bash
-    pnpm dlx pushduck init
+    pnpm dlx @pushduck/cli@latest init
     ```
   </Tab>
   <Tab value="yarn">
     ```bash
-    yarn dlx pushduck init
+    yarn dlx @pushduck/cli@latest init
     ```
   </Tab>
   <Tab value="bun">
     ```bash
-    bunx pushduck init
+    bunx @pushduck/cli@latest init
     ```
   </Tab>
 </Tabs>
@@ -55,7 +55,7 @@ That's it! The CLI will:
 - Example components in `components/ui/`
 - Working demo page in `app/upload/page.tsx`
 
-[**📚 Full CLI Documentation →**](/docs/api/cli/cli-setup)
+[**📚 Full CLI Documentation →**](/docs/api/cli)
 
 **Example CLI Output:**
 ```
@@ -348,6 +348,10 @@ Here's exactly what happens when you run the CLI and how to make the best choice
 
 ---
 
+<Callout type="warning">
+**Next.js Only**: The pushduck CLI currently only supports Next.js projects. Support for other frameworks is coming soon.
+</Callout>
+
 ## Common CLI Scenarios
 
 ### First-Time Setup (Recommended)
@@ -360,19 +364,19 @@ Here's exactly what happens when you run the CLI and how to make the best choice
   </Tab>
   <Tab value="pnpm">
     ```bash
-    pnpm dlx pushduck init
+    pnpm dlx @pushduck/cli@latest init
     # Follow prompts, choose Cloudflare R2, let CLI create bucket
     ```
   </Tab>
   <Tab value="yarn">
     ```bash
-    yarn dlx pushduck init
+    yarn dlx @pushduck/cli@latest init
     # Follow prompts, choose Cloudflare R2, let CLI create bucket
     ```
   </Tab>
   <Tab value="bun">
     ```bash
-    bunx pushduck init
+    bunx @pushduck/cli@latest init
     # Follow prompts, choose Cloudflare R2, let CLI create bucket
     ```
   </Tab>
@@ -382,9 +386,9 @@ Here's exactly what happens when you run the CLI and how to make the best choice
 ```bash
 # Works with any package manager
 npx @pushduck/cli@latest init --provider cloudflare-r2
-pnpm dlx pushduck init --provider cloudflare-r2
-yarn dlx pushduck init --provider cloudflare-r2
-bunx pushduck init --provider cloudflare-r2
+pnpm dlx @pushduck/cli@latest init --provider cloudflare-r2
+yarn dlx @pushduck/cli@latest init --provider cloudflare-r2
+bunx @pushduck/cli@latest init --provider cloudflare-r2
 ```
 
 ### AWS S3 Setup
@@ -409,5 +413,5 @@ npx @pushduck/cli@latest init --dry-run
 ---
 
 <Callout type="info">
-**Need help?** The CLI includes built-in help: `npx @pushduck/cli@latest --help`. For detailed documentation, see our [complete CLI reference](/docs/api/cli/cli-setup).
+**Need help?** The CLI includes built-in help: `npx @pushduck/cli@latest --help`. For detailed documentation, see our [complete CLI reference](/docs/api/cli).
 </Callout>

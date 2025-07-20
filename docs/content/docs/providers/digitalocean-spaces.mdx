@@ -3,7 +3,7 @@ title: DigitalOcean Spaces
 description: Set up DigitalOcean Spaces with CDN for fast, affordable file uploads
 ---
 
-# Using DigitalOcean Spaces
+## Using DigitalOcean Spaces
 
 Set up DigitalOcean Spaces for fast, affordable file uploads with built-in CDN.
 
@@ -53,6 +53,10 @@ Set up your own domain for branded URLs:
 5. **Save your Access Key and Secret Key**
 
 ## 4. Configure CORS
+
+<Callout type="info">
+**Comprehensive CORS Guide**: For detailed CORS configuration, testing, and troubleshooting, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).
+</Callout>
 
 In your Space settings, add this CORS configuration:
 
@@ -281,7 +285,7 @@ Track your Space usage:
 
 ## 🆘 Common Issues
 
-**CORS errors?** → Verify your domain is in AllowedOrigins and CORS is enabled  
+**CORS errors?** → Verify your domain is in AllowedOrigins and CORS is enabled. For detailed CORS configuration, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).  
 **Slow uploads?** → Check you're using the correct regional endpoint  
 **CDN not working?** → Verify CDN is enabled and using the cdn.digitaloceanspaces.com endpoint  
 **Access denied?** → Check your API keys have Spaces read/write permissions  
@@ -297,4 +301,4 @@ Track your Space usage:
 
 ---
 
-**Next:** [Upload Your First Image](/guides/uploads/images) or try [MinIO Setup](/guides/setup/minio)
+**Next:** [Upload Your First Image](/docs/guides/uploads/images) or try [MinIO Setup](/docs/providers/minio)
