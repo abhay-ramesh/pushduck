@@ -36,6 +36,11 @@
       "import": "./dist/client.mjs",
       "require": "./dist/client.js"
     },
+    "./adapters": {
+      "types": "./dist/adapters/index.d.ts",
+      "import": "./dist/adapters/index.mjs",
+      "require": "./dist/adapters/index.js"
+    },
     "./adapters/nextjs": {
       "types": "./dist/adapters/nextjs.d.ts",
       "import": "./dist/adapters/nextjs.mjs",
