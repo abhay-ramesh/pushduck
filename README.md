@@ -2,6 +2,7 @@
 
 # 🦆 Pushduck - Universal S3 File Upload Library
 
+[![NPM Downloads per month](https://img.shields.io/npm/dm/pushduck)](https://www.npmjs.com/package/pushduck)
 [![NPM Version](https://img.shields.io/npm/v/pushduck)](https://www.npmjs.com/package/pushduck)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
