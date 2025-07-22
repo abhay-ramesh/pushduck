@@ -118,7 +118,7 @@ For extra type safety and better IDE support:
 
 ```typescript title="app/api/upload/route.ts"
 import { uploadRouter } from '@/lib/upload';
-import { toNextJsHandler } from 'pushduck/adapters/nextjs';
+import { toNextJsHandler } from 'pushduck/adapters';
 
 // Explicit adapter for enhanced type safety
 export const { GET, POST } = toNextJsHandler(uploadRouter.handlers);
@@ -205,7 +205,7 @@ Pages Router uses the legacy req/res API, so we provide a simple adapter:
 
 ```typescript title="pages/api/upload/[...path].ts"
 import { uploadRouter } from '@/lib/upload';
-import { toNextJsPagesHandler } from 'pushduck/adapters/nextjs-pages';
+import { toNextJsPagesHandler } from 'pushduck/adapters';
 
 export default toNextJsPagesHandler(uploadRouter.handlers);
 ```
@@ -214,7 +214,7 @@ export default toNextJsPagesHandler(uploadRouter.handlers);
 
 ```typescript title="pages/api/upload/[...path].ts"
 import { createUploadConfig } from 'pushduck/server';
-import { toNextJsPagesHandler } from 'pushduck/adapters/nextjs-pages';
+import { toNextJsPagesHandler } from 'pushduck/adapters';
 import { getSession } from 'next-auth/react';
 
 const { s3, createS3Router } = createUploadConfig()

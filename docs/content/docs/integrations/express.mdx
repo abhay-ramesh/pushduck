@@ -79,7 +79,7 @@ Express uses the traditional Node.js `req`/`res` API pattern. Pushduck provides 
     ```typescript title="server.ts"
     import express from 'express';
     import { uploadRouter } from './lib/upload';
-    import { toExpressHandler } from 'pushduck/adapters/express';
+    import { toExpressHandler } from 'pushduck/adapters';
 
     const app = express();
 
@@ -101,7 +101,7 @@ Express uses the traditional Node.js `req`/`res` API pattern. Pushduck provides 
 import express from 'express';
 import cors from 'cors';
 import { uploadRouter } from './lib/upload';
-import { toExpressHandler } from 'pushduck/adapters/express';
+import { toExpressHandler } from 'pushduck/adapters';
 
 const app = express();
 
@@ -129,7 +129,7 @@ app.listen(port, () => {
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { uploadRouter } from './lib/upload';
-import { toExpressHandler } from 'pushduck/adapters/express';
+import { toExpressHandler } from 'pushduck/adapters';
 
 const app = express();
 
@@ -260,7 +260,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { uploadRouter } from './lib/upload';
-import { toExpressHandler } from 'pushduck/adapters/express';
+import { toExpressHandler } from 'pushduck/adapters';
 
 const app = express();
 
@@ -382,7 +382,7 @@ app.listen(port, () => {
 ```typescript title="routes/uploads.ts"
 import { Router } from 'express';
 import { uploadRouter } from '../lib/upload';
-import { toExpressHandler } from 'pushduck/adapters/express';
+import { toExpressHandler } from 'pushduck/adapters';
 import { authenticateToken } from '../middleware/auth';
 
 const router = Router();

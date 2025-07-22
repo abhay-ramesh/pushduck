@@ -318,10 +318,10 @@ graph TD
       <Tab value="Express">
         ```typescript title="server/index.ts"
         import express from 'express';
-        import * as trpcExpress from '@trpc/server/adapters/express';
+        import * as trpcExpress from '@trpc/server/adapters';
         import { appRouter } from './trpc';
         import { uploadRouter } from './storage';
-        import { toExpressHandler } from 'pushduck/adapters/express';
+        import { toExpressHandler } from 'pushduck/adapters';
 
         const app = express();
 

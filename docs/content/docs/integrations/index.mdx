@@ -89,7 +89,7 @@ Pushduck supports frameworks in two categories:
     export const { GET, POST } = uploadRouter.handlers;
 
     // Or with explicit adapter for extra type safety
-    import { toNextJsHandler } from 'pushduck/adapters/nextjs';
+    import { toNextJsHandler } from 'pushduck/adapters';
     export const { GET, POST } = toNextJsHandler(uploadRouter.handlers);
     ```
   </Tab>
@@ -98,7 +98,7 @@ Pushduck supports frameworks in two categories:
     ```typescript
     import express from 'express';
     import { uploadRouter } from '@/lib/upload';
-    import { toExpressHandler } from 'pushduck/adapters/express';
+    import { toExpressHandler } from 'pushduck/adapters';
 
     const app = express();
     app.all("/api/upload/*", toExpressHandler(uploadRouter.handlers));
@@ -109,7 +109,7 @@ Pushduck supports frameworks in two categories:
     ```typescript
     import Fastify from 'fastify';
     import { uploadRouter } from '@/lib/upload';
-    import { toFastifyHandler } from 'pushduck/adapters/fastify';
+    import { toFastifyHandler } from 'pushduck/adapters';
 
     const fastify = Fastify();
     fastify.all('/api/upload/*', toFastifyHandler(uploadRouter.handlers));

@@ -385,15 +385,6 @@ const router = s3.createRouter({
 ```typescript
 // Next.js App Router (default)
 import { createUploadConfig } from "pushduck/server";
-
-// Next.js Pages Router
-import { createUploadConfig } from "pushduck/adapters/nextjs-pages";
-
-// Express
-import { createUploadConfig } from "pushduck/adapters/express";
-
-// Fastify
-import { createUploadConfig } from "pushduck/adapters/fastify";
 ```
 
 ### Multiple Providers

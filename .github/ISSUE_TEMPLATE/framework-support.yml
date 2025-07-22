@@ -73,7 +73,7 @@ body:
       description: How do you think the integration should work?
       placeholder: |
         // Example of how you'd like to use pushduck with this framework
-        import { createHandler } from 'pushduck/adapters/your-framework';
+        import { createHandler } from 'pushduck/adapters';
 
         export const uploadHandler = createHandler({
           // configuration
