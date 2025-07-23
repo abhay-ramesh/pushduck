@@ -65,9 +65,9 @@ s3.file()
 
 ```typescript
 s3.object({
-  images: s3.image().max('5MB').count(5),
-  documents: s3.file().max('10MB').count(2),
-  thumbnail: s3.image().max('1MB').count(1),
+  images: s3.image().max('5MB').maxFiles(5),
+  documents: s3.file().max('10MB').maxFiles(2),
+  thumbnail: s3.image().max('1MB').maxFiles(1),
 })
 ```
 
@@ -271,8 +271,8 @@ const profileRouter = s3.createRouter({
 
   documents: s3
     .object({
-      resume: s3.file().max('5MB').types(['application/pdf']).count(1),
-      portfolio: s3.file().max('10MB').count(3),
+      resume: s3.file().max('5MB').types(['application/pdf']).maxFiles(1),
+      portfolio: s3.file().max('10MB').maxFiles(3),
     })
     .middleware(async ({ req }) => {
       const user = await authenticateUser(req)

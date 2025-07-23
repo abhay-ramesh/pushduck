@@ -59,7 +59,7 @@ A typical Next.js project with pushduck follows this structure:
       imageUpload: s3
         .image()
         .max('4MB')
-        .count(10)
+        .maxFiles(10)
         .middleware(async ({ req }) => {
         // Add your authentication logic here
         return { userId: "user_123" }
@@ -69,7 +69,7 @@ A typical Next.js project with pushduck follows this structure:
         .file()
         .max('10MB')
         .types(['application/pdf'])
-        .count(1)
+        .maxFiles(1)
     })
 
     export const { POST, GET } = s3Router.handlers
@@ -99,8 +99,8 @@ A typical Next.js project with pushduck follows this structure:
 
     // Define your router
     const s3Router = s3.createRouter({
-      imageUpload: s3.image().max('4MB').count(10),
-      documentUpload: s3.file().max('10MB').types(['application/pdf']).count(1)
+      imageUpload: s3.image().max('4MB').maxFiles(10),
+      documentUpload: s3.file().max('10MB').types(['application/pdf']).maxFiles(1)
     })
 
     // Export for use in API routes and client
@@ -189,9 +189,9 @@ You can define schemas that accept multiple file types:
     ```typescript
     const s3Router = s3.createRouter({
       mixedUpload: s3.object({
-        images: s3.image().max('4MB').count(5),
-        pdfs: s3.file().max('10MB').types(['application/pdf']).count(2),
-        documents: s3.file().max('5MB').types(['application/vnd.openxmlformats-officedocument.wordprocessingml.document']).count(3)
+        images: s3.image().max('4MB').maxFiles(5),
+        pdfs: s3.file().max('10MB').types(['application/pdf']).maxFiles(2),
+        documents: s3.file().max('5MB').types(['application/vnd.openxmlformats-officedocument.wordprocessingml.document']).maxFiles(3)
       })
     })
     ```
@@ -203,11 +203,11 @@ You can define schemas that accept multiple file types:
       mediaUpload: s3.object({
         images: s3.image()
           .max('4MB')
-          .count(10)
+          .maxFiles(10)
           .formats(['jpeg', 'jpg', 'png', 'webp']),
         videos: s3.file()
           .max('100MB')
-          .count(2)
+          .maxFiles(2)
           .types(['video/mp4', 'video/quicktime', 'video/avi'])
       })
     })
@@ -219,7 +219,7 @@ You can define schemas that accept multiple file types:
     const s3Router = s3.createRouter({
       genericUpload: s3.file()
         .max('50MB')
-        .count(20)
+        .maxFiles(20)
         .types([
           'image/*', 'video/*', 'application/pdf',
           'application/msword', 'text/plain'
@@ -316,7 +316,7 @@ const backupConfig = createUploadConfig()
 
 // Use primary config for main uploads
 const s3Router = primaryConfig.s3.createRouter({
-  productImages: primaryConfig.s3.image().max("4MB").count(10),
+  productImages: primaryConfig.s3.image().max("4MB").maxFiles(10),
   // Backup handling would be done in lifecycle hooks
 });
 ```
@@ -331,7 +331,7 @@ Add authentication, logging, and custom validation:
 const s3Router = s3.createRouter({
   privateUploads: s3.image()
     .max("4MB")
-    .count(5)
+    .maxFiles(5)
     .middleware(async ({ req, metadata }) => {
       const session = await getServerSession(req);
 
@@ -348,7 +348,7 @@ const s3Router = s3.createRouter({
 
   publicUploads: s3.image()
     .max("1MB")
-    .count(1), // No middleware = publicly accessible
+    .maxFiles(1), // No middleware = publicly accessible
 });
 ```
 
@@ -360,7 +360,7 @@ import { z } from "zod";
 const s3Router = s3.createRouter({
   profilePicture: s3.image()
     .max("2MB")
-    .count(1)
+    .maxFiles(1)
     .middleware(async ({ req, file, metadata }) => {
       // Custom file validation
       if (file.name.includes("temp") || file.name.includes("test")) {
@@ -379,7 +379,7 @@ const s3Router = s3.createRouter({
 const s3Router = s3.createRouter({
   documentUpload: s3.file()
     .max("10MB")
-    .count(1)
+    .maxFiles(1)
     .types(["application/pdf"])
     .middleware(async ({ req, metadata }) => {
       const enrichedMetadata = {
@@ -423,7 +423,7 @@ Handle upload events for processing, notifications, and cleanup:
 const s3Router = s3.createRouter({
   imageUpload: s3.image()
     .max("4MB")
-    .count(10)
+    .maxFiles(10)
     .onUploadComplete(async ({ file, url, metadata }) => {
       // Process uploaded image - use permanent URL for processing
       await generateThumbnail(url);
@@ -480,7 +480,7 @@ interface CustomContext {
 const s3Router = s3.createRouter({
   upload: s3.image()
     .max('4MB')
-    .count(5)
+    .maxFiles(5)
     .middleware(async ({ req }): Promise<CustomContext> => {
     // Your auth logic here
     return {
@@ -499,7 +499,7 @@ const s3Router = s3.createRouter({
 const ecommerceRouter = s3.createRouter({
   productImages: s3.image()
     .max('5MB')
-    .count(8)
+    .maxFiles(8)
     .formats(['webp', 'jpeg'])
     .middleware(async ({ req }) => {
       const vendorId = await getVendorId(req);
@@ -519,15 +519,15 @@ const docsRouter = s3.createRouter({
   contracts: s3.file()
     .max('25MB')
     .types(['application/pdf'])
-    .count(1)
+    .maxFiles(1)
     .middleware(async ({ req }) => {
     const { userId, companyId } = await validateContractUpload(req);
     return { userId, companyId, confidential: true };
   }),
 
   proposals: s3.object({
-    pdfs: s3.file().max('50MB').types(['application/pdf']).count(3),
-    documents: s3.file().max('25MB').types(['application/vnd.openxmlformats-officedocument.wordprocessingml.document']).count(5),
+    pdfs: s3.file().max('50MB').types(['application/pdf']).maxFiles(3),
+    documents: s3.file().max('25MB').types(['application/vnd.openxmlformats-officedocument.wordprocessingml.document']).maxFiles(5),
   }).middleware(async ({ req }) => {
     const { userId, projectId } = await validateProposalUpload(req);
     return { userId, projectId };

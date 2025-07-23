@@ -240,7 +240,7 @@ export const uploadRouter = s3.createRouter({
   profilePicture: s3
     .image()
     .max("2MB")
-    .count(1)
+    .maxFiles(1)
     .formats(['jpeg', 'jpg', 'png', 'webp'])
     .middleware(async ({ req }) => {
       const userId = await authenticateUser(req);
@@ -257,7 +257,7 @@ export const uploadRouter = s3.createRouter({
     .file()
     .max("10MB")
     .types(['application/pdf', 'text/plain'])
-    .count(5)
+    .maxFiles(5)
     .middleware(async ({ req }) => {
       const userId = await authenticateUser(req);
       return { userId, category: 'documents' };
