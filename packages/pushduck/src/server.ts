@@ -33,7 +33,7 @@
  * // 3. Define routes with validation
  * const router = s3.createRouter({
  *   profileImage: s3.image().max('2MB'),
- *   documents: s3.file().types(['application/pdf']).array({ max: 5 }),
+ *   documents: s3.file().types(['application/pdf']).maxFiles(5),
  * }, config);
  * ```
  *
@@ -187,11 +187,11 @@ export { createUploadConfig } from "./core/config/upload-config";
  *
  * @example Array and Object Schemas
  * ```typescript
- * const gallerySchema = s3.image().max('2MB').array({ min: 1, max: 10 });
+ * const gallerySchema = s3.image().max('2MB').maxFiles(6);
  *
  * const formSchema = s3.object({
  *   avatar: s3.image().max('1MB'),
- *   documents: s3.file().types(['application/pdf']).array({ max: 5 }),
+ *   documents: s3.file().types(['application/pdf']).maxFiles(5),
  * });
  * ```
  */
@@ -217,7 +217,7 @@ export {
  *
  * const router = createS3RouterWithConfig({
  *   profileImage: s3.image().max('2MB'),
- *   documents: s3.file().types(['application/pdf']).array({ max: 5 }),
+ *   documents: s3.file().types(['application/pdf']).maxFiles(5),
  * }, config);
  *
  * // Use in Next.js API route

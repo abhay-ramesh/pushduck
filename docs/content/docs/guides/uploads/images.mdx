@@ -30,13 +30,13 @@ const s3Router = s3.createRouter({
   // Basic image upload
   profilePicture: s3.image()
     .max('5MB')
-    .count(1)
+    .maxFiles(1)
     .formats(['jpeg', 'png', 'webp']),
 
   // Multiple images with optimization
   galleryImages: s3.image()
     .max('10MB')
-    .count(10)
+    .maxFiles(10)
     .formats(['jpeg', 'png', 'webp', 'gif']),
 });
 
@@ -126,7 +126,7 @@ export function ImageUploader() {
 const s3Router = s3.createRouter({
   productImages: s3.image()
     .max('8MB')
-    .count(5)
+    .maxFiles(5)
     .formats(['jpeg', 'png', 'webp'])
     .dimensions({
       minWidth: 800,
@@ -167,7 +167,7 @@ const s3Router = s3.createRouter({
 const s3Router = s3.createRouter({
   optimizedImages: s3.image()
     .max('15MB')
-    .count(10)
+    .maxFiles(10)
     .formats(['jpeg', 'png', 'webp'])
     .dimensions({ maxWidth: 1920, maxHeight: 1080 })
     .onUploadComplete(async ({ file, url, metadata }) => {
@@ -205,7 +205,7 @@ const imageVariants: ImageVariant[] = [
 const s3Router = s3.createRouter({
   responsiveImages: s3.image()
     .max('20MB')
-    .count(5)
+    .maxFiles(5)
     .formats(['jpeg', 'png', 'webp'])
     .onUploadComplete(async ({ file, url, metadata }) => {
       // Generate responsive variants
@@ -425,7 +425,7 @@ export function ResponsiveImage({
     const s3Router = s3.createRouter({
       profilePicture: s3.image()
         .max('10MB')
-        .count(1)
+        .maxFiles(1)
         .formats(['jpeg', 'png', 'webp'])
         .onUploadComplete(async ({ file, url, metadata }) => {
           // Generate avatar sizes
@@ -575,7 +575,7 @@ export function ImageGalleryUploader() {
 const s3Router = s3.createRouter({
   portfolioImages: s3.image()
     .max('15MB')
-    .count(20)
+    .maxFiles(20)
     .formats(['jpeg', 'png', 'webp'])
     .middleware(async ({ req, file, metadata }) => {
       const { userId } = await authenticateUser(req);

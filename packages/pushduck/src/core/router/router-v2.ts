@@ -26,7 +26,7 @@
  *
  * const router = s3.createRouter({
  *   profileImage: s3.image().max('2MB'),
- *   documents: s3.file().types(['application/pdf']).array({ max: 5 }),
+ *   documents: s3.file().types(['application/pdf']).maxFiles(5),
  * }, config);
  * ```
  *

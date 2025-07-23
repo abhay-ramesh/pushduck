@@ -43,20 +43,12 @@
  *   }));
  * ```
  *
- * @example Array Validation
- * ```typescript
- * const gallerySchema = s3.image()
- *   .max('2MB')
- *   .array({ min: 1, max: 10 });
- *
- * // Validates 1-10 images, each max 2MB
- * ```
  *
  * @example Object Schema
  * ```typescript
  * const formSchema = s3.object({
  *   avatar: s3.image().max('1MB'),
- *   documents: s3.file().types(['application/pdf']).array({ max: 5 }),
+ *   documents: s3.file().types(['application/pdf']).maxFiles(5),
  *   metadata: s3.object({
  *     title: s3.string(),
  *     description: s3.string().optional(),
@@ -757,24 +749,25 @@ export class S3FileSchema extends S3Schema<File, File> {
   }
 
   /**
-   * Creates an array schema that validates multiple files of this type.
+   * Creates an array schema that validates multiple files of this type with a maximum count.
+   * This is a convenience method for creating arrays with a maximum file limit.
    *
-   * @param constraints - Array-specific validation constraints
-   * @returns New array schema instance
+   * @param maxCount - Maximum number of files allowed
+   * @returns New array schema instance with maximum constraint
    *
    * @example
    * ```typescript
    * const gallerySchema = s3.image()
    *   .max('2MB')
-   *   .array({ min: 1, max: 10 }); // 1-10 images, each max 2MB
+   *   .maxFiles(6); // Maximum 6 images, each max 2MB
    *
    * const documentsSchema = s3.file()
    *   .types(['application/pdf'])
-   *   .array({ max: 5 }); // Up to 5 PDF files
+   *   .maxFiles(5); // Maximum 5 PDF files
    * ```
    */
-  array(constraints?: S3ArrayConstraints): S3ArraySchema<this> {
-    return new S3ArraySchema(this, constraints);
+  maxFiles(maxCount: number): S3ArraySchema<this> {
+    return new S3ArraySchema(this, { max: maxCount });
   }
 
   protected _clone(): this {
@@ -1040,8 +1033,23 @@ export class S3ImageSchema extends S3FileSchema {
     return new S3ImageSchema({ ...this.constraints, allowedExtensions });
   }
 
-  array(constraints?: S3ArrayConstraints): S3ArraySchema<this> {
-    return new S3ArraySchema(this, constraints);
+  /**
+   * Creates an array schema that validates multiple images with a maximum count.
+   * This is a convenience method for creating image arrays with a maximum file limit.
+   *
+   * @param maxCount - Maximum number of images allowed
+   * @returns New array schema instance with maximum constraint
+   *
+   * @example
+   * ```typescript
+   * const gallerySchema = s3.image()
+   *   .max('2MB')
+   *   .formats(['jpeg', 'png'])
+   *   .maxFiles(6); // Maximum 6 images, each max 2MB
+   * ```
+   */
+  maxFiles(maxCount: number): S3ArraySchema<this> {
+    return new S3ArraySchema(this, { max: maxCount });
   }
 
   protected _clone(): this {

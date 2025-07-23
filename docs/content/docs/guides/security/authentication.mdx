@@ -30,7 +30,7 @@ import { authOptions } from "@/lib/auth";
 const s3Router = s3.createRouter({
   userFiles: s3.image()
     .max("5MB")
-    .count(10)
+    .maxFiles(10)
     .middleware(async ({ req, metadata }) => {
       const session = await getServerSession(authOptions);
 
@@ -57,7 +57,7 @@ import jwt from "jsonwebtoken";
 const s3Router = s3.createRouter({
   protectedUploads: s3.file()
     .max("10MB")
-    .count(5)
+    .maxFiles(5)
     .middleware(async ({ req, metadata }) => {
       const token = req.headers.get("authorization")?.replace("Bearer ", "");
 
@@ -86,7 +86,7 @@ const s3Router = s3.createRouter({
 const s3Router = s3.createRouter({
   apiKeyUploads: s3.file()
     .max("25MB")
-    .count(1)
+    .maxFiles(1)
     .types(['application/pdf', 'application/msword'])
     .middleware(async ({ req, metadata }) => {
       const apiKey = req.headers.get("x-api-key");
@@ -141,7 +141,7 @@ const s3Router = s3.createRouter({
 const s3Router = s3.createRouter({
   adminUploads: s3.file()
     .max("100MB")
-    .count(50)
+    .maxFiles(50)
     .middleware(async ({ req, metadata }) => {
       const { userId, roles } = await authenticateUser(req);
 
@@ -154,7 +154,7 @@ const s3Router = s3.createRouter({
 
   moderatorUploads: s3.image()
     .max("10MB")
-    .count(20)
+    .maxFiles(20)
     .middleware(async ({ req, metadata }) => {
       const { userId, roles } = await authenticateUser(req);
 
@@ -167,7 +167,7 @@ const s3Router = s3.createRouter({
 
   userUploads: s3.image()
     .max("5MB")
-    .count(5)
+    .maxFiles(5)
     .middleware(async ({ req, metadata }) => {
       const { userId } = await authenticateUser(req);
 
@@ -183,7 +183,7 @@ const s3Router = s3.createRouter({
 const s3Router = s3.createRouter({
   projectFiles: s3.file()
     .max("25MB")
-    .count(10)
+    .maxFiles(10)
     .middleware(async ({ req, metadata }) => {
       const { userId } = await authenticateUser(req);
       const projectId = req.url.searchParams.get("projectId");

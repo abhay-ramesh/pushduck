@@ -398,7 +398,7 @@ export const uploadRouter = createS3Router({
   profilePicture: s3
     .image()
     .max("2MB")
-    .count(1)
+    .maxFiles(1)
     .formats(["jpeg", "png", "webp"])
     .middleware(async ({ req }) => {
       const session = await getServerSession(authOptions);
@@ -410,7 +410,7 @@ export const uploadRouter = createS3Router({
   gallery: s3
     .image()
     .max("5MB")
-    .count(10)
+    .maxFiles(10)
     .formats(["jpeg", "png", "webp"])
     .middleware(async ({ req }) => {
       const session = await getServerSession(authOptions);
@@ -422,7 +422,7 @@ export const uploadRouter = createS3Router({
   documents: s3
     .file()
     .max("10MB")
-    .count(5)
+    .maxFiles(5)
     .types([
       "application/pdf",
       "application/msword",
@@ -439,7 +439,7 @@ export const uploadRouter = createS3Router({
   public: s3
     .image()
     .max("1MB")
-    .count(1)
+    .maxFiles(1)
     .formats(["jpeg", "png"])
     // No middleware = public access
 });
