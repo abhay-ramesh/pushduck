@@ -129,6 +129,7 @@ function getS3CompatibleConfig(
     bucket: config.bucket,
     acl: config.acl,
     customDomain: config.customDomain,
+    forcePathStyle: config.forcePathStyle,
     debug: options.debug ?? false,
   };
 
@@ -143,8 +144,8 @@ function getS3CompatibleConfig(
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
         region: config.region,
+        forcePathStyle: config.forcePathStyle, // Pass through forcePathStyle option
         // No endpoint - uses AWS default
-        // forcePathStyle: false (default)
       };
 
     case "cloudflare-r2":
@@ -470,6 +471,10 @@ export function resetS3Client(): void {
 /**
  * Builds the S3 endpoint URL for a given key
  */
+/**
+ * Builds S3 URL for internal operations (HEAD, PUT, DELETE, etc.)
+ * These operations need to communicate directly with S3, not through custom domain.
+ */
 function buildS3Url(key: string, config: S3CompatibleConfig): string {
   if (config.endpoint) {
     // Custom endpoint (MinIO, R2, etc.)
@@ -480,6 +485,39 @@ function buildS3Url(key: string, config: S3CompatibleConfig): string {
     } else {
       // Virtual hosted-style for custom endpoints (e.g., Backblaze B2)
       // Convert https://s3.region.provider.com to https://bucket.s3.region.provider.com
+      const url = new URL(baseUrl);
+      url.hostname = `${config.bucket}.${url.hostname}`;
+      return `${url.origin}/${key}`;
+    }
+  }
+
+  // Standard AWS S3 URL
+  if (config.forcePathStyle) {
+    return `https://s3.${config.region}.amazonaws.com/${config.bucket}/${key}`;
+  } else {
+    return `https://${config.bucket}.s3.${config.region}.amazonaws.com/${key}`;
+  }
+}
+
+/**
+ * Builds public URL for presigned URLs and public access.
+ * Uses custom domain when configured, otherwise falls back to S3 URLs.
+ */
+function buildPublicUrl(key: string, config: S3CompatibleConfig): string {
+  // If custom domain is configured, use it for public URLs
+  if (config.customDomain) {
+    const baseUrl = config.customDomain.replace(/\/$/, "");
+    return `${baseUrl}/${key}`;
+  }
+
+  // Fall back to S3 URL for public access
+  if (config.endpoint) {
+    // Custom endpoint (MinIO, R2, etc.)
+    const baseUrl = config.endpoint.replace(/\/$/, "");
+    if (config.forcePathStyle !== false) {
+      return `${baseUrl}/${config.bucket}/${key}`;
+    } else {
+      // Virtual hosted-style for custom endpoints (e.g., Backblaze B2)
       const url = new URL(baseUrl);
       url.hostname = `${config.bucket}.${url.hostname}`;
       return `${url.origin}/${key}`;
@@ -577,7 +615,7 @@ export async function generatePresignedDownloadUrl(
   const config = getS3CompatibleConfig(uploadConfig.provider);
 
   try {
-    const s3Url = buildS3Url(key, config);
+    const s3Url = buildPublicUrl(key, config);
     const url = new URL(s3Url);
 
     // Add expiration as query parameter
@@ -671,7 +709,7 @@ export async function generatePresignedUploadUrl(
 
   try {
     // Follow the exact Cloudflare R2 aws4fetch pattern
-    const s3Url = buildS3Url(options.key, config);
+    const s3Url = buildPublicUrl(options.key, config);
     const url = new URL(s3Url);
 
     // Add expiration as query parameter (this is the Cloudflare R2 pattern)
@@ -787,27 +825,7 @@ export async function checkFileExists(
  */
 export function getFileUrl(uploadConfig: UploadConfig, key: string): string {
   const config = getS3CompatibleConfig(uploadConfig.provider);
-
-  if (config.customDomain) {
-    return `${config.customDomain}/${key}`;
-  }
-
-  if (config.endpoint) {
-    // Custom endpoint (MinIO, R2, etc.)
-    const baseUrl = config.endpoint.replace(/\/$/, "");
-    if (config.forcePathStyle !== false) {
-      return `${baseUrl}/${config.bucket}/${key}`;
-    } else {
-      // Virtual hosted-style for custom endpoints (e.g., Backblaze B2)
-      // Convert https://s3.region.provider.com to https://bucket.s3.region.provider.com
-      const url = new URL(baseUrl);
-      url.hostname = `${config.bucket}.${url.hostname}`;
-      return `${url.origin}/${key}`;
-    }
-  }
-
-  // Standard AWS S3 URL
-  return `https://${config.bucket}.s3.${config.region}.amazonaws.com/${key}`;
+  return buildPublicUrl(key, config);
 }
 
 // ========================================
