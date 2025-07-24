@@ -152,8 +152,8 @@ echo ""
 echo "📋 Validating package.json..."
 echo "-----------------------------"
 
-# Check if version follows semver
-if node -e "const pkg = require('./package.json'); const semver = pkg.version.match(/^\d+\.\d+\.\d+$/); if (!semver) process.exit(1);"; then
+# Check if version follows semver (including prerelease versions)
+if node -e "const pkg = require('./package.json'); const semver = pkg.version.match(/^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?$/); if (!semver) process.exit(1);"; then
     print_status "Version follows semantic versioning"
 else
     print_error "Version does not follow semantic versioning!"
