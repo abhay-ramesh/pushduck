@@ -167,8 +167,8 @@ const uploadRouter = createS3Router({
     },
   },
   routes: {
-    imageUpload: s3.image().max("5MB"),
-    documentUpload: s3.file().max("10MB"),
+    imageUpload: s3.image().maxFileSize("5MB"),
+    documentUpload: s3.file().maxFileSize("10MB"),
   },
 });
 

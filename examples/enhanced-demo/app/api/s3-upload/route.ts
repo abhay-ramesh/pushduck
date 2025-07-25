@@ -12,7 +12,7 @@ const s3Router = s3.createRouter({
   // Image uploads: uploads/images/{userId}/{timestamp}/{randomId}/filename.jpg
   imageUpload: s3
     .image()
-    .max("1MB")
+    .maxFileSize("1MB")
     .formats(["jpeg", "jpg", "png", "webp"])
     .middleware(async ({ file, metadata }) => {
       console.log("Processing image upload:", file.name);
@@ -49,7 +49,7 @@ const s3Router = s3.createRouter({
   // Document uploads: uploads/documents/{userId}/{timestamp}/{randomId}/filename.pdf
   documentUpload: s3
     .file()
-    .max("10MB")
+    .maxFileSize("10MB")
     .types([
       "application/pdf",
       "application/msword",
@@ -77,7 +77,7 @@ const s3Router = s3.createRouter({
   // Custom organized images: uploads/gallery/2024/06/demo-user/filename.jpg
   galleryUpload: s3
     .image()
-    .max("5MB")
+    .maxFileSize("5MB")
     .formats(["jpeg", "jpg", "png", "webp"])
     .middleware(async ({ file, metadata }) => {
       return {
@@ -108,7 +108,7 @@ const s3Router = s3.createRouter({
   // Uses pure global configuration - no route-level paths
   generalUpload: s3
     .file()
-    .max("20MB")
+    .maxFileSize("20MB")
     .middleware(async ({ file, metadata }) => {
       return {
         ...metadata,

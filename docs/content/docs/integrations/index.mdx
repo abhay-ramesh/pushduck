@@ -24,9 +24,9 @@ All frameworks use the same core API:
 import { createS3Router, s3 } from 'pushduck/server';
 
 const uploadRouter = createS3Router({
-  imageUpload: s3.image().max("5MB"),
-  documentUpload: s3.file().max("10MB"),
-  videoUpload: s3.file().max("100MB").types(["video/*"])
+  imageUpload: s3.image().maxFileSize("5MB"),
+  documentUpload: s3.file().maxFileSize("10MB"),
+  videoUpload: s3.file().maxFileSize("100MB").types(["video/*"])
 });
 
 // Universal handlers - work with ANY framework
@@ -188,7 +188,7 @@ export const uploadRouter = createS3Router({
   // Image uploads with validation
   imageUpload: s3
     .image()
-    .max("5MB")
+    .maxFileSize("5MB")
     .formats(["jpeg", "png", "webp"])
     .middleware(async ({ req }) => {
       const userId = await getUserId(req);
@@ -198,7 +198,7 @@ export const uploadRouter = createS3Router({
   // Document uploads
   documentUpload: s3
     .file()
-    .max("10MB")
+    .maxFileSize("10MB")
     .types(["application/pdf", "text/plain"])
     .middleware(async ({ req }) => {
       const userId = await getUserId(req);
@@ -208,7 +208,7 @@ export const uploadRouter = createS3Router({
   // Video uploads
   videoUpload: s3
     .file()
-    .max("100MB")
+    .maxFileSize("100MB")
     .types(["video/mp4", "video/quicktime"])
     .middleware(async ({ req }) => {
       const userId = await getUserId(req);

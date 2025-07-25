@@ -152,7 +152,7 @@ Optimize caching for different file types:
 // Configure caching per upload type
 const imageUpload = s3
   .image()
-  .max("10MB")
+  .maxFileSize("10MB")
   .onUploadComplete(async ({ file, key }) => {
     // Set cache headers for images (long cache)
     await setObjectMetadata(key, {

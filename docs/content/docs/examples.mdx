@@ -137,7 +137,7 @@ await imageUpload.uploadFiles(selectedFiles);
     const uploadRouter = s3.createRouter({
       imageUpload: s3
         .image()
-        .max("5MB")
+        .maxFileSize("5MB")
         .formats(["jpeg", "png", "webp"])
         .middleware(async ({ file, metadata }) => {
           // Custom authentication and metadata

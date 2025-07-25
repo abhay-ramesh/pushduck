@@ -25,7 +25,7 @@
  * });
  *
  * const router = s3.createRouter({
- *   profileImage: s3.image().max('2MB'),
+ *   profileImage: s3.image().maxFileSize('2MB'),
  *   documents: s3.file().types(['application/pdf']).maxFiles(5),
  * }, config);
  * ```
@@ -34,7 +34,7 @@
  * ```typescript
  * const authenticatedRouter = s3.createRouter({
  *   userFiles: s3.file()
- *     .max('10MB')
+ *     .maxFileSize('10MB')
  *     .middleware(async ({ req }) => {
  *       const user = await authenticateUser(req);
  *       return { userId: user.id, organizationId: user.orgId };

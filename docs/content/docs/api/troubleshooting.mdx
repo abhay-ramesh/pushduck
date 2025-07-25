@@ -108,7 +108,7 @@ R2_BUCKET=your-bucket-name
 const uploadRouter = s3.createRouter({
   imageUpload: s3
     .image()
-    .max("10MB") // Increase as needed
+    .maxFileSize("10MB") // Increase as needed
     .formats(["jpeg", "png", "webp"]),
 });
 ```

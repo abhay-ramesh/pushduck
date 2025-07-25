@@ -86,7 +86,7 @@ import { s3 } from "@/lib/upload";
 const router = s3.createRouter({
   imageUpload: s3
     .image()
-    .max("5MB")
+    .maxFileSize("5MB")
     .formats(["jpeg", "jpg", "png", "webp"])
     .middleware(async ({ file, metadata }) => {
       // Add authentication and user context
@@ -99,7 +99,7 @@ const router = s3.createRouter({
 
   documentUpload: s3
     .file()
-    .max("10MB")
+    .maxFileSize("10MB")
     .types(["application/pdf", "text/plain"])
     .paths({
       prefix: "documents",
@@ -366,7 +366,7 @@ const { s3 } = createUploadConfig()
 const router = s3.createRouter({
   imageUpload: s3
     .image()
-    .max("5MB")
+    .maxFileSize("5MB")
     .formats(["jpeg", "jpg", "png", "webp"])
     .middleware(async ({ file, metadata }) => {
       // Add authentication and user context

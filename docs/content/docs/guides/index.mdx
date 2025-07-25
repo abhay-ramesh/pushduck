@@ -126,8 +126,8 @@ Learn how to build robust file upload features with pushduck through comprehensi
     ```typescript
     const uploadRouter = createS3Router({
       routes: {
-        imageUpload: s3.image().max("5MB"),
-        documentUpload: s3.file().max("10MB"),
+        imageUpload: s3.image().maxFileSize("5MB"),
+        documentUpload: s3.file().maxFileSize("10MB"),
       },
     });
     ```
@@ -172,7 +172,7 @@ const uploadRouter = createS3Router({
   ],
   routes: {
     userAvatar: s3.image()
-      .max("2MB")
+      .maxFileSize("2MB")
       .path(({ metadata }) => `avatars/${metadata.user.id}`),
   },
 });
@@ -209,16 +209,16 @@ const uploadRouter = createS3Router({
 const uploadRouter = createS3Router({
   routes: {
     // Public uploads
-    publicImages: s3.image().max("5MB").public(),
+    publicImages: s3.image().maxFileSize("5MB").public(),
     
     // User-specific uploads
     userDocuments: s3.file()
-      .max("10MB")
+      .maxFileSize("10MB")
       .path(({ metadata }) => `users/${metadata.userId}/documents`),
       
     // Admin uploads
     adminAssets: s3.file()
-      .max("50MB")
+      .maxFileSize("50MB")
       .middleware([requireAdmin]),
   },
 });

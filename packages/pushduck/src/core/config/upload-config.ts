@@ -129,7 +129,7 @@ function smartCreateRouter<TRoutes extends Record<string, any>>(
  *
  * // Create router with schemas
  * const router = s3.createRouter({
- *   avatarUpload: s3.image().max('2MB'),
+ *   avatarUpload: s3.image().maxFileSize('2MB'),
  *   documentUpload: s3.file({ maxSize: '10MB' }),
  * });
  * ```
@@ -199,12 +199,12 @@ function createS3Instance(config: UploadConfig) {
      * ```typescript
      * const router = s3.createRouter({
      *   // Using schema builders
-     *   imageUpload: s3.image().max('5MB'),
+     *   imageUpload: s3.image().maxFileSize('5MB'),
      *   documentUpload: s3.file({ maxSize: '10MB' }),
      *
      *   // Using route with middleware
      *   avatarUpload: s3.image()
-     *     .max('2MB')
+     *     .maxFileSize('2MB')
      *     .middleware(async ({ metadata }) => ({
      *       ...metadata,
      *       userId: metadata.userId || 'anonymous',

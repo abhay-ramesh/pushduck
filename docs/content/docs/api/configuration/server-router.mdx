@@ -316,7 +316,7 @@ const backupConfig = createUploadConfig()
 
 // Use primary config for main uploads
 const s3Router = primaryConfig.s3.createRouter({
-  productImages: primaryConfig.s3.image().max("4MB").maxFiles(10),
+  productImages: primaryConfig.s3.image().maxFileSize("4MB").maxFiles(10),
   // Backup handling would be done in lifecycle hooks
 });
 ```
@@ -330,7 +330,7 @@ Add authentication, logging, and custom validation:
 ```typescript
 const s3Router = s3.createRouter({
   privateUploads: s3.image()
-    .max("4MB")
+    .maxFileSize("4MB")
     .maxFiles(5)
     .middleware(async ({ req, metadata }) => {
       const session = await getServerSession(req);
@@ -347,7 +347,7 @@ const s3Router = s3.createRouter({
     }),
 
   publicUploads: s3.image()
-    .max("1MB")
+    .maxFileSize("1MB")
     .maxFiles(1), // No middleware = publicly accessible
 });
 ```
@@ -359,7 +359,7 @@ import { z } from "zod";
 
 const s3Router = s3.createRouter({
   profilePicture: s3.image()
-    .max("2MB")
+    .maxFileSize("2MB")
     .maxFiles(1)
     .middleware(async ({ req, file, metadata }) => {
       // Custom file validation
@@ -378,7 +378,7 @@ const s3Router = s3.createRouter({
 ```typescript
 const s3Router = s3.createRouter({
   documentUpload: s3.file()
-    .max("10MB")
+    .maxFileSize("10MB")
     .maxFiles(1)
     .types(["application/pdf"])
     .middleware(async ({ req, metadata }) => {
@@ -422,7 +422,7 @@ Handle upload events for processing, notifications, and cleanup:
 ```typescript
 const s3Router = s3.createRouter({
   imageUpload: s3.image()
-    .max("4MB")
+    .maxFileSize("4MB")
     .maxFiles(10)
     .onUploadComplete(async ({ file, url, metadata }) => {
       // Process uploaded image - use permanent URL for processing

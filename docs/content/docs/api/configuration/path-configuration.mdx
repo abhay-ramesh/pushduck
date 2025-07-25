@@ -93,7 +93,7 @@ const s3Router = s3.createRouter({
   // Images: uploads/images/{userId}/{timestamp}/{randomId}/photo.jpg
   imageUpload: s3
     .image()
-    .max("5MB")
+    .maxFileSize("5MB")
     .paths({
       prefix: "images", // Nests under global prefix
     }),
@@ -101,7 +101,7 @@ const s3Router = s3.createRouter({
   // Documents: uploads/documents/{userId}/{timestamp}/{randomId}/report.pdf  
   documentUpload: s3
     .file()
-    .max("10MB")
+    .maxFileSize("10MB")
     .paths({
       prefix: "documents", // Nests under global prefix
     }),
@@ -109,7 +109,7 @@ const s3Router = s3.createRouter({
   // General: uploads/{userId}/{timestamp}/{randomId}/file.ext
   generalUpload: s3
     .file()
-    .max("20MB")
+    .maxFileSize("20MB")
     // No .paths() - uses pure global configuration
 });
 ```
@@ -129,7 +129,7 @@ Override the default structure for specific use cases:
     ```typescript
     galleryUpload: s3
       .image()
-      .max("5MB")
+      .maxFileSize("5MB")
       .paths({
         generateKey: (ctx) => {
           const { file, metadata, globalConfig } = ctx;
@@ -151,7 +151,7 @@ Override the default structure for specific use cases:
     ```typescript
     productUpload: s3
       .image()
-      .max("8MB")
+      .maxFileSize("8MB")
       .paths({
         generateKey: (ctx) => {
           const { file, metadata, globalConfig } = ctx;
@@ -172,7 +172,7 @@ Override the default structure for specific use cases:
     ```typescript
     profileUpload: s3
       .image()
-      .max("2MB")
+      .maxFileSize("2MB")
       .paths({
         generateKey: (ctx) => {
           const { file, metadata, globalConfig } = ctx;
@@ -305,7 +305,7 @@ const s3Router = s3.createRouter({
   // Product images: uploads/products/{category}/{productId}/images/photo.jpg
   productImages: s3
     .image()
-    .max("8MB")
+    .maxFileSize("8MB")
     .formats(["jpeg", "png", "webp"])
     .middleware(async ({ req }) => {
       const { productId, category } = await getProductContext(req);
@@ -322,7 +322,7 @@ const s3Router = s3.createRouter({
   // User avatars: uploads/users/{userId}/avatar/profile.jpg
   userAvatar: s3
     .image()
-    .max("2MB")
+    .maxFileSize("2MB")
     .formats(["jpeg", "png", "webp"])
     .middleware(async ({ req }) => {
       const userId = await getUserId(req);
@@ -338,7 +338,7 @@ const s3Router = s3.createRouter({
   // Order documents: uploads/orders/{orderId}/documents/{timestamp}/receipt.pdf
   orderDocuments: s3
     .file()
-    .max("10MB")
+    .maxFileSize("10MB")
     .types(["application/pdf", "image/*"])
     .middleware(async ({ req }) => {
       const { orderId } = await getOrderContext(req);
@@ -361,7 +361,7 @@ const s3Router = s3.createRouter({
   // Media library: uploads/media/{year}/{month}/{type}/filename.ext
   mediaLibrary: s3
     .file()
-    .max("50MB")
+    .maxFileSize("50MB")
     .middleware(async ({ req, file }) => {
       const userId = await getUserId(req);
       const mediaType = file.type.split('/')[0]; // image, video, audio
@@ -382,7 +382,7 @@ const s3Router = s3.createRouter({
   // Page assets: uploads/pages/{pageSlug}/assets/image.jpg
   pageAssets: s3
     .image()
-    .max("10MB")
+    .maxFileSize("10MB")
     .middleware(async ({ req }) => {
       const { pageSlug } = await getPageContext(req);
       return { pageSlug, userId: await getUserId(req) };
@@ -397,7 +397,7 @@ const s3Router = s3.createRouter({
   // Temp uploads: uploads/temp/{userId}/{sessionId}/file.ext
   tempUploads: s3
     .file()
-    .max("20MB")
+    .maxFileSize("20MB")
     .middleware(async ({ req }) => {
       const userId = await getUserId(req);
       const sessionId = req.headers.get('x-session-id') || 'unknown';
