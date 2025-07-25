@@ -58,7 +58,7 @@ A typical Next.js project with pushduck follows this structure:
     const s3Router = s3.createRouter({
       imageUpload: s3
         .image()
-        .max('4MB')
+        .maxFileSize('4MB')
         .maxFiles(10)
         .middleware(async ({ req }) => {
         // Add your authentication logic here
@@ -67,7 +67,7 @@ A typical Next.js project with pushduck follows this structure:
 
       documentUpload: s3
         .file()
-        .max('10MB')
+        .maxFileSize('10MB')
         .types(['application/pdf'])
         .maxFiles(1)
     })
@@ -99,8 +99,8 @@ A typical Next.js project with pushduck follows this structure:
 
     // Define your router
     const s3Router = s3.createRouter({
-      imageUpload: s3.image().max('4MB').maxFiles(10),
-      documentUpload: s3.file().max('10MB').types(['application/pdf']).maxFiles(1)
+      imageUpload: s3.image().maxFileSize('4MB').maxFiles(10),
+      documentUpload: s3.file().maxFileSize('10MB').types(['application/pdf']).maxFiles(1)
     })
 
     // Export for use in API routes and client
@@ -189,9 +189,9 @@ You can define schemas that accept multiple file types:
     ```typescript
     const s3Router = s3.createRouter({
       mixedUpload: s3.object({
-        images: s3.image().max('4MB').maxFiles(5),
-        pdfs: s3.file().max('10MB').types(['application/pdf']).maxFiles(2),
-        documents: s3.file().max('5MB').types(['application/vnd.openxmlformats-officedocument.wordprocessingml.document']).maxFiles(3)
+        images: s3.image().maxFileSize('4MB').maxFiles(5),
+        pdfs: s3.file().maxFileSize('10MB').types(['application/pdf']).maxFiles(2),
+        documents: s3.file().maxFileSize('5MB').types(['application/vnd.openxmlformats-officedocument.wordprocessingml.document']).maxFiles(3)
       })
     })
     ```
@@ -202,11 +202,11 @@ You can define schemas that accept multiple file types:
     const s3Router = s3.createRouter({
       mediaUpload: s3.object({
         images: s3.image()
-          .max('4MB')
+          .maxFileSize('4MB')
           .maxFiles(10)
           .formats(['jpeg', 'jpg', 'png', 'webp']),
         videos: s3.file()
-          .max('100MB')
+          .maxFileSize('100MB')
           .maxFiles(2)
           .types(['video/mp4', 'video/quicktime', 'video/avi'])
       })
@@ -218,7 +218,7 @@ You can define schemas that accept multiple file types:
     ```typescript
     const s3Router = s3.createRouter({
       genericUpload: s3.file()
-        .max('50MB')
+        .maxFileSize('50MB')
         .maxFiles(20)
         .types([
           'image/*', 'video/*', 'application/pdf',
@@ -479,7 +479,7 @@ interface CustomContext {
 
 const s3Router = s3.createRouter({
   upload: s3.image()
-    .max('4MB')
+    .maxFileSize('4MB')
     .maxFiles(5)
     .middleware(async ({ req }): Promise<CustomContext> => {
     // Your auth logic here
@@ -498,7 +498,7 @@ const s3Router = s3.createRouter({
 ```typescript
 const ecommerceRouter = s3.createRouter({
   productImages: s3.image()
-    .max('5MB')
+    .maxFileSize('5MB')
     .maxFiles(8)
     .formats(['webp', 'jpeg'])
     .middleware(async ({ req }) => {
@@ -517,7 +517,7 @@ const ecommerceRouter = s3.createRouter({
 ```typescript
 const docsRouter = s3.createRouter({
   contracts: s3.file()
-    .max('25MB')
+    .maxFileSize('25MB')
     .types(['application/pdf'])
     .maxFiles(1)
     .middleware(async ({ req }) => {
@@ -526,8 +526,8 @@ const docsRouter = s3.createRouter({
   }),
 
   proposals: s3.object({
-    pdfs: s3.file().max('50MB').types(['application/pdf']).maxFiles(3),
-    documents: s3.file().max('25MB').types(['application/vnd.openxmlformats-officedocument.wordprocessingml.document']).maxFiles(5),
+    pdfs: s3.file().maxFileSize('50MB').types(['application/pdf']).maxFiles(3),
+    documents: s3.file().maxFileSize('25MB').types(['application/vnd.openxmlformats-officedocument.wordprocessingml.document']).maxFiles(5),
   }).middleware(async ({ req }) => {
     const { userId, projectId } = await validateProposalUpload(req);
     return { userId, projectId };

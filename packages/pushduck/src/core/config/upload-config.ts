@@ -592,7 +592,7 @@ export class UploadConfigBuilder {
    *
    * // Create routes with the s3 builder
    * const router = s3.createRouter({
-   *   imageUpload: s3.image().max('5MB'),
+   *   imageUpload: s3.image().maxFileSize('5MB'),
    *   documentUpload: s3.file({ maxSize: '10MB' }),
    * });
    * ```
@@ -660,7 +660,7 @@ export class UploadConfigBuilder {
  *
  * // Create typed routers
  * const router = s3.createRouter({
- *   imageUpload: s3.image().max('5MB'),
+ *   imageUpload: s3.image().maxFileSize('5MB'),
  *   documentUpload: s3.file({ maxSize: '10MB' }),
  * });
  * ```

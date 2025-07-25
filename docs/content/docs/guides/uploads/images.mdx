@@ -29,13 +29,13 @@ import { s3 } from "@/lib/upload";
 const s3Router = s3.createRouter({
   // Basic image upload
   profilePicture: s3.image()
-    .max('5MB')
+    .maxFileSize('5MB')
     .maxFiles(1)
     .formats(['jpeg', 'png', 'webp']),
 
   // Multiple images with optimization
   galleryImages: s3.image()
-    .max('10MB')
+    .maxFileSize('10MB')
     .maxFiles(10)
     .formats(['jpeg', 'png', 'webp', 'gif']),
 });
@@ -125,7 +125,7 @@ export function ImageUploader() {
 ```typescript
 const s3Router = s3.createRouter({
   productImages: s3.image()
-    .max('8MB')
+    .maxFileSize('8MB')
     .maxFiles(5)
     .formats(['jpeg', 'png', 'webp'])
     .dimensions({
@@ -166,7 +166,7 @@ const s3Router = s3.createRouter({
 ```typescript
 const s3Router = s3.createRouter({
   optimizedImages: s3.image()
-    .max('15MB')
+    .maxFileSize('15MB')
     .maxFiles(10)
     .formats(['jpeg', 'png', 'webp'])
     .dimensions({ maxWidth: 1920, maxHeight: 1080 })
@@ -204,7 +204,7 @@ const imageVariants: ImageVariant[] = [
 
 const s3Router = s3.createRouter({
   responsiveImages: s3.image()
-    .max('20MB')
+    .maxFileSize('20MB')
     .maxFiles(5)
     .formats(['jpeg', 'png', 'webp'])
     .onUploadComplete(async ({ file, url, metadata }) => {
@@ -424,7 +424,7 @@ export function ResponsiveImage({
     // Server-side image processing after upload
     const s3Router = s3.createRouter({
       profilePicture: s3.image()
-        .max('10MB')
+        .maxFileSize('10MB')
         .maxFiles(1)
         .formats(['jpeg', 'png', 'webp'])
         .onUploadComplete(async ({ file, url, metadata }) => {
@@ -574,7 +574,7 @@ export function ImageGalleryUploader() {
 ```typescript
 const s3Router = s3.createRouter({
   portfolioImages: s3.image()
-    .max('15MB')
+    .maxFileSize('15MB')
     .maxFiles(20)
     .formats(['jpeg', 'png', 'webp'])
     .middleware(async ({ req, file, metadata }) => {

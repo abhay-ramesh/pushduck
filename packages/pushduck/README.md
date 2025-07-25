@@ -331,7 +331,7 @@ createUploadConfig().provider("minio", {
 
 ```typescript
 // Image validation
-s3.image().max('5MB')
+s3.image().maxFileSize('5MB')
 
 // File validation
 s3.file({ maxSize: '10MB', allowedTypes: ['application/pdf'] })

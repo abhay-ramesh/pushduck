@@ -279,7 +279,7 @@ export interface S3RoutePathConfig<TMetadata = any> {
  * @example Basic Route
  * ```typescript
  * const imageRoute = new S3Route(
- *   s3.image().max('5MB'),
+ *   s3.image().maxFileSize('5MB'),
  *   {
  *     paths: { prefix: 'images' },
  *     onUploadComplete: async ({ file, url }) => {
@@ -292,7 +292,7 @@ export interface S3RoutePathConfig<TMetadata = any> {
  * @example Fluent API
  * ```typescript
  * const userFileRoute = s3.file()
- *   .max('10MB')
+ *   .maxFileSize('10MB')
  *   .middleware(async ({ req }) => {
  *     const user = await authenticateUser(req);
  *     return { userId: user.id };
