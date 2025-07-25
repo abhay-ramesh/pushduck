@@ -173,7 +173,10 @@ jobs:
           git tag "v$NEW_VERSION"
 
           # Use the same token for pushing
-          git push origin main
+          # Push to current branch (supports feature branches, not just main)
+          CURRENT_BRANCH=$(git branch --show-current)
+          echo "📤 Pushing to branch: $CURRENT_BRANCH"
+          git push origin "$CURRENT_BRANCH"
           git push origin "v$NEW_VERSION"
         env:
           # Ensure git uses the PAT token for authentication

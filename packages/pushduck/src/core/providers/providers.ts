@@ -457,6 +457,7 @@ const PROVIDER_SPECS = {
       sessionToken: ["AWS_SESSION_TOKEN"],
       acl: ["S3_ACL"],
       customDomain: ["S3_CUSTOM_DOMAIN"],
+      forcePathStyle: ["S3_FORCE_PATH_STYLE"],
     },
     defaults: {
       region: "us-east-1",
