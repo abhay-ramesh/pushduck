@@ -85,9 +85,9 @@ AWS_REGION=nyc3
 S3_BUCKET_NAME=your-space-name
 
 # CDN Configuration (recommended)
-DIGITALOCEAN_CDN_ENDPOINT=https://your-space-name.nyc3.cdn.digitaloceanspaces.com
+DO_SPACES_CUSTOM_DOMAIN=https://your-space-name.nyc3.cdn.digitaloceanspaces.com
 # Or your custom domain:
-# DIGITALOCEAN_CDN_ENDPOINT=https://uploads.yourdomain.com
+# DO_SPACES_CUSTOM_DOMAIN=https://uploads.yourdomain.com
 ```
 
 ## 6. Update Your Upload Configuration
@@ -103,7 +103,7 @@ export const { s3,  } = createUploadConfig()
     region: process.env.AWS_REGION!, // e.g., 'nyc3', 'sfo3', 'ams3'
     bucket: process.env.S3_BUCKET_NAME!,
     // Use CDN for faster file serving
-    cdnEndpoint: process.env.DIGITALOCEAN_CDN_ENDPOINT,
+    customDomain: process.env.DO_SPACES_CUSTOM_DOMAIN,
   })
   .defaults({
     maxFileSize: "50MB", // Spaces supports larger files

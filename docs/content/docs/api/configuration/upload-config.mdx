@@ -50,6 +50,8 @@ createUploadConfig().provider("cloudflareR2",{
   endpoint: process.env.AWS_ENDPOINT_URL,
   bucket: process.env.S3_BUCKET_NAME,
   accountId: process.env.R2_ACCOUNT_ID, // Required for R2
+  // Optional: Custom domain for public files
+  customDomain: process.env.R2_CUSTOM_DOMAIN,
 })
 ```
 
@@ -61,6 +63,8 @@ createUploadConfig().provider("aws",{
   bucket: 'your-bucket',
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  // Optional: Custom domain for public files (CDN, CloudFront, etc.)
+  customDomain: process.env.S3_CUSTOM_DOMAIN,
 })
 ```
 
@@ -72,6 +76,8 @@ createUploadConfig().provider("digitalOceanSpaces",{
   bucket: 'your-space',
   accessKeyId: process.env.DO_SPACES_ACCESS_KEY_ID,
   secretAccessKey: process.env.DO_SPACES_SECRET_ACCESS_KEY,
+  // Optional: Custom domain for public files (CDN endpoint)
+  customDomain: process.env.DO_SPACES_CUSTOM_DOMAIN,
 })
 ```
 
@@ -84,6 +90,8 @@ createUploadConfig().provider("minio",{
   accessKeyId: process.env.MINIO_ACCESS_KEY_ID,
   secretAccessKey: process.env.MINIO_SECRET_ACCESS_KEY,
   useSSL: false,
+  // Optional: Custom domain for public files
+  customDomain: process.env.MINIO_CUSTOM_DOMAIN,
 })
 ```
 
@@ -99,6 +107,8 @@ createUploadConfig().provider("s3Compatible",{
   secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
   region: 'us-east-1', // Optional, defaults to us-east-1
   forcePathStyle: true, // Optional, defaults to true for compatibility
+  // Optional: Custom domain for public files
+  customDomain: process.env.S3_CUSTOM_DOMAIN,
 })
 ```
 
@@ -284,7 +294,35 @@ DO_SPACES_REGION=nyc3
 DO_SPACES_BUCKET=your-space
 DO_SPACES_ACCESS_KEY_ID=your_key
 DO_SPACES_SECRET_ACCESS_KEY=your_secret
+
+# Custom Domains (Optional)
+S3_CUSTOM_DOMAIN=https://cdn.yourdomain.com
+DO_SPACES_CUSTOM_DOMAIN=https://cdn.yourdomain.com
+MINIO_CUSTOM_DOMAIN=https://uploads.yourdomain.com
+GCS_CUSTOM_DOMAIN=https://storage.yourdomain.com
+CLOUDFLARE_R2_CUSTOM_DOMAIN=https://uploads.yourdomain.com
 ```
+
+## Custom Domain Configuration
+
+When `customDomain` is configured, public URLs will use your custom domain instead of the storage provider's default URL. This is useful for:
+
+- **CDN Integration**: Use CloudFront, Cloudflare, or other CDNs
+- **Branding**: Serve files from your own domain
+- **Performance**: Optimize file delivery with custom caching rules
+- **Security**: Control access through your own domain
+
+### How It Works
+
+```typescript
+// Without custom domain
+file.url = "https://bucket.s3.region.amazonaws.com/path/file.jpg"
+
+// With custom domain
+file.url = "https://cdn.yourdomain.com/path/file.jpg"
+```
+
+**Note**: Internal operations (upload, delete) still use the storage provider's endpoints. Only public URLs are affected by the custom domain.
 
 ## Client Upload Results
 

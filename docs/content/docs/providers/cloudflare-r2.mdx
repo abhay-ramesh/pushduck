@@ -76,6 +76,8 @@ In your R2 bucket settings, add this CORS policy:
 
 ## 5. Configure Your App
 
+### Environment Variables
+
 Add to your `.env.local`:
 
 ```bash
@@ -87,8 +89,36 @@ AWS_REGION=auto
 S3_BUCKET_NAME=your-bucket-name
 
 # Optional: Custom domain for public files
-CLOUDFLARE_R2_PUBLIC_URL=https://uploads.yourdomain.com
+CLOUDFLARE_R2_CUSTOM_DOMAIN=https://uploads.yourdomain.com
 ```
+
+### Custom Domain Setup (Optional)
+
+For better performance and branding, you can use a custom domain:
+
+1. **Add Custom Domain in R2 Dashboard**:
+   - Go to your R2 bucket → Settings
+   - Click "Add Custom Domain"
+   - Enter your domain (e.g., `uploads.yourdomain.com`)
+   - Cloudflare will provide DNS records to add
+
+2. **Add DNS Records**:
+   ```bash
+   # Add CNAME record in your DNS
+   uploads.yourdomain.com -> your-bucket.r2.cloudflarestorage.com
+   ```
+
+3. **SSL Certificate**: Cloudflare automatically provides SSL certificates for custom domains
+
+4. **Update Environment Variables**:
+   ```bash
+   # Add to your .env.local
+   CLOUDFLARE_R2_CUSTOM_DOMAIN=https://uploads.yourdomain.com
+   ```
+
+<Callout type="info">
+  **Built-in CDN**: Cloudflare R2 custom domains automatically include global CDN acceleration with 250+ locations worldwide.
+</Callout>
 
 ## 6. Update Your Upload Configuration
 
@@ -103,7 +133,7 @@ export const { s3,  } = createUploadConfig()
     accountId: process.env.R2_ACCOUNT_ID!, // Found in R2 dashboard
     bucket: process.env.S3_BUCKET_NAME!,
     // Optional: Custom domain for faster access
-    customDomain: process.env.CLOUDFLARE_R2_PUBLIC_URL,
+    customDomain: process.env.CLOUDFLARE_R2_CUSTOM_DOMAIN,
   })
   .defaults({
     maxFileSize: "10MB",

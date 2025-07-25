@@ -171,8 +171,8 @@ S3_REGION=us-east-1
 # Optional: Force path-style URLs (required for most self-hosted)
 S3_FORCE_PATH_STYLE=true
 
-# Optional: Custom public URL for file access
-S3_PUBLIC_URL=https://files.yourdomain.com
+# Optional: Custom domain for public files
+S3_CUSTOM_DOMAIN=https://files.yourdomain.com
 ```
 </Tab>
 <Tab value="Production">
@@ -186,10 +186,59 @@ S3_ACCESS_KEY_ID=your_access_key
 S3_SECRET_ACCESS_KEY=your_secret_key
 S3_REGION=us-east-1
 S3_FORCE_PATH_STYLE=true
-S3_PUBLIC_URL=https://files.yourdomain.com
+S3_CUSTOM_DOMAIN=https://files.yourdomain.com
 ```
 </Tab>
 </Tabs>
+
+</Step>
+
+<Step>
+
+## Configure Custom Domain (Optional)
+
+For better performance and branding, you can use a custom domain for your files.
+
+### Option 1: CDN/Reverse Proxy
+
+1. **Set up a CDN or reverse proxy** (Nginx, Cloudflare, etc.):
+   ```nginx
+   # Nginx configuration example
+   server {
+       listen 80;
+       server_name files.yourdomain.com;
+       
+       location / {
+           proxy_pass https://your-storage-service.com;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+       }
+   }
+   ```
+
+2. **Add DNS Record**:
+   ```bash
+   # Add CNAME record in your DNS
+   files.yourdomain.com -> your-cdn-or-proxy-domain.com
+   ```
+
+3. **Update Environment Variables**:
+   ```bash
+   # Add to your .env.local
+   S3_CUSTOM_DOMAIN=https://files.yourdomain.com
+   ```
+
+### Option 2: Public Bucket with Custom Domain
+
+If your S3-compatible service supports public buckets:
+
+1. **Configure public access** in your storage service
+2. **Set up DNS** to point to your storage endpoint
+3. **Update environment variables** with your custom domain
+
+<Callout type="warn">
+  **Security Note**: Public buckets should only be used for non-sensitive files. Consider using presigned URLs for private content.
+</Callout>
 
 </Step>
 
@@ -213,7 +262,7 @@ export const { s3, config } = createUploadConfig()
     // Most S3-compatible services need path-style URLs
     forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
     // Optional: Custom domain for file access
-    customDomain: process.env.S3_PUBLIC_URL,
+    customDomain: process.env.S3_CUSTOM_DOMAIN,
   })
   .defaults({
     maxFileSize: "50MB",
