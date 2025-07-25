@@ -331,7 +331,7 @@ import { s3 } from '@/lib/upload';
 export async function POST() {
   try {
     // Test creating an upload route
-    const imageUpload = s3.image().max("5MB");
+    const imageUpload = s3.image().maxFileSize("5MB");
     
     return Response.json({ 
       success: true, 

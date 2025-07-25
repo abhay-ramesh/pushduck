@@ -22,8 +22,8 @@ describe("Legacy Functionality Tests", () => {
         .build();
 
       const testRouter = s3.createRouter({
-        imageUpload: s3.image().max("5MB"),
-        documentUpload: s3.file().max("10MB"),
+        imageUpload: s3.image().maxFileSize("5MB"),
+        documentUpload: s3.file().maxFileSize("10MB"),
       });
 
       // Verify router creation
@@ -51,8 +51,8 @@ describe("Legacy Functionality Tests", () => {
         .build();
 
       const testRouter = s3.createRouter({
-        imageUpload: s3.image().max("5MB"),
-        documentUpload: s3.file().max("10MB"),
+        imageUpload: s3.image().maxFileSize("5MB"),
+        documentUpload: s3.file().maxFileSize("10MB"),
       });
 
       const handlers = testRouter.handlers;
@@ -86,7 +86,7 @@ describe("Legacy Functionality Tests", () => {
         .build();
 
       const testRouter = s3.createRouter({
-        imageUpload: s3.image().max("5MB"),
+        imageUpload: s3.image().maxFileSize("5MB"),
       });
 
       const handlers = testRouter.handlers;
@@ -145,7 +145,7 @@ describe("Legacy Functionality Tests", () => {
         .build();
 
       const testRouter = s3.createRouter({
-        imageUpload: s3.image().max("5MB"),
+        imageUpload: s3.image().maxFileSize("5MB"),
       });
 
       const handlers = testRouter.handlers;
@@ -187,7 +187,7 @@ describe("Legacy Functionality Tests", () => {
         .build();
 
       const testRouter = s3.createRouter({
-        imageUpload: s3.image().max("5MB"),
+        imageUpload: s3.image().maxFileSize("5MB"),
       });
 
       const handlers = testRouter.handlers;

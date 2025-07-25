@@ -32,7 +32,7 @@
  *
  * // 3. Define routes with validation
  * const router = s3.createRouter({
- *   profileImage: s3.image().max('2MB'),
+ *   profileImage: s3.image().maxFileSize('2MB'),
  *   documents: s3.file().types(['application/pdf']).maxFiles(5),
  * }, config);
  * ```
@@ -43,7 +43,7 @@
  *
  * const router = s3.createRouter({
  *   userFiles: s3.file()
- *     .max('50MB')
+ *     .maxFileSize('50MB')
  *     .middleware(async ({ req }) => {
  *       // Authentication
  *       const user = await authenticateUser(req);
@@ -172,7 +172,7 @@ export { createUploadConfig } from "./core/config/upload-config";
  * import { s3 } from 'pushduck/server';
  *
  * const imageSchema = s3.image()
- *   .max('5MB')
+ *   .maxFileSize('5MB')
  *   .types(['image/jpeg', 'image/png'])
  *   .refine(
  *     async ({ file }) => file.name.length <= 100,
@@ -187,10 +187,10 @@ export { createUploadConfig } from "./core/config/upload-config";
  *
  * @example Array and Object Schemas
  * ```typescript
- * const gallerySchema = s3.image().max('2MB').maxFiles(6);
+ * const gallerySchema = s3.image().maxFileSize('2MB').maxFiles(6);
  *
  * const formSchema = s3.object({
- *   avatar: s3.image().max('1MB'),
+ *   avatar: s3.image().maxFileSize('1MB'),
  *   documents: s3.file().types(['application/pdf']).maxFiles(5),
  * });
  * ```
@@ -216,7 +216,7 @@ export {
  * import { createS3RouterWithConfig, S3Route, createUploadConfig } from 'pushduck/server';
  *
  * const router = createS3RouterWithConfig({
- *   profileImage: s3.image().max('2MB'),
+ *   profileImage: s3.image().maxFileSize('2MB'),
  *   documents: s3.file().types(['application/pdf']).maxFiles(5),
  * }, config);
  *
@@ -228,7 +228,7 @@ export {
  * ```typescript
  * const authenticatedRouter = createS3RouterWithConfig({
  *   userFiles: s3.file()
- *     .max('50MB')
+ *     .maxFileSize('50MB')
  *     .middleware(async ({ req }) => {
  *       const user = await authenticateUser(req);
  *       return { userId: user.id, organizationId: user.orgId };

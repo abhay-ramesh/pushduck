@@ -66,8 +66,8 @@ Pushduck provides seamless integration with both Next.js App Router and Pages Ro
       .build();
 
     export const uploadRouter = createS3Router({
-      imageUpload: s3.image().max("5MB"),
-      documentUpload: s3.file().max("10MB")
+      imageUpload: s3.image().maxFileSize("5MB"),
+      documentUpload: s3.file().maxFileSize("10MB")
     });
 
     export type AppUploadRouter = typeof uploadRouter;
@@ -152,7 +152,7 @@ const uploadRouter = createS3Router({
   // Profile pictures with authentication
   profilePicture: s3
     .image()
-    .max("2MB")
+    .maxFileSize("2MB")
     .formats(["jpeg", "png", "webp"])
     .middleware(async ({ req }) => {
       const session = await getServerSession(authOptions);
@@ -170,7 +170,7 @@ const uploadRouter = createS3Router({
   // Document uploads for authenticated users
   documents: s3
     .file()
-    .max("10MB")
+    .maxFileSize("10MB")
     .types(["application/pdf", "text/plain", "application/msword"])
     .middleware(async ({ req }) => {
       const session = await getServerSession(authOptions);
@@ -188,7 +188,7 @@ const uploadRouter = createS3Router({
   // Public image uploads (no auth required)
   publicImages: s3
     .image()
-    .max("5MB")
+    .maxFileSize("5MB")
     .formats(["jpeg", "png", "webp"])
     // No middleware = publicly accessible
 });
@@ -226,7 +226,7 @@ const { s3, createS3Router } = createUploadConfig()
 const uploadRouter = createS3Router({
   imageUpload: s3
     .image()
-    .max("5MB")
+    .maxFileSize("5MB")
     .middleware(async ({ req }) => {
       // Convert Web Request to get session
       const session = await getSession({ req: req as any });
@@ -397,7 +397,7 @@ export const uploadRouter = createS3Router({
   // Profile pictures - single image, authenticated
   profilePicture: s3
     .image()
-    .max("2MB")
+    .maxFileSize("2MB")
     .maxFiles(1)
     .formats(["jpeg", "png", "webp"])
     .middleware(async ({ req }) => {
@@ -409,7 +409,7 @@ export const uploadRouter = createS3Router({
   // Gallery images - multiple images, authenticated
   gallery: s3
     .image()
-    .max("5MB")
+    .maxFileSize("5MB")
     .maxFiles(10)
     .formats(["jpeg", "png", "webp"])
     .middleware(async ({ req }) => {
@@ -421,7 +421,7 @@ export const uploadRouter = createS3Router({
   // Documents - various file types, authenticated
   documents: s3
     .file()
-    .max("10MB")
+    .maxFileSize("10MB")
     .maxFiles(5)
     .types([
       "application/pdf",
@@ -438,7 +438,7 @@ export const uploadRouter = createS3Router({
   // Public uploads - no authentication required
   public: s3
     .image()
-    .max("1MB")
+    .maxFileSize("1MB")
     .maxFiles(1)
     .formats(["jpeg", "png"])
     // No middleware = public access

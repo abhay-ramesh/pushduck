@@ -163,7 +163,7 @@ const uploadRouter = s3.createRouter({
   // Image upload route with size and format validation
   imageUpload: s3
     .image()
-    .max("5MB")
+    .maxFileSize("5MB")
     .formats(["jpeg", "jpg", "png", "webp"])
     .middleware(async ({ file, metadata }) => {
       console.log("Processing image upload:", file.name);
@@ -181,7 +181,7 @@ const uploadRouter = s3.createRouter({
   // File upload route  
   fileUpload: s3
     .file()
-    .max("10MB")
+    .maxFileSize("10MB")
     .types([
       "application/pdf",
       "application/msword", 
@@ -217,8 +217,8 @@ export const { GET, POST } = uploadRouter.handlers;
     content = `import { s3 } from "${importPath}";
 
 const uploadRouter = s3.createRouter({
-  imageUpload: s3.image().max("5MB").formats(["jpeg", "jpg", "png", "webp"]),
-  fileUpload: s3.file().max("10MB").types(["application/pdf", "text/plain", "image/*"]),
+      imageUpload: s3.image().maxFileSize("5MB").formats(["jpeg", "jpg", "png", "webp"]),
+      fileUpload: s3.file().maxFileSize("10MB").types(["application/pdf", "text/plain", "image/*"]),
 });
 
 export type AppUploadRouter = typeof uploadRouter;

@@ -285,7 +285,7 @@ import { authOptions } from '@/lib/auth'
 const s3Router = s3.createRouter({
   // Image uploads for profile pictures
   imageUpload: s3.image()
-    .max("5MB")
+    .maxFileSize("5MB")
     .maxFiles(1)
     .formats(["jpeg", "png", "webp"])
     .middleware(async ({ req, metadata }) => {
@@ -304,7 +304,7 @@ const s3Router = s3.createRouter({
 
   // Document uploads
   documentUpload: s3.file()
-    .max("10MB")
+    .maxFileSize("10MB")
     .maxFiles(5)
     .types(["application/pdf", "text/plain", "application/msword"])
     .middleware(async ({ req, metadata }) => {

@@ -60,8 +60,8 @@ The API route imports the pre-configured instances:
 import { s3 } from "../../../upload";
 
 const s3Router = s3.createRouter({
-  imageUpload: s3.image().max("5MB").formats(["jpeg", "png"]),
-  documentUpload: s3.file().max("10MB").types(["application/pdf"]),
+  imageUpload: s3.image().maxFileSize("5MB").formats(["jpeg", "png"]),
+  documentUpload: s3.file().maxFileSize("10MB").types(["application/pdf"]),
 });
 
 // Uses the configuration from upload.ts automatically!

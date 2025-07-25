@@ -65,8 +65,8 @@ Qwik is a revolutionary web framework focused on resumability and edge optimizat
       .build();
 
     export const uploadRouter = createS3Router({
-      imageUpload: s3.image().max("5MB"),
-      documentUpload: s3.file().max("10MB")
+      imageUpload: s3.image().maxFileSize("5MB"),
+      documentUpload: s3.file().maxFileSize("10MB")
     });
 
     export type AppUploadRouter = typeof uploadRouter;
@@ -167,7 +167,7 @@ export const uploadRouter = createS3Router({
   // Private uploads with cookie-based authentication
   privateUpload: s3
     .image()
-    .max("5MB")
+    .maxFileSize("5MB")
     .middleware(async ({ req }) => {
       const cookies = req.headers.get('Cookie');
       const sessionId = parseCookie(cookies)?.sessionId;
@@ -190,7 +190,7 @@ export const uploadRouter = createS3Router({
   // Public uploads (no auth)
   publicUpload: s3
     .image()
-    .max("2MB")
+    .maxFileSize("2MB")
     // No middleware = public access
 });
 

@@ -25,7 +25,7 @@
  * });
  *
  * const router = s3.createRouter({
- *   profileImage: s3.image().max('2MB'),
+ *   profileImage: s3.image().maxFileSize('2MB'),
  *   documents: s3.file().types(['application/pdf']).maxFiles(5),
  * }, config);
  * ```
@@ -34,7 +34,7 @@
  * ```typescript
  * const authenticatedRouter = s3.createRouter({
  *   userFiles: s3.file()
- *     .max('10MB')
+ *     .maxFileSize('10MB')
  *     .middleware(async ({ req }) => {
  *       const user = await authenticateUser(req);
  *       return { userId: user.id, organizationId: user.orgId };
@@ -279,7 +279,7 @@ export interface S3RoutePathConfig<TMetadata = any> {
  * @example Basic Route
  * ```typescript
  * const imageRoute = new S3Route(
- *   s3.image().max('5MB'),
+ *   s3.image().maxFileSize('5MB'),
  *   {
  *     paths: { prefix: 'images' },
  *     onUploadComplete: async ({ file, url }) => {
@@ -292,7 +292,7 @@ export interface S3RoutePathConfig<TMetadata = any> {
  * @example Fluent API
  * ```typescript
  * const userFileRoute = s3.file()
- *   .max('10MB')
+ *   .maxFileSize('10MB')
  *   .middleware(async ({ req }) => {
  *     const user = await authenticateUser(req);
  *     return { userId: user.id };

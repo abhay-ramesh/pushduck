@@ -208,10 +208,10 @@ const router = s3.createRouter({
   // Define your upload routes with validation
   imageUpload: s3
     .image()
-    .max("10MB")
+    .maxFileSize("10MB")
     .formats(["jpeg", "png", "webp"]),
 
-  documentUpload: s3.file().max("50MB").types(["application/pdf", "application/msword"]),
+  documentUpload: s3.file().maxFileSize("50MB").types(["application/pdf", "application/msword"]),
 });
 
 export { router as POST };

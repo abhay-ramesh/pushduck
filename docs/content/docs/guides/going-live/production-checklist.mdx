@@ -34,7 +34,7 @@ Ensure your file upload system is production-ready with this comprehensive check
     
     const s3Router = s3.createRouter({
       userFiles: s3.image()
-        .max("5MB")
+        .maxFileSize("5MB")
         .maxFiles(10)
         .middleware(async ({ req, metadata }) => {
           const session = await getServerSession(req)
@@ -69,7 +69,7 @@ Ensure your file upload system is production-ready with this comprehensive check
     ```typescript
     // ✅ Comprehensive validation
     userPhotos: s3.image()
-      .max("10MB")
+      .maxFileSize("10MB")
       .maxFiles(5)
       .formats(["jpeg", "png", "webp"])
     ```
@@ -134,7 +134,7 @@ Ensure your file upload system is production-ready with this comprehensive check
     // ✅ Cache headers configuration
     const s3Router = s3.createRouter({
       publicImages: s3.image()
-        .max("5MB")
+        .maxFileSize("5MB")
         .maxFiles(10)
         .onUploadComplete(async ({ files }) => {
           // Set cache headers for uploaded files

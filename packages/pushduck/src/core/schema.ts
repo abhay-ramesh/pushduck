@@ -31,7 +31,7 @@
  * @example Chainable API
  * ```typescript
  * const imageSchema = s3.image()
- *   .max('5MB')
+ *   .maxFileSize('5MB')
  *   .types(['image/jpeg', 'image/png'])
  *   .refine(
  *     async ({ file }) => file.name.includes('avatar'),
@@ -47,7 +47,7 @@
  * @example Object Schema
  * ```typescript
  * const formSchema = s3.object({
- *   avatar: s3.image().max('1MB'),
+ *   avatar: s3.image().maxFileSize('1MB'),
  *   documents: s3.file().types(['application/pdf']).maxFiles(5),
  *   metadata: s3.object({
  *     title: s3.string(),
@@ -388,7 +388,7 @@ export abstract class S3Schema<TInput = any, TOutput = TInput> {
    *
    * @example
    * ```typescript
-   * const optionalImage = s3.image().max('5MB').optional();
+   * const optionalImage = s3.image().maxFileSize('5MB').optional();
    *
    * // Both of these will pass validation
    * await optionalImage.validate(undefined); // ✅ Success
@@ -412,7 +412,7 @@ export abstract class S3Schema<TInput = any, TOutput = TInput> {
    * @example Adding Metadata
    * ```typescript
    * const enhancedSchema = s3.file()
-   *   .max('10MB')
+   *   .maxFileSize('10MB')
    *   .transform(async ({ file, metadata }) => ({
    *     originalName: file.name,
    *     size: file.size,
@@ -542,7 +542,7 @@ export abstract class S3Schema<TInput = any, TOutput = TInput> {
  * @example Chainable API
  * ```typescript
  * const imageSchema = s3.file()
- *   .max('5MB')
+ *   .maxFileSize('5MB')
  *   .types(['image/jpeg', 'image/png', 'image/webp'])
  *   .extensions(['.jpg', '.jpeg', '.png', '.webp'])
  *   .refine(
@@ -678,16 +678,36 @@ export class S3FileSchema extends S3Schema<File, File> {
   /**
    * Sets the maximum file size constraint.
    *
+   * @deprecated Use `maxFileSize()` instead. This method will be removed in a future version.
    * @param size - Maximum size as string (e.g., '10MB', '500KB') or number (bytes)
    * @returns New schema instance with max size constraint
    *
    * @example
    * ```typescript
-   * const schema = s3.file().max('10MB');
-   * const schema2 = s3.file().max(10485760); // 10MB in bytes
+   * const schema = s3.file().maxFileSize('10MB');
+   * const schema2 = s3.file().maxFileSize(10485760); // 10MB in bytes
    * ```
    */
   max(size: string | number): S3FileSchema {
+    console.warn(
+      "⚠️  The `max()` method is deprecated. Use `maxFileSize()` instead."
+    );
+    return new S3FileSchema({ ...this.constraints, maxSize: size });
+  }
+
+  /**
+   * Sets the maximum file size constraint.
+   *
+   * @param size - Maximum size as string (e.g., '10MB', '500KB') or number (bytes)
+   * @returns New schema instance with max size constraint
+   *
+   * @example
+   * ```typescript
+   * const schema = s3.file().maxFileSize('10MB');
+   * const schema2 = s3.file().maxFileSize(10485760); // 10MB in bytes
+   * ```
+   */
+  maxFileSize(size: string | number): S3FileSchema {
     return new S3FileSchema({ ...this.constraints, maxSize: size });
   }
 
@@ -758,7 +778,7 @@ export class S3FileSchema extends S3Schema<File, File> {
    * @example
    * ```typescript
    * const gallerySchema = s3.image()
-   *   .max('2MB')
+   *   .maxFileSize('2MB')
    *   .maxFiles(6); // Maximum 6 images, each max 2MB
    *
    * const documentsSchema = s3.file()
@@ -785,7 +805,7 @@ export class S3FileSchema extends S3Schema<File, File> {
    * @example Authentication Middleware
    * ```typescript
    * const authenticatedUpload = s3.file()
-   *   .max('10MB')
+   *   .maxFileSize('10MB')
    *   .middleware(async ({ req }) => {
    *     const user = await authenticateRequest(req);
    *     if (!user) throw new Error('Unauthorized');
@@ -1017,7 +1037,29 @@ export class S3ImageSchema extends S3FileSchema {
   }
 
   // Override methods to maintain S3ImageSchema type
+  /**
+   * @deprecated Use `maxFileSize()` instead. This method will be removed in a future version.
+   */
   override max(size: string | number): S3ImageSchema {
+    console.warn(
+      "⚠️  The `max()` method is deprecated. Use `maxFileSize()` instead."
+    );
+    return new S3ImageSchema({ ...this.constraints, maxSize: size });
+  }
+
+  /**
+   * Sets the maximum file size constraint.
+   *
+   * @param size - Maximum size as string (e.g., '10MB', '500KB') or number (bytes)
+   * @returns New schema instance with max size constraint
+   *
+   * @example
+   * ```typescript
+   * const schema = s3.image().maxFileSize('10MB');
+   * const schema2 = s3.image().maxFileSize(10485760); // 10MB in bytes
+   * ```
+   */
+  maxFileSize(size: string | number): S3ImageSchema {
     return new S3ImageSchema({ ...this.constraints, maxSize: size });
   }
 
@@ -1043,7 +1085,7 @@ export class S3ImageSchema extends S3FileSchema {
    * @example
    * ```typescript
    * const gallerySchema = s3.image()
-   *   .max('2MB')
+   *   .maxFileSize('2MB')
    *   .formats(['jpeg', 'png'])
    *   .maxFiles(6); // Maximum 6 images, each max 2MB
    * ```

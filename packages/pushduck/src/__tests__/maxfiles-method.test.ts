@@ -13,7 +13,7 @@ describe("maxFiles Method", () => {
       })
       .build();
 
-    const schema = s3.image().max("2MB").maxFiles(6);
+    const schema = s3.image().maxFileSize("2MB").maxFiles(6);
 
     expect(schema._type).toBe("array");
     expect(schema).toBeInstanceOf(S3ArraySchema);
@@ -62,7 +62,7 @@ describe("maxFiles Method", () => {
       })
       .build();
 
-    const schema = s3.image().max("1MB").maxFiles(2);
+    const schema = s3.image().maxFileSize("1MB").maxFiles(2);
 
     // Create mock image files
     const createMockImage = (name: string) =>
@@ -88,7 +88,7 @@ describe("maxFiles Method", () => {
       .build();
 
     const router = s3.createRouter({
-      gallery: s3.image().max("2MB").maxFiles(6),
+      gallery: s3.image().maxFileSize("2MB").maxFiles(6),
       documents: s3.file().types(["application/pdf"]).maxFiles(5),
     });
 

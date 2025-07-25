@@ -72,9 +72,9 @@ const { s3, config } = createUploadConfig()
 
 // Create router with your upload routes
 const router = s3.createRouter({
-  imageUpload: s3.image().max('5MB'),
+  imageUpload: s3.image().maxFileSize('5MB'),
   documentUpload: s3.file({ maxSize: '10MB' }),
-  avatarUpload: s3.image().max('2MB').middleware(async ({ metadata }) => ({
+  avatarUpload: s3.image().maxFileSize('2MB').middleware(async ({ metadata }) => ({
     ...metadata,
     userId: metadata.userId || 'anonymous',
   })),
@@ -331,7 +331,7 @@ createUploadConfig().provider("minio", {
 
 ```typescript
 // Image validation
-s3.image().max('5MB')
+s3.image().maxFileSize('5MB')
 
 // File validation
 s3.file({ maxSize: '10MB', allowedTypes: ['application/pdf'] })
