@@ -1,9 +1,13 @@
 # Pushduck
 
-![npm](https://img.shields.io/npm/dm/pushduck)
-![npm](https://img.shields.io/npm/v/pushduck)
-![GitHub](https://img.shields.io/github/license/abhay-ramesh/pushduck)
-![example workflow](https://github.com/abhay-ramesh/pushduck/actions/workflows/ci.yml/badge.svg)
+[![NPM Version](https://img.shields.io/npm/v/pushduck?style=flat&colorA=18181B&colorB=374151)](https://www.npmjs.com/package/pushduck)
+[![NPM Downloads](https://img.shields.io/npm/dm/pushduck?style=flat&colorA=18181B&colorB=374151)](https://www.npmjs.com/package/pushduck)
+[![Bundle Size](https://img.shields.io/bundlephobia/minzip/pushduck?style=flat&colorA=18181B&colorB=374151)](https://bundlephobia.com/package/pushduck)
+[![GitHub Stars](https://img.shields.io/github/stars/abhay-ramesh/pushduck?style=flat&colorA=18181B&colorB=374151)](https://github.com/abhay-ramesh/pushduck)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat&colorA=18181B&colorB=3178C6)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat&colorA=18181B&colorB=F59E0B)](https://opensource.org/licenses/MIT)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-7289DA?style=flat&colorA=18181B&colorB=7289DA)](https://discord.gg/pushduck)
+[![Twitter](https://img.shields.io/badge/Twitter-Share%20on%20Twitter-1DA1F2?style=flat&colorA=18181B&colorB=1DA1F2)](https://twitter.com/intent/tweet?text=Just%20discovered%20%40pushduck%20-%20the%20fastest%20way%20to%20add%20file%20uploads%20to%20any%20web%20app!%20🦆%20https%3A//github.com/abhay-ramesh/pushduck)
 
 ![](https://pushduck.dev/banner.png)
 
