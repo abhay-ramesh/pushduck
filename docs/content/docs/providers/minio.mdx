@@ -151,6 +151,8 @@ sudo certbot --nginx -d minio-console.yourdomain.com
 
 ## 🔧 Configure Your App
 
+### Environment Variables
+
 Add to your `.env.local`:
 
 ```bash
@@ -162,9 +164,39 @@ AWS_ENDPOINT_URL=http://localhost:9000
 AWS_REGION=us-east-1
 S3_BUCKET_NAME=my-app-uploads
 
-# Optional: Custom public URL
-MINIO_PUBLIC_URL=https://uploads.yourdomain.com
+# Optional: Custom domain for public files
+MINIO_CUSTOM_DOMAIN=https://uploads.yourdomain.com
 ```
+
+### Custom Domain Setup (Optional)
+
+For production deployments, you can use a custom domain:
+
+1. **Configure Reverse Proxy** (Nginx/Apache):
+   ```nginx
+   server {
+       listen 80;
+       server_name uploads.yourdomain.com;
+       
+       location / {
+           proxy_pass http://localhost:9000;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+       }
+   }
+   ```
+
+2. **Add DNS Record**:
+   ```bash
+   # Add A record in your DNS
+   uploads.yourdomain.com -> your-server-ip
+   ```
+
+3. **SSL Certificate** (Recommended):
+   ```bash
+   # Using Let's Encrypt
+   certbot --nginx -d uploads.yourdomain.com
+   ```
 
 ## 📝 Update Your Upload Configuration
 
@@ -181,8 +213,8 @@ export const { s3,  } = createUploadConfig()
     bucket: process.env.S3_BUCKET_NAME!,
     // Force path-style URLs for MinIO
     forcePathStyle: true,
-    // Optional: Custom public URL for file access
-    publicUrl: process.env.MINIO_PUBLIC_URL,
+    // Optional: Custom domain for public files
+    customDomain: process.env.MINIO_CUSTOM_DOMAIN,
   })
   .defaults({
     maxFileSize: "100MB", // MinIO handles large files well

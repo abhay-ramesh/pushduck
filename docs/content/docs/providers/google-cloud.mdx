@@ -111,8 +111,8 @@ GCS_PROJECT_ID=your-project-id
 GCS_BUCKET_NAME=my-app-uploads-bucket
 
 # Optional: Custom domain for public files
-GCS_PUBLIC_URL=https://storage.googleapis.com/my-app-uploads-bucket
-# Or with custom domain: GCS_PUBLIC_URL=https://uploads.yourdomain.com
+GCS_CUSTOM_DOMAIN=https://storage.googleapis.com/my-app-uploads-bucket
+# Or with custom domain: GCS_CUSTOM_DOMAIN=https://uploads.yourdomain.com
 ```
 
 ## 7. Update Your Upload Configuration
@@ -126,8 +126,8 @@ export const { s3,  } = createUploadConfig()
     projectId: process.env.GCS_PROJECT_ID!,
     keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS!,
     bucket: process.env.GCS_BUCKET_NAME!,
-    // Optional: Custom public URL
-    publicUrl: process.env.GCS_PUBLIC_URL,
+    // Optional: Custom domain for public files
+    customDomain: process.env.GCS_CUSTOM_DOMAIN,
   })
   .defaults({
     maxFileSize: "100MB", // GCS supports large files

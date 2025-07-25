@@ -199,8 +199,10 @@ AWS_SECRET_ACCESS_KEY=your_secret_access_key
 AWS_REGION=us-east-1
 AWS_S3_BUCKET_NAME=your-app-uploads-prod
 
-# Optional: Enable S3 debug logging
+# Optional: Custom domain for public files (CDN, CloudFront, etc.)
+S3_CUSTOM_DOMAIN=https://cdn.yourdomain.com
 
+# Optional: Enable S3 debug logging
 DEBUG=aws-sdk:\*
 
 ````
@@ -224,10 +226,104 @@ AWS_ACCESS_KEY_ID=your_access_key_id
 AWS_SECRET_ACCESS_KEY=your_secret_access_key
 AWS_REGION=us-east-1
 AWS_S3_BUCKET_NAME=your-app-uploads-prod
+
+# Optional: Custom domain for public files (CDN, CloudFront, etc.)
+S3_CUSTOM_DOMAIN=https://cdn.yourdomain.com
 ````
 
 </Tab>
 </Tabs>
+
+</Step>
+
+<Step>
+
+## Configure Custom Domain (Optional)
+
+For better performance and branding, you can use a custom domain for your files.
+
+### Option 1: CloudFront CDN (Recommended)
+
+1. **Create CloudFront Distribution**:
+   - Go to [CloudFront Console](https://console.aws.amazon.com/cloudfront/)
+   - Click "Create Distribution"
+   - Origin Domain: Select your S3 bucket
+   - Origin Access: Use "Origin access control settings"
+   - Default Cache Behavior: Allow all HTTP methods
+   - Alternate Domain Names: Add your custom domain (e.g., `cdn.yourdomain.com`)
+   - SSL Certificate: Request or import your certificate
+
+2. **Add DNS Record**:
+   ```bash
+   # Add CNAME record in your DNS
+   cdn.yourdomain.com -> your-cloudfront-distribution.cloudfront.net
+   ```
+
+3. **Update Environment Variables**:
+   ```bash
+   # Add to your .env.local
+   S3_CUSTOM_DOMAIN=https://cdn.yourdomain.com
+   ```
+
+### Option 2: Public Bucket with Custom Domain
+
+If your bucket is public (not recommended for production):
+
+1. **Configure Bucket for Website Hosting**:
+   - Go to your S3 bucket → Properties
+   - Enable "Static website hosting"
+   - Set index document to `index.html`
+   - Note the website endpoint
+
+2. **Add DNS Record**:
+   ```bash
+   # Add CNAME record in your DNS
+   uploads.yourdomain.com -> your-bucket.s3-website-region.amazonaws.com
+   ```
+
+3. **Update Environment Variables**:
+   ```bash
+   # Add to your .env.local
+   S3_CUSTOM_DOMAIN=https://uploads.yourdomain.com
+   ```
+
+<Callout type="warn">
+  **Security Note**: Public buckets are not recommended for production. Use CloudFront with proper access controls instead.
+</Callout>
+
+</Step>
+
+<Step>
+
+## Configure Your App
+
+Set up pushduck with your AWS S3 configuration:
+
+```typescript
+// lib/upload.ts
+import { createUploadConfig } from "pushduck/server";
+
+export const { s3, config } = createUploadConfig()
+  .provider("aws", {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: process.env.AWS_REGION!,
+    bucket: process.env.AWS_S3_BUCKET_NAME!,
+    // Optional: Custom domain for public files
+    customDomain: process.env.S3_CUSTOM_DOMAIN,
+  })
+  .defaults({
+    maxFileSize: "10MB",
+    acl: "private", // Use 'public-read' for public files
+  })
+  .build();
+
+export { s3 };
+```
+
+<Callout type="info">
+  **Custom Domain**: When `customDomain` is configured, public URLs will use your custom domain instead of the S3 URL. Internal operations (upload, delete) still use S3 endpoints.
+</Callout>
 
 </Step>
 
