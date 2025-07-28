@@ -9,7 +9,6 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat&colorA=18181B&colorB=3178C6)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat&colorA=18181B&colorB=F59E0B)](https://opensource.org/licenses/MIT)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/abhay-ramesh/pushduck/ci.yml?style=flat&colorA=18181B&colorB=374151)](https://github.com/abhay-ramesh/pushduck/actions)
-[![Coverage](https://img.shields.io/codecov/c/github/abhay-ramesh/pushduck?style=flat&colorA=18181B&colorB=374151)](https://codecov.io/gh/abhay-ramesh/pushduck)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-7289DA?style=flat&colorA=18181B&colorB=7289DA)](https://pushduck.dev/discord)
 [![Twitter](https://img.shields.io/badge/Twitter-Share%20on%20Twitter-1DA1F2?style=flat&colorA=18181B&colorB=1DA1F2)](https://twitter.com/intent/tweet?text=Just%20discovered%20%40pushduck%20-%20the%20fastest%20way%20to%20add%20file%20uploads%20to%20any%20web%20app!%20🦆%20https%3A//github.com/abhay-ramesh/pushduck)
 
