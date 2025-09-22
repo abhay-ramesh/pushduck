@@ -719,7 +719,8 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
   async generatePresignedUrls<K extends keyof TRoutes>(
     routeName: K,
     req: NextRequest,
-    files: S3FileMetadata[]
+    files: S3FileMetadata[],
+    metadata?: any
   ): Promise<PresignedUrlResponse[]> {
     const route = this.getRoute(routeName);
     if (!route) {
@@ -733,11 +734,15 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     for (const file of files) {
       try {
         // 1. Run middleware chain
-        let metadata: any = {};
+        let fileMetadata = metadata || {};
         const middlewareChain = routeConfig.middleware || [];
 
         for (const middleware of middlewareChain) {
-          metadata = await middleware({ req, file, metadata });
+          fileMetadata = await middleware({
+            req,
+            file,
+            metadata: fileMetadata,
+          });
         }
 
         // 2. Validate file against schema (metadata only)
@@ -753,13 +758,13 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
 
         // 3. Call onUploadStart hook
         if (routeConfig.onUploadStart) {
-          await routeConfig.onUploadStart({ file, metadata });
+          await routeConfig.onUploadStart({ file, metadata: fileMetadata });
         }
 
         // 4. Generate hierarchical file key
         const key = generateHierarchicalPath(
           { name: file.name, type: file.type },
-          metadata,
+          fileMetadata,
           String(routeName),
           routeConfig.paths,
           uploadConfig.paths,
@@ -772,7 +777,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           contentLength: file.size,
           metadata: {
             originalName: file.name,
-            userId: metadata.userId || metadata.user?.id || "anonymous",
+            userId: fileMetadata.userId || fileMetadata.user?.id || "anonymous",
             routeName: String(routeName),
           },
         });
@@ -782,7 +787,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           file,
           presignedUrl: presignedResult.url,
           key: presignedResult.key,
-          metadata,
+          metadata: fileMetadata,
         });
       } catch (error) {
         const err =
@@ -923,21 +928,26 @@ export function createS3RouterWithConfig<TRoutes extends S3RouterDefinition>(
 // Type Inference Utilities
 // ========================================
 
-export type InferRouterRoutes<T> =
-  T extends S3Router<infer TRoutes> ? TRoutes : never;
+export type InferRouterRoutes<T> = T extends S3Router<infer TRoutes>
+  ? TRoutes
+  : never;
 
-export type InferRouteInput<T> =
-  T extends S3Route<infer TSchema, any> ? InferS3Input<TSchema> : never;
+export type InferRouteInput<T> = T extends S3Route<infer TSchema, any>
+  ? InferS3Input<TSchema>
+  : never;
 
-export type InferRouteOutput<T> =
-  T extends S3Route<infer TSchema, any> ? InferS3Output<TSchema> : never;
+export type InferRouteOutput<T> = T extends S3Route<infer TSchema, any>
+  ? InferS3Output<TSchema>
+  : never;
 
-export type InferRouteMetadata<T> =
-  T extends S3Route<any, infer TMetadata> ? TMetadata : never;
+export type InferRouteMetadata<T> = T extends S3Route<any, infer TMetadata>
+  ? TMetadata
+  : never;
 
-export type GetRoute<TRouter, TRouteName> =
-  TRouter extends S3Router<infer TRoutes>
-    ? TRouteName extends keyof TRoutes
-      ? TRoutes[TRouteName]
-      : never
-    : never;
+export type GetRoute<TRouter, TRouteName> = TRouter extends S3Router<
+  infer TRoutes
+>
+  ? TRouteName extends keyof TRoutes
+    ? TRoutes[TRouteName]
+    : never
+  : never;

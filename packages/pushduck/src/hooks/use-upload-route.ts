@@ -395,7 +395,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
   );
 
   const startUpload = useCallback(
-    async (uploadFiles: File[]) => {
+    async (uploadFiles: File[], metadata?: any) => {
       if (!uploadFiles.length) {
         setIsUploading(false);
         return;
@@ -431,7 +431,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ files: fileMetadata }),
+            body: JSON.stringify({ files: fileMetadata, metadata }),
           }
         );
 

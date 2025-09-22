@@ -48,7 +48,7 @@ export type RouteUploadOptions = UploadRouteConfig;
 
 export interface S3RouteUploadResult {
   files: S3UploadedFile[];
-  uploadFiles: (files: File[]) => Promise<void>;
+  uploadFiles: (files: File[], metadata?: any) => Promise<void>;
   reset: () => void;
   isUploading: boolean;
   errors: string[];
@@ -94,7 +94,7 @@ export interface TypedUploadedFile<TOutput = any> extends S3UploadedFile {
 // Enhanced hook return with route-specific types
 export interface TypedRouteHook<
   TRouter = any,
-  TRouteName extends string = string,
+  TRouteName extends string = string
 > {
   files: TypedUploadedFile[];
   uploadFiles: (files: File[], metadata?: any) => Promise<any[]>;
@@ -119,18 +119,18 @@ import type { S3Router } from "../core/router/router-v2";
 export type { S3Router };
 
 // Extract route names as string literal union
-export type RouterRouteNames<T> =
-  T extends S3Router<infer TRoutes> ? keyof TRoutes : never;
+export type RouterRouteNames<T> = T extends S3Router<infer TRoutes>
+  ? keyof TRoutes
+  : never;
 
 // Enhanced: Infer complete client interface from server router with optional configuration
 // Each route property returns a hook factory function that accepts optional configuration
-export type InferClientRouter<T> =
-  T extends S3Router<infer TRoutes>
-    ? {
-        readonly [K in keyof TRoutes]: (
-          options?: RouteUploadOptions
-        ) => TypedRouteHook<T, K extends string ? K : string>;
-      }
-    : never;
+export type InferClientRouter<T> = T extends S3Router<infer TRoutes>
+  ? {
+      readonly [K in keyof TRoutes]: (
+        options?: RouteUploadOptions
+      ) => TypedRouteHook<T, K extends string ? K : string>;
+    }
+  : never;
 
 // Legacy types removed - use TypedRouteHook and ClientConfig instead

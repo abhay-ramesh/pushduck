@@ -45,7 +45,7 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
       const body = await request.json();
 
       if (action === "presign") {
-        const { files } = body;
+        const { files, metadata } = body;
         if (!Array.isArray(files)) {
           return new Response(
             JSON.stringify({ error: "Files array is required" }),
@@ -62,7 +62,8 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
         const results = await router.generatePresignedUrls(
           routeName,
           routerRequest,
-          files
+          files,
+          metadata
         );
 
         // Format response to match client expectations

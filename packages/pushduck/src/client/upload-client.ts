@@ -52,7 +52,7 @@ function useTypedRoute<TRouter extends S3Router<any>>(
 
   const enhancedUploadFiles = useCallback(
     async (files: File[], metadata?: any) => {
-      await hookResult.uploadFiles(files);
+      await hookResult.uploadFiles(files, metadata);
       return hookResult.files.map((file) => ({
         ...file,
         metadata,
