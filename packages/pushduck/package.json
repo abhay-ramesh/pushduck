@@ -147,7 +147,7 @@
     "express": "^5.1.0",
     "fastify": "^5.4.0",
     "gzip-size-cli": "^5.1.0",
-    "happy-dom": "^18.0.1",
+    "happy-dom": "^19.0.1",
     "next": "^15.3.4",
     "prettier": "^3.6.2",
     "react": "^19.1.0",
