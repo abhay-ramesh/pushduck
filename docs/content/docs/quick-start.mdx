@@ -1,457 +1,382 @@
 ---
 title: Quick Start
-description: Get production-ready file uploads working in your Next.js app in under 2 minutes.
+icon: Rocket
 ---
 
 import { Step, Steps } from "fumadocs-ui/components/steps";
 import { Callout } from "fumadocs-ui/components/callout";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 
-## Quick Start
+You can have file uploads in your web app in a few minutes with Pushduck. This guide will walk you through the steps to set it up with any framework.
 
-Get **production-ready file uploads** working in your Next.js app in under 2 minutes with our CLI tool. Interactive setup, just one command.
+Before you start, make sure you have an S3-compatible bucket ready. You can use AWS S3, Cloudflare R2, or any other S3-compatible service.
 
-<Callout type="success">
-  **🚀 New!** Use our CLI for instant setup: `npx @pushduck/cli@latest init` - handles everything automatically!
-</Callout>
-
-## Choose Your Setup Method
-
-<Tabs items={["CLI Setup (Recommended)", "Manual Setup"]}>
-  <Tab value="CLI Setup (Recommended)">
-    
-### ⚡ Interactive CLI Setup
-    
-Get everything set up instantly with our interactive CLI:
-
-```bash
-npx @pushduck/cli@latest init
-```
-
-That's it! The CLI will:
-- ✅ Install dependencies automatically
-- ✅ Set up your chosen provider (AWS S3, Cloudflare R2, etc.)
-- ✅ Create API routes with type safety
-- ✅ Generate example components
-- ✅ Configure environment variables
-- ✅ Create and configure your S3 bucket
-
-**What you get:**
-- Production-ready upload API in `app/api/upload/route.ts`
-- Type-safe upload client in `lib/upload-client.ts`
-- Example components in `components/ui/`
-- Working demo page in `app/upload/page.tsx`
-
-[**📚 Full CLI Documentation →**](/docs/api/cli)
-
-**Example CLI Output:**
-```
-┌─────────────────────────────────────────────────────────────┐
-│                                                             │
-│   🚀 Welcome to Pushduck                                    │
-│                                                             │
-│   Let's get your file uploads working in 2 minutes!         │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-
-🔍 Detecting your project...
-  ✓ Next.js App Router detected
-  ✓ TypeScript configuration found
-
-? Which cloud storage provider would you like to use?
-❯ AWS S3 (recommended)
-  Cloudflare R2 (S3-compatible, global edge)
-  DigitalOcean Spaces (simple, affordable)
-
-✨ Generated files:
-  ├── app/api/upload/route.ts
-  ├── app/upload/page.tsx
-  ├── components/ui/upload-button.tsx
-  ├── lib/upload-client.ts
-  └── .env.example
-
-🎉 Setup complete! Your uploads are ready.
-```
-
-  </Tab>
-  <Tab value="Manual Setup">
-
-### 🔧 Manual Setup
-
-If you prefer to set things up manually or need custom configuration:
-
-## Prerequisites
-
-- Next.js 13+ with App Router
-- An S3-compatible storage provider (we'll use AWS S3 in this guide)
-- Node.js 18+
+## Uploading your first image
 
 <Steps>
 
 <Step>
 
-## Install Pushduck
+### Install
 
-```bash
-npm install pushduck
+Install the `pushduck` package, as well as the AWS S3 Client.
+
+```npm
+npm install pushduck @aws-sdk/client-s3
 ```
-
-<Callout type="info">
-**Using a different package manager?**
-
-<Tabs items={['npm', 'pnpm', 'yarn', 'bun']}>
-  <Tab value="npm">
-    ```bash
-    npm install pushduck
-    ```
-  </Tab>
-  <Tab value="pnpm">
-    ```bash
-    pnpm add pushduck
-    ```
-  </Tab>
-  <Tab value="yarn">
-    ```bash
-    yarn add pushduck
-    ```
-  </Tab>
-  <Tab value="bun">
-    ```bash
-    bun add pushduck
-    ```
-  </Tab>
-</Tabs>
-</Callout>
 
 </Step>
 
 <Step>
 
-## Set Environment Variables
+### Set up server
 
-Create a `.env.local` file in your project root with your S3 credentials:
+Your server will create pre-signed URLs, which the client uses to upload files directly to the S3 bucket.
 
-```dotenv
-# .env.local
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_REGION=us-east-1
-AWS_S3_BUCKET_NAME=your-bucket-name
+Change `my-bucket` to your bucket name, and configure the S3 client as needed.
+
+```ts tab="Next.js" title="app/api/upload/route.ts"
+import { createUploadConfig } from 'pushduck/server';
+
+const { s3, config } = createUploadConfig()
+  .provider("aws", {
+    bucket: process.env.AWS_BUCKET_NAME!, // [!code highlight]
+    region: process.env.AWS_REGION!,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  })
+  .defaults({
+    maxFileSize: '10MB',
+    acl: 'public-read',
+  })
+  .build();
+
+const router = s3.createRouter({
+  imageUpload: s3.image().maxFileSize('5MB'), // [!code highlight]
+});
+
+export const { GET, POST } = router.handlers; // [!code highlight]
 ```
 
-<Callout type="warn">
-  **Don't have S3 credentials yet?** Follow our [AWS S3 setup
-  guide](/docs/providers/aws-s3) to create a bucket and get your credentials
-  in 2 minutes.
-</Callout>
+```ts tab="Remix" title="app/routes/api.upload.ts"
+import { ActionFunctionArgs } from '@remix-run/node';
+import { createUploadConfig } from 'pushduck/server';
+
+const { s3, config } = createUploadConfig()
+  .provider("aws", {
+    bucket: process.env.AWS_BUCKET_NAME!, // [!code highlight]
+    region: process.env.AWS_REGION!,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  })
+  .defaults({
+    maxFileSize: '10MB',
+    acl: 'public-read',
+  })
+  .build();
+
+const router = s3.createRouter({
+  imageUpload: s3.image().maxFileSize('5MB'), // [!code highlight]
+});
+
+export async function action({ request }: ActionFunctionArgs) {
+  return router.handlers(request); // [!code highlight]
+}
+```
+
+```ts tab="SvelteKit" title="src/routes/api/upload/[...path]/+server.ts"
+import type { RequestHandler } from './$types';
+import { createUploadConfig } from 'pushduck/server';
+
+const { s3, config } = createUploadConfig()
+  .provider("aws", {
+    bucket: process.env.AWS_BUCKET_NAME!, // [!code highlight]
+    region: process.env.AWS_REGION!,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  })
+  .defaults({
+    maxFileSize: '10MB',
+    acl: 'public-read',
+  })
+  .build();
+
+const router = s3.createRouter({
+  imageUpload: s3.image().maxFileSize('5MB'), // [!code highlight]
+});
+
+export const GET: RequestHandler = async ({ request }) => {
+  return router.handlers(request); // [!code highlight]
+};
+
+export const POST: RequestHandler = async ({ request }) => {
+  return router.handlers(request); // [!code highlight]
+};
+```
+
+```ts tab="Hono" title="server.ts"
+import { Hono } from 'hono';
+import { createUploadConfig } from 'pushduck/server';
+
+const { s3, config } = createUploadConfig()
+  .provider("aws", {
+    bucket: process.env.AWS_BUCKET_NAME!, // [!code highlight]
+    region: process.env.AWS_REGION!,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  })
+  .defaults({
+    maxFileSize: '10MB',
+    acl: 'public-read',
+  })
+  .build();
+
+const router = s3.createRouter({
+  imageUpload: s3.image().maxFileSize('5MB'), // [!code highlight]
+});
+
+const app = new Hono();
+
+app.all('/api/upload/*', (c) => {
+  return router.handlers(c.req.raw); // [!code highlight]
+});
+
+export default app;
+```
+
+In the example above, we create the upload route `imageUpload`. Learn more about upload routes [here](/docs/api/s3-router).
+
+<Accordions>
+<Accordion title="Adding authentication">
+
+You can run code before uploads in the server. Use the `middleware` callback:
+
+```ts title="Authentication Example"
+import { createUploadConfig } from 'pushduck/server';
+
+const { s3, config } = createUploadConfig()
+  .provider("aws", {
+    bucket: process.env.AWS_BUCKET_NAME!, // [!code highlight]
+    region: process.env.AWS_REGION!,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  })
+  .build();
+
+const router = s3.createRouter({
+  imageUpload: s3.image()
+    .maxFileSize('5MB')
+    .middleware(async ({ req, metadata }) => { // [!code highlight]
+      // Add your authentication logic here
+      const user = await getCurrentUser(req);
+      
+      if (!user) {
+        throw new Error('Authentication required'); // [!code highlight]
+      }
+      
+      return {
+        ...metadata,
+        userId: user.id,
+      };
+    }),
+});
+```
+
+</Accordion>
+<Accordion title="Changing S3 object key">
+
+You can change the S3 object key to any value you want. Use the `paths` configuration:
+
+```ts title="Custom S3 Object Keys"
+const { s3, config } = createUploadConfig()
+  .provider("aws", {
+    bucket: process.env.AWS_BUCKET_NAME!, // [!code highlight]
+    region: process.env.AWS_REGION!,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => { // [!code highlight]
+      const userId = metadata.userId || 'anonymous';
+      const timestamp = Date.now();
+      return `${userId}/${timestamp}/${file.name}`; // [!code highlight]
+    },
+  })
+  .build();
+```
+
+</Accordion>
+</Accordions>
 
 </Step>
 
 <Step>
 
-## Configure CORS (Required!)
+### Create upload client
 
-<Callout type="warn">
-  **⚠️ Critical Step**: Without CORS configuration, your uploads will fail with "CORS error" in the browser. This is required for web uploads.
-</Callout>
+We will now build our UI using the upload client. We'll use `createUploadClient` for type-safe uploads.
 
-Your storage bucket needs to allow cross-origin requests from your web application. Here's a quick setup for development:
+```ts title="lib/upload-client.ts"
+import { createUploadClient } from 'pushduck/client';
+import type { AppRouter } from './upload';
 
-**For AWS S3:**
-1. Open your S3 bucket in AWS Console
-2. Go to **Permissions** → **CORS**
-3. Add this configuration:
+export const upload = createUploadClient<AppRouter>({
+  endpoint: '/api/upload' // [!code highlight]
+});
+```
+
+We'll also use the `useUpload` hook. The complete component looks like this:
+
+```tsx title="components/uploader.tsx"
+'use client'; // For Next.js
+
+import { upload } from '@/lib/upload-client';
+
+export function Uploader() {
+  const { uploadFiles, files, isUploading, error } = upload.imageUpload(); // [!code highlight]
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    uploadFiles(selectedFiles); // [!code highlight]
+  };
+
+  return (
+    <div>
+        <input
+          type="file"
+          multiple
+          accept="image/*"
+        onChange={handleFileSelect}
+          disabled={isUploading}
+      />
+
+      {files.map((file) => (
+        <div key={file.id}>
+          <span>{file.name}</span>
+          <progress value={file.progress} max={100} />
+          {file.status === 'success' && file.url && (
+            <a href={file.url}>View uploaded file</a> // [!code highlight]
+          )}
+            </div>
+          ))}
+
+      {error && <div>Error: {error.message}</div>}
+    </div>
+  );
+}
+```
+
+Learn more about the client hooks [here](/docs/api/client).
+
+</Step>
+
+<Step>
+
+### Place the component
+
+Now place the `<Uploader />` component in your app.
+
+```tsx title="page.tsx"
+import { Uploader } from '@/components/uploader';
+
+export default function Page() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center">
+      <Uploader />
+    </main>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### You're done! 🎉
+
+You can now run your app and upload images directly to any S3-compatible service!
+
+If you plan on uploading files larger than **5GB**, take a look at [multipart uploads](/docs/api/s3-router#multipart-uploads).
+
+<Accordions>
+<Accordion title="CORS Configuration">
+
+Make sure to also correctly configure CORS on your bucket. Here is an example:
 
 ```json
 [
   {
-    "AllowedHeaders": ["*"],
-    "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
     "AllowedOrigins": [
       "http://localhost:3000",
-      "https://yourdomain.com"
+      "https://example.com" // Add your domain here
     ],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
+    "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"]
   }
 ]
 ```
 
-**For other providers**, see our [CORS configuration guide](/docs/guides/security/cors-and-acl) for detailed instructions.
+Learn more about CORS [here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ManageCorsUsing.html).
 
-<Callout type="info">
-  **Production Ready**: Replace `http://localhost:3000` with your actual domain(s). Never use wildcards (`*`) in production.
-</Callout>
-
-</Step>
-
-<Step>
-
-## Create Your Upload Router
-
-Create an API route to handle file uploads:
-
-```typescript
-// app/api/s3-upload/route.ts
-import { createUploadConfig } from "pushduck/server";
-
-const { s3 } = createUploadConfig()
-  .provider("cloudflareR2",{
-    accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
-    accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY!,
-    bucket: process.env.CLOUDFLARE_BUCKET_NAME!,
-    region: "auto",
-  })
-  .build();
-
-const router = s3.createRouter({
-  // Define your upload routes with validation
-  imageUpload: s3
-    .image()
-    .maxFileSize("10MB")
-    .formats(["jpeg", "png", "webp"]),
-
-  documentUpload: s3.file().maxFileSize("50MB").types(["application/pdf", "application/msword"]),
-});
-
-export { router as POST };
-
-// Export the router type for client-side type safety
-export type Router = typeof router;
-```
-
-<Callout type="info">
-  **What's happening here?** - `s3.createRouter()` creates a type-safe upload
-  handler - `s3.image()` and `s3.file()` provide validation and TypeScript
-  inference - The router automatically handles presigned URLs, validation, and
-  errors - Exporting the type enables full client-side type safety
-</Callout>
-
-</Step>
-
-<Step>
-
-## Create Upload Client
-
-Create a type-safe client for your components using the **recommended structured approach**:
-
-<Callout type="success">
-  **Recommended**: The structured client provides the best developer experience with property-based access, centralized configuration, and enhanced type safety.
-</Callout>
-
-```typescript
-// lib/upload-client.ts
-import { createUploadClient } from "pushduck/client";
-import type { Router } from "@/app/api/s3-upload/route";
-
-// Create a type-safe upload client (recommended)
-export const upload = createUploadClient<Router>({
-  endpoint: "/api/s3-upload",
-});
-```
-
-**Why this approach is recommended:**
-- ✅ **Full type inference** from your server router
-- ✅ **Property-based access** - `upload.imageUpload()` instead of strings
-- ✅ **IntelliSense support** - see all available endpoints
-- ✅ **Refactoring safety** - rename routes with confidence
-- ✅ **Centralized config** - set headers, timeouts, and options once
-
-<Callout type="info">
-  **Alternative**: You can also use the hook-based approach if you prefer traditional React patterns:
-  ```typescript
-  // With type parameter (recommended)
-  const { uploadFiles } = useUploadRoute<AppRouter>('imageUpload')
-  
-  // Or without type parameter (also works)
-  const { uploadFiles } = useUploadRoute('imageUpload')
-  ```
-  The structured client is still recommended for most use cases.
-</Callout>
-
-</Step>
-
-<Step>
-
-## Use in Your Components
-
-Now you can use the upload client in any component with full type safety:
-
-```typescript
-// components/image-uploader.tsx
-"use client";
-
-import { upload } from "@/lib/upload-client";
-
-export function ImageUploader() {
-  const { uploadFiles, uploadedFiles, isUploading, progress, error } =
-    upload.imageUpload();
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      uploadFiles(Array.from(files));
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center space-x-4">
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-          onChange={handleFileChange}
-          disabled={isUploading}
-          className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-        />
-
-        {isUploading && (
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm text-gray-600">
-              Uploading... {Math.round(progress)}%
-            </span>
-          </div>
-        )}
-      </div>
-
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-600">{error.message}</p>
-        </div>
-      )}
-
-      {uploadedFiles.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {uploadedFiles.map((file) => (
-            <div key={file.key} className="space-y-2">
-              <img
-                src={file.url}
-                alt="Uploaded image"
-                className="w-full h-32 object-cover rounded-lg border"
-              />
-              <p className="text-xs text-gray-500 truncate">{file.name}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-```
-
-</Step>
-
-<Step>
-
-## Add to Your Page
-
-Finally, use your upload component in any page:
-
-```typescript
-// app/page.tsx
-import { ImageUploader } from "@/components/image-uploader";
-
-export default function HomePage() {
-  return (
-    <div className="max-w-2xl mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-8">Upload Images</h1>
-      <ImageUploader />
-    </div>
-  );
-}
-```
+</Accordion>
+</Accordions>
 
 </Step>
 
 </Steps>
 
-## 🎉 Congratulations!
+## Learn more
 
-You now have **production-ready file uploads** working in your Next.js app! Here's what you accomplished:
+### Concepts
 
-- ✅ **Type-safe uploads** with full TypeScript inference
-- ✅ **Automatic validation** for file types and sizes
-- ✅ **Progress tracking** with loading states
-- ✅ **Error handling** with user-friendly messages
-- ✅ **Secure uploads** using presigned URLs
-- ✅ **Multiple file support** with image preview
+<Cards>
+  <Card
+    href="/docs/api/s3-router"
+    title="Upload routes"
+    description="Configure upload routes for different behaviors."
+  />
+  <Card
+    href="/docs/api/client"
+    title="Client hooks"
+    description="Use client-side hooks to easily upload files."
+  />
+</Cards>
 
-## What's Next?
+### Guides
 
-Now that you have the basics working, explore these advanced features:
-
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-  <div className="p-4 border rounded-lg">
-    <h3 className="font-semibold mb-2">🎨 Enhanced UI</h3>
-    <p className="text-sm text-gray-600 mb-3">
-      Add drag & drop, progress bars, and beautiful components
-    </p>
-    <a
+<Cards>
+  <Card
+    href="/docs/guides/client-approaches"
+    title="Client approaches"
+    description="Choose between property-based and hook-based clients."
+  />
+  <Card
       href="/docs/guides/uploads/images"
-      className="text-blue-600 text-sm hover:underline"
-    >
-      Image Upload Guide →
-    </a>
-  </div>
+    title="Image uploads"
+    description="Handle image uploads with validation and optimization."
+  />
+</Cards>
 
-{" "}
+### Components
 
-<div className="p-4 border rounded-lg">
-  <h3 className="font-semibold mb-2">🔒 Custom Validation</h3>
-  <p className="text-sm text-gray-600 mb-3">
-    Add authentication, custom metadata, and middleware
-  </p>
-  <a
-    href="/docs/api/configuration/upload-config"
-    className="text-blue-600 text-sm hover:underline"
-  >
-    Router Configuration →
-  </a>
-</div>
-
-{" "}
-
-<div className="p-4 border rounded-lg">
-  <h3 className="font-semibold mb-2">☁️ Other Providers</h3>
-  <p className="text-sm text-gray-600 mb-3">
-    Switch to Cloudflare R2, DigitalOcean, or MinIO
-  </p>
-  <a
-    href="/docs/providers/cloudflare-r2"
-    className="text-blue-600 text-sm hover:underline"
-  >
-    Provider Setup →
-  </a>
-</div>
-
-  <div className="p-4 border rounded-lg">
-    <h3 className="font-semibold mb-2">⚡ Enhanced Client</h3>
-    <p className="text-sm text-gray-600 mb-3">
-      Upgrade to property-based access for better DX
-    </p>
-    <a
-      href="/docs/guides/migration/enhanced-client"
-      className="text-blue-600 text-sm hover:underline"
-    >
-      Migration Guide →
-    </a>
-  </div>
-</div>
-
-## Need Help?
-
-- 📖 **Documentation**: Explore our comprehensive [guides](/docs/guides)
-- 💬 **Community**: Join our [Discord community](https://pushduck.dev/discord)
-- 🐛 **Issues**: Report bugs on [GitHub](https://github.com/abhay-ramesh/pushduck)
-- 📧 **Support**: Email us at support@pushduck.com
-
-<Callout type="info">
-  **Loving Pushduck?** Give us a ⭐ on
-  [GitHub](https://github.com/abhay-ramesh/pushduck) and help spread the
-  word!
-</Callout>
-
-  </Tab>
-</Tabs>
+<Cards>
+  <Card
+    href="/docs/api/client/create-upload-client"
+    title="Property-based client"
+    description="Enhanced type safety with property-based access."
+  />
+  <Card
+    href="/docs/api/client/use-upload-route"
+    title="Hook-based client"
+    description="Familiar React hooks for upload management."
+  />
+  <Card
+    href="/docs/examples"
+    title="Examples"
+    description="Complete examples for different use cases."
+  />
+</Cards>

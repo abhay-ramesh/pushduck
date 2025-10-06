@@ -33,34 +33,34 @@ Create a type-safe upload client with **property-based access** and optional **p
   <Step>
     **Create the upload client**
     
-    ```typescript title="lib/upload-client.ts"
-    import { createUploadClient } from 'pushduck/client'
-    import type { AppRouter } from './upload'
+```typescript title="lib/upload-client.ts"
+import { createUploadClient } from 'pushduck/client'
+import type { AppRouter } from './upload'
 
-    export const upload = createUploadClient<AppRouter>({
-      endpoint: '/api/upload'
-    })
-    ```
+export const upload = createUploadClient<AppRouter>({
+  endpoint: '/api/upload' // [!code highlight]
+})
+```
   </Step>
 
   <Step>
     **Use in components**
     
-    ```typescript title="components/upload-form.tsx"
-    import { upload } from '@/lib/upload-client'
+```typescript title="components/upload-form.tsx"
+import { upload } from '@/lib/upload-client'
 
-    export function UploadForm() {
-      const { uploadFiles, files, isUploading } = upload.imageUpload()
-      
-      return (
-        <input 
-          type="file" 
-          onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
-          disabled={isUploading}
-        />
-      )
-    }
-    ```
+export function UploadForm() {
+  const { uploadFiles, files, isUploading } = upload.imageUpload() // [!code highlight]
+  
+  return (
+    <input 
+      type="file" 
+      onChange={(e) => uploadFiles(Array.from(e.target.files || []))} // [!code highlight]
+      disabled={isUploading}
+    />
+  )
+}
+```
   </Step>
 </Steps>
 
@@ -111,237 +111,209 @@ Each route method now accepts optional configuration:
 
 ## Examples
 
-<Tabs items={["Basic Usage", "With Callbacks", "Multiple Routes", "Global + Per-Route", "Advanced Config"]}>
-  <Tab value="Basic Usage">
-```typescript
-    import { upload } from '@/lib/upload-client'
+```typescript tab="Basic Usage"
+import { upload } from '@/lib/upload-client'
 
-    export function BasicUpload() {
-      // Simple usage - no configuration needed
-      const { uploadFiles, files, isUploading, reset } = upload.imageUpload()
+export function BasicUpload() {
+  // Simple usage - no configuration needed
+  const { uploadFiles, files, isUploading, reset } = upload.imageUpload()
 
-      return (
-        <div>
-          <input 
-            type="file"
-            accept="image/*"
-            onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
-            disabled={isUploading}
-          />
-          
-          {files.map(file => (
-            <div key={file.id}>
-              <span>{file.name}</span>
-              <progress value={file.progress} max={100} />
-              {file.status === 'success' && <span>✅</span>}
-            </div>
-          ))}
-          
-          <button onClick={reset}>Reset</button>
-        </div>
-      )
-    }
-    ```
-  </Tab>
-
-  <Tab value="With Callbacks">
-    ```typescript
-    import { upload } from '@/lib/upload-client'
-    import { toast } from 'sonner'
-
-    export function CallbackUpload() {
-      const [progress, setProgress] = useState(0)
+  return (
+    <div>
+      <input 
+        type="file"
+        accept="image/*"
+        onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
+        disabled={isUploading}
+      />
       
-      const { uploadFiles, files, isUploading } = upload.imageUpload({
-        onSuccess: (results) => {
-          toast.success(`✅ Uploaded ${results.length} images!`)
-          console.log('Upload results:', results)
-        },
-        onError: (error) => {
-          toast.error(`❌ Upload failed: ${error.message}`)
-          console.error('Upload error:', error)
-        },
-        onProgress: (progress) => {
-          setProgress(progress)
-          console.log(`📊 Progress: ${progress}%`)
-        }
-      })
-
-      return (
-        <div>
-          <input 
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
-          />
-          
-          {progress > 0 && (
-            <div>
-              <progress value={progress} max={100} />
-              <span>{progress}% complete</span>
-            </div>
-          )}
+      {files.map(file => (
+        <div key={file.id}>
+          <span>{file.name}</span>
+          <progress value={file.progress} max={100} />
+          {file.status === 'success' && <span>✅</span>}
         </div>
-      )
-    }
-    ```
-  </Tab>
-
-  <Tab value="Multiple Routes">
-    ```typescript
-    export function MultiUploadForm() {
-      // Different configuration for each upload type
-      const images = upload.imageUpload({
-        onSuccess: (results) => {
-          // Store images with both permanent and temporary URLs
-          updateImageGallery(results.map(file => ({
-            id: file.id,
-            url: file.url,                    // Permanent access URL
-            downloadUrl: file.presignedUrl,   // Temporary download URL (1 hour)
-            name: file.name,
-            key: file.key
-          })));
-        }
-      })
+      ))}
       
-      const documents = upload.documentUpload({
-        onSuccess: (results) => {
-          updateDocumentLibrary(results.map(file => ({
-            id: file.id,
-            name: file.name,
-            url: file.url,                    // Permanent access
-            downloadUrl: file.presignedUrl,   // Temporary download (1 hour)
-            key: file.key
-          })));
-        },
-        onError: (error) => logSecurityError(error)
-      })
-      
-      const videos = upload.videoUpload({
-        onProgress: (progress) => setVideoProgress(progress),
-        onSuccess: (results) => {
-          processVideoThumbnails(results.map(file => ({
-            id: file.id,
-            name: file.name,
-            url: file.url,                    // Permanent URL for video player
-            downloadUrl: file.presignedUrl,   // Temporary download URL
-            key: file.key
-          })));
-        }
-      })
+      <button onClick={reset}>Reset</button>
+    </div>
+  )
+}
+```
 
-      return (
-        <div className="space-y-6">
-          <section>
-            <h3>Images</h3>
-            <FileUploadSection {...images} accept="image/*" />
-          </section>
-          
-          <section>
-            <h3>Documents</h3>
-            <FileUploadSection {...documents} accept=".pdf,.doc,.docx" />
-          </section>
-          
-          <section>
-            <h3>Videos</h3>
-            <FileUploadSection {...videos} accept="video/*" />
-          </section>
-        </div>
-      )
-    }
-    ```
-  </Tab>
+```typescript tab="With Callbacks"
+import { upload } from '@/lib/upload-client'
+import { toast } from 'sonner'
+
+export function CallbackUpload() {
+  const [progress, setProgress] = useState(0)
   
-  <Tab value="Global + Per-Route">
-    ```typescript
-    // Global configuration with per-route overrides
-    const upload = createUploadClient<AppRouter>({
-      endpoint: '/api/upload',
-      
-      // These apply to all routes by default
-      defaultOptions: {
-        onProgress: (progress) => updateGlobalProgress(progress),
-        onError: (error) => logError(error)
-      }
-    })
-
-    export function MixedConfigUpload() {
-      // Inherits global onProgress and onError
-      const basic = upload.imageUpload()
-      
-      // Overrides global settings + adds success handler
-      const premium = upload.documentUpload({
-        endpoint: '/api/premium-upload', // Different endpoint
-        onSuccess: (results) => {
-          // This overrides global behavior
-          handlePremiumUpload(results)
-        }
-        // Still inherits global onProgress and onError
-      })
-
-      return (
-        <div>
-          <FileUploader {...basic} label="Basic Images" />
-          <FileUploader {...premium} label="Premium Documents" />
-        </div>
-      )
+  const { uploadFiles, files, isUploading } = upload.imageUpload({
+    onSuccess: (results) => {
+      toast.success(`✅ Uploaded ${results.length} images!`)
+      console.log('Upload results:', results)
+    },
+    onError: (error) => {
+      toast.error(`❌ Upload failed: ${error.message}`)
+      console.error('Upload error:', error)
+    },
+    onProgress: (progress) => {
+      setProgress(progress)
+      console.log(`📊 Progress: ${progress}%`)
     }
-    ```
-  </Tab>
-  
-  <Tab value="Advanced Config">
-    ```typescript
-    const upload = createUploadClient<AppRouter>({
-      endpoint: '/api/upload',
+  })
+
+  return (
+    <div>
+      <input 
+        type="file"
+        multiple
+        accept="image/*"
+        onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
+      />
       
-      // Custom fetch function
-      fetcher: async (input, init) => {
-        const token = await getAuthToken()
-        return fetch(input, {
-          ...init,
+      {progress > 0 && (
+        <div>
+          <progress value={progress} max={100} />
+          <span>{progress}% complete</span>
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+```typescript tab="Multiple Routes"
+import { upload } from '@/lib/upload-client'
+
+export function MultiUploadForm() {
+  // Different configuration for each upload type
+  const images = upload.imageUpload({
+    onSuccess: (results) => {
+      // Store images with both permanent and temporary URLs
+      updateImageGallery(results.map(file => ({
+        id: file.id,
+        url: file.url,                    // Permanent access URL
+        downloadUrl: file.presignedUrl,   // Temporary download URL (1 hour)
+        name: file.name,
+        key: file.key
+      })));
+    }
+  })
+  
+  const documents = upload.documentUpload({
+    onSuccess: (results) => {
+      // Store documents with metadata
+      updateDocumentLibrary(results.map(file => ({
+        id: file.id,
+        url: file.url,
+        name: file.name,
+        size: file.size,
+        uploadedAt: new Date().toISOString()
+      })));
+    }
+  })
+
+  return (
+    <div>
+      <section>
+        <h3>Images</h3>
+        <FileUploadSection {...images} accept="image/*" />
+      </section>
+      
+      <section>
+        <h3>Documents</h3>
+        <FileUploadSection {...documents} accept=".pdf,.doc,.docx" />
+      </section>
+    </div>
+  )
+}
+```
+
+```typescript tab="Global + Per-Route"
+// Global configuration with per-route overrides
+const upload = createUploadClient<AppRouter>({
+  endpoint: '/api/upload',
+  
+  // These apply to all routes by default
+  defaultOptions: {
+    onProgress: (progress) => updateGlobalProgress(progress),
+    onError: (error) => logError(error)
+  }
+})
+
+export function MixedConfigUpload() {
+  // Inherits global onProgress and onError
+  const basic = upload.imageUpload()
+  
+  // Overrides global settings + adds success handler
+  const premium = upload.documentUpload({
+    endpoint: '/api/premium-upload', // Different endpoint
+    onSuccess: (results) => {
+      // This overrides global behavior
+      handlePremiumUpload(results)
+    }
+    // Still inherits global onProgress and onError
+  })
+
+  return (
+    <div>
+      <FileUploader {...basic} label="Basic Images" />
+      <FileUploader {...premium} label="Premium Documents" />
+    </div>
+  )
+}
+```
+
+```typescript tab="Advanced Config"
+const upload = createUploadClient<AppRouter>({
+  endpoint: '/api/upload',
+  
+  // Custom fetch function
+  fetcher: async (input, init) => {
+    const token = await getAuthToken()
+    return fetch(input, {
+      ...init,
       headers: {
-            ...init?.headers,
-            'Authorization': `Bearer ${token}`
-          }
-        })
-      },
-      
-      defaultOptions: {
-      onError: (error) => {
-          // Global error tracking
-          analytics.track('upload_error', { error: error.message })
-          toast.error('Upload failed. Please try again.')
-        }
+        ...init?.headers,
+        'Authorization': `Bearer ${token}`
       }
     })
-
-    export function AdvancedUpload() {
-      const { uploadFiles, files } = upload.secureUpload({
-        endpoint: '/api/secure-upload',
-        onSuccess: (results) => {
-          // Audit log for secure uploads
-          auditLog('secure_upload_success', {
-            files: results.length,
-            user: user.id
-          })
-        }
-      })
-      
-      // Handle permissions in component logic
-      const handleUpload = (files: File[]) => {
-        if (user.hasPermission('upload')) {
-          uploadFiles(files)
-        } else {
-          toast.error('You don\'t have permission to upload files')
-        }
-      }
-
-      return <SecureFileUploader {...{ uploadFiles, files }} />
+  },
+  
+  defaultOptions: {
+    onError: (error) => {
+      // Global error tracking
+      analytics.track('upload_error', { error: error.message })
+      toast.error('Upload failed. Please try again.')
     }
-    ```
-  </Tab>
-</Tabs>
+  }
+})
+
+export function AdvancedUpload() {
+  const { uploadFiles, files } = upload.secureUpload({
+    endpoint: '/api/secure-upload',
+    onSuccess: (results) => {
+      // Audit log for secure uploads
+      auditLog('secure_upload_success', {
+        files: results.length,
+        user: user.id
+      })
+    }
+  })
+  
+  // Handle permissions in component logic
+  const handleUpload = (files: File[]) => {
+    if (user.hasPermission('upload')) {
+      uploadFiles(files)
+    } else {
+      toast.error('You don\'t have permission to upload files')
+    }
+  }
+
+  return <SecureFileUploader {...{ uploadFiles, files }} />
+}
+```
 
 ## Type Safety Benefits
 

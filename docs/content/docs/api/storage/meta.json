@@ -1,10 +1,14 @@
 {
     "title": "Storage API",
     "pages": [
+        "--- Quick Reference ---",
         "quick-reference",
+        "--- Core Operations ---",
         "storage-instance",
         "file-operations",
+        "--- Advanced Features ---",
         "presigned-urls",
+        "--- Help ---",
         "troubleshooting"
     ]
 }
