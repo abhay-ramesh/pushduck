@@ -715,7 +715,79 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     return createUniversalHandler(this, this.config);
   }
 
-  // Generate presigned URLs for upload
+  /**
+   * Generate presigned URLs for file uploads with client-side metadata support.
+   *
+   * This method orchestrates the complete presigned URL generation workflow:
+   * 1. Validates the route exists
+   * 2. Runs middleware chain (client metadata → enriched metadata)
+   * 3. Validates files against schema
+   * 4. Calls onUploadStart hooks
+   * 5. Generates hierarchical file paths
+   * 6. Creates presigned upload URLs
+   *
+   * @template K - Route name type from router definition
+   * @param routeName - Name of the upload route
+   * @param req - NextRequest object for accessing headers, cookies, etc.
+   * @param files - Array of file metadata (name, size, type)
+   * @param metadata - Optional client-provided metadata (untrusted)
+   * @returns Array of presigned URL responses
+   *
+   * @remarks
+   * **Metadata Flow:**
+   * 1. Client sends metadata from UI (untrusted)
+   * 2. Handler extracts and forwards to router
+   * 3. Router passes to middleware chain
+   * 4. Middleware validates/enriches metadata
+   * 5. Enriched metadata used in hooks and path generation
+   *
+   * **Security Model:**
+   * - Client metadata is UNTRUSTED user input
+   * - Middleware MUST validate and sanitize
+   * - Server should OVERRIDE critical fields (userId, role, etc.)
+   * - Never trust client identity claims
+   *
+   * @security
+   * ⚠️ CRITICAL: Client metadata is untrusted.
+   *
+   * Middleware must validate all client metadata before use:
+   * ```typescript
+   * .middleware(async ({ req, metadata }) => {
+   *   const user = await authenticateUser(req);
+   *
+   *   return {
+   *     // Client metadata (validate before use)
+   *     albumId: validateUUID(metadata?.albumId),
+   *     tags: sanitizeTags(metadata?.tags),
+   *
+   *     // Server metadata (trusted)
+   *     userId: user.id,  // From auth, NOT from client
+   *     role: user.role,   // From auth, NOT from client
+   *   };
+   * });
+   * ```
+   *
+   * @example Basic usage (no client metadata)
+   * ```typescript
+   * const results = await router.generatePresignedUrls(
+   *   'imageUpload',
+   *   request,
+   *   [{ name: 'photo.jpg', size: 1024000, type: 'image/jpeg' }]
+   * );
+   * ```
+   *
+   * @example With client metadata
+   * ```typescript
+   * const results = await router.generatePresignedUrls(
+   *   'imageUpload',
+   *   request,
+   *   [{ name: 'photo.jpg', size: 1024000, type: 'image/jpeg' }],
+   *   { albumId: 'abc123', tags: ['vacation'] }  // Client metadata
+   * );
+   * ```
+   *
+   * @throws {Error} If route not found or validation fails
+   */
   async generatePresignedUrls<K extends keyof TRoutes>(
     routeName: K,
     req: NextRequest,
@@ -733,7 +805,18 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
 
     for (const file of files) {
       try {
-        // 1. Run middleware chain
+        /**
+         * 1. Run middleware chain to enrich metadata
+         *
+         * Client metadata serves as the initial value and flows through
+         * the middleware chain. Each middleware can:
+         * - Validate client data
+         * - Add server-side context (auth, timestamps, etc.)
+         * - Transform or sanitize values
+         * - Override client-provided identity claims
+         *
+         * The result becomes the authoritative metadata for this upload.
+         */
         let fileMetadata = metadata || {};
         const middlewareChain = routeConfig.middleware || [];
 
@@ -928,26 +1011,21 @@ export function createS3RouterWithConfig<TRoutes extends S3RouterDefinition>(
 // Type Inference Utilities
 // ========================================
 
-export type InferRouterRoutes<T> = T extends S3Router<infer TRoutes>
-  ? TRoutes
-  : never;
+export type InferRouterRoutes<T> =
+  T extends S3Router<infer TRoutes> ? TRoutes : never;
 
-export type InferRouteInput<T> = T extends S3Route<infer TSchema, any>
-  ? InferS3Input<TSchema>
-  : never;
+export type InferRouteInput<T> =
+  T extends S3Route<infer TSchema, any> ? InferS3Input<TSchema> : never;
 
-export type InferRouteOutput<T> = T extends S3Route<infer TSchema, any>
-  ? InferS3Output<TSchema>
-  : never;
+export type InferRouteOutput<T> =
+  T extends S3Route<infer TSchema, any> ? InferS3Output<TSchema> : never;
 
-export type InferRouteMetadata<T> = T extends S3Route<any, infer TMetadata>
-  ? TMetadata
-  : never;
+export type InferRouteMetadata<T> =
+  T extends S3Route<any, infer TMetadata> ? TMetadata : never;
 
-export type GetRoute<TRouter, TRouteName> = TRouter extends S3Router<
-  infer TRoutes
->
-  ? TRouteName extends keyof TRoutes
-    ? TRoutes[TRouteName]
-    : never
-  : never;
+export type GetRoute<TRouter, TRouteName> =
+  TRouter extends S3Router<infer TRoutes>
+    ? TRouteName extends keyof TRoutes
+      ? TRoutes[TRouteName]
+      : never
+    : never;

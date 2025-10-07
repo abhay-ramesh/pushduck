@@ -394,6 +394,79 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
     [calculateOverallMetrics]
   );
 
+  /**
+   * Initiates file upload with optional client-side metadata.
+   *
+   * This function handles the complete upload workflow:
+   * 1. Validates files array
+   * 2. Requests presigned URLs from server (sends metadata)
+   * 3. Uploads files directly to S3 using presigned URLs
+   * 4. Notifies server of upload completion
+   * 5. Calls success/error callbacks
+   *
+   * @param uploadFiles - Array of File objects to upload
+   * @param metadata - Optional metadata object to pass to server
+   *
+   * @remarks
+   * The metadata parameter allows passing client-side context to the server,
+   * where it can be accessed in middleware, lifecycle hooks, and path generation.
+   * Common use cases include:
+   * - Multi-tenant context (workspaceId, projectId)
+   * - User selections (albumId, categoryId)
+   * - Form data (tags, description, visibility)
+   * - UI state (sortOrder, featured flag)
+   *
+   * @security
+   * ⚠️ SECURITY WARNING: Client metadata is untrusted user input.
+   *
+   * The server MUST validate and sanitize all client metadata in middleware.
+   * Never trust client-provided identity claims (userId, isAdmin, role, etc.).
+   * Always extract identity from authenticated session/token on the server.
+   *
+   * @example Basic upload without metadata
+   * ```typescript
+   * const { uploadFiles } = useUploadRoute('imageUpload');
+   *
+   * // Simple upload
+   * await uploadFiles(selectedFiles);
+   * ```
+   *
+   * @example Upload with metadata
+   * ```typescript
+   * const { uploadFiles } = useUploadRoute('imageUpload');
+   *
+   * // Upload with contextual metadata
+   * await uploadFiles(selectedFiles, {
+   *   albumId: selectedAlbum.id,
+   *   tags: ['vacation', 'beach'],
+   *   visibility: 'private',
+   *   description: 'Summer vacation photos'
+   * });
+   * ```
+   *
+   * @example Multi-tenant upload
+   * ```typescript
+   * const { uploadFiles } = useUploadRoute('documentUpload');
+   *
+   * await uploadFiles(documents, {
+   *   workspaceId: currentWorkspace.id,
+   *   projectId: activeProject.id,
+   *   folder: selectedFolder.path
+   * });
+   * ```
+   *
+   * @example E-commerce product images
+   * ```typescript
+   * const { uploadFiles } = useUploadRoute('productImages');
+   *
+   * await uploadFiles(images, {
+   *   productId: product.id,
+   *   variantId: variant.id,
+   *   imageType: 'gallery', // 'main' | 'gallery' | 'thumbnail'
+   *   sortOrder: displayOrder
+   * });
+   * ```
+   */
   const startUpload = useCallback(
     async (uploadFiles: File[], metadata?: any) => {
       if (!uploadFiles.length) {

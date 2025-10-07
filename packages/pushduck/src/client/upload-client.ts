@@ -50,6 +50,57 @@ function useTypedRoute<TRouter extends S3Router<any>>(
 
   const hookResult = useUploadRoute(routeName, mergedConfig);
 
+  /**
+   * Enhanced upload function that supports client-side metadata.
+   *
+   * @param files - Array of files to upload
+   * @param metadata - Optional metadata to attach to the upload (client-side context)
+   * @returns Promise resolving to array of uploaded files with metadata
+   *
+   * @remarks
+   * Client-provided metadata is passed through to the server and can be accessed
+   * in middleware, lifecycle hooks, and path generation functions. This allows
+   * passing contextual information like user selections, form data, or UI state.
+   *
+   * @security
+   * ⚠️ IMPORTANT: Client metadata is UNTRUSTED user input.
+   * Always validate and sanitize in server-side middleware before use.
+   * Never trust client-provided identity claims (userId, role, etc.).
+   *
+   * @example Basic usage with metadata
+   * ```typescript
+   * const { uploadFiles } = upload.imageUpload();
+   *
+   * // Upload with contextual metadata
+   * await uploadFiles(selectedFiles, {
+   *   albumId: album.id,
+   *   tags: ['vacation', 'summer'],
+   *   visibility: 'private'
+   * });
+   * ```
+   *
+   * @example Server-side validation
+   * ```typescript
+   * // In your route configuration
+   * s3.createRouter({
+   *   imageUpload: s3.image()
+   *     .middleware(async ({ req, metadata }) => {
+   *       const user = await authenticateUser(req);
+   *
+   *       return {
+   *         // Client metadata (untrusted)
+   *         albumId: metadata?.albumId,
+   *         tags: metadata?.tags || [],
+   *
+   *         // Server metadata (trusted) - overrides client
+   *         userId: user.id,
+   *         role: user.role,
+   *         uploadedAt: new Date().toISOString()
+   *       };
+   *     })
+   * });
+   * ```
+   */
   const enhancedUploadFiles = useCallback(
     async (files: File[], metadata?: any) => {
       await hookResult.uploadFiles(files, metadata);

@@ -45,6 +45,17 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
       const body = await request.json();
 
       if (action === "presign") {
+        /**
+         * Extract files array and optional metadata from request body.
+         *
+         * @remarks
+         * The metadata parameter contains client-provided contextual information
+         * that will be passed through to the router's middleware chain.
+         *
+         * @security
+         * Client metadata is untrusted user input. The router's middleware
+         * is responsible for validation and sanitization before use.
+         */
         const { files, metadata } = body;
         if (!Array.isArray(files)) {
           return new Response(
@@ -59,6 +70,14 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
         // Create a NextRequest-compatible object for router methods
         const routerRequest = createRouterRequest(request);
 
+        /**
+         * Generate presigned URLs with client metadata.
+         *
+         * The metadata is passed to the router where it becomes available in:
+         * - Middleware functions (for enrichment/validation)
+         * - Lifecycle hooks (onUploadStart, onUploadComplete)
+         * - Path generation functions (for dynamic file paths)
+         */
         const results = await router.generatePresignedUrls(
           routeName,
           routerRequest,
