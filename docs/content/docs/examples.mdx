@@ -85,7 +85,7 @@ await imageUpload.uploadFiles(selectedFiles);
 
 ## Code Examples
 
-<Tabs items={["Basic Usage", "Advanced Configuration", "Error Handling"]}>
+<Tabs items={["Basic Usage", "With Metadata", "Advanced Configuration", "Error Handling"]}>
   <Tab value="Basic Usage">
     ```typescript
     "use client";
@@ -102,6 +102,64 @@ await imageUpload.uploadFiles(selectedFiles);
             multiple
             accept="image/*"
             onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
+            disabled={isUploading}
+          />
+          
+          {files.map(file => (
+            <div key={file.id}>
+              <span>{file.name}</span>
+              <span>{file.status}</span>
+              {file.url && <a href={file.url}>View</a>}
+            </div>
+          ))}
+        </div>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab value="With Metadata">
+    ```typescript
+    "use client";
+    
+    import { upload } from "@/lib/upload-client";
+    import { useState } from "react";
+    
+    export function MetadataUpload() {
+      const [albumId, setAlbumId] = useState('vacation-2025');
+      const [tags, setTags] = useState<string[]>(['summer']);
+      
+      const { uploadFiles, files, isUploading } = upload.imageUpload({
+        onSuccess: (results) => {
+          console.log(`Uploaded ${results.length} images to album: ${albumId}`);
+        }
+      });
+      
+      const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFiles = Array.from(e.target.files || []);
+        
+        // Pass client-side context as metadata
+        uploadFiles(selectedFiles, {
+          albumId: albumId,
+          tags: tags,
+          visibility: 'private',
+          uploadSource: 'web-app'
+        });
+      };
+      
+      return (
+        <div>
+          <select value={albumId} onChange={(e) => setAlbumId(e.target.value)}>
+            <option value="vacation-2025">Vacation 2025</option>
+            <option value="family">Family Photos</option>
+            <option value="work">Work Events</option>
+          </select>
+          
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleUpload}
             disabled={isUploading}
           />
           

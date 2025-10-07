@@ -715,11 +715,84 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     return createUniversalHandler(this, this.config);
   }
 
-  // Generate presigned URLs for upload
+  /**
+   * Generate presigned URLs for file uploads with client-side metadata support.
+   *
+   * This method orchestrates the complete presigned URL generation workflow:
+   * 1. Validates the route exists
+   * 2. Runs middleware chain (client metadata → enriched metadata)
+   * 3. Validates files against schema
+   * 4. Calls onUploadStart hooks
+   * 5. Generates hierarchical file paths
+   * 6. Creates presigned upload URLs
+   *
+   * @template K - Route name type from router definition
+   * @param routeName - Name of the upload route
+   * @param req - NextRequest object for accessing headers, cookies, etc.
+   * @param files - Array of file metadata (name, size, type)
+   * @param metadata - Optional client-provided metadata (untrusted)
+   * @returns Array of presigned URL responses
+   *
+   * @remarks
+   * **Metadata Flow:**
+   * 1. Client sends metadata from UI (untrusted)
+   * 2. Handler extracts and forwards to router
+   * 3. Router passes to middleware chain
+   * 4. Middleware validates/enriches metadata
+   * 5. Enriched metadata used in hooks and path generation
+   *
+   * **Security Model:**
+   * - Client metadata is UNTRUSTED user input
+   * - Middleware MUST validate and sanitize
+   * - Server should OVERRIDE critical fields (userId, role, etc.)
+   * - Never trust client identity claims
+   *
+   * @security
+   * ⚠️ CRITICAL: Client metadata is untrusted.
+   *
+   * Middleware must validate all client metadata before use:
+   * ```typescript
+   * .middleware(async ({ req, metadata }) => {
+   *   const user = await authenticateUser(req);
+   *
+   *   return {
+   *     // Client metadata (validate before use)
+   *     albumId: validateUUID(metadata?.albumId),
+   *     tags: sanitizeTags(metadata?.tags),
+   *
+   *     // Server metadata (trusted)
+   *     userId: user.id,  // From auth, NOT from client
+   *     role: user.role,   // From auth, NOT from client
+   *   };
+   * });
+   * ```
+   *
+   * @example Basic usage (no client metadata)
+   * ```typescript
+   * const results = await router.generatePresignedUrls(
+   *   'imageUpload',
+   *   request,
+   *   [{ name: 'photo.jpg', size: 1024000, type: 'image/jpeg' }]
+   * );
+   * ```
+   *
+   * @example With client metadata
+   * ```typescript
+   * const results = await router.generatePresignedUrls(
+   *   'imageUpload',
+   *   request,
+   *   [{ name: 'photo.jpg', size: 1024000, type: 'image/jpeg' }],
+   *   { albumId: 'abc123', tags: ['vacation'] }  // Client metadata
+   * );
+   * ```
+   *
+   * @throws {Error} If route not found or validation fails
+   */
   async generatePresignedUrls<K extends keyof TRoutes>(
     routeName: K,
     req: NextRequest,
-    files: S3FileMetadata[]
+    files: S3FileMetadata[],
+    metadata?: any
   ): Promise<PresignedUrlResponse[]> {
     const route = this.getRoute(routeName);
     if (!route) {
@@ -731,13 +804,34 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     const results: PresignedUrlResponse[] = [];
 
     for (const file of files) {
+      /**
+       * Initialize fileMetadata outside try block so it's available in catch block
+       * for the onUploadError hook. This ensures error hooks receive the enriched
+       * metadata even when validation or presigned URL generation fails.
+       */
+      let fileMetadata = metadata || {};
+
       try {
-        // 1. Run middleware chain
-        let metadata: any = {};
+        /**
+         * 1. Run middleware chain to enrich metadata
+         *
+         * Client metadata serves as the initial value and flows through
+         * the middleware chain. Each middleware can:
+         * - Validate client data
+         * - Add server-side context (auth, timestamps, etc.)
+         * - Transform or sanitize values
+         * - Override client-provided identity claims
+         *
+         * The result becomes the authoritative metadata for this upload.
+         */
         const middlewareChain = routeConfig.middleware || [];
 
         for (const middleware of middlewareChain) {
-          metadata = await middleware({ req, file, metadata });
+          fileMetadata = await middleware({
+            req,
+            file,
+            metadata: fileMetadata,
+          });
         }
 
         // 2. Validate file against schema (metadata only)
@@ -753,13 +847,13 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
 
         // 3. Call onUploadStart hook
         if (routeConfig.onUploadStart) {
-          await routeConfig.onUploadStart({ file, metadata });
+          await routeConfig.onUploadStart({ file, metadata: fileMetadata });
         }
 
         // 4. Generate hierarchical file key
         const key = generateHierarchicalPath(
           { name: file.name, type: file.type },
-          metadata,
+          fileMetadata,
           String(routeName),
           routeConfig.paths,
           uploadConfig.paths,
@@ -772,7 +866,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           contentLength: file.size,
           metadata: {
             originalName: file.name,
-            userId: metadata.userId || metadata.user?.id || "anonymous",
+            userId: fileMetadata.userId || fileMetadata.user?.id || "anonymous",
             routeName: String(routeName),
           },
         });
@@ -782,7 +876,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           file,
           presignedUrl: presignedResult.url,
           key: presignedResult.key,
-          metadata,
+          metadata: fileMetadata,
         });
       } catch (error) {
         const err =
@@ -790,9 +884,9 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
             ? error
             : new Error("Failed to generate presigned URL");
 
-        // Call onUploadError hook
+        // Call onUploadError hook with enriched metadata
         if (routeConfig.onUploadError) {
-          await routeConfig.onUploadError({ file, metadata: {}, error: err });
+          await routeConfig.onUploadError({ file, metadata: fileMetadata, error: err });
         }
 
         results.push({

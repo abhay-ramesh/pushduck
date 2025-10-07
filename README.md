@@ -143,7 +143,12 @@ export default function FileUpload() {
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
     if (selectedFiles) {
-      await uploadFiles(Array.from(selectedFiles));
+      // Optional: Pass client-side context as metadata
+      await uploadFiles(Array.from(selectedFiles), {
+        albumId: 'vacation-2025',
+        tags: ['summer', 'beach'],
+        visibility: 'private'
+      });
     }
   };
 

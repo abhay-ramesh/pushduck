@@ -46,16 +46,68 @@ export interface UploadRouteConfig {
 export type S3RouteUploadConfig = UploadRouteConfig;
 export type RouteUploadOptions = UploadRouteConfig;
 
+/**
+ * Result object returned by upload hooks with client metadata support.
+ *
+ * @interface S3RouteUploadResult
+ *
+ * @remarks
+ * This interface represents the state and control functions for file uploads.
+ * The `uploadFiles` function now accepts optional metadata to pass client context.
+ *
+ * @example
+ * ```typescript
+ * const { uploadFiles, files, isUploading } = useUploadRoute('imageUpload');
+ *
+ * // Upload with metadata
+ * await uploadFiles(selectedFiles, {
+ *   albumId: album.id,
+ *   tags: ['vacation']
+ * });
+ * ```
+ */
 export interface S3RouteUploadResult {
+  /** Array of files with upload status and progress */
   files: S3UploadedFile[];
-  uploadFiles: (files: File[]) => Promise<void>;
+
+  /**
+   * Upload files with optional client-side metadata.
+   *
+   * @param files - Array of File objects to upload
+   * @param metadata - Optional metadata object (untrusted client data)
+   *
+   * @security
+   * Metadata is untrusted. Server middleware must validate before use.
+   *
+   * @example
+   * ```typescript
+   * // Without metadata
+   * await uploadFiles(files);
+   *
+   * // With metadata
+   * await uploadFiles(files, { albumId: '123', tags: ['vacation'] });
+   * ```
+   */
+  uploadFiles: (files: File[], metadata?: any) => Promise<void>;
+
+  /** Reset upload state and clear files */
   reset: () => void;
+
+  /** Whether an upload is currently in progress */
   isUploading: boolean;
+
+  /** Array of error messages from failed uploads */
   errors: string[];
+
   // Overall progress tracking across all files
-  progress?: number; // 0-100 percentage across all files
-  uploadSpeed?: number; // bytes per second across all files
-  eta?: number; // seconds remaining for all files
+  /** Overall progress percentage (0-100) across all files */
+  progress?: number;
+
+  /** Overall upload speed in bytes per second across all files */
+  uploadSpeed?: number;
+
+  /** Estimated time remaining in seconds for all files */
+  eta?: number;
 }
 
 // ========================================
@@ -91,21 +143,69 @@ export interface TypedUploadedFile<TOutput = any> extends S3UploadedFile {
   routeName?: string;
 }
 
-// Enhanced hook return with route-specific types
+/**
+ * Enhanced hook return with route-specific types and metadata support.
+ *
+ * @template TRouter - Router type for route name inference
+ * @template TRouteName - Specific route name string
+ *
+ * @interface TypedRouteHook
+ *
+ * @remarks
+ * This interface extends S3RouteUploadResult with type-safe route names
+ * and enhanced file metadata. Used by the property-based client API.
+ *
+ * @example
+ * ```typescript
+ * const { uploadFiles, routeName } = upload.imageUpload();
+ *
+ * // Type-safe route name
+ * console.log(routeName); // 'imageUpload'
+ *
+ * // Upload with metadata
+ * await uploadFiles(files, { albumId: '123' });
+ * ```
+ */
 export interface TypedRouteHook<
   TRouter = any,
   TRouteName extends string = string,
 > {
+  /** Array of uploaded files with enhanced metadata */
   files: TypedUploadedFile[];
+
+  /**
+   * Upload files with optional client-side metadata.
+   *
+   * @param files - Array of File objects to upload
+   * @param metadata - Optional metadata (untrusted client data)
+   * @returns Promise resolving to array of upload results
+   *
+   * @security
+   * Client metadata is untrusted and must be validated by server middleware.
+   */
   uploadFiles: (files: File[], metadata?: any) => Promise<any[]>;
+
+  /** Reset upload state */
   reset: () => void;
+
+  /** Whether upload is in progress */
   isUploading: boolean;
+
+  /** Array of error messages */
   errors: string[];
+
+  /** Type-safe route name */
   routeName: TRouteName;
+
   // Overall progress tracking across all files
-  progress?: number; // 0-100 percentage across all files
-  uploadSpeed?: number; // bytes per second across all files
-  eta?: number; // seconds remaining for all files
+  /** Overall progress percentage (0-100) */
+  progress?: number;
+
+  /** Overall upload speed in bytes/second */
+  uploadSpeed?: number;
+
+  /** Estimated time remaining in seconds */
+  eta?: number;
 }
 
 // ========================================
