@@ -9,18 +9,18 @@ The `createUploadConfig()` builder provides a fluent API for configuring your S3
 
 ## Basic Setup
 
-```typescript
+```typescript title="lib/upload.ts"
 // lib/upload.ts
 import { createUploadConfig } from 'pushduck/server'
 
 const { storage, s3, config } = createUploadConfig() 
-  .provider("cloudflareR2",{
+  .provider("cloudflareR2",{ // [!code highlight]
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     region: 'auto',
     endpoint: process.env.AWS_ENDPOINT_URL,
     bucket: process.env.S3_BUCKET_NAME,
-    accountId: process.env.R2_ACCOUNT_ID,
+    accountId: process.env.R2_ACCOUNT_ID, // [!code highlight]
   })
   .build()
 
@@ -42,14 +42,14 @@ The `createUploadConfig().provider()` method provides full TypeScript type safet
 
 ### Cloudflare R2
 
-```typescript
-createUploadConfig().provider("cloudflareR2",{
+```typescript title="Cloudflare R2 Configuration"
+createUploadConfig().provider("cloudflareR2",{ // [!code highlight]
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   region: 'auto', // Always 'auto' for R2
   endpoint: process.env.AWS_ENDPOINT_URL,
   bucket: process.env.S3_BUCKET_NAME,
-  accountId: process.env.R2_ACCOUNT_ID, // Required for R2
+  accountId: process.env.R2_ACCOUNT_ID, // Required for R2 // [!code highlight]
   // Optional: Custom domain for public files
   customDomain: process.env.R2_CUSTOM_DOMAIN,
 })
@@ -57,10 +57,10 @@ createUploadConfig().provider("cloudflareR2",{
 
 ### AWS S3
 
-```typescript
-createUploadConfig().provider("aws",{
+```typescript title="AWS S3 Configuration"
+createUploadConfig().provider("aws",{ // [!code highlight]
   region: 'us-east-1',
-  bucket: 'your-bucket',
+  bucket: 'your-bucket', // [!code highlight]
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   // Optional: Custom domain for public files (CDN, CloudFront, etc.)

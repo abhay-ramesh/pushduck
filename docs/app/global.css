@@ -1,6 +1,6 @@
 @import "tailwindcss";
-@import "fumadocs-ui/css/dusk.css";
 @import "fumadocs-ui/css/preset.css";
+@import "fumadocs-ui/css/catppuccin.css";
 
 /* Enhanced typography and professional styling */
 :root {

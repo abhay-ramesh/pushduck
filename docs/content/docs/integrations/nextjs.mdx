@@ -24,78 +24,54 @@ Pushduck provides seamless integration with both Next.js App Router and Pages Ro
   <Step>
     **Install pushduck**
     
-    <Tabs items={["npm", "yarn", "pnpm", "bun"]}>
-      <Tab value="npm">
-        ```bash
+  
+        ```npm
         npm install pushduck
         ```
-      </Tab>
-      <Tab value="yarn">
-        ```bash
-        yarn add pushduck
-        ```
-      </Tab>
-      <Tab value="pnpm">
-        ```bash
-        pnpm add pushduck
-        ```
-      </Tab>
-      <Tab value="bun">
-        ```bash
-        bun add pushduck
-        ```
-      </Tab>
-    </Tabs>
   </Step>
 
   <Step>
     **Configure your upload router**
     
-    ```typescript title="lib/upload.ts"
-    import { createUploadConfig } from 'pushduck/server';
+```typescript title="lib/upload.ts"
+import { createUploadConfig } from 'pushduck/server';
 
-    const { s3, createS3Router } = createUploadConfig()
-      .provider("cloudflareR2",{
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-        region: 'auto',
-        endpoint: process.env.AWS_ENDPOINT_URL!,
-        bucket: process.env.S3_BUCKET_NAME!,
-        accountId: process.env.R2_ACCOUNT_ID!,
-      })
-      .build();
+const { s3, createS3Router } = createUploadConfig()
+  .provider("cloudflareR2",{ // [!code highlight]
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: 'auto',
+    endpoint: process.env.AWS_ENDPOINT_URL!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    accountId: process.env.R2_ACCOUNT_ID!, // [!code highlight]
+  })
+  .build();
 
-    export const uploadRouter = createS3Router({
-      imageUpload: s3.image().maxFileSize("5MB"),
-      documentUpload: s3.file().maxFileSize("10MB")
-    });
+export const uploadRouter = createS3Router({
+  imageUpload: s3.image().maxFileSize("5MB"), // [!code highlight]
+  documentUpload: s3.file().maxFileSize("10MB")
+});
 
-    export type AppUploadRouter = typeof uploadRouter;
-    ```
+export type AppUploadRouter = typeof uploadRouter;
+```
   </Step>
 
   <Step>
     **Create API route**
     
-    <Tabs items={["App Router", "Pages Router"]}>
-      <Tab value="App Router">
-        ```typescript title="app/api/upload/route.ts"
+        ```typescript title="app/api/upload/route.ts" tab="App Router"
         import { uploadRouter } from '@/lib/upload';
 
         // Direct usage (recommended)
         export const { GET, POST } = uploadRouter.handlers;
         ```
-      </Tab>
-      
-      <Tab value="Pages Router">
-        ```typescript title="pages/api/upload/[...path].ts"
+
+        ```typescript title="pages/api/upload/[...path].ts" tab="Pages Router"
         import { uploadRouter } from '@/lib/upload';
         import { toNextJsPagesHandler } from 'pushduck/server';
 
         export default toNextJsPagesHandler(uploadRouter.handlers);
         ```
-      </Tab>
-    </Tabs>
   </Step>
 </Steps>
 

@@ -11,7 +11,7 @@
   "dependencies": {
     "@t3-oss/env-nextjs": "^0.13.8",
     "fumadocs-core": "15.6.9",
-    "fumadocs-mdx": "11.6.9",
+    "fumadocs-mdx": "11.7.3",
     "fumadocs-ui": "15.6.9",
     "jiti": "^2.5.1",
     "lucide-react": "^0.536.0",
@@ -27,7 +27,7 @@
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "remark-mdx": "^3.1.0",
-    "shiki": "^3.7.0",
+    "shiki": "^3.9.2",
     "zod": "^3.25.67"
   },
   "devDependencies": {

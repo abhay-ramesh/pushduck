@@ -1,11 +1,16 @@
 {
-    "title": "Guides",
-    "pages": [
-        "client-approaches",
-        "uploads",
-        "advanced",
-        "security",
-        "migration",
-        "going-live"
-    ]
+  "title": "Guides",
+  "pages": [
+    "--- Client Development ---",
+    "client-approaches",
+    "--- Upload Features ---",
+    "uploads",
+    "advanced",
+    "--- Security ---",
+    "security",
+    "--- Migration ---",
+    "migration",
+    "--- Production ---",
+    "going-live"
+  ]
 }

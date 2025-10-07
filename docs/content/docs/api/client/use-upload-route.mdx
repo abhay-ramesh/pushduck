@@ -30,29 +30,29 @@ Use `useUploadRoute` when:
 
 You can also use the structured client approach:
 
-```typescript
+```typescript title="Hook-based approach"
 // Hook-based approach
 import { useUploadRoute } from 'pushduck/client'
 
-const { uploadFiles, files } = useUploadRoute<AppRouter>('imageUpload')
+const { uploadFiles, files } = useUploadRoute<AppRouter>('imageUpload') // [!code highlight]
 ```
 
-```typescript
+```typescript title="Structured client approach"
 // Structured client approach
 import { createUploadClient } from 'pushduck/client'
 
 const upload = createUploadClient<AppRouter>({
-  endpoint: '/api/upload'
+  endpoint: '/api/upload' // [!code highlight]
 })
 
-const { uploadFiles, files } = upload.imageUpload()
+const { uploadFiles, files } = upload.imageUpload() // [!code highlight]
 ```
 
 Both approaches provide the same functionality and type safety - choose what feels more natural for your team.
 
 ## Basic Usage
 
-```typescript
+```typescript title="Basic Usage Example"
 import { useUploadRoute } from "pushduck/client";
 import { formatETA, formatUploadSpeed } from "pushduck";
 import type { AppRouter } from "@/lib/upload";
@@ -60,11 +60,11 @@ import type { AppRouter } from "@/lib/upload";
 export function ImageUploader() {
   // With type parameter (recommended for better type safety)
   const { uploadFiles, files, isUploading, error, reset, progress, uploadSpeed, eta } =
-    useUploadRoute<AppRouter>("imageUpload");
+    useUploadRoute<AppRouter>("imageUpload"); // [!code highlight]
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-    uploadFiles(selectedFiles);
+    uploadFiles(selectedFiles); // [!code highlight]
   };
 
   return (
@@ -93,7 +93,7 @@ export function ImageUploader() {
         <div key={file.id}>
           <span>{file.name}</span>
           <progress value={file.progress} max={100} />
-          {file.status === "success" && <a href={file.url}>View</a>}
+          {file.status === "success" && <a href={file.url}>View</a>} // [!code highlight]
         </div>
       ))}
 
@@ -379,142 +379,133 @@ const { uploadFiles } = useUploadRoute('fileUpload', {
 
 ## Advanced Examples
 
-<Tabs items={["With All Callbacks", "With Metadata", "Multiple Files", "Form Integration"]}>
-  <Tab value="With All Callbacks">
-    ```typescript
-    const { uploadFiles, files } = useUploadRoute<AppRouter>('documentUpload', {
-      onStart: (files) => {
-        toast.info(`Starting upload of ${files.length} files...`);
-        setUploadStarted(true);
-      },
-      onSuccess: (results) => {
-        toast.success(`Uploaded ${results.length} files`);
-        // Store both permanent and temporary URLs
-        updateDocuments(results.map(file => ({
-          url: file.url,                    // Permanent access
-          downloadUrl: file.presignedUrl,   // Temporary access (1 hour)
-          name: file.name,
-          key: file.key
-        })));
-        setUploadStarted(false);
-      },
-      onError: (error) => {
-        toast.error(`Upload failed: ${error.message}`);
-        setUploadStarted(false);
-      },
-      onProgress: (progress) => {
-        setGlobalProgress(progress);
-      }
-    })
-    ```
-  </Tab>
-  
-  <Tab value="With Metadata">
-    ```typescript
-    import { useUploadRoute } from 'pushduck/client'
-    import type { AppRouter } from '@/lib/upload'
-    import { useState } from 'react'
+```typescript tab="With All Callbacks"
+const { uploadFiles, files } = useUploadRoute<AppRouter>('documentUpload', {
+  onStart: (files) => {
+    toast.info(`Starting upload of ${files.length} files...`);
+    setUploadStarted(true);
+  },
+  onSuccess: (results) => {
+    toast.success(`Uploaded ${results.length} files`);
+    // Store both permanent and temporary URLs
+    updateDocuments(results.map(file => ({
+      url: file.url,                    // Permanent access
+      downloadUrl: file.presignedUrl,   // Temporary access (1 hour)
+      name: file.name,
+      key: file.key
+    })));
+    setUploadStarted(false);
+  },
+  onError: (error) => {
+    toast.error(`Upload failed: ${error.message}`);
+    setUploadStarted(false);
+  },
+  onProgress: (progress) => {
+    setGlobalProgress(progress);
+  }
+})
+```
 
-    export function ProductImageUpload({ productId }: { productId: string }) {
-      const [imageType, setImageType] = useState<'main' | 'gallery' | 'thumbnail'>('gallery');
-      const [sortOrder, setSortOrder] = useState(1);
-      
-      const { uploadFiles, files, isUploading } = useUploadRoute<AppRouter>('productImages', {
-        onSuccess: (results) => {
-          toast.success(`Uploaded ${results.length} ${imageType} images for product`);
-          // Update product in database with new image URLs
-          updateProduct(productId, results);
-        }
-      });
-      
-      const handleUpload = (selectedFiles: File[]) => {
-        // Send product context to server via metadata
-        uploadFiles(selectedFiles, {
-          productId: productId,
-          imageType: imageType,
-          sortOrder: sortOrder,
-          category: 'product-media',
-          uploadedFrom: 'admin-dashboard'
-        });
-      };
-      
-      return (
-        <div>
-          <div className="metadata-controls">
-            <label>
-              Image Type:
-              <select 
-                value={imageType} 
-                onChange={(e) => setImageType(e.target.value as any)}
-              >
-                <option value="main">Main Product Image</option>
-                <option value="gallery">Gallery Image</option>
-                <option value="thumbnail">Thumbnail</option>
-              </select>
-            </label>
-            
-            <label>
-              Sort Order:
-              <input
-                type="number"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(parseInt(e.target.value))}
-                min="1"
-              />
-            </label>
-          </div>
-          
+```typescript tab="With Metadata"
+import { useUploadRoute } from 'pushduck/client'
+import type { AppRouter } from '@/lib/upload'
+import { useState } from 'react'
+
+export function ProductImageUpload({ productId }: { productId: string }) {
+  const [imageType, setImageType] = useState<'main' | 'gallery' | 'thumbnail'>('gallery');
+  const [sortOrder, setSortOrder] = useState(1);
+  
+  const { uploadFiles, files, isUploading } = useUploadRoute<AppRouter>('productImages', {
+    onSuccess: (results) => {
+      toast.success(`Uploaded ${results.length} ${imageType} images for product`);
+      // Update product in database with new image URLs
+      updateProduct(productId, results);
+    }
+  });
+  
+  const handleUpload = (selectedFiles: File[]) => {
+    // Send product context to server via metadata
+    uploadFiles(selectedFiles, {
+      productId: productId,
+      imageType: imageType,
+      sortOrder: sortOrder,
+      category: 'product-media',
+      uploadedFrom: 'admin-dashboard'
+    });
+  };
+  
+  return (
+    <div>
+      <div className="metadata-controls">
+        <label>
+          Image Type:
+          <select 
+            value={imageType} 
+            onChange={(e) => setImageType(e.target.value as any)}
+          >
+            <option value="main">Main Product Image</option>
+            <option value="gallery">Gallery Image</option>
+            <option value="thumbnail">Thumbnail</option>
+          </select>
+        </label>
+        
+        <label>
+          Sort Order:
           <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={(e) => e.target.files && handleUpload(Array.from(e.target.files))}
-            disabled={isUploading}
+            type="number"
+            value={sortOrder}
+            onChange={(e) => setSortOrder(parseInt(e.target.value))}
+            min="1"
           />
-          
-          {files.map(file => (
-            <div key={file.id}>
-              <span>{file.name}</span>
-              <span>Type: {imageType}</span>
-              <span>Order: {sortOrder}</span>
-              {file.status === 'success' && <img src={file.url} alt={file.name} width={100} />}
-            </div>
-          ))}
-        </div>
-      );
-    }
-    ```
-  </Tab>
-  
-  <Tab value="Multiple Files">
-    ```typescript
-    const images = useUploadRoute<AppRouter>('imageUpload')
-    const documents = useUploadRoute<AppRouter>('documentUpload')
-    
-    return (
-      <div>
-        <FileUploadSection {...images} accept="image/*" />
-        <FileUploadSection {...documents} accept=".pdf,.doc" />
+        </label>
       </div>
-    )
-    ```
-  </Tab>
-  
-  <Tab value="Form Integration">
-    ```typescript
-    const { uploadFiles, uploadedFiles } = useUploadRoute<AppRouter>('attachments', {
-      onSuccess: (results) => {
-        setValue('attachments', results.map(r => r.url))
-      }
-    })
-    
-    const onSubmit = (data) => {
-      // Form data includes uploaded file URLs
-      console.log(data.attachments)
-    }
-    ```
-  </Tab>
-</Tabs>
+      
+      <input
+        type="file"
+        multiple
+        accept="image/*"
+        onChange={(e) => e.target.files && handleUpload(Array.from(e.target.files))}
+        disabled={isUploading}
+      />
+      
+      {files.map(file => (
+        <div key={file.id}>
+          <span>{file.name}</span>
+          <span>Type: {imageType}</span>
+          <span>Order: {sortOrder}</span>
+          {file.status === 'success' && <img src={file.url} alt={file.name} width={100} />}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+```typescript tab="Multiple Routes"
+const images = useUploadRoute<AppRouter>('imageUpload')
+const documents = useUploadRoute<AppRouter>('documentUpload')
+
+return (
+  <div>
+    <FileUploadSection {...images} accept="image/*" />
+    <FileUploadSection {...documents} accept=".pdf,.doc" />
+  </div>
+)
+```
+
+```typescript tab="Form Integration"
+const { uploadFiles, uploadedFiles } = useUploadRoute<AppRouter>('attachments', {
+  onSuccess: (results) => {
+    setValue('attachments', results.map(r => r.url))
+  }
+})
+
+const onSubmit = (data) => {
+  // Form data includes uploaded file URLs
+  console.log(data.attachments)
+}
+```
+
 
 ---
 

@@ -21,28 +21,9 @@ import { Files, Folder, File } from 'fumadocs-ui/components/files'
 
 Get your file uploads working in under 2 minutes with our interactive CLI tool.
 
-<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
-  <Tab value="npm">
-    ```bash
-    npx @pushduck/cli@latest init
-    ```
-  </Tab>
-  <Tab value="pnpm">
-    ```bash
-    pnpm dlx @pushduck/cli@latest init
-    ```
-  </Tab>
-  <Tab value="yarn">
-    ```bash
-    yarn dlx @pushduck/cli@latest init
-    ```
-  </Tab>
-  <Tab value="bun">
-    ```bash
-    bunx @pushduck/cli@latest init
-    ```
-  </Tab>
-</Tabs>
+```npm
+npx @pushduck/cli@latest init
+```
 
 The CLI will automatically:
 - 🔍 **Detect your package manager** (npm, pnpm, yarn, bun)
@@ -84,7 +65,7 @@ The CLI will automatically:
 
 ### `init` - Initialize Setup
 
-```bash
+```npm
 npx @pushduck/cli@latest init [options]
 ```
 
@@ -99,35 +80,25 @@ npx @pushduck/cli@latest init [options]
 
 **Examples:**
 
-<Tabs items={["Quick Setup", "AWS Direct", "Custom API Path", "Components Only"]}>
-  <Tab value="Quick Setup">
-    ```bash
-    # Interactive setup with all prompts
-    npx @pushduck/cli@latest init
-    ```
-  </Tab>
-  
-  <Tab value="AWS Direct">
-    ```bash
-    # Skip provider selection, use AWS S3
-    npx @pushduck/cli@latest init --provider aws
-    ```
-  </Tab>
-  
-  <Tab value="Custom API Path">
-    ```bash
-    # Use custom API route path
-    npx @pushduck/cli@latest init --api-path /api/files
-    ```
-  </Tab>
-  
-  <Tab value="Components Only">
-    ```bash
-    # Generate only components, skip bucket creation
-    npx @pushduck/cli@latest init --skip-bucket --skip-examples
-    ```
-  </Tab>
-</Tabs>
+```bash tab="Quick Setup"
+# Interactive setup with all prompts
+npx @pushduck/cli@latest init
+```
+
+```bash tab="AWS Direct"
+# Skip provider selection, use AWS S3
+npx @pushduck/cli@latest init --provider aws
+```
+
+```bash tab="Custom API Path"
+# Use custom API route path
+npx @pushduck/cli@latest init --api-path /api/files
+```
+
+```bash tab="Components Only"
+# Generate only components, skip bucket creation
+npx @pushduck/cli@latest init --skip-bucket --skip-examples
+```
 
 ### `add` - Add Upload Route
 
