@@ -4,38 +4,85 @@
  * This module provides all client-side functionality for React components and hooks.
  * It serves as the main entry point for client-side pushduck usage, offering:
  *
- * - **Upload Client**: Type-safe client for making upload requests
+ * - **Upload Client**: Type-safe client with property-based access
  * - **React Hooks**: Hooks for file uploads with progress tracking
+ * - **Client Metadata**: Pass contextual data from UI to server
  * - **Utility Functions**: File formatting and helper utilities
  * - **Type Definitions**: Comprehensive TypeScript types for client usage
  *
  * For server-side functionality (providers, schemas, routers), import from 'pushduck/server' instead.
  *
- * @example Basic Client Setup
+ * @example Basic Client Setup (Property-Based)
  * ```typescript
- * import { createUploadClient, useUploadRoute } from 'pushduck';
+ * import { createUploadClient } from 'pushduck/client';
+ * import type { AppRouter } from '@/lib/upload';
  *
  * // Create type-safe client
- * const client = createUploadClient<typeof router>({
- *   url: '/api/upload',
+ * const upload = createUploadClient<AppRouter>({
+ *   endpoint: '/api/upload'
  * });
  *
  * // Use in React component
  * function UploadComponent() {
- *   const { upload, isUploading, progress } = useUploadRoute({
- *     client,
- *     route: 'profileImage',
- *   });
+ *   const { uploadFiles, files, isUploading } = upload.imageUpload();
  *
- *   const handleUpload = async (file: File) => {
- *     const result = await upload({ file });
- *     console.log('Upload complete:', result.url);
+ *   return (
+ *     <div>
+ *       <input 
+ *         type="file" 
+ *         onChange={(e) => uploadFiles(Array.from(e.target.files || []))} 
+ *       />
+ *       {isUploading && <div>Uploading...</div>}
+ *     </div>
+ *   );
+ * }
+ * ```
+ *
+ * @example Hook-Based Approach
+ * ```typescript
+ * import { useUploadRoute } from 'pushduck/client';
+ * import type { AppRouter } from '@/lib/upload';
+ *
+ * function HookUpload() {
+ *   const { uploadFiles, files, isUploading } = useUploadRoute<AppRouter>('imageUpload');
+ *
+ *   return (
+ *     <div>
+ *       <input 
+ *         type="file" 
+ *         multiple
+ *         onChange={(e) => uploadFiles(Array.from(e.target.files || []))} 
+ *       />
+ *     </div>
+ *   );
+ * }
+ * ```
+ *
+ * @example With Client-Side Metadata
+ * ```typescript
+ * import { createUploadClient } from 'pushduck/client';
+ * import { useState } from 'react';
+ *
+ * function MetadataUpload() {
+ *   const [albumId, setAlbumId] = useState('vacation-2025');
+ *   const { uploadFiles } = upload.imageUpload();
+ *
+ *   const handleUpload = (files: File[]) => {
+ *     // Pass UI context as metadata
+ *     uploadFiles(files, {
+ *       albumId: albumId,
+ *       tags: ['vacation', 'summer'],
+ *       visibility: 'private'
+ *     });
  *   };
  *
  *   return (
  *     <div>
- *       <input type="file" onChange={(e) => handleUpload(e.target.files[0])} />
- *       {isUploading && <div>Progress: {progress}%</div>}
+ *       <select value={albumId} onChange={(e) => setAlbumId(e.target.value)}>
+ *         <option value="vacation-2025">Vacation 2025</option>
+ *         <option value="family">Family Photos</option>
+ *       </select>
+ *       <input type="file" multiple onChange={(e) => handleUpload(Array.from(e.target.files || []))} />
  *     </div>
  *   );
  * }
@@ -43,28 +90,21 @@
  *
  * @example Advanced Upload with Progress
  * ```typescript
- * import { useUploadRoute, formatETA, formatUploadSpeed } from 'pushduck';
+ * import { useUploadRoute, formatETA, formatUploadSpeed } from 'pushduck/client';
  *
  * function AdvancedUpload() {
  *   const {
- *     upload,
+ *     uploadFiles,
+ *     files,
  *     isUploading,
  *     progress,
  *     uploadSpeed,
  *     eta,
- *     error
- *   } = useUploadRoute({
- *     client,
- *     route: 'documents',
- *     onProgress: (progress) => {
- *       console.log(`Upload progress: ${progress}%`);
- *     },
- *     onComplete: (result) => {
- *       console.log('Upload completed:', result);
- *     },
- *     onError: (error) => {
- *       console.error('Upload failed:', error);
- *     },
+ *     errors
+ *   } = useUploadRoute<AppRouter>('documentUpload', {
+ *     onProgress: (progress) => console.log(`Progress: ${progress}%`),
+ *     onSuccess: (results) => console.log('Completed:', results),
+ *     onError: (error) => console.error('Failed:', error),
  *   });
  *
  *   return (
@@ -72,42 +112,12 @@
  *       {isUploading && (
  *         <div>
  *           <div>Progress: {progress}%</div>
- *           <div>Speed: {formatUploadSpeed(uploadSpeed)}</div>
- *           <div>ETA: {formatETA(eta)}</div>
+ *           <div>Speed: {uploadSpeed ? formatUploadSpeed(uploadSpeed) : 'Calculating...'}</div>
+ *           <div>ETA: {eta ? formatETA(eta) : 'Calculating...'}</div>
  *         </div>
  *       )}
- *       {error && <div>Error: {error.message}</div>}
+ *       {errors.length > 0 && <div>Errors: {errors.join(', ')}</div>}
  *     </div>
- *   );
- * }
- * ```
- *
- * @example Multiple File Upload
- * ```typescript
- * import { useUploadRoute } from 'pushduck';
- *
- * function MultiFileUpload() {
- *   const { upload, isUploading } = useUploadRoute({
- *     client,
- *     route: 'gallery', // Array route
- *   });
- *
- *   const handleMultipleUpload = async (files: FileList) => {
- *     const fileArray = Array.from(files);
- *     const results = await upload({ files: fileArray });
- *
- *     results.forEach((result, index) => {
- *       console.log(`File ${index + 1}:`, result.url);
- *     });
- *   };
- *
- *   return (
- *     <input
- *       type="file"
- *       multiple
- *       onChange={(e) => handleMultipleUpload(e.target.files)}
- *       disabled={isUploading}
- *     />
  *   );
  * }
  * ```

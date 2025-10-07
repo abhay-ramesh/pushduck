@@ -107,7 +107,12 @@ export default function UploadPage() {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-    uploadFiles(selectedFiles);
+    // Optional: Pass client-side metadata
+    uploadFiles(selectedFiles, {
+      albumId: 'vacation-2025',
+      tags: ['summer'],
+      visibility: 'private'
+    });
   };
 
   return (
