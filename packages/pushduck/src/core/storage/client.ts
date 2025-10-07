@@ -937,18 +937,29 @@ export async function uploadFileToS3(
       });
     }
 
-    // Convert File to ArrayBuffer if needed
-    let body: ArrayBuffer | Buffer;
+    // Convert File or Buffer to ArrayBuffer for fetch API
+    // ArrayBuffer is part of BufferSource which is accepted by BodyInit
+    let body: ArrayBuffer;
+    let totalBytes: number;
+
     if (file instanceof File) {
+      // Convert File to ArrayBuffer
       body = await file.arrayBuffer();
+      totalBytes = body.byteLength;
     } else {
-      body = file;
+      // Convert Buffer to ArrayBuffer
+      // Extract the underlying ArrayBuffer from Node.js Buffer
+      // This handles both ArrayBuffer and SharedArrayBuffer backing
+      const uint8 = new Uint8Array(file);
+      body = uint8.buffer.slice(
+        uint8.byteOffset,
+        uint8.byteOffset + uint8.byteLength
+      );
+      totalBytes = file.byteLength;
     }
 
     // Set Content-Length header (required by many S3-compatible services)
-    headers["Content-Length"] = body.byteLength.toString();
-
-    const totalBytes = body.byteLength;
+    headers["Content-Length"] = totalBytes.toString();
 
     // Report upload start
     if (options.onProgress) {
