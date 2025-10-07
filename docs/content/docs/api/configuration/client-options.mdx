@@ -257,13 +257,14 @@ Each upload method accepts configuration options:
     ```typescript
     const { uploadFiles } = upload.documentUpload
 
+    // Pass metadata as second parameter (not in options)
     await uploadFiles(selectedFiles, {
-      metadata: {
-        category: 'contracts',
-        department: 'legal',
-        priority: 'high',
-        tags: ['confidential', 'urgent']
-      }
+      category: 'contracts',
+      department: 'legal',
+      priority: 'high',
+      tags: ['confidential', 'urgent'],
+      projectId: currentProject.id,
+      uploadedBy: currentUser.email
     })
     ```
 

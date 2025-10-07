@@ -88,6 +88,94 @@ export function ImageUploader() {
 }
 ```
 
+## Client-Side Metadata for Images
+
+Pass contextual information from your UI to organize and categorize images:
+
+<Callout type="success">
+**New Feature:** You can now pass metadata directly from the client when uploading images. This allows you to send album IDs, tags, categories, or any contextual data from your UI to the server.
+</Callout>
+
+```typescript
+// Client component
+import { upload } from '@/lib/upload-client';
+import { useState } from 'react';
+
+export function GalleryUpload() {
+  const [selectedAlbum, setSelectedAlbum] = useState('vacation-2025');
+  const [tags, setTags] = useState<string[]>([]);
+  const [isFeatured, setIsFeatured] = useState(false);
+  
+  const { uploadFiles, files } = upload.galleryImages({
+    onSuccess: (results) => {
+      console.log(`Uploaded to album: ${selectedAlbum}`);
+    }
+  });
+  
+  const handleUpload = (selectedFiles: File[]) => {
+    // Pass UI state as metadata
+    uploadFiles(selectedFiles, {
+      albumId: selectedAlbum,
+      tags: tags,
+      featured: isFeatured,
+      uploadSource: 'gallery-manager',
+      category: 'user-content'
+    });
+  };
+  
+  return (
+    <div>
+      <select value={selectedAlbum} onChange={(e) => setSelectedAlbum(e.target.value)}>
+        <option value="vacation-2025">Vacation 2025</option>
+        <option value="family">Family Photos</option>
+      </select>
+      
+      <input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} />
+      <label>Mark as Featured</label>
+      
+      <input type="file" multiple onChange={(e) => e.target.files && handleUpload(Array.from(e.target.files))} />
+    </div>
+  );
+}
+```
+
+**Server-side validation:**
+
+```typescript
+// Server router
+.middleware(async ({ req, metadata }) => {
+  const user = await authenticateUser(req);
+  
+  // Validate client-provided album access
+  if (metadata?.albumId) {
+    const hasAccess = await db.albums.canUserAccess(metadata.albumId, user.id);
+    if (!hasAccess) throw new Error('Access denied to album');
+  }
+  
+  return {
+    // Client metadata (validated)
+    albumId: metadata?.albumId,
+    tags: metadata?.tags || [],
+    featured: metadata?.featured || false,
+    
+    // Server metadata (trusted)
+    userId: user.id,
+    uploadedAt: new Date().toISOString()
+  };
+})
+.paths({
+  generateKey: (ctx) => {
+    const { metadata, file } = ctx;
+    // Use metadata in path generation
+    return `albums/${metadata.albumId}/${metadata.featured ? 'featured/' : ''}${file.name}`;
+  }
+})
+```
+
+<Callout type="warn">
+**Security:** Always validate client metadata in middleware. Never trust client-provided user IDs or permissions.
+</Callout>
+
 ## Image Validation & Processing
 
 ### Format Validation

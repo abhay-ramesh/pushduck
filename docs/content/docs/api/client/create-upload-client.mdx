@@ -111,7 +111,7 @@ Each route method now accepts optional configuration:
 
 ## Examples
 
-<Tabs items={["Basic Usage", "With Callbacks", "Multiple Routes", "Global + Per-Route", "Advanced Config"]}>
+<Tabs items={["Basic Usage", "With Metadata", "With Callbacks", "Multiple Routes", "Global + Per-Route", "Advanced Config"]}>
   <Tab value="Basic Usage">
 ```typescript
     import { upload } from '@/lib/upload-client'
@@ -140,6 +140,73 @@ Each route method now accepts optional configuration:
           <button onClick={reset}>Reset</button>
         </div>
       )
+    }
+    ```
+  </Tab>
+
+  <Tab value="With Metadata">
+    ```typescript
+    import { upload } from '@/lib/upload-client'
+    import { useState } from 'react'
+
+    export function MetadataUpload() {
+      const [selectedAlbum, setSelectedAlbum] = useState('vacation-2025');
+      const [tags, setTags] = useState<string[]>([]);
+      
+      const { uploadFiles, files } = upload.imageUpload({
+        onSuccess: (results) => {
+          console.log(`Uploaded ${results.length} images to album:`, selectedAlbum);
+        }
+      });
+      
+      const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFiles = Array.from(e.target.files || []);
+        
+        // Pass client-side context as metadata
+        uploadFiles(selectedFiles, {
+          albumId: selectedAlbum,
+          tags: tags,
+          visibility: 'private',
+          uploadSource: 'web-app',
+          timestamp: Date.now()
+        });
+      };
+      
+      return (
+        <div>
+          <div className="controls">
+            <select 
+              value={selectedAlbum} 
+              onChange={(e) => setSelectedAlbum(e.target.value)}
+            >
+              <option value="vacation-2025">Vacation 2025</option>
+              <option value="family">Family Photos</option>
+              <option value="work">Work Events</option>
+            </select>
+            
+            <input
+              type="text"
+              placeholder="Add tags (comma separated)"
+              onChange={(e) => setTags(e.target.value.split(',').map(t => t.trim()))}
+            />
+          </div>
+          
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleUpload}
+          />
+          
+          {files.map(file => (
+            <div key={file.id}>
+              <span>{file.name}</span>
+              <progress value={file.progress} max={100} />
+              {file.status === 'success' && <span>✅</span>}
+            </div>
+          ))}
+        </div>
+      );
     }
     ```
   </Tab>

@@ -92,14 +92,63 @@ Add authentication, validation, and metadata:
 
   // Return enriched metadata
   return {
-    ...metadata,
-    userId: user.id,
+    ...metadata,         // Client-provided metadata (e.g., albumId, tags)
+    userId: user.id,     // Server-side auth (overrides client)
     userRole: user.role,
     uploadedAt: new Date().toISOString(),
     ipAddress: req.headers.get('x-forwarded-for'),
   }
 })
 ```
+
+<Callout type="info">
+**Client Metadata Support:** The `metadata` parameter contains data sent from the client via `uploadFiles(files, metadata)`. This allows passing UI context like album selections, tags, or form data. The middleware can then enrich this client metadata with server-side data like authenticated user information.
+</Callout>
+
+**Example with Client Metadata:**
+
+```typescript
+// Client component
+const { uploadFiles } = upload.imageUpload();
+
+uploadFiles(files, {
+  albumId: 'vacation-2025',
+  tags: ['beach', 'sunset'],
+  visibility: 'private'
+});
+
+// Server middleware receives and validates
+.middleware(async ({ req, metadata }) => {
+  const user = await authenticateUser(req);
+  
+  // Validate client-provided albumId
+  if (metadata?.albumId) {
+    const album = await db.albums.findFirst({
+      where: { 
+        id: metadata.albumId, 
+        userId: user.id  // Ensure user owns the album
+      }
+    });
+    if (!album) throw new Error('Album not found or access denied');
+  }
+  
+  return {
+    // Client metadata (validated)
+    albumId: metadata?.albumId,
+    tags: metadata?.tags || [],
+    visibility: metadata?.visibility || 'private',
+    
+    // Server metadata (trusted)
+    userId: user.id,          // From auth, NOT from client
+    role: user.role,          // From auth, NOT from client
+    uploadedAt: new Date().toISOString()
+  };
+})
+```
+
+<Callout type="warn">
+**Security Warning:** Client metadata is UNTRUSTED user input. Always validate and never trust client-provided identity claims (userId, role, permissions, etc.). Extract identity from authenticated sessions on the server.
+</Callout>
 
 ### Path Configuration
 

@@ -379,7 +379,7 @@ const { uploadFiles } = useUploadRoute('fileUpload', {
 
 ## Advanced Examples
 
-<Tabs items={["With All Callbacks", "Multiple Files", "Form Integration"]}>
+<Tabs items={["With All Callbacks", "With Metadata", "Multiple Files", "Form Integration"]}>
   <Tab value="With All Callbacks">
     ```typescript
     const { uploadFiles, files } = useUploadRoute<AppRouter>('documentUpload', {
@@ -406,6 +406,83 @@ const { uploadFiles } = useUploadRoute('fileUpload', {
         setGlobalProgress(progress);
       }
     })
+    ```
+  </Tab>
+  
+  <Tab value="With Metadata">
+    ```typescript
+    import { useUploadRoute } from 'pushduck/client'
+    import type { AppRouter } from '@/lib/upload'
+    import { useState } from 'react'
+
+    export function ProductImageUpload({ productId }: { productId: string }) {
+      const [imageType, setImageType] = useState<'main' | 'gallery' | 'thumbnail'>('gallery');
+      const [sortOrder, setSortOrder] = useState(1);
+      
+      const { uploadFiles, files, isUploading } = useUploadRoute<AppRouter>('productImages', {
+        onSuccess: (results) => {
+          toast.success(`Uploaded ${results.length} ${imageType} images for product`);
+          // Update product in database with new image URLs
+          updateProduct(productId, results);
+        }
+      });
+      
+      const handleUpload = (selectedFiles: File[]) => {
+        // Send product context to server via metadata
+        uploadFiles(selectedFiles, {
+          productId: productId,
+          imageType: imageType,
+          sortOrder: sortOrder,
+          category: 'product-media',
+          uploadedFrom: 'admin-dashboard'
+        });
+      };
+      
+      return (
+        <div>
+          <div className="metadata-controls">
+            <label>
+              Image Type:
+              <select 
+                value={imageType} 
+                onChange={(e) => setImageType(e.target.value as any)}
+              >
+                <option value="main">Main Product Image</option>
+                <option value="gallery">Gallery Image</option>
+                <option value="thumbnail">Thumbnail</option>
+              </select>
+            </label>
+            
+            <label>
+              Sort Order:
+              <input
+                type="number"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(parseInt(e.target.value))}
+                min="1"
+              />
+            </label>
+          </div>
+          
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={(e) => e.target.files && handleUpload(Array.from(e.target.files))}
+            disabled={isUploading}
+          />
+          
+          {files.map(file => (
+            <div key={file.id}>
+              <span>{file.name}</span>
+              <span>Type: {imageType}</span>
+              <span>Order: {sortOrder}</span>
+              {file.status === 'success' && <img src={file.url} alt={file.name} width={100} />}
+            </div>
+          ))}
+        </div>
+      );
+    }
     ```
   </Tab>
   

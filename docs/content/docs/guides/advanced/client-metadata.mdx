@@ -1,0 +1,823 @@
+---
+title: Client-Side Metadata
+description: Pass contextual data from your UI to the server for dynamic file organization and categorization
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+
+## Client-Side Metadata
+
+Client-side metadata allows you to pass contextual information from your UI directly to the server during file uploads. This enables dynamic file organization, categorization, and processing based on user selections and application state.
+
+<Callout type="success">
+**New Feature:** As of v0.1.23, you can now pass metadata from the client when calling `uploadFiles()`. This metadata flows through to your middleware, lifecycle hooks, and path generation functions.
+</Callout>
+
+## Why Use Client Metadata?
+
+Client metadata bridges the gap between UI context and server-side processing:
+
+- 🎯 **UI State** - Pass album selections, categories, or form data
+- 🏢 **Multi-tenant Context** - Send workspace, project, or organization IDs
+- 🏷️ **User Preferences** - Include tags, visibility settings, or custom fields
+- 📊 **Dynamic Organization** - Organize files based on client context
+- 🎨 **Flexible Workflows** - Adapt to different use cases without API changes
+
+## Basic Usage
+
+<Steps>
+  <Step>
+    **Client: Pass metadata with uploadFiles**
+    
+    ```typescript
+    import { upload } from '@/lib/upload-client';
+    
+    export function ImageUploader() {
+      const { uploadFiles } = upload.imageUpload();
+      
+      const handleUpload = (files: File[]) => {
+        // Pass metadata as second parameter
+        uploadFiles(files, {
+          albumId: 'vacation-2025',
+          tags: ['beach', 'sunset'],
+          visibility: 'private'
+        });
+      };
+      
+      return <input type="file" multiple onChange={(e) => handleUpload(Array.from(e.target.files || []))} />;
+    }
+    ```
+  </Step>
+  
+  <Step>
+    **Server: Receive in middleware**
+    
+    ```typescript
+    // app/api/upload/route.ts
+    const s3Router = s3.createRouter({
+      imageUpload: s3.image()
+        .middleware(async ({ req, metadata }) => {
+          const user = await authenticateUser(req);
+          
+          return {
+            ...metadata,      // Client data: { albumId, tags, visibility }
+            userId: user.id,  // Server data from auth
+          };
+        })
+    });
+    ```
+  </Step>
+  
+  <Step>
+    **Use in hooks and path generation**
+    
+    ```typescript
+    .paths({
+      generateKey: (ctx) => {
+        // Metadata available in path generation
+        return `users/${ctx.metadata.userId}/albums/${ctx.metadata.albumId}/${ctx.file.name}`;
+      }
+    })
+    .onUploadComplete(async ({ metadata, url }) => {
+      // Metadata available in lifecycle hooks
+      await db.images.create({
+        url,
+        albumId: metadata.albumId,
+        tags: metadata.tags,
+        userId: metadata.userId
+      });
+    })
+    ```
+  </Step>
+</Steps>
+
+## Real-World Examples
+
+### Multi-Tenant SaaS Application
+
+```typescript
+// Client component
+export function WorkspaceFileUpload({ workspace, project }: Props) {
+  const { uploadFiles } = upload.documentUpload();
+  
+  const handleUpload = (files: File[]) => {
+    uploadFiles(files, {
+      workspaceId: workspace.id,
+      projectId: project.id,
+      teamId: workspace.team.id,
+      folder: selectedFolder.path,
+      permissions: {
+        canEdit: currentUser.role === 'admin',
+        canDelete: currentUser.role === 'admin',
+        canShare: true
+      }
+    });
+  };
+  
+  return <FileUploadZone onFilesSelected={handleUpload} />;
+}
+```
+
+```typescript
+// Server middleware - validates tenant isolation
+.middleware(async ({ req, metadata }) => {
+  const user = await authenticateUser(req);
+  
+  // Verify user belongs to workspace
+  const membership = await db.workspaceMemberships.findFirst({
+    where: {
+      workspaceId: metadata?.workspaceId,
+      userId: user.id
+    }
+  });
+  
+  if (!membership) {
+    throw new Error('Access denied to workspace');
+  }
+  
+  // Verify user can access project
+  const project = await db.projects.findFirst({
+    where: {
+      id: metadata?.projectId,
+      workspaceId: metadata?.workspaceId
+    }
+  });
+  
+  if (!project) {
+    throw new Error('Project not found');
+  }
+  
+  return {
+    // Validated client metadata
+    workspaceId: metadata.workspaceId,
+    projectId: metadata.projectId,
+    folder: metadata.folder || '/',
+    
+    // Server metadata
+    userId: user.id,
+    userRole: membership.role,
+    uploadedAt: new Date().toISOString()
+  };
+})
+.paths({
+  generateKey: (ctx) => {
+    const { metadata, file } = ctx;
+    return `workspaces/${metadata.workspaceId}/projects/${metadata.projectId}${metadata.folder}/${file.name}`;
+  }
+})
+```
+
+### E-Commerce Product Images
+
+```typescript
+// Client: Product image upload with variants
+export function ProductImageManager({ product }: { product: Product }) {
+  const [imageType, setImageType] = useState<'main' | 'gallery' | 'thumbnail'>('gallery');
+  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
+  
+  const { uploadFiles, files } = upload.productImages();
+  
+  const handleUpload = (files: File[]) => {
+    uploadFiles(files, {
+      productId: product.id,
+      variantId: selectedVariant,
+      imageType: imageType,
+      sortOrder: product.images.length + 1,
+      altText: `${product.name} - ${imageType} image`
+    });
+  };
+  
+  return (
+    <div>
+      <select value={imageType} onChange={(e) => setImageType(e.target.value as any)}>
+        <option value="main">Main Product Image</option>
+        <option value="gallery">Gallery Image</option>
+        <option value="thumbnail">Thumbnail</option>
+      </select>
+      
+      {product.variants.length > 0 && (
+        <select value={selectedVariant || ''} onChange={(e) => setSelectedVariant(e.target.value || null)}>
+          <option value="">All Variants</option>
+          {product.variants.map(v => (
+            <option key={v.id} value={v.id}>{v.name}</option>
+          ))}
+        </select>
+      )}
+      
+      <input type="file" multiple onChange={(e) => e.target.files && handleUpload(Array.from(e.target.files))} />
+    </div>
+  );
+}
+```
+
+```typescript
+// Server: Organize by product and variant
+.middleware(async ({ req, metadata }) => {
+  const user = await authenticateUser(req);
+  
+  // Verify user owns product
+  const product = await db.products.findFirst({
+    where: {
+      id: metadata?.productId,
+      ownerId: user.id
+    }
+  });
+  
+  if (!product) {
+    throw new Error('Product not found or access denied');
+  }
+  
+  return {
+    productId: metadata.productId,
+    variantId: metadata.variantId,
+    imageType: metadata.imageType,
+    sortOrder: metadata.sortOrder,
+    userId: user.id,
+    merchantId: product.merchantId
+  };
+})
+.paths({
+  generateKey: (ctx) => {
+    const { metadata, file } = ctx;
+    const variantPath = metadata.variantId ? `/variants/${metadata.variantId}` : '';
+    return `products/${metadata.productId}${variantPath}/${metadata.imageType}/${metadata.sortOrder}-${file.name}`;
+  }
+})
+.onUploadComplete(async ({ metadata, url }) => {
+  await db.productImages.create({
+    productId: metadata.productId,
+    variantId: metadata.variantId,
+    type: metadata.imageType,
+    url: url,
+    sortOrder: metadata.sortOrder,
+    altText: metadata.altText
+  });
+})
+```
+
+### Content Management System
+
+```typescript
+// Client: Content upload with categorization
+export function CMSMediaUpload() {
+  const [contentType, setContentType] = useState('article');
+  const [category, setCategory] = useState('technology');
+  const [tags, setTags] = useState<string[]>([]);
+  const [publishDate, setPublishDate] = useState<string>('');
+  
+  const { uploadFiles } = upload.mediaUpload();
+  
+  const handleUpload = (files: File[]) => {
+    uploadFiles(files, {
+      contentType: contentType,
+      category: category,
+      tags: tags,
+      publishDate: publishDate || new Date().toISOString(),
+      featured: false,
+      author: currentUser.username
+    });
+  };
+  
+  return (
+    <form>
+      <select value={contentType} onChange={(e) => setContentType(e.target.value)}>
+        <option value="article">Article</option>
+        <option value="video">Video</option>
+        <option value="podcast">Podcast</option>
+      </select>
+      
+      <select value={category} onChange={(e) => setCategory(e.target.value)}>
+        <option value="technology">Technology</option>
+        <option value="business">Business</option>
+        <option value="lifestyle">Lifestyle</option>
+      </select>
+      
+      <input
+        type="date"
+        value={publishDate}
+        onChange={(e) => setPublishDate(e.target.value)}
+      />
+      
+      <input type="file" multiple onChange={(e) => e.target.files && handleUpload(Array.from(e.target.files))} />
+    </form>
+  );
+}
+```
+
+```typescript
+// Server: CMS organization
+.middleware(async ({ req, metadata }) => {
+  const user = await authenticateUser(req);
+  
+  // Verify user has content creation permissions
+  if (!user.permissions.includes('create:content')) {
+    throw new Error('Insufficient permissions');
+  }
+  
+  return {
+    contentType: metadata?.contentType || 'article',
+    category: metadata?.category,
+    tags: metadata?.tags || [],
+    publishDate: metadata?.publishDate,
+    authorId: user.id,
+    authorName: user.name,
+    status: 'draft'
+  };
+})
+.paths({
+  generateKey: (ctx) => {
+    const { metadata, file } = ctx;
+    const date = new Date(metadata.publishDate);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    
+    return `content/${metadata.contentType}/${year}/${month}/${metadata.category}/${file.name}`;
+  }
+})
+```
+
+## Security Best Practices
+
+<Callout type="warn">
+**⚠️ CRITICAL: Client metadata is UNTRUSTED user input.**
+
+Never trust identity claims, permissions, or security-related data from the client. Always validate and extract identity from authenticated sessions on the server.
+</Callout>
+
+### ❌ DON'T: Trust Client Identity
+
+```typescript
+// ❌ BAD: Trusting client-provided userId
+uploadFiles(files, {
+  userId: currentUser.id,    // Client can fake this
+  isAdmin: true,             // Client can lie about this
+  role: 'admin'              // Never trust this from client
+});
+
+.middleware(async ({ metadata }) => {
+  return {
+    userId: metadata.userId,  // ❌ DANGEROUS!
+    role: metadata.role       // ❌ SECURITY RISK!
+  };
+})
+```
+
+### ✅ DO: Validate and Override
+
+```typescript
+// ✅ GOOD: Server determines identity
+uploadFiles(files, {
+  albumId: selectedAlbum.id,     // ✅ OK - contextual data
+  tags: selectedTags,            // ✅ OK - user input (validate)
+  visibility: 'private'          // ✅ OK - user preference
+});
+
+.middleware(async ({ req, metadata }) => {
+  const user = await authenticateUser(req);  // Server auth
+  
+  // Validate client data
+  if (metadata?.albumId) {
+    const album = await db.albums.findFirst({
+      where: {
+        id: metadata.albumId,
+        userId: user.id  // Verify ownership
+      }
+    });
+    if (!album) throw new Error('Invalid album');
+  }
+  
+  return {
+    // Client metadata (validated)
+    albumId: metadata?.albumId,
+    tags: sanitizeTags(metadata?.tags || []),
+    
+    // Server metadata (trusted)
+    userId: user.id,          // ✅ From auth
+    role: user.role,          // ✅ From auth
+    uploadedAt: new Date().toISOString()
+  };
+})
+```
+
+## Validation Strategies
+
+### Type Validation
+
+```typescript
+.middleware(async ({ metadata }) => {
+  // Validate data types
+  if (metadata?.albumId && typeof metadata.albumId !== 'string') {
+    throw new Error('Invalid albumId type');
+  }
+  
+  if (metadata?.tags && !Array.isArray(metadata.tags)) {
+    throw new Error('Tags must be an array');
+  }
+  
+  if (metadata?.sortOrder && typeof metadata.sortOrder !== 'number') {
+    throw new Error('Invalid sortOrder type');
+  }
+  
+  return { ...metadata };
+})
+```
+
+### Value Validation
+
+```typescript
+.middleware(async ({ metadata }) => {
+  // Validate UUIDs
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (metadata?.albumId && !uuidRegex.test(metadata.albumId)) {
+    throw new Error('Invalid album ID format');
+  }
+  
+  // Validate enums
+  const validVisibilities = ['public', 'private', 'unlisted'];
+  if (metadata?.visibility && !validVisibilities.includes(metadata.visibility)) {
+    throw new Error('Invalid visibility setting');
+  }
+  
+  // Sanitize strings
+  const sanitizedTags = (metadata?.tags || []).map((tag: string) => 
+    tag.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
+  );
+  
+  return {
+    ...metadata,
+    tags: sanitizedTags
+  };
+})
+```
+
+### Database Validation
+
+```typescript
+.middleware(async ({ req, metadata }) => {
+  const user = await authenticateUser(req);
+  
+  // Verify referenced entities exist and user has access
+  if (metadata?.projectId) {
+    const project = await db.projects.findFirst({
+      where: {
+        id: metadata.projectId,
+        members: {
+          some: { userId: user.id }
+        }
+      }
+    });
+    
+    if (!project) {
+      throw new Error('Project not found or access denied');
+    }
+  }
+  
+  if (metadata?.folderId) {
+    const folder = await db.folders.findFirst({
+      where: {
+        id: metadata.folderId,
+        projectId: metadata.projectId,
+        deleted: false
+      }
+    });
+    
+    if (!folder) {
+      throw new Error('Folder not found');
+    }
+  }
+  
+  return {
+    ...metadata,
+    userId: user.id
+  };
+})
+```
+
+## TypeScript Support
+
+Define metadata interfaces for better type safety:
+
+```typescript
+// Define your metadata interface
+interface UploadMetadata {
+  albumId: string;
+  tags: string[];
+  visibility: 'public' | 'private' | 'unlisted';
+  featured?: boolean;
+}
+
+// Client usage with type safety
+const handleUpload = (files: File[]) => {
+  const metadata: UploadMetadata = {
+    albumId: selectedAlbum.id,
+    tags: selectedTags,
+    visibility: visibilityOption,
+    featured: isFeatured
+  };
+  
+  uploadFiles(files, metadata);
+};
+
+// Server middleware with typed metadata
+.middleware(async ({ req, metadata }: { req: NextRequest; metadata?: UploadMetadata }) => {
+  const user = await authenticateUser(req);
+  
+  return {
+    ...metadata,
+    userId: user.id
+  };
+})
+```
+
+## Common Use Cases
+
+### Album/Gallery Organization
+
+```typescript
+// Pass album selection from UI
+uploadFiles(files, {
+  albumId: selectedAlbum.id,
+  albumName: selectedAlbum.name,
+  tags: selectedTags,
+  visibility: albumSettings.defaultVisibility
+});
+```
+
+### Document Management
+
+```typescript
+// Pass folder structure and metadata
+uploadFiles(files, {
+  folderId: currentFolder.id,
+  folderPath: currentFolder.fullPath,
+  category: documentCategory,
+  confidential: isConfidential,
+  expiresAt: expirationDate
+});
+```
+
+### User Profile Assets
+
+```typescript
+// Pass asset type and purpose
+uploadFiles(files, {
+  assetType: 'profile-picture',
+  purpose: 'avatar',
+  aspectRatio: '1:1',
+  previousAssetId: currentAvatar?.id // For cleanup
+});
+```
+
+### Form Submissions
+
+```typescript
+// Pass form context with uploads
+uploadFiles(files, {
+  formId: formSubmission.id,
+  formType: 'contact',
+  attachmentType: 'supporting-document',
+  relatedTo: formData.ticketId
+});
+```
+
+## Advanced Patterns
+
+### Conditional Metadata
+
+```typescript
+const handleUpload = (files: File[]) => {
+  const metadata: any = {
+    uploadSource: 'web-app',
+    timestamp: Date.now()
+  };
+  
+  // Conditionally add metadata
+  if (selectedAlbum) {
+    metadata.albumId = selectedAlbum.id;
+  }
+  
+  if (tags.length > 0) {
+    metadata.tags = tags;
+  }
+  
+  if (isAdminUser) {
+    metadata.priority = 'high';
+    metadata.skipModeration = true;
+  }
+  
+  uploadFiles(files, metadata);
+};
+```
+
+### Metadata from Form State
+
+```typescript
+import { useForm } from 'react-hook-form';
+
+export function FormWithUploads() {
+  const { register, handleSubmit } = useForm();
+  const { uploadFiles } = upload.attachments();
+  
+  const onSubmit = async (formData: any) => {
+    // Upload files with form context
+    await uploadFiles(selectedFiles, {
+      formId: formData.id,
+      category: formData.category,
+      priority: formData.priority,
+      department: formData.department,
+      requestedBy: formData.requesterEmail
+    });
+    
+    // Then submit form
+    await submitForm(formData);
+  };
+  
+  return <form onSubmit={handleSubmit(onSubmit)}>...</form>;
+}
+```
+
+### Dynamic Path Generation
+
+```typescript
+// Client
+uploadFiles(files, {
+  organizationId: org.id,
+  departmentId: dept.id,
+  projectCode: project.code,
+  fileClass: 'confidential'
+});
+
+// Server - organize by metadata
+.paths({
+  generateKey: (ctx) => {
+    const { metadata, file } = ctx;
+    const date = new Date();
+    const year = date.getFullYear();
+    const quarter = `Q${Math.ceil((date.getMonth() + 1) / 3)}`;
+    
+    return [
+      'organizations',
+      metadata.organizationId,
+      'departments',
+      metadata.departmentId,
+      year.toString(),
+      quarter,
+      metadata.fileClass,
+      metadata.projectCode,
+      file.name
+    ].join('/');
+  }
+})
+```
+
+## Metadata Size Considerations
+
+<Callout type="info">
+**Size Limits:** While there's no hard limit on metadata size, keep it reasonable (< 10KB). Large metadata objects increase request size and processing time.
+</Callout>
+
+### ✅ Good Metadata
+
+```typescript
+// Compact and purposeful
+{
+  albumId: 'abc123',
+  tags: ['vacation', 'beach'],
+  visibility: 'private',
+  featured: false
+}
+```
+
+### ⚠️ Avoid Large Metadata
+
+```typescript
+// Too large - send via separate API call
+{
+  albumId: 'abc123',
+  fullImageData: base64EncodedImage,      // ❌ Don't embed files
+  entireUserProfile: { ... },              // ❌ Too much data
+  allPreviousUploads: [ ... ],            // ❌ Unnecessary
+  complexNestedStructure: { ... }          // ⚠️ Keep it simple
+}
+```
+
+## Error Handling
+
+Handle metadata-related errors gracefully:
+
+```typescript
+const { uploadFiles } = upload.imageUpload({
+  onError: (error) => {
+    if (error.message.includes('album')) {
+      toast.error('Selected album is invalid or you don\'t have access');
+      resetAlbumSelection();
+    } else if (error.message.includes('metadata')) {
+      toast.error('Invalid upload settings. Please try again.');
+    } else {
+      toast.error('Upload failed: ' + error.message);
+    }
+  }
+});
+```
+
+## Testing with Metadata
+
+```typescript
+import { render, fireEvent } from '@testing-library/react';
+
+test('uploads files with correct metadata', async () => {
+  const mockUploadFiles = vi.fn();
+  
+  const { getByLabelText, getByRole } = render(
+    <ImageUploader uploadFiles={mockUploadFiles} />
+  );
+  
+  // Select album
+  const albumSelect = getByLabelText('Album');
+  fireEvent.change(albumSelect, { target: { value: 'vacation-2025' } });
+  
+  // Add tags
+  const tagsInput = getByLabelText('Tags');
+  fireEvent.change(tagsInput, { target: { value: 'beach,sunset' } });
+  
+  // Upload files
+  const fileInput = getByRole('file-input');
+  const files = [new File(['content'], 'photo.jpg', { type: 'image/jpeg' })];
+  fireEvent.change(fileInput, { target: { files } });
+  
+  // Verify metadata was passed correctly
+  expect(mockUploadFiles).toHaveBeenCalledWith(
+    expect.arrayContaining(files),
+    expect.objectContaining({
+      albumId: 'vacation-2025',
+      tags: ['beach', 'sunset']
+    })
+  );
+});
+```
+
+## Best Practices
+
+### ✅ DO
+
+- Pass UI state and user selections
+- Validate metadata in middleware
+- Use metadata for dynamic path generation
+- Keep metadata size reasonable (< 10KB)
+- Define TypeScript interfaces for metadata
+- Sanitize user input (tags, descriptions)
+- Verify access to referenced entities (albums, projects)
+
+### ❌ DON'T
+
+- Trust client-provided identity (userId, role, permissions)
+- Send sensitive data (passwords, tokens, secrets)
+- Embed large objects (base64 files, entire datasets)
+- Skip validation in middleware
+- Use metadata for authentication
+- Trust metadata without verification
+
+## Migration Guide
+
+If you're upgrading from a version without metadata support:
+
+```typescript
+// Before: No metadata support
+const { uploadFiles } = upload.imageUpload();
+uploadFiles(files);
+
+// After: Add metadata (backward compatible)
+const { uploadFiles } = upload.imageUpload();
+
+// Still works without metadata
+uploadFiles(files);
+
+// Or add metadata
+uploadFiles(files, { albumId: album.id });
+```
+
+The feature is **100% backward compatible** - existing code continues to work without changes.
+
+---
+
+<Cards>
+  <Card
+    href="/docs/api/client/create-upload-client"
+    title="Upload Client API"
+    description="Complete API reference for createUploadClient"
+  />
+  <Card
+    href="/docs/api/s3-router"
+    title="Router Middleware"
+    description="Configure middleware to process metadata"
+  />
+  <Card
+    href="/docs/guides/security/authentication"
+    title="Security Guide"
+    description="Authentication and authorization best practices"
+  />
+</Cards>
+

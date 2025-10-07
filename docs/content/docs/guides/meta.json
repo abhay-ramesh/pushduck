@@ -3,6 +3,7 @@
     "pages": [
         "client-approaches",
         "uploads",
+        "advanced",
         "security",
         "migration",
         "going-live"
