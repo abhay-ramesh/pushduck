@@ -19,28 +19,10 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
 ## Install Pushduck
 
-<Tabs items={['npm', 'pnpm', 'yarn', 'bun']}>
-  <Tab value="npm">
-    ```bash
-    npm install pushduck
-    ```
-  </Tab>
-  <Tab value="pnpm">
-    ```bash
-    pnpm add pushduck
-    ```
-  </Tab>
-  <Tab value="yarn">
-    ```bash
-    yarn add pushduck
-    ```
-  </Tab>
-  <Tab value="bun">
-    ```bash
-    bun add pushduck
-    ```
-  </Tab>
-</Tabs>
+
+```npm
+npm install pushduck
+```
 
 </Step>
 
@@ -50,35 +32,25 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
 Create a `.env.local` file in your project root with your storage credentials:
 
-<Tabs items={["Cloudflare R2", "AWS S3"]}>
-  <Tab value="Cloudflare R2">
-    ```dotenv title=".env.local"
-    # Cloudflare R2 Configuration
-    CLOUDFLARE_R2_ACCESS_KEY_ID=your_access_key
-    CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_secret_key
-    CLOUDFLARE_R2_ACCOUNT_ID=your_account_id
-    CLOUDFLARE_R2_BUCKET_NAME=your-bucket-name
-    ```
-    
-    <Callout type="info">
-      **Don't have R2 credentials yet?** Follow our [Cloudflare R2 setup guide](/docs/providers/cloudflare-r2) to create a bucket and get your credentials in 2 minutes.
-    </Callout>
-  </Tab>
-  
-  <Tab value="AWS S3">
-    ```dotenv title=".env.local"
-    # AWS S3 Configuration
-    AWS_ACCESS_KEY_ID=your_access_key
-    AWS_SECRET_ACCESS_KEY=your_secret_key
-    AWS_REGION=us-east-1
-    AWS_S3_BUCKET_NAME=your-bucket-name
-    ```
-    
-    <Callout type="info">
-      **Don't have S3 credentials yet?** Follow our [AWS S3 setup guide](/docs/providers/aws-s3) to create a bucket and get your credentials in 2 minutes.
-    </Callout>
-  </Tab>
-</Tabs>
+```dotenv title=".env.local" tab="Cloudflare R2"
+# Cloudflare R2 Configuration
+CLOUDFLARE_R2_ACCESS_KEY_ID=your_access_key
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_secret_key
+CLOUDFLARE_R2_ACCOUNT_ID=your_account_id
+CLOUDFLARE_R2_BUCKET_NAME=your-bucket-name
+```
+
+```dotenv title=".env.local" tab="AWS S3"
+# AWS S3 Configuration
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=us-east-1
+AWS_S3_BUCKET_NAME=your-bucket-name
+```
+
+<Callout type="info">
+  **Don't have credentials yet?** Follow our [Provider setup guide](/docs/providers) to create a bucket and get your credentials in 2 minutes.
+</Callout>
 
 </Step>
 

@@ -1,9 +1,13 @@
 {
     "title": "Configuration",
     "pages": [
+        "--- Upload Settings ---",
         "upload-config",
+        "--- Client Options ---",
         "client-options",
+        "--- Server Router ---",
         "server-router",
+        "--- Path Management ---",
         "path-configuration"
     ]
 }

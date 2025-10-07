@@ -1,13 +1,20 @@
 {
     "title": "Pushduck",
     "pages": [
+        "--- Getting Started ---",
         "index",
+        "quick-start",
+        "--- Learn ---",
         "getting-started",
         "providers",
         "integrations",
+        "--- Guides ---",
         "guides",
+        "--- API Reference ---",
         "api",
+        "--- Examples ---",
         "examples",
+        "--- Tools ---",
         "ai-integration",
         "roadmap"
     ]

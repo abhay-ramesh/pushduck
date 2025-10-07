@@ -9,7 +9,7 @@ The S3 router provides a type-safe way to define upload endpoints with schema va
 
 ## Basic Router Setup
 
-```typescript
+```typescript title="app/api/upload/route.ts"
 // app/api/upload/route.ts
 import { s3 } from '@/lib/upload'
 
@@ -18,7 +18,7 @@ const s3Router = s3.createRouter({
     .image()
     .maxFileSize('5MB')
     .formats(['jpeg', 'jpg', 'png', 'webp'])
-    .middleware(async ({ file, metadata }) => {
+    .middleware(async ({ file, metadata }) => { // [!code highlight]
       // Add authentication and user context
       return {
         ...metadata,
@@ -37,16 +37,16 @@ const s3Router = s3.createRouter({
 })
 
 // Export the handler
-export const { GET, POST } = s3Router.handlers;
+export const { GET, POST } = s3Router.handlers; // [!code highlight]
 ```
 
 ## Schema Builders
 
 ### Image Schema
 
-```typescript
+```typescript title="Image Schema Configuration"
 s3.image()
-  .maxFileSize('5MB')
+  .maxFileSize('5MB') // [!code highlight]
   .formats(['jpeg', 'jpg', 'png', 'webp', 'gif'])
   .dimensions({ minWidth: 100, maxWidth: 2000 })
   .quality(0.8) // JPEG quality
@@ -54,18 +54,18 @@ s3.image()
 
 ### File Schema
 
-```typescript
+```typescript title="File Schema Configuration"
 s3.file()
-  .maxFileSize('10MB')
+  .maxFileSize('10MB') // [!code highlight]
   .types(['application/pdf', 'text/plain', 'application/json'])
   .extensions(['pdf', 'txt', 'json'])
 ```
 
 ### Object Schema (Multiple Files)
 
-```typescript
+```typescript title="Object Schema Configuration"
 s3.object({
-  images: s3.image().maxFileSize('5MB').maxFiles(5),
+  images: s3.image().maxFileSize('5MB').maxFiles(5), // [!code highlight]
   documents: s3.file().maxFileSize('10MB').maxFiles(2),
   thumbnail: s3.image().maxFileSize('1MB').maxFiles(1),
 })
@@ -77,12 +77,12 @@ s3.object({
 
 Add authentication, validation, and metadata:
 
-```typescript
-.middleware(async ({ file, metadata, req }) => {
+```typescript title="Middleware Example"
+.middleware(async ({ file, metadata, req }) => { // [!code highlight]
   // Authentication
   const user = await authenticateUser(req)
   if (!user) {
-    throw new Error('Authentication required')
+    throw new Error('Authentication required') // [!code highlight]
   }
 
   // File validation
@@ -93,7 +93,7 @@ Add authentication, validation, and metadata:
   // Return enriched metadata
   return {
     ...metadata,
-    userId: user.id,
+    userId: user.id, // [!code highlight]
     userRole: user.role,
     uploadedAt: new Date().toISOString(),
     ipAddress: req.headers.get('x-forwarded-for'),
