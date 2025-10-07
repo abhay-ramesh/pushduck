@@ -804,6 +804,13 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     const results: PresignedUrlResponse[] = [];
 
     for (const file of files) {
+      /**
+       * Initialize fileMetadata outside try block so it's available in catch block
+       * for the onUploadError hook. This ensures error hooks receive the enriched
+       * metadata even when validation or presigned URL generation fails.
+       */
+      let fileMetadata = metadata || {};
+
       try {
         /**
          * 1. Run middleware chain to enrich metadata
@@ -817,7 +824,6 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
          *
          * The result becomes the authoritative metadata for this upload.
          */
-        let fileMetadata = metadata || {};
         const middlewareChain = routeConfig.middleware || [];
 
         for (const middleware of middlewareChain) {
@@ -878,9 +884,9 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
             ? error
             : new Error("Failed to generate presigned URL");
 
-        // Call onUploadError hook
+        // Call onUploadError hook with enriched metadata
         if (routeConfig.onUploadError) {
-          await routeConfig.onUploadError({ file, metadata: {}, error: err });
+          await routeConfig.onUploadError({ file, metadata: fileMetadata, error: err });
         }
 
         results.push({
