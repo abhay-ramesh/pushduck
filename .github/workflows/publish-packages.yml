@@ -174,7 +174,7 @@ jobs:
           cd ../cli && tar -xzf ../../cli-dist.tar.gz
 
       - name: 📦 Setup NPM registry
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
