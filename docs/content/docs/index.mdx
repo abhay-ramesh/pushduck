@@ -6,152 +6,103 @@ description: Own your file uploads. The most comprehensive upload solution for N
 import { Card, Cards } from "fumadocs-ui/components/card";
 import { Step, Steps } from "fumadocs-ui/components/steps";
 
-## Own Your File Uploads
+## Simple S3 Uploads, Zero Vendor Lock-in
 
-_File uploads in Next.js have been overcomplicated for too long. Developers shouldn't need to cobble together multiple libraries, write custom middleware, and manage complex state just to handle file uploads. We believe the TypeScript ecosystem deserves better—hence, Pushduck._
-
-**The most comprehensive file upload solution for Next.js.** Guided setup, full TypeScript support, and everything you need out of the box.
+Upload files directly to S3-compatible storage. Lightweight (6KB), type-safe, and works everywhere. No monthly fees, no vendor lock-in—just **3 files and ~50 lines of code**.
 
 ```typescript
-// It's really this simple
-const upload = createUploadClient();
+// Create your upload client
+const upload = createUploadClient<AppRouter>({
+  endpoint: '/api/upload'
+});
 
+// Use anywhere in your app
 export function MyComponent() {
-  const { uploadFiles, uploadedFiles, isUploading } = upload.imageUpload();
+  const { uploadFiles, files, isUploading } = upload.imageUpload();
 
   return (
     <input
       type="file"
-      onChange={(e) => uploadFiles(e.target.files)}
+      onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
       disabled={isUploading}
     />
   );
 }
 ```
 
-<UploadDemo 
-  title="🎬 Interactive Demo" 
-  description="Try uploading files to see the enhanced type-safe client in action"
-  showTabs={true}
-  compact={false}
-/>
-
-<div className="not-prose mb-8">
+<div className="not-prose my-6">
   <Card
-    title="🎬 Live Demo"
-    description="Try it yourself! Interactive demo with real file uploads using Cloudflare R2."
-    href="/upload"
-    className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300"
+    title="🚀 Get Started in 2 Minutes"
+    description="Follow our quick-start guide to add file uploads to your app right now"
+    href="/docs/quick-start"
+    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-700 hover:from-blue-700 hover:to-indigo-700"
   />
 </div>
 
+<UploadDemo 
+  title="🎬 Try It Live" 
+  description="Upload a file to see it in action (using Cloudflare R2)"
+  showTabs={false}
+  compact={true}
+/>
+
+## Why Choose Pushduck?
+
+**Alternative to UploadThing** - Own your infrastructure, zero recurring costs.
+
+| Feature | Pushduck | UploadThing |
+|---------|----------|-------------|
+| **Cost** | $0 (use your S3) | $10-25/month |
+| **Bundle Size** | 6KB | Managed client |
+| **Vendor Lock-in** | None - S3 compatible | Locked to their service |
+| **File Ownership** | Your S3 bucket | Their storage |
+| **Type Safety** | Full TypeScript | TypeScript support |
+| **Setup Time** | ~2 minutes | ~2 minutes |
+
+**Key benefits:**
+- ✅ **6KB bundle** - No heavy AWS SDK
+- ✅ **Type-safe** - Compile-time route validation
+- ✅ **Own your files** - Any S3-compatible provider
+- ✅ **No monthly fees** - Use your own S3
+- ✅ **Focused library** - Does uploads, nothing else
+
+## More Resources
+
 <div className="not-prose mb-8">
   <Cards>
     <Card
-      title="🎯 Pushduck Init"
-      description="Interactive CLI guides you through setup with sensible defaults. Minimal configuration required."
-      href="/docs/quick-start"
-    />
-    <Card
-      title="🔒 Type-Safe"
-      description="Full TypeScript inference from server router to client components. Catch errors at compile time."
-      href="/docs/guides/migration/enhanced-client"
-    />
-    <Card
-      title="☁️ Provider Agnostic"
-      description="Cloudflare R2, AWS S3, DigitalOcean Spaces, MinIO. Switch providers without changing code."
-      href="/docs/providers/aws-s3"
-    />
-    <Card
-      title="⚡ Production Ready"
-      description="Built-in validation, overall progress tracking, error handling, and security features."
+      title="📚 Examples"
+      description="Production-ready examples with auth, validation, and beautiful UI"
       href="/docs/examples"
     />
-  </Cards>
-</div>
-
-## Why Pushduck?
-
-File uploads should be **simple**, **secure**, and **scalable**. Other solutions make you choose between ease of use and control, or require vendor lock-in and ongoing costs.
-
-Pushduck gives you:
-
-- **Full ownership** of your upload infrastructure
-- **Zero vendor lock-in** with provider-agnostic design
-- **Production-grade features** without the complexity
-- **Type-safe development** with full TypeScript inference
-- **Focused scope** - We do uploads, you do everything else
-
-<Callout type="info">
-  📖 **Learn our philosophy** - Read about what Pushduck does (and doesn't do) in our [Philosophy & Scope](/docs/philosophy) guide
-</Callout>
-
-## Get Started
-
-<div className="not-prose mb-8">
-  <Cards>
     <Card
-      title="⚡ CLI Setup"
-      description="Interactive setup with npx @pushduck/cli@latest init - guided configuration in one command"
-      href="/docs/api/cli"
-    />
-    <Card
-      title="🔧 Manual Setup"
-      description="Step-by-step manual setup for developers who prefer full control"
-      href="/docs/getting-started/manual-setup"
+      title="📖 Philosophy"
+      description="What Pushduck does (and doesn't do) - our scope and principles"
+      href="/docs/philosophy"
     />
     <Card
       title="☁️ Providers"
-      description="Provider-specific setup guides for Cloudflare R2, AWS S3, and more"
+      description="Setup guides for Cloudflare R2, AWS S3, DigitalOcean, and MinIO"
       href="/docs/providers"
     />
     <Card
-      title="💡 Examples"
-      description="See it in action with real-world examples and demo components"
-      href="/docs/examples"
+      title="⚡ CLI Tool"
+      description="Zero-config setup with npx @pushduck/cli init"
+      href="/docs/api/cli"
     />
-  </Cards>
-</div>
-
-## Loved by Developers
-
-> "Finally, an upload solution that just works. The TypeScript inference is incredible - I get autocomplete for everything and catch errors before they hit production."
-
-— **React Developer**, SaaS Startup
-
-> "We migrated from Uploadthing to pushduck and cut our upload costs by 80%. The provider-agnostic design means we can switch S3-compatible providers anytime."
-
-— **CTO**, E-commerce Platform
-
-> "The property-based client approach is genius. No more passing route names as strings - everything is type-safe and the DX is outstanding."
-
-— **Full-Stack Developer**, Agency
-
----
-
-## Framework Agnostic
-
-While optimized for Next.js, it works seamlessly across the JavaScript ecosystem:
-
-<div className="not-prose mb-8">
-  <Cards>
-    <Card title="Next.js" description="App Router & Pages Router" />
-    <Card title="Remix" description="Full-stack support" />
-    <Card title="SvelteKit" description="Coming soon" />
-    <Card title="Nuxt" description="Coming soon" />
   </Cards>
 </div>
 
 ## What's Included
 
-Everything you need for production file uploads:
+- ✅ **Progress Tracking** - Real-time progress, speed, and ETA
+- ✅ **Type Safety** - Full TypeScript from server to client
+- ✅ **Multi-Provider** - AWS S3, Cloudflare R2, DigitalOcean, MinIO
+- ✅ **Validation** - File type, size, and custom rules
+- ✅ **Storage Operations** - List, delete, and manage files
+- ✅ **Framework Support** - Next.js, Remix, Express, Fastify, and more
+- ✅ **Drag & Drop Components** - Copy-paste UI components via CLI
 
-- ✅ **Validation & Security** - File type, size, and custom validation
-- ✅ **Overall Progress Tracking** - Real-time aggregate progress, speed, and ETA across all files
-- ✅ **Error Handling** - Comprehensive error states and recovery
-- ✅ **Middleware System** - Custom logic for authentication, metadata, and processing
-- ✅ **Type Inference** - Full TypeScript safety from server to client
-- ✅ **Provider Support** - Cloudflare R2, AWS S3, DigitalOcean, MinIO, and more
-- ✅ **Image Processing** - Built-in Sharp integration for optimization
-- ✅ **Drag & Drop** - Ready-to-use components and hooks
-- ✅ **Multi-file Support** - Concurrent uploads with progress aggregation
+<Callout type="info">
+  📖 **What we don't do** - File processing, analytics, team management. See [Philosophy](/docs/philosophy) for our focused scope.
+</Callout>

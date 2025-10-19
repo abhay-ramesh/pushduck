@@ -441,7 +441,7 @@ export default function HomePage() {
 
           <div className="flex flex-col gap-4 justify-center mb-12 sm:flex-row">
             <Link
-              href="/docs"
+              href="/docs/quick-start"
               className="inline-flex justify-center items-center px-8 py-4 text-lg font-medium rounded-xl border border-transparent transition-all shadow-lg text-primary-foreground bg-primary hover:bg-primary/90 hover:shadow-xl hover:scale-105"
             >
               Get Started
@@ -813,7 +813,7 @@ export default function HomePage() {
             </p>
             <div className="flex flex-col gap-4 justify-center sm:flex-row">
               <Link
-                href="/docs"
+                href="/docs/quick-start"
                 className="inline-flex justify-center items-center px-8 py-4 text-lg font-medium rounded-xl border border-transparent transition-all shadow-lg text-primary-foreground bg-primary hover:bg-primary/90 hover:shadow-xl hover:scale-105"
               >
                 Start Building
