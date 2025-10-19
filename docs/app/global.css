@@ -11,6 +11,11 @@
   --border-radius-xl: 1rem;
 }
 
+/* Brand title font */
+.brand-title {
+  font-family: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+}
+
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
@@ -30,7 +35,9 @@ html {
 /* Enhanced code block styling */
 pre {
   font-variant-ligatures: normal;
-  font-feature-settings: "liga" 1, "calt" 1;
+  font-feature-settings:
+    "liga" 1,
+    "calt" 1;
 }
 
 /* Refined backdrop blur effects */
@@ -56,7 +63,8 @@ pre {
 
 /* Enhanced shadow system */
 .shadow-2xl {
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25),
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.25),
     0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 

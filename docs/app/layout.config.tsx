@@ -14,20 +14,19 @@ export const baseOptions: BaseLayoutProps = {
     title: (
       <>
         <div className="flex gap-3 items-center">
-          <div className="relative">
-            <Image
-              src="/pushduck-mascot.png"
-              alt="Pushduck"
-              width={32}
-              height={32}
-              className="rounded-md"
-            />
-            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full opacity-60 animate-pulse bg-primary" />
-          </div>
+          <Image
+            src="/pushduck-mascot.png"
+            alt="Pushduck"
+            width={28}
+            height={28}
+            className="rounded-md"
+          />
           <div className="flex flex-col">
-            <span className="text-lg font-bold tracking-tight">Pushduck</span>
-            <span className="text-xs font-medium tracking-wide text-muted-foreground">
-              File uploads made simple
+            <span className="brand-title text-base font-bold tracking-tight">
+              Pushduck
+            </span>
+            <span className="text-[10px] font-mono text-muted-foreground">
+              // S3 uploads for any framework
             </span>
           </div>
         </div>
