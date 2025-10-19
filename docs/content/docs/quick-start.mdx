@@ -61,9 +61,10 @@ export type AppRouter = typeof router;
 
 <Step>
 
-### Create Upload Client
+### Create Client & Use in Components
 
-Create a reusable client you can import anywhere:
+Create a reusable client and use it in your components:
+
 
 ```ts title="lib/upload-client.ts"
 import { createUploadClient } from 'pushduck/client';
@@ -73,14 +74,6 @@ export const upload = createUploadClient<AppRouter>({
   endpoint: '/api/upload'
 });
 ```
-
-</Step>
-
-<Step>
-
-### Use in Components
-
-Now use it in any component:
 
 ```tsx title="app/upload-demo.tsx"
 'use client';
@@ -117,7 +110,7 @@ export function UploadDemo() {
 
 ## ✅ Done!
 
-That's it - **3 files, ~40 lines of code**, and you have production-ready file uploads!
+That's it - **3 steps, 3 files, ~40 lines of code**, and you have production-ready file uploads!
 
 ---
 
