@@ -1,14 +1,10 @@
 {
     "title": "Providers",
     "pages": [
-        "--- Recommended ---",
         "cloudflare-r2",
-        "--- Popular ---",
         "aws-s3",
         "digitalocean-spaces",
-        "--- Enterprise ---",
         "google-cloud",
-        "--- Self-Hosted ---",
         "minio",
         "s3-compatible"
     ]

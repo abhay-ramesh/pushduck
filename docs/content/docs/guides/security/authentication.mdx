@@ -1,5 +1,5 @@
 ---
-title: Authentication & Authorization
+title: Authentication
 description: Secure your file uploads with proper authentication and authorization patterns
 ---
 
@@ -19,6 +19,36 @@ Secure your file upload endpoints with robust authentication and authorization m
 </Callout>
 
 ## Authentication Patterns
+
+### Better Auth (Recommended)
+
+Modern, type-safe authentication with native TypeScript support:
+
+```typescript
+import { s3 } from "@/lib/upload";
+import { auth } from "@/lib/auth"; // Better Auth instance
+
+const s3Router = s3.createRouter({
+  userFiles: s3.image()
+    .maxFileSize("5MB")
+    .maxFiles(10)
+    .middleware(async ({ req, metadata }) => {
+      const session = await auth.api.getSession({ headers: req.headers });
+
+      if (!session?.user?.id) {
+        throw new Error("Authentication required");
+      }
+
+      return {
+        ...metadata,
+        userId: session.user.id,
+        userEmail: session.user.email,
+      };
+    }),
+});
+
+export const { GET, POST } = s3Router.handlers;
+```
 
 ### NextAuth.js Integration
 
@@ -112,419 +142,42 @@ const s3Router = s3.createRouter({
 });
 ```
 
-## Authorization Strategies
+## Simple Role Checking
 
-### Role-Based Access Control (RBAC)
-
-<TypeTable
-  type={{
-    admin: {
-      description: "Full access to all upload operations",
-      type: "string",
-    },
-    moderator: {
-      description: "Can upload and moderate content",
-      type: "string",
-    },
-    user: {
-      description: "Basic upload permissions",
-      type: "string",
-    },
-    guest: {
-      description: "Limited or no upload access",
-      type: "string",
-    },
-  }}
-/>
+For apps with admins vs regular users:
 
 ```typescript
 const s3Router = s3.createRouter({
   adminUploads: s3.file()
     .maxFileSize("100MB")
-    .maxFiles(50)
     .middleware(async ({ req, metadata }) => {
-      const { userId, roles } = await authenticateUser(req);
-
-      if (!roles.includes("admin")) {
+      const { userId, role } = await authenticateUser(req);
+      
+      if (role !== "admin") {
         throw new Error("Admin access required");
       }
-
-      return { ...metadata, userId, roles };
-    }),
-
-  moderatorUploads: s3.image()
-    .maxFileSize("10MB")
-    .maxFiles(20)
-    .middleware(async ({ req, metadata }) => {
-      const { userId, roles } = await authenticateUser(req);
-
-      if (!roles.includes("admin") && !roles.includes("moderator")) {
-        throw new Error("Moderator access required");
-      }
-
-      return { ...metadata, userId, roles };
-    }),
-
-  userUploads: s3.image()
-    .maxFileSize("5MB")
-    .maxFiles(5)
-    .middleware(async ({ req, metadata }) => {
-      const { userId } = await authenticateUser(req);
-
-      // Basic authentication only
-      return { ...metadata, userId };
+      
+      return { ...metadata, userId, role };
     }),
 });
 ```
 
-### Resource-Based Authorization
-
-```typescript
-const s3Router = s3.createRouter({
-  projectFiles: s3.file()
-    .maxFileSize("25MB")
-    .maxFiles(10)
-    .middleware(async ({ req, metadata }) => {
-      const { userId } = await authenticateUser(req);
-      const projectId = req.url.searchParams.get("projectId");
-
-      if (!projectId) {
-        throw new Error("Project ID required");
-      }
-
-      // Check if user has access to this project
-      const hasAccess = await checkProjectAccess(userId, projectId);
-
-      if (!hasAccess) {
-        throw new Error("Access denied to this project");
-      }
-
-      return { ...metadata, userId, projectId };
-    }),
-});
-```
-
-### Attribute-Based Access Control (ABAC)
-
-```typescript
-interface AccessContext {
-  userId: string;
-  userRole: string;
-  resourceType: string;
-  action: string;
-  environment: string;
-}
-
-async function checkAccess(context: AccessContext): Promise<boolean> {
-  // Complex policy evaluation
-  const policies = await getPolicies(context.userId);
-
-  return policies.some(
-    (policy) =>
-      policy.resource === context.resourceType &&
-      policy.actions.includes(context.action) &&
-      policy.environment.includes(context.environment)
-  );
-}
-
-export const router = createUploadRouter({
-  sensitiveFiles: uploadSchema({
-    document: { maxSize: "10MB", maxCount: 1 },
-  }).middleware(async ({ req }) => {
-    const { userId, role } = await authenticateUser(req);
-
-    const hasAccess = await checkAccess({
-      userId,
-      userRole: role,
-      resourceType: "sensitive-document",
-      action: "upload",
-      environment: process.env.NODE_ENV || "development",
-    });
-
-    if (!hasAccess) {
-      throw new Error("Access denied by policy");
-    }
-
-    return { userId, role };
-  }),
-});
-```
-
-## Security Best Practices
-
-<Cards>
-  <Card title="Input Validation" description="Always validate file content and metadata">
-    ```typescript
-    .middleware(async ({ req, files }) => {
-      for (const file of files) {
-        // Validate file headers
-        if (!await isValidFileType(file)) {
-          throw new Error("Invalid file type")
-        }
-        
-        // Check for malicious content
-        if (await containsMalware(file)) {
-          throw new Error("File contains malicious content")
-        }
-      }
-      
-      return { userId: await getUserId(req) }
-    })
-    ```
-  </Card>
-  
-  <Card title="Rate Limiting" description="Prevent abuse with upload rate limits">
-    ```typescript
-    import { ratelimit } from '@/lib/ratelimit'
-    
-    .middleware(async ({ req }) => {
-      const identifier = await getUserId(req) || getClientIP(req)
-      
-      const { success } = await ratelimit.limit(identifier)
-      if (!success) {
-        throw new Error("Rate limit exceeded")
-      }
-      
-      return { userId: identifier }
-    })
-    ```
-  </Card>
-  
-  <Card title="Quota Management" description="Enforce storage and upload quotas">
-    ```typescript
-    .middleware(async ({ req, files }) => {
-      const userId = await getUserId(req)
-      const totalSize = files.reduce((sum, f) => sum + f.size, 0)
-      
-      const quota = await getUserQuota(userId)
-      if (quota.used + totalSize > quota.limit) {
-        throw new Error("Storage quota exceeded")
-      }
-      
-      return { userId }
-    })
-    ```
-  </Card>
-</Cards>
-
-## Client-Side Security
-
-### Secure Token Handling
-
-```typescript
-// lib/upload-client.ts
-export const upload = createUploadClient<AppRouter>({
-  endpoint: "/api/upload",
-  headers: {
-    // Use secure token storage
-    Authorization: `Bearer ${getSecureToken()}`,
-  },
-  onError: (error) => {
-    if (error.status === 401) {
-      // Handle token expiration
-      refreshToken().then(() => {
-        // Retry the upload with new token
-        window.location.reload();
-      });
-    }
-  },
-});
-
-// Secure token storage
-function getSecureToken(): string {
-  // Use httpOnly cookies or secure storage
-  return (
-    document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("auth-token="))
-      ?.split("=")[1] || ""
-  );
-}
-```
-
-### CSRF Protection
-
-```typescript
-// Server-side CSRF validation
-import { csrf } from "@/lib/csrf";
-
-export const router = createUploadRouter({
-  protectedUploads: uploadSchema({
-    image: { maxSize: "5MB", maxCount: 10 },
-  }).middleware(async ({ req }) => {
-    // Validate CSRF token
-    const csrfToken = req.headers.get("x-csrf-token");
-    if (!csrf.verify(csrfToken)) {
-      throw new Error("Invalid CSRF token");
-    }
-
-    return { userId: await getUserId(req) };
-  }),
-});
-
-// Client-side CSRF token
-export const upload = createUploadClient<AppRouter>({
-  endpoint: "/api/upload",
-  headers: {
-    "X-CSRF-Token": getCsrfToken(),
-  },
-});
-```
-
-## Environment-Specific Security
-
-<Tabs items={["Development", "Staging", "Production"]}>
-  <Tab value="Development">
-    ```typescript
-    export const router = createUploadRouter({
-      devUploads: uploadSchema({
-        any: { maxSize: "100MB", maxCount: 100 }
-      }).middleware(async ({ req }) => {
-        if (process.env.NODE_ENV !== 'development') {
-          throw new Error("Development endpoint only")
-        }
-        
-        // Relaxed auth for development
-        const userId = req.headers.get('x-dev-user-id') || 'dev-user'
-        return { userId }
-      })
-    })
-    ```
-  </Tab>
-  
-  <Tab value="Staging">
-    ```typescript
-    export const router = createUploadRouter({
-      stagingUploads: uploadSchema({
-        any: { maxSize: "50MB", maxCount: 20 }
-      }).middleware(async ({ req }) => {
-        // Basic auth for staging
-        const token = req.headers.get('authorization')
-        if (!token || !await validateStagingToken(token)) {
-          throw new Error("Invalid staging credentials")
-        }
-        
-        return { userId: 'staging-user' }
-      })
-    })
-    ```
-  </Tab>
-  
-  <Tab value="Production">
-    ```typescript
-    export const router = createUploadRouter({
-      prodUploads: uploadSchema({
-        any: { maxSize: "25MB", maxCount: 10 }
-      }).middleware(async ({ req }) => {
-        // Full security stack for production
-        const session = await getServerSession(req)
-        if (!session) throw new Error("Authentication required")
-        
-        const ip = req.headers.get('x-forwarded-for')
-        await checkIPWhitelist(ip)
-        
-        const { success } = await ratelimit.limit(session.user.id)
-        if (!success) throw new Error("Rate limit exceeded")
-        
-        await auditLog('file_upload_attempt', {
-          userId: session.user.id,
-          ip,
-          timestamp: new Date()
-        })
-        
-        return {
-          userId: session.user.id,
-          auditId: generateAuditId()
-        }
-      })
-    })
-    ```
-  </Tab>
-</Tabs>
-
-## Security Middleware Examples
-
-### Multi-Factor Authentication
-
-```typescript
-export const router = createUploadRouter({
-  sensitiveUploads: uploadSchema({
-    document: { maxSize: "10MB", maxCount: 1 },
-  }).middleware(async ({ req }) => {
-    const { userId } = await authenticateUser(req);
-    const mfaToken = req.headers.get("x-mfa-token");
-
-    if (!mfaToken) {
-      throw new Error("MFA token required for sensitive uploads");
-    }
-
-    const isValidMFA = await verifyMFAToken(userId, mfaToken);
-    if (!isValidMFA) {
-      throw new Error("Invalid MFA token");
-    }
-
-    return { userId, mfaVerified: true };
-  }),
-});
-```
-
-### IP Whitelisting
-
-```typescript
-export const router = createUploadRouter({
-  restrictedUploads: uploadSchema({
-    any: { maxSize: "50MB", maxCount: 5 },
-  }).middleware(async ({ req }) => {
-    const clientIP =
-      req.headers.get("x-forwarded-for") ||
-      req.headers.get("x-real-ip") ||
-      "unknown";
-
-    const allowedIPs = process.env.ALLOWED_IPS?.split(",") || [];
-
-    if (!allowedIPs.includes(clientIP)) {
-      throw new Error(`Access denied for IP: ${clientIP}`);
-    }
-
-    return { userId: await getUserId(req), clientIP };
-  }),
-});
-```
-
-### Content Scanning
-
-```typescript
-import { scanFile } from "@/lib/virus-scanner";
-
-export const router = createUploadRouter({
-  scannedUploads: uploadSchema({
-    any: { maxSize: "25MB", maxCount: 10 },
-  }).middleware(async ({ req, files }) => {
-    // Scan all files for malware
-    for (const file of files) {
-      const scanResult = await scanFile(file);
-
-      if (scanResult.threat) {
-        await logSecurityEvent({
-          type: "malware_detected",
-          filename: file.name,
-          threat: scanResult.threat,
-          ip: req.headers.get("x-forwarded-for"),
-        });
-
-        throw new Error("File contains malicious content");
-      }
-    }
-
-    return { userId: await getUserId(req) };
-  }),
-});
-```
+That's it! For more complex permissions (multi-tenant, resource-based), see [advanced patterns](/docs/api/configuration/server-router#middleware).
 
 ---
 
-<Callout type="success">
-  **Security First:** Always implement multiple layers of security.
-  Authentication, authorization, input validation, and monitoring work together
-  to protect your application.
-</Callout>
+## Next Steps
+
+<Cards>
+  <Card title="CORS Setup" href="/docs/guides/security/cors-and-acl">
+    Configure cross-origin requests for your S3 bucket
+  </Card>
+  
+  <Card title="Production Checklist" href="/docs/guides/production-checklist">
+    8 essential items to go live safely
+  </Card>
+  
+  <Card title="Client Metadata" href="/docs/guides/client-metadata">
+    Pass context from UI to server securely
+  </Card>
+</Cards>

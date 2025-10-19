@@ -1,16 +1,11 @@
 {
   "title": "Guides",
   "pages": [
-    "--- Client Development ---",
     "client-approaches",
-    "--- Upload Features ---",
-    "uploads",
-    "advanced",
-    "--- Security ---",
+    "image-uploads",
+    "client-metadata",
     "security",
-    "--- Migration ---",
-    "migration",
-    "--- Production ---",
-    "going-live"
+    "migrate-to-enhanced-client",
+    "production-checklist"
   ]
 }

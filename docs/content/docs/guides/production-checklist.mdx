@@ -1,0 +1,147 @@
+---
+title: Production Checklist
+description: Essential checklist for deploying pushduck to production safely
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+
+## Going Live Checklist
+
+Get your file uploads production-ready. Start with the 8 essentials below—most apps don't need more than this.
+
+<Callout type="success">
+**Quick Path to Production:** Complete the essential checklist below (8 items) and you're ready to deploy. Advanced optimizations can be added later as you scale.
+</Callout>
+
+## ✅ Essential Checklist (Required)
+
+These 8 items are critical for safe production deployment:
+
+<Steps>
+  <Step>
+    **1. Authentication**
+    
+    - [ ] Auth middleware on all upload routes
+    - [ ] Unauthenticated requests are blocked
+    
+    ```typescript
+    const router = s3.createRouter({
+      userFiles: s3.image()
+        .middleware(async ({ req }) => {
+          const session = await getServerSession(req);
+          if (!session) throw new Error("Auth required");
+          return { userId: session.user.id };
+        })
+    });
+    ```
+  </Step>
+
+  <Step>
+    **2. Environment Variables**
+    
+    - [ ] S3 credentials in `.env` (not in code)
+    - [ ] Secrets are strong and unique
+    
+    ```bash
+    AWS_ACCESS_KEY_ID=xxx
+    AWS_SECRET_ACCESS_KEY=xxx
+    AWS_REGION=us-east-1
+    S3_BUCKET_NAME=your-bucket
+    ```
+  </Step>
+
+  <Step>
+    **3. File Validation**
+    
+    - [ ] File type restrictions (`.formats()`)
+    - [ ] File size limits (`.maxFileSize()`)
+    
+    ```typescript
+    userPhotos: s3.image()
+      .maxFileSize("10MB")
+      .maxFiles(5)
+      .formats(["jpeg", "png", "webp"])
+    ```
+  </Step>
+
+  <Step>
+    **4. CORS Configuration**
+    
+    - [ ] CORS set up on S3 bucket
+    - [ ] Only your domain is allowed
+    
+    See [CORS Setup Guide](/docs/guides/security/cors-and-acl)
+  </Step>
+
+  <Step>
+    **5. Error Monitoring**
+    
+    - [ ] Error tracking enabled (Sentry/LogRocket)
+    - [ ] Upload failures are logged
+    
+    ```typescript
+    .onUploadError(async ({ error }) => {
+      console.error('Upload failed:', error);
+      // Sentry.captureException(error);
+    })
+    ```
+  </Step>
+
+  <Step>
+    **6. Basic Rate Limiting** (Optional but recommended)
+    
+    - [ ] Prevent abuse with upload limits
+    
+    Use Upstash or Vercel KV for simple rate limiting.
+  </Step>
+
+  <Step>
+    **7. Test Uploads**
+    
+    - [ ] Upload works in production environment
+    - [ ] Files appear in S3 bucket correctly
+    - [ ] URLs are accessible
+  </Step>
+
+  <Step>
+    **8. Backup Strategy**
+    
+    - [ ] S3 versioning enabled (optional)
+    - [ ] Know how to restore deleted files
+  </Step>
+</Steps>
+
+<Callout type="success">
+**✅ Done!** If you've completed these 8 items, your upload system is production-ready.
+</Callout>
+
+---
+
+## 🚀 When You Need More
+
+**Most apps are production-ready with the 8 essentials above.** As you scale, consider:
+
+- **CDN integration** - For global audience or high traffic
+- **Advanced auth** - RBAC/ABAC for enterprise permissions (see [Authentication Guide](/docs/guides/security/authentication))
+- **Redis caching** - For 10k+ requests/minute
+- **Multi-region** - For mission-critical redundancy
+
+---
+
+## Next Steps
+
+<Cards>
+  <Card title="Security Details" href="/docs/guides/security/authentication">
+    Deep dive into authentication patterns
+  </Card>
+  
+  <Card title="CORS Setup" href="/docs/guides/security/cors-and-acl">
+    Configure CORS for your provider
+  </Card>
+  
+  <Card title="Get Help" href="/docs/api/troubleshooting">
+    Common issues and solutions
+  </Card>
+</Cards>

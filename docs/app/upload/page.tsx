@@ -292,7 +292,7 @@ export default function UploadPage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <a
-              href="/docs/getting-started/quick-start"
+              href="/docs/quick-start"
               className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
               Get Started in 2 Minutes
@@ -320,7 +320,7 @@ export default function UploadPage() {
           </a>
 
           <a
-            href="/docs/guides/uploads/images"
+            href="/docs/guides/image-uploads"
             className="block p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
           >
             <h4 className="font-semibold text-gray-900 mb-2">

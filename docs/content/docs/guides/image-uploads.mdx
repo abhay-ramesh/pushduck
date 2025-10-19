@@ -249,9 +249,25 @@ const s3Router = s3.createRouter({
 });
 ```
 
-### Image Optimization
+## Image Processing Integration
+
+<Callout type="info">
+**⚠️ Important:** Pushduck handles **file uploads only**. Image processing (resizing, optimization, format conversion) requires external tools. The examples below show **integration patterns** using `.onUploadComplete()` hooks.
+
+**Popular image processing tools:**
+- **Sharp** - Fast Node.js processing (recommended)
+- **Cloudinary** - Full-service image CDN with transformations
+- **Imgix** - Real-time URL-based transformations
+
+See [Philosophy](/docs/philosophy#what-pushduck-doesnt-do) for why we don't include processing.
+</Callout>
+
+### Integration Example: Sharp for Resizing
 
 ```typescript
+// First: npm install sharp
+import sharp from 'sharp';
+
 const s3Router = s3.createRouter({
   optimizedImages: s3.image()
     .maxFileSize('15MB')
@@ -259,17 +275,23 @@ const s3Router = s3.createRouter({
     .formats(['jpeg', 'png', 'webp'])
     .dimensions({ maxWidth: 1920, maxHeight: 1080 })
     .onUploadComplete(async ({ file, url, metadata }) => {
-    // Generate multiple sizes
-      await generateImageVariants(file, [
-        { name: "thumbnail", width: 150, height: 150, fit: "cover" },
-        { name: "medium", width: 800, height: 600, fit: "inside" },
-        { name: "large", width: 1920, height: 1080, fit: "inside" },
+      // Download from S3
+      const imageBuffer = await fetch(url).then(r => r.arrayBuffer());
+      
+      // Process with Sharp (external tool)
+      const variants = await Promise.all([
+        sharp(imageBuffer).resize(150, 150, { fit: 'cover' }).toBuffer(),
+        sharp(imageBuffer).resize(800, 600, { fit: 'inside' }).toBuffer(),
+        sharp(imageBuffer).resize(1920, 1080, { fit: 'inside' }).toBuffer(),
       ]);
+      
+      // Upload variants back to S3 (your code)
+      // await uploadVariantsToS3(variants);
   }),
 });
 ```
 
-## Advanced Image Features
+## Advanced Patterns (Optional)
 
 ### Responsive Image Generation
 

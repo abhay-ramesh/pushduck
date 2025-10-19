@@ -1,16 +1,11 @@
 {
     "title": "API Reference",
     "pages": [
-        "--- Setup ---",
-        "cli-setup",
-        "--- Configuration ---",
+        "cli",
         "configuration",
-        "--- Server ---",
         "s3-router",
         "storage",
-        "--- Client ---",
         "client",
-        "--- Help ---",
         "troubleshooting"
     ]
 }
