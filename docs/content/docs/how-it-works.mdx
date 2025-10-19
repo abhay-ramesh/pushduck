@@ -1,0 +1,381 @@
+---
+title: How It Works
+description: Deep dive into Pushduck's architecture, upload flow, and component design with visual diagrams
+icon: BadgeQuestionMark
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Mermaid } from "@/components/mdx/mermaid";
+
+## Architecture Overview
+
+Pushduck is built on a **direct-to-S3 upload pattern** using presigned URLs, eliminating the need for your server to handle file data.
+
+<Callout type="info">
+  **Core Principle:** Files go directly from the client to S3 storage, bypassing your server entirely. This enables infinite scalability and edge-compatible deployments.
+</Callout>
+
+---
+
+## Upload Flow
+
+### Complete Upload Process
+
+<Mermaid diagram="
+sequenceDiagram
+    participant Client as React Client
+    participant Server as API Route
+    participant S3 as S3 Storage
+    
+    Note over Client,S3: Step 1: Request Presigned URLs
+    Client->>Server: POST /api/upload?route=imageUpload
+    Note right of Client: files: [metadata...], metadata: {...}
+    
+    Note over Server: Step 2: Validation & Middleware
+    Server->>Server: Run middleware (auth, metadata enrichment)
+    Server->>Server: Validate file constraints (size, type)
+    Server->>Server: Generate file keys
+    
+    Note over Server,S3: Step 3: Generate Presigned URLs
+    Server->>S3: Create presigned PUT URLs
+    S3-->>Server: Return presigned URLs
+    
+    Server-->>Client: Return presigned URLs
+    Note right of Server: success: true, results: [...]
+    
+    Note over Client,S3: Step 4: Direct Upload
+    Client->>S3: PUT presignedUrl (file data)
+    Note right of Client: Direct upload with progress tracking
+    S3-->>Client: 200 OK
+    
+    Note over Client,Server: Step 5: Complete Notification
+    Client->>Server: POST /api/upload?action=complete
+    Note right of Client: completions: [...]
+    
+    Note over Server: Step 6: Run Lifecycle Hooks
+    Server->>Server: onUploadComplete(file, url, metadata)
+    Note right of Server: Update DB, webhooks, analytics
+    
+    Server-->>Client: success: true
+" />
+
+**Key Benefits:**
+- ✅ Server never touches file data (saves bandwidth)
+- ✅ Scales infinitely (S3 handles the load)
+- ✅ Edge-compatible (no file streaming needed)
+- ✅ Real-time progress tracking on client
+
+---
+
+## Component Architecture
+
+<Mermaid diagram="
+graph TB
+    subgraph Client [Client Layer - pushduck]
+        Hook[useUploadRoute<br/>React Hook]
+        EnhancedClient[createUploadClient<br/>Property-based API]
+        Utils[Utilities<br/>formatETA, formatSpeed]
+    end
+    
+    subgraph Server [Server Layer - pushduck/server]
+        Config[createUploadConfig<br/>Builder Pattern]
+        Schema[Schemas<br/>s3.image, s3.file]
+        Router[Router<br/>createRouter]
+        Provider[Providers<br/>AWS, R2, DO, etc]
+        Storage[Storage API<br/>createStorage]
+    end
+    
+    subgraph Core [Core System]
+        UniversalHandler[Universal Handler<br/>Web Standards]
+        S3Client[S3 Client<br/>aws4fetch]
+        Middleware[Middleware Chain]
+        Lifecycle[Lifecycle Hooks]
+    end
+    
+    subgraph Adapters [Framework Adapters]
+        NextJS[Next.js]
+        Express[Express]
+        Fastify[Fastify]
+    end
+    
+    Hook --> EnhancedClient
+    EnhancedClient --> UniversalHandler
+    Config --> Provider
+    Config --> Schema
+    Schema --> Router
+    Router --> UniversalHandler
+    Provider --> S3Client
+    Storage --> S3Client
+    UniversalHandler --> Middleware
+    UniversalHandler --> Lifecycle
+    UniversalHandler --> S3Client
+    NextJS --> UniversalHandler
+    Express --> UniversalHandler
+    Fastify --> UniversalHandler
+" />
+
+---
+
+## Configuration Flow
+
+<Mermaid diagram="
+graph LR
+    Start[createUploadConfig] --> Provider[.provider<br/>Select provider]
+    Provider --> Defaults[.defaults<br/>Global settings]
+    Defaults --> Paths[.paths<br/>File organization]
+    Paths --> Build[.build<br/>Freeze config]
+    
+    Build --> S3Instance[s3 object<br/>Schema builders]
+    Build --> ConfigObj[config object<br/>Immutable]
+    
+    S3Instance --> CreateRouter[s3.createRouter<br/>Define routes]
+    CreateRouter --> Handlers[router.handlers<br/>GET & POST]
+" />
+
+---
+
+## Type Safety System
+
+<Mermaid diagram="
+graph TB
+    Server1[Server: Define Router<br/>const router = s3.createRouter] --> Server2[Server: Export Type<br/>export type AppRouter = typeof router]
+    
+    Server2 --> Infer1[Infer: Route Names<br/>imageUpload, documentUpload]
+    Server2 --> Infer2[Infer: Metadata Types<br/>userId: string, role: string]
+    Server2 --> Infer3[Infer: Output Types<br/>url, key, metadata]
+    
+    Infer1 --> Client1[Client: Import Type<br/>import type AppRouter]
+    Infer2 --> Client1
+    Infer3 --> Client1
+    
+    Client1 --> Client2[Client: Typed Hook<br/>useUploadRoute AppRouter]
+    
+    Client2 --> Result[Result: Full Type Safety<br/>✅ Autocomplete<br/>✅ Type Checking<br/>✅ IntelliSense]
+" />
+
+---
+
+## Middleware Chain
+
+<Mermaid diagram="
+graph TB
+    Request[Client Request<br/>albumId: vacation2025] --> M1[Middleware 1<br/>Authentication]
+    
+    M1 --> Auth{User Authenticated?}
+    Auth -->|No| Error[Throw Error<br/>401 Unauthorized]
+    Auth -->|Yes| M2[Middleware 2<br/>Metadata Enrichment]
+    
+    M2 --> Enrich[Add Trusted Metadata<br/>userId, role, timestamp]
+    
+    Enrich --> FinalMeta[Final Metadata]
+    
+    FinalMeta --> PathGen[Path Generation<br/>users/123/vacation/file.jpg]
+    FinalMeta --> Hooks[Lifecycle Hooks<br/>onUploadComplete]
+    
+    PathGen --> Presigned[Presigned URL Generation]
+" />
+
+---
+
+## Storage Provider System
+
+<Mermaid diagram="
+graph TB
+    Factory[createProvider<br/>Factory] --> Type{Provider Type}
+    
+    Type --> AWS[aws<br/>S3]
+    Type --> R2[cloudflareR2<br/>R2]
+    Type --> DO[digitalocean<br/>Spaces]
+    Type --> MinIO[minio<br/>Self-hosted]
+    Type --> GCS[gcs<br/>Google Cloud]
+    Type --> S3Compat[s3Compatible<br/>Generic]
+    
+    AWS --> Config1[Provider Config]
+    R2 --> Config1
+    DO --> Config1
+    MinIO --> Config1
+    GCS --> Config1
+    S3Compat --> Config1
+    
+    Config1 --> Endpoint[Generate Endpoint URL]
+    
+    Endpoint --> AWSUrl[s3.us-east-1.amazonaws.com]
+    Endpoint --> R2Url[accountId.r2.cloudflarestorage.com]
+    Endpoint --> DOUrl[nyc3.digitaloceanspaces.com]
+    Endpoint --> MinIOUrl[localhost:9000]
+    Endpoint --> GCSUrl[storage.googleapis.com]
+    
+    AWSUrl --> Signer[aws4fetch<br/>Request Signer]
+    R2Url --> Signer
+    DOUrl --> Signer
+    MinIOUrl --> Signer
+    GCSUrl --> Signer
+" />
+
+**Key Insight:** All providers use the same S3-compatible API, so switching is just a configuration change.
+
+---
+
+## Client State Management
+
+<Mermaid diagram="
+stateDiagram-v2
+    [*] --> Idle
+    
+    Idle --> Uploading: uploadFiles() called
+    
+    Uploading --> Uploading: Track progress (0-100%)
+    Uploading --> Success: All files uploaded
+    Uploading --> Error: Upload failed
+    
+    Success --> Idle: reset() called
+    Error --> Idle: reset() called
+    
+    note right of Idle
+        files: []
+        isUploading: false
+        progress: 0
+        uploadSpeed: undefined
+        eta: undefined
+        errors: []
+    end note
+    
+    note right of Uploading
+        files: [uploading, success, error]
+        isUploading: true
+        progress: 45
+        uploadSpeed: 1.2 MB/s
+        eta: 30 seconds
+        errors: []
+    end note
+    
+    note right of Success
+        files: [all success]
+        isUploading: false
+        progress: 100
+        uploadSpeed: 0
+        eta: 0
+        errors: []
+    end note
+" />
+
+---
+
+## Integration Points
+
+<Mermaid diagram="
+graph TB
+    subgraph Before [Before Upload]
+        Middleware[Middleware<br/>Authentication & Authorization]
+        Validation[File Validation<br/>Size, type, custom rules]
+    end
+    
+    subgraph During [During Upload]
+        Progress[Progress Callbacks<br/>Real-time updates]
+        ClientMeta[Client Metadata<br/>UI context]
+    end
+    
+    subgraph After [After Upload]
+        Complete[onUploadComplete<br/>Post-processing]
+        Database[(Database Update)]
+        Webhooks[Webhooks & Notifications]
+        Analytics[Analytics Tracking]
+    end
+    
+    Request[Upload Request] --> Middleware
+    Middleware --> Validation
+    Validation --> Upload[Upload to S3]
+    Upload --> Progress
+    Progress --> Complete
+    Complete --> Database
+    Complete --> Webhooks
+    Complete --> Analytics
+    
+    ClientMeta -.-> Middleware
+    ClientMeta -.-> Complete
+" />
+
+---
+
+## Comparison: Pushduck vs AWS SDK
+
+### What You Need to Build with AWS SDK
+
+<Mermaid diagram="
+graph TB
+    subgraph Manual [With AWS SDK - You Build Everything]
+        M1[Presigned URL Generation<br/>~50 lines]
+        M2[Client Upload Logic<br/>~100 lines]
+        M3[Progress Tracking<br/>~80 lines]
+        M4[React State Management<br/>~60 lines]
+        M5[Error Handling<br/>~40 lines]
+        M6[API Route Handler<br/>~70 lines]
+        M7[CORS Configuration<br/>Manual S3 setup]
+        M8[Type Definitions<br/>~50 lines]
+    end
+    
+    subgraph Pushduck [With Pushduck - Built-in]
+        P1[Router Definition<br/>3 lines]
+        P2[Hook Usage<br/>1 line]
+    end
+    
+    M1 --> Total1[Total: ~450 lines + config]
+    M2 --> Total1
+    M3 --> Total1
+    M4 --> Total1
+    M5 --> Total1
+    M6 --> Total1
+    M7 --> Total1
+    M8 --> Total1
+    
+    P1 --> Total2[Total: ~4 lines]
+    P2 --> Total2
+    
+    Total1 --> Time1[15-20 hours]
+    Total2 --> Time2[5 minutes]
+" />
+
+---
+
+## Key Takeaways
+
+<Cards>
+  <Card title="Direct-to-S3 Pattern" icon="ArrowRight">
+    Files upload directly to S3 storage, bypassing your server. This enables infinite scalability and edge deployment.
+  </Card>
+  
+  <Card title="Lightweight Core" icon="Feather">
+    ~7KB total bundle using `aws4fetch` instead of AWS SDK (~500KB). 71x smaller, edge-compatible.
+  </Card>
+  
+  <Card title="Type-Safe APIs" icon="CheckCircle">
+    End-to-end TypeScript inference from server schema to client hook. Catch errors at compile-time.
+  </Card>
+  
+  <Card title="Extensible via Hooks" icon="Plug">
+    Middleware and lifecycle hooks provide integration points without bloating the library with built-in features.
+  </Card>
+  
+  <Card title="Framework Agnostic" icon="Box">
+    Universal Web Standard handlers work with 16+ frameworks via thin adapters.
+  </Card>
+  
+  <Card title="Multi-Provider" icon="Cloud">
+    Unified API works with 6 S3-compatible providers. Switch providers with just a config change.
+  </Card>
+</Cards>
+
+---
+
+## Next Steps
+
+<Callout type="success">
+  **Ready to build?** Check out the [Quick Start](/docs/quick-start) guide to get Pushduck running in 5 minutes.
+</Callout>
+
+**Learn More:**
+- [Philosophy & Scope](/docs/philosophy) - What Pushduck does (and doesn't do)
+- [API Reference](/docs/api) - Complete API documentation
+- [Examples](/docs/examples) - Live demos and code samples
