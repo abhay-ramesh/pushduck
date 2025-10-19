@@ -265,6 +265,17 @@ See [Philosophy](/docs/philosophy#what-pushduck-doesnt-do) for why we don't incl
 
 ### Integration Example: Sharp for Resizing
 
+<Callout type="warn">
+  **⚠️ Bandwidth Tradeoff:** Server-side processing requires **downloading** the file from S3 to your server (inbound bandwidth), processing it, then **uploading** variants back (outbound bandwidth).
+  
+  **This negates Pushduck's "server never touches files" benefit!**
+  
+  **Better Alternatives:**
+  - **Client-side preprocessing** - Resize before upload (see below)
+  - **URL-based processing** - Cloudinary/Imgix transform via URL (no download)
+  - **Async queue** - Process in background worker, not blocking upload
+</Callout>
+
 ```typescript
 // First: npm install sharp
 import sharp from 'sharp';
@@ -276,7 +287,7 @@ const s3Router = s3.createRouter({
     .formats(['jpeg', 'png', 'webp'])
     .dimensions({ maxWidth: 1920, maxHeight: 1080 })
     .onUploadComplete(async ({ file, url, metadata }) => {
-      // Download from S3
+      // ⚠️ This downloads the file from S3 (inbound bandwidth)
       const imageBuffer = await fetch(url).then(r => r.arrayBuffer());
       
       // Process with Sharp (external tool)
@@ -286,11 +297,109 @@ const s3Router = s3.createRouter({
         sharp(imageBuffer).resize(1920, 1080, { fit: 'inside' }).toBuffer(),
       ]);
       
-      // Upload variants back to S3 (your code)
+      // ⚠️ Upload variants back to S3 (outbound bandwidth)
       // await uploadVariantsToS3(variants);
   }),
 });
 ```
+
+---
+
+## Better Alternative: Client-Side Preprocessing
+
+<Callout type="success">
+  **✅ Recommended Approach:** Process images **before** upload on the client side. This maintains Pushduck's "server never touches files" architecture and saves bandwidth.
+</Callout>
+
+### Client-Side Resize Before Upload
+
+```typescript
+// Use browser-image-compression for client-side resizing
+// npm install browser-image-compression
+
+import imageCompression from 'browser-image-compression';
+import { upload } from '@/lib/upload-client';
+
+export function ClientSideImageUpload() {
+  const { uploadFiles, isUploading } = upload.profilePicture();
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // ✅ Resize on client BEFORE upload (no server bandwidth)
+    const options = {
+      maxSizeMB: 1,
+      maxWidthOrHeight: 1920,
+      useWebWorker: true,
+    };
+
+    try {
+      const compressedFile = await imageCompression(file, options);
+      
+      // Upload the already-processed file
+      await uploadFiles([compressedFile]);
+      
+      console.log('Original:', file.size / 1024, 'KB');
+      console.log('Compressed:', compressedFile.size / 1024, 'KB');
+    } catch (error) {
+      console.error('Compression error:', error);
+    }
+  };
+
+  return (
+    <input
+      type="file"
+      accept="image/*"
+      onChange={handleImageSelect}
+      disabled={isUploading}
+    />
+  );
+}
+```
+
+**Benefits:**
+- ✅ **No server bandwidth** - file never touches your server
+- ✅ **Faster uploads** - smaller files upload quicker
+- ✅ **Lower S3 costs** - store smaller files
+- ✅ **Edge compatible** - no Node.js processing
+- ✅ **Better UX** - instant preview of processed image
+
+---
+
+## Alternative: URL-Based Processing (Cloudinary/Imgix)
+
+<Callout type="success">
+  **✅ Best of Both Worlds:** Upload original to S3, transform via URL without downloading. Zero server bandwidth!
+</Callout>
+
+```typescript
+const s3Router = s3.createRouter({
+  images: s3.image()
+    .maxFileSize('10MB')
+    .onUploadComplete(async ({ file, url, metadata }) => {
+      // Save original URL - NO download needed
+      await db.images.create({
+        userId: metadata.userId,
+        originalUrl: url,
+        s3Key: file.key,
+      });
+      
+      // ✅ Cloudinary can fetch from your S3 URL and transform
+      // No bandwidth on your server!
+    }),
+});
+
+// Client: Use Cloudinary URLs for transformations
+function ImageDisplay({ s3Url }: { s3Url: string }) {
+  // Cloudinary fetches from S3 and transforms (their bandwidth, not yours)
+  const cloudinaryUrl = `https://res.cloudinary.com/your-cloud/image/fetch/w_400,h_400,c_fill/${encodeURIComponent(s3Url)}`;
+  
+  return <img src={cloudinaryUrl} alt="Transformed" />;
+}
+```
+
+---
 
 ## Advanced Patterns (Optional)
 

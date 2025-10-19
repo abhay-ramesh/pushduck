@@ -209,6 +209,15 @@ npx @pushduck/cli add file-list
 
 **Our approach:** Document integration patterns
 
+<Callout type="warn">
+  **⚠️ Bandwidth Note:** Server-side processing requires downloading from S3 (inbound) and uploading variants (outbound). This negates the "server never touches files" benefit.
+  
+  **Better options:**
+  - **Client-side preprocessing** (before upload) - Zero server bandwidth
+  - **URL-based transforms** (Cloudinary, Imgix) - Zero server bandwidth
+  - See [Image Uploads Guide](/docs/guides/image-uploads) for detailed patterns
+</Callout>
+
 ```typescript
 // Example: Integrate with Sharp
 import sharp from 'sharp';
@@ -216,7 +225,7 @@ import sharp from 'sharp';
 const router = s3.createRouter({
   imageUpload: s3.image()
     .onUploadComplete(async ({ key }) => {
-      // Download from S3
+      // ⚠️ Downloads file from S3 to server
       const buffer = await s3.download(key);
       
       // Process with Sharp
@@ -225,10 +234,30 @@ const router = s3.createRouter({
         .webp({ quality: 80 })
         .toBuffer();
       
-      // Upload optimized version
-      await s3.upload(optimized, `optimized/${key}`);
+      // ⚠️ Uploads processed file back to S3
+      await storage.upload.file(optimized, `optimized/${key}`);
     })
 });
+```
+
+```typescript
+// ✅ Better: Client-side preprocessing (recommended)
+import imageCompression from 'browser-image-compression';
+
+function ImageUpload() {
+  const { uploadFiles } = upload.images();
+  
+  const handleUpload = async (file: File) => {
+    // ✅ Compress on client BEFORE upload
+    const compressed = await imageCompression(file, {
+      maxSizeMB: 1,
+      maxWidthOrHeight: 1920,
+    });
+    
+    // Upload already-optimized file
+    await uploadFiles([compressed]);
+  };
+}
 ```
 
 ---
