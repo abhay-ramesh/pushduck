@@ -247,7 +247,7 @@ The CLI provides a guided setup experience:
 
 📦 Installing dependencies...
   ✓ pushduck
-  ✓ @aws-sdk/client-s3
+  ✓ react-dropzone
 
 🎉 Setup complete! Your uploads are ready.
 ```

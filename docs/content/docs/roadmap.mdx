@@ -47,14 +47,16 @@ Our mission is to make file uploads **simple**, **secure**, and **scalable** for
 - `eta` - Overall time remaining in seconds
 
 ### Upload Control Limitations
-Current upload management has constraints for handling real-world scenarios:
+Current upload management has constraints for handling real-world scenarios.
+
+**The following features are NOT yet implemented but are planned for Q3 2025:**
 
 ❌ **No Resumable Uploads** - Cannot resume interrupted uploads from where they left off  
 ❌ **No Pausable Uploads** - Cannot pause ongoing uploads and resume later  
 ❌ **No Cancel Support** - Cannot cancel individual uploads in progress  
 ❌ **Limited Network Resilience** - No automatic retry on network failures or connection switching  
 
-These limitations may be addressed in future releases based on community feedback and use case requirements.
+These features are actively being designed and will be released based on community feedback and use case requirements.
 
 ## 🚧 In Progress
 
@@ -213,9 +215,10 @@ We've already solved the core problems that have frustrated developers for years
     title="Advanced Upload Control"
     description="Resumable, pausable, and cancellable uploads with network resilience"
   >
-    Complete control over upload lifecycle with automatic recovery from network issues:
+    **Planned for Q3 2025** - Complete control over upload lifecycle with automatic recovery from network issues:
 
     ```typescript
+    // PLANNED API - Not yet implemented
     const { files, uploadFiles, pauseUpload, resumeUpload, cancelUpload } = upload.images
 
     // Pause individual uploads
