@@ -9,19 +9,17 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { Card, Cards } from "fumadocs-ui/components/card";
 import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 
-You can have file uploads in your web app in a few minutes with Pushduck. This guide will walk you through the steps to set it up with any framework.
+Get file uploads working in **3 simple steps**. No overwhelming configuration, just the essentials.
 
-Before you start, make sure you have an S3-compatible bucket ready. You can use AWS S3, Cloudflare R2, or any other S3-compatible service.
-
-## Uploading your first image
+<Callout type="info">
+  **Prefer automated setup?** Use `npx @pushduck/cli init` for zero-config setup. This guide is for manual installation.
+</Callout>
 
 <Steps>
 
 <Step>
 
-### Install
-
-Install the `pushduck` package.
+### Install Pushduck
 
 ```npm
 npm install pushduck
@@ -31,288 +29,144 @@ npm install pushduck
 
 <Step>
 
-### Set up server
+### Create API Route
 
-Your server will create pre-signed URLs, which the client uses to upload files directly to the S3 bucket.
+One file with your S3 config and upload route:
 
-Change `my-bucket` to your bucket name, and configure the S3 client as needed.
-
-```ts tab="Next.js" title="app/api/upload/route.ts"
+```ts title="app/api/upload/route.ts"
 import { createUploadConfig } from 'pushduck/server';
 
-const { s3, config } = createUploadConfig()
+const { s3 } = createUploadConfig()
   .provider("aws", {
-    bucket: process.env.AWS_BUCKET_NAME!, // [!code highlight]
+    bucket: process.env.AWS_BUCKET_NAME!,
     region: process.env.AWS_REGION!,
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
   })
-  .defaults({
-    maxFileSize: '10MB',
-    acl: 'public-read',
-  })
   .build();
 
 const router = s3.createRouter({
-  imageUpload: s3.image().maxFileSize('5MB'), // [!code highlight]
+  imageUpload: s3.image().maxFileSize('5MB'),
 });
 
-export const { GET, POST } = router.handlers; // [!code highlight]
+export const { GET, POST } = router.handlers;
+export type AppRouter = typeof router;
 ```
 
-```ts tab="Remix" title="app/routes/api.upload.ts"
-import { ActionFunctionArgs } from '@remix-run/node';
-import { createUploadConfig } from 'pushduck/server';
+<Callout type="info">
+  **Environment variables**: Add your S3 credentials to `.env.local`. See [Provider Setup](/docs/providers) for getting credentials.
+</Callout>
 
-const { s3, config } = createUploadConfig()
-  .provider("aws", {
-    bucket: process.env.AWS_BUCKET_NAME!, // [!code highlight]
-    region: process.env.AWS_REGION!,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  })
-  .defaults({
-    maxFileSize: '10MB',
-    acl: 'public-read',
-  })
-  .build();
+</Step>
 
-const router = s3.createRouter({
-  imageUpload: s3.image().maxFileSize('5MB'), // [!code highlight]
+<Step>
+
+### Create Upload Client
+
+Create a reusable client you can import anywhere:
+
+```ts title="lib/upload-client.ts"
+import { createUploadClient } from 'pushduck/client';
+import type { AppRouter } from '@/app/api/upload/route';
+
+export const upload = createUploadClient<AppRouter>({
+  endpoint: '/api/upload'
 });
+```
 
-export async function action({ request }: ActionFunctionArgs) {
-  return router.handlers(request); // [!code highlight]
+</Step>
+
+<Step>
+
+### Use in Components
+
+Now use it in any component:
+
+```tsx title="app/upload-demo.tsx"
+'use client';
+
+import { upload } from '@/lib/upload-client';
+
+export function UploadDemo() {
+  const { uploadFiles, files, isUploading } = upload.imageUpload();
+
+  return (
+    <div>
+      <input
+        type="file"
+        multiple
+        accept="image/*"
+        onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
+        disabled={isUploading}
+      />
+
+      {files.map((file) => (
+        <div key={file.id}>
+          {file.name} - {file.progress}%
+          {file.status === 'success' && <img src={file.url} alt={file.name} />}
+        </div>
+      ))}
+    </div>
+  );
 }
 ```
 
-```ts tab="SvelteKit" title="src/routes/api/upload/[...path]/+server.ts"
-import type { RequestHandler } from './$types';
-import { createUploadConfig } from 'pushduck/server';
+</Step>
 
-const { s3, config } = createUploadConfig()
-  .provider("aws", {
-    bucket: process.env.AWS_BUCKET_NAME!, // [!code highlight]
-    region: process.env.AWS_REGION!,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  })
-  .defaults({
-    maxFileSize: '10MB',
-    acl: 'public-read',
-  })
-  .build();
+</Steps>
 
-const router = s3.createRouter({
-  imageUpload: s3.image().maxFileSize('5MB'), // [!code highlight]
-});
+## ✅ Done!
 
-export const GET: RequestHandler = async ({ request }) => {
-  return router.handlers(request); // [!code highlight]
-};
+That's it - **3 files, ~40 lines of code**, and you have production-ready file uploads!
 
-export const POST: RequestHandler = async ({ request }) => {
-  return router.handlers(request); // [!code highlight]
-};
-```
+---
 
-```ts tab="Hono" title="server.ts"
-import { Hono } from 'hono';
-import { createUploadConfig } from 'pushduck/server';
-
-const { s3, config } = createUploadConfig()
-  .provider("aws", {
-    bucket: process.env.AWS_BUCKET_NAME!, // [!code highlight]
-    region: process.env.AWS_REGION!,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  })
-  .defaults({
-    maxFileSize: '10MB',
-    acl: 'public-read',
-  })
-  .build();
-
-const router = s3.createRouter({
-  imageUpload: s3.image().maxFileSize('5MB'), // [!code highlight]
-});
-
-const app = new Hono();
-
-app.all('/api/upload/*', (c) => {
-  return router.handlers(c.req.raw); // [!code highlight]
-});
-
-export default app;
-```
-
-In the example above, we create the upload route `imageUpload`. Learn more about upload routes [here](/docs/api/s3-router).
+## Need More?
 
 <Accordions>
-<Accordion title="Adding authentication">
+<Accordion title="Advanced Configuration">
 
-You can run code before uploads in the server. Use the `middleware` callback:
+For production apps, you'll want to add authentication and custom paths:
 
-```ts title="Authentication Example"
-import { createUploadConfig } from 'pushduck/server';
-
-const { s3, config } = createUploadConfig()
-  .provider("aws", {
-    bucket: process.env.AWS_BUCKET_NAME!, // [!code highlight]
-    region: process.env.AWS_REGION!,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+```ts title="app/api/upload/route.ts"
+const { s3 } = createUploadConfig()
+  .provider("aws", { /* ... */ })
+  .paths({
+    prefix: 'uploads',
+    generateKey: (file, metadata) => 
+      `${metadata.userId}/${Date.now()}/${file.name}`
   })
   .build();
 
 const router = s3.createRouter({
   imageUpload: s3.image()
     .maxFileSize('5MB')
-    .middleware(async ({ req, metadata }) => { // [!code highlight]
-      // Add your authentication logic here
-      const user = await getCurrentUser(req);
-      
-      if (!user) {
-        throw new Error('Authentication required'); // [!code highlight]
-      }
-      
-      return {
-        ...metadata,
-        userId: user.id,
-      };
+    .middleware(async ({ req }) => {
+      const user = await getUser(req);
+      if (!user) throw new Error('Unauthorized');
+      return { userId: user.id };
     }),
 });
 ```
 
-</Accordion>
-<Accordion title="Changing S3 object key">
-
-You can change the S3 object key to any value you want. Use the `paths` configuration:
-
-```ts title="Custom S3 Object Keys"
-const { s3, config } = createUploadConfig()
-  .provider("aws", {
-    bucket: process.env.AWS_BUCKET_NAME!, // [!code highlight]
-    region: process.env.AWS_REGION!,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  })
-  .paths({
-    prefix: 'uploads',
-    generateKey: (file, metadata) => { // [!code highlight]
-      const userId = metadata.userId || 'anonymous';
-      const timestamp = Date.now();
-      return `${userId}/${timestamp}/${file.name}`; // [!code highlight]
-    },
-  })
-  .build();
-```
+See [Configuration Guide](/docs/api/configuration/upload-config) for all options.
 
 </Accordion>
-</Accordions>
 
-</Step>
+<Accordion title="Other Frameworks">
 
-<Step>
+Using Remix, SvelteKit, Hono, or another framework? See the [Integrations](/docs/integrations) page for framework-specific examples.
 
-### Create upload client
+</Accordion>
 
-We will now build our UI using the upload client. We'll use `createUploadClient` for type-safe uploads.
+<Accordion title="CORS Setup">
 
-```ts title="lib/upload-client.ts"
-import { createUploadClient } from 'pushduck/client';
-import type { AppRouter } from './upload';
-
-export const upload = createUploadClient<AppRouter>({
-  endpoint: '/api/upload' // [!code highlight]
-});
-```
-
-We'll also use the `useUpload` hook. The complete component looks like this:
-
-```tsx title="components/uploader.tsx"
-'use client'; // For Next.js
-
-import { upload } from '@/lib/upload-client';
-
-export function Uploader() {
-  const { uploadFiles, files, isUploading, error } = upload.imageUpload(); // [!code highlight]
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    uploadFiles(selectedFiles); // [!code highlight]
-  };
-
-  return (
-    <div>
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-        onChange={handleFileSelect}
-          disabled={isUploading}
-      />
-
-      {files.map((file) => (
-        <div key={file.id}>
-          <span>{file.name}</span>
-          <progress value={file.progress} max={100} />
-          {file.status === 'success' && file.url && (
-            <a href={file.url}>View uploaded file</a> // [!code highlight]
-          )}
-            </div>
-          ))}
-
-      {error && <div>Error: {error.message}</div>}
-    </div>
-  );
-}
-```
-
-Learn more about the client hooks [here](/docs/api/client).
-
-</Step>
-
-<Step>
-
-### Place the component
-
-Now place the `<Uploader />` component in your app.
-
-```tsx title="page.tsx"
-import { Uploader } from '@/components/uploader';
-
-export default function Page() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center">
-      <Uploader />
-    </main>
-  );
-}
-```
-
-</Step>
-
-<Step>
-
-### You're done! 🎉
-
-You can now run your app and upload images directly to any S3-compatible service!
-
-If you plan on uploading files larger than **5GB**, take a look at [multipart uploads](/docs/api/s3-router#multipart-uploads).
-
-<Accordions>
-<Accordion title="CORS Configuration">
-
-Make sure to also correctly configure CORS on your bucket. Here is an example:
+Configure CORS on your S3 bucket:
 
 ```json
 [
   {
-    "AllowedOrigins": [
-      "http://localhost:3000",
-      "https://example.com" // Add your domain here
-    ],
+    "AllowedOrigins": ["http://localhost:3000", "https://yourdomain.com"],
     "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"]
@@ -320,63 +174,46 @@ Make sure to also correctly configure CORS on your bucket. Here is an example:
 ]
 ```
 
-Learn more about CORS [here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ManageCorsUsing.html).
+See [Provider Setup](/docs/providers) for detailed CORS configuration.
 
 </Accordion>
+
+<Accordion title="Better UI">
+
+Want drag & drop, progress bars, and styled components?
+
+```bash
+npx @pushduck/cli add upload-dropzone
+npx @pushduck/cli add file-list
+```
+
+Or see our [Examples](/docs/examples) for production-ready components.
+
+</Accordion>
+
 </Accordions>
 
-</Step>
-
-</Steps>
-
-## Learn more
-
-### Concepts
+## Next Steps
 
 <Cards>
-  <Card
-    href="/docs/api/s3-router"
-    title="Upload routes"
-    description="Configure upload routes for different behaviors."
-  />
-  <Card
-    href="/docs/api/client"
-    title="Client hooks"
-    description="Use client-side hooks to easily upload files."
-  />
-</Cards>
-
-### Guides
-
-<Cards>
-  <Card
-    href="/docs/guides/client-approaches"
-    title="Client approaches"
-    description="Choose between property-based and hook-based clients."
-  />
-  <Card
-      href="/docs/guides/uploads/images"
-    title="Image uploads"
-    description="Handle image uploads with validation and optimization."
-  />
-</Cards>
-
-### Components
-
-<Cards>
-  <Card
-    href="/docs/api/client/create-upload-client"
-    title="Property-based client"
-    description="Enhanced type safety with property-based access."
-  />
-  <Card
-    href="/docs/api/client/use-upload-route"
-    title="Hook-based client"
-    description="Familiar React hooks for upload management."
-  />
   <Card
     href="/docs/examples"
-    title="Examples"
-    description="Complete examples for different use cases."
+    title="📚 Complete Examples"
+    description="Production-ready examples with auth, validation, and beautiful UI"
+  />
+  <Card
+    href="/docs/guides/security/authentication"
+    title="🔒 Add Authentication"
+    description="Secure your uploads with NextAuth, Clerk, or Better Auth"
+  />
+  <Card
+    href="/docs/providers"
+    title="☁️ Other Providers"
+    description="Switch to Cloudflare R2, DigitalOcean Spaces, or MinIO"
+  />
+  <Card
+    href="/docs/api/client/create-upload-client"
+    title="⚡ Enhanced Client"
+    description="Property-based API for better type safety and DX"
   />
 </Cards>
