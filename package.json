@@ -24,10 +24,10 @@
     "release:ui": "node scripts/release-methods.js"
   },
   "devDependencies": {
-    "eslint": "^9.37.0",
+    "eslint": "^9.38.0",
     "prettier": "^3.6.2",
     "turbo": "^2.5.8"
   },
-  "packageManager": "pnpm@10.18.1",
+  "packageManager": "pnpm@10.18.3",
   "version": "0.1.9"
 }
