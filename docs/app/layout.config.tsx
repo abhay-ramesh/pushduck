@@ -34,24 +34,5 @@ export const baseOptions: BaseLayoutProps = {
       </>
     ),
   },
-  links: [
-    {
-      text: "Documentation",
-      url: "/docs",
-      active: "nested-url",
-    },
-    {
-      text: "Examples",
-      url: "/docs/examples",
-    },
-    {
-      text: "Changelog",
-      url: "/docs/roadmap",
-    },
-    {
-      text: "AI/LLM TXT",
-      url: "/llms.txt",
-      external: true,
-    },
-  ],
+  links: [],
 };

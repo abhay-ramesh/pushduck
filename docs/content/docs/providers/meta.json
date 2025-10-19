@@ -1,5 +1,5 @@
 {
-    "title": "Providers",
+    "title": "Storage Providers",
     "pages": [
         "cloudflare-r2",
         "aws-s3",

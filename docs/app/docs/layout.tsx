@@ -13,7 +13,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         collapsible: false,
         footer: null,
       }}
-      nav={{ ...baseOptions.nav, mode: "top" }}
+      nav={{ ...baseOptions.nav }}
     >
       {children}
     </DocsLayout>

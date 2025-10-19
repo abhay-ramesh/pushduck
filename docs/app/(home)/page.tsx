@@ -49,7 +49,7 @@ const themes = {
   dark: "one-dark-pro",
 } satisfies Record<string, BundledTheme>;
 
-const frameworks = [
+export const frameworks = [
   {
     name: "Next.js",
     category: "Full-Stack",

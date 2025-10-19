@@ -1,0 +1,784 @@
+---
+title: Comparisons
+description: How Pushduck compares to other file upload solutions
+icon: Scale
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+## Overview
+
+Choosing the right file upload solution depends on your project's requirements. This page compares Pushduck with popular alternatives to help you make an informed decision.
+
+<Callout type="info">
+  **TL;DR:** Pushduck is ideal if you want a **lightweight, self-hosted** solution with **full control** over your S3 storage, without vendor lock-in or ongoing upload fees.
+</Callout>
+
+<Callout type="warn">
+  **Note:** Pricing, features, and bundle sizes are approximate and current as of October 2025. Always verify current details from official sources before making decisions.
+</Callout>
+
+---
+
+## Quick Comparison
+
+| Feature | Pushduck | UploadThing | Uploadcare | AWS SDK | Uppy |
+|---------|----------|-------------|------------|---------|------|
+| **Bundle Size** | ~7KB | ~200KB+ | ~150KB+ | ~500KB+ | ~50KB+ (core) |
+| **Setup Time** | 5 minutes | 10 minutes | 15 minutes | 15-20 hours | 30-60 minutes |
+| **Edge Runtime** | ✅ Yes | ✅ Yes | ✅ Yes | ❌ No | ✅ Partial |
+| **Self-Hosted** | ✅ Yes | ❌ No | ❌ No | ✅ Yes | ✅ Yes |
+| **Pricing Model** | Free (S3 costs only) | Per upload | Per upload + storage | Free (S3 costs only) | Free (S3 costs only) |
+| **Type Safety** | ✅ Full | ✅ Full | ⚠️ Partial | ⚠️ Manual | ❌ None |
+| **Multi-Provider** | ✅ 6 (AWS, R2, DO, MinIO, GCS, S3-compat) | ❌ Own infrastructure | ❌ Own infrastructure | ❌ AWS only | ✅ Yes |
+| **React Hooks** | ✅ Built-in | ✅ Built-in | ✅ Built-in | ❌ Build yourself | ✅ Available |
+| **Progress Tracking** | ✅ Automatic | ✅ Automatic | ✅ Automatic | ❌ Build yourself | ✅ Automatic |
+| **Presigned URLs** | ✅ Automatic | ✅ Automatic | N/A (managed) | ❌ Build yourself | ⚠️ Manual |
+| **Best For** | Developers | Rapid prototyping | Enterprises | Full AWS control | UI flexibility |
+
+---
+
+## Detailed Comparisons
+
+### vs UploadThing
+
+<Tabs items={["Overview", "Bundle Size", "Pricing", "Control"]}>
+  <Tab value="Overview">
+    **UploadThing** is a managed file upload service with tight Next.js integration and developer-friendly DX.
+
+    **When to choose Pushduck:**
+    - ✅ You want to avoid per-upload fees
+    - ✅ You need edge runtime support (UploadThing requires Node.js runtime)
+    - ✅ You want full control over storage and file URLs
+    - ✅ You're using multiple S3-compatible providers (R2, DigitalOcean, etc.)
+
+    **When to choose UploadThing:**
+    - ✅ You want zero infrastructure setup
+    - ✅ You prefer managed service over self-hosted
+    - ✅ You're building a rapid prototype or MVP
+  </Tab>
+
+  <Tab value="Bundle Size">
+    ```
+    Pushduck:      ~7KB (minified + gzipped)
+    UploadThing:   ~200KB+ (includes server runtime)
+
+    Difference:    28x smaller
+    ```
+
+    **Why Pushduck is smaller:**
+    - Uses `aws4fetch` (lightweight AWS signer) instead of heavy dependencies
+    - No built-in UI components (bring your own)
+    - Focused on upload logic only
+    - Optimized for tree-shaking
+  </Tab>
+
+  <Tab value="Pricing">
+    **Pushduck:**
+    - Library: **Free (MIT license)**
+    - Costs: **S3 storage only** (~$0.023/GB on AWS, free tier: 5GB + 20k requests/month)
+    - Example: 10k uploads/month @ 2MB each = ~$0.50/month
+
+    **UploadThing:**
+    - Free tier: 2GB storage + 100 uploads/month
+    - Pro: $20/month (50GB storage + 10k uploads)
+    - Enterprise: Custom pricing
+
+    **Cost Comparison (10k monthly uploads):**
+    - Pushduck + AWS S3: **~$0.50/month**
+    - UploadThing Pro: **$20/month** (if within limits)
+  </Tab>
+
+  <Tab value="Control">
+    | Aspect | Pushduck | UploadThing |
+    |--------|----------|-------------|
+    | **Storage Provider** | Your choice (6 providers) | UploadThing's infrastructure |
+    | **File URLs** | Your domain/CDN | UploadThing's CDN |
+    | **Data Ownership** | 100% yours | Stored on their infrastructure |
+    | **Migration** | Easy (standard S3) | Requires re-uploading files |
+    | **Vendor Lock-in** | None | Medium |
+  </Tab>
+</Tabs>
+
+---
+
+### vs AWS SDK
+
+<Tabs items={["Overview", "Bundle Size", "Developer Experience", "Implementation Complexity"]}>
+  <Tab value="Overview">
+    **AWS SDK (`@aws-sdk/client-s3`)** is the official AWS library for S3 operations.
+
+    **When to choose Pushduck:**
+    - ✅ You need edge runtime support (AWS SDK requires Node.js)
+    - ✅ You want a smaller bundle (~16KB vs ~500KB)
+    - ✅ You need React hooks and type-safe APIs
+    - ✅ You want multi-provider support (R2, DigitalOcean, MinIO)
+    - ✅ You prefer declarative schemas over imperative code
+    - ✅ You want presigned URLs handled automatically
+    - ✅ You want to avoid implementing upload infrastructure from scratch
+
+    **When to choose AWS SDK:**
+    - ✅ You need advanced S3 features (lifecycle policies, bucket management)
+    - ✅ You're already heavily invested in AWS ecosystem
+    - ✅ You need multipart uploads for very large files (100GB+)
+    - ✅ You need direct, low-level control over every S3 operation
+  </Tab>
+
+  <Tab value="Bundle Size">
+    ```
+    Pushduck:    ~7KB  (core client, minified + gzipped)
+    AWS SDK:     ~500KB (@aws-sdk/client-s3)
+
+    Difference:  71x smaller ⚡️
+    ```
+
+    **Why it matters:**
+    - Faster page loads
+    - Lower bandwidth costs
+    - Better mobile experience
+    - Improved Core Web Vitals
+  </Tab>
+
+  <Tab value="Developer Experience">
+    **Pushduck:**
+    ```typescript
+    // Declarative schema
+    const router = s3.createRouter({
+      imageUpload: s3.image()
+        .maxFileSize('5MB')
+        .middleware(async ({ req }) => {
+          const user = await auth(req);
+          return { userId: user.id };
+        }),
+    });
+
+    // Client (React)
+    const { uploadFiles } = useUploadRoute('imageUpload');
+    ```
+
+    **AWS SDK:**
+    ```typescript
+    // Imperative code
+    import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+    
+    const s3 = new S3Client({ region: 'us-east-1' });
+    
+    const uploadFile = async (file: File) => {
+      const command = new PutObjectCommand({
+        Bucket: 'my-bucket',
+        Key: `uploads/${file.name}`,
+        Body: await file.arrayBuffer(),
+        ContentType: file.type,
+      });
+      await s3.send(command);
+    };
+    // + Manual progress tracking
+    // + Manual validation
+    // + Manual React state management
+    ```
+
+    **Pushduck provides:**
+    - Type-safe schemas
+    - Built-in React hooks
+    - Automatic progress tracking
+    - Middleware system
+    - Multi-provider support
+
+    **AWS SDK provides:**
+    - Direct S3 control
+    - Advanced features
+    - Official AWS support
+  </Tab>
+
+  <Tab value="Implementation Complexity">
+    ### What AWS SDK Requires You to Build
+
+    With AWS SDK, you need to **manually implement everything**:
+
+    #### 1. Presigned URL Generation
+    ```typescript
+    import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+    import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
+    // ❌ You must handle:
+    // - Creating S3 client with credentials
+    // - Generating unique file keys
+    // - Setting correct content types
+    // - Configuring expiration times
+    // - Handling CORS headers
+    // - Managing bucket permissions
+
+    const s3Client = new S3Client({ region: 'us-east-1' });
+
+    const generatePresignedUrl = async (fileName: string) => {
+      const key = `uploads/${Date.now()}-${fileName}`;
+      const command = new PutObjectCommand({
+        Bucket: 'my-bucket',
+        Key: key,
+        ContentType: 'application/octet-stream', // Must set manually
+      });
+      
+      const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+      return { url, key };
+    };
+    ```
+
+    #### 2. Client-Side Upload Logic
+    ```typescript
+    // ❌ You must build:
+    // - XMLHttpRequest wrapper for progress tracking
+    // - Error handling and retry logic
+    // - AbortController for cancellation
+    // - State management for multiple files
+    // - Progress aggregation
+    // - File validation (size, type)
+
+    const uploadFile = (file: File, presignedUrl: string) => {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.onprogress = (e) => {
+          const progress = (e.loaded / e.total) * 100;
+          // Update UI manually
+        };
+        
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            resolve(xhr.response);
+          } else {
+            reject(new Error('Upload failed'));
+          }
+        };
+        
+        xhr.onerror = () => reject(new Error('Network error'));
+        
+        xhr.open('PUT', presignedUrl);
+        xhr.setRequestHeader('Content-Type', file.type);
+        xhr.send(file);
+      });
+    };
+    ```
+
+    #### 3. API Route Handler
+    ```typescript
+    // ❌ You must implement:
+    // - Request parsing and validation
+    // - Authentication/authorization
+    // - File metadata validation
+    // - Error responses
+    // - Type safety
+
+    export async function POST(request: Request) {
+      const { fileName, fileSize, fileType } = await request.json();
+      
+      // Validate manually
+      if (fileSize > 10 * 1024 * 1024) {
+        return Response.json({ error: 'File too large' }, { status: 400 });
+      }
+      
+      // Auth manually
+      const user = await authenticateUser(request);
+      if (!user) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      
+      // Generate presigned URL
+      const { url, key } = await generatePresignedUrl(fileName);
+      
+      return Response.json({ url, key });
+    }
+    ```
+
+    #### 4. React Component State Management
+    ```typescript
+    // ❌ You must manage:
+    // - File state (idle, uploading, success, error)
+    // - Progress for each file
+    // - Overall progress
+    // - Error messages
+    // - Upload speed and ETA calculations
+    // - Cleanup on unmount
+
+    const [files, setFiles] = useState<FileState[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [errors, setErrors] = useState<string[]>([]);
+    
+    // Implement all the upload logic...
+    ```
+
+    #### 5. CORS Configuration
+    ```json
+    // ❌ You must configure S3 bucket CORS manually:
+    {
+      "CORSRules": [
+        {
+          "AllowedOrigins": ["https://your-domain.com"],
+          "AllowedMethods": ["PUT", "POST", "GET"],
+          "AllowedHeaders": ["*"],
+          "ExposeHeaders": ["ETag"]
+        }
+      ]
+    }
+    ```
+
+    ---
+
+    ### What Pushduck Handles For You
+
+    ```typescript
+    // ✅ Pushduck handles ALL of the above:
+
+    // Server (3 lines)
+    const router = s3.createRouter({
+      imageUpload: s3.image().maxFileSize('5MB'),
+    });
+    export const { GET, POST } = router.handlers;
+
+    // Client (1 line)
+    const { uploadFiles, progress, isUploading } = useUploadRoute('imageUpload');
+    ```
+
+    **Everything included:**
+    - ✅ Presigned URL generation (automatic)
+    - ✅ File validation (declarative)
+    - ✅ Progress tracking (real-time)
+    - ✅ Error handling (built-in)
+    - ✅ Multi-file support (automatic)
+    - ✅ React state management (handled)
+    - ✅ Type safety (end-to-end)
+    - ✅ Authentication hooks (middleware)
+    - ✅ CORS headers (automatic)
+    - ✅ Cancellation (AbortController)
+
+    ---
+
+    ### Time to Production
+
+    | Task | AWS SDK | Pushduck |
+    |------|---------|----------|
+    | **Initial setup** | 2-4 hours | 5 minutes |
+    | **Progress tracking** | 1-2 hours | Included |
+    | **Error handling** | 1-2 hours | Included |
+    | **Multi-file uploads** | 2-3 hours | Included |
+    | **Type safety** | 2-4 hours | Included |
+    | **Testing** | 4-6 hours | Minimal |
+    | **Total** | **~15-20 hours** | **~30 minutes** |
+
+    <Callout type="warn">
+      **AWS SDK is a low-level tool.** You're responsible for building the entire upload infrastructure, handling edge cases, security, validation, progress tracking, and state management.
+    </Callout>
+
+    <Callout type="success">
+      **Pushduck is a high-level framework.** All the infrastructure is built-in, tested, and production-ready out of the box.
+    </Callout>
+  </Tab>
+</Tabs>
+
+---
+
+### vs Uploadcare / Filestack
+
+<Tabs items={["Overview", "Pricing", "Control"]}>
+  <Tab value="Overview">
+    **Uploadcare** and **Filestack** are managed file upload platforms with built-in CDN, transformations, and processing.
+
+    **When to choose Pushduck:**
+    - ✅ You want to avoid per-upload and storage fees
+    - ✅ You need full control over file storage and URLs
+    - ✅ You prefer self-hosted over managed services
+    - ✅ You don't need built-in image processing (can integrate Sharp, Cloudinary, etc.)
+    - ✅ You want to avoid vendor lock-in
+
+    **When to choose Uploadcare/Filestack:**
+    - ✅ You need built-in image/video processing
+    - ✅ You want zero infrastructure management
+    - ✅ You need global CDN with automatic optimization
+    - ✅ You have budget for managed services
+  </Tab>
+
+  <Tab value="Pricing">
+    **Pushduck:**
+    - Library: **Free**
+    - Storage: **S3 costs** (~$0.023/GB on AWS)
+    - CDN: **Optional** (CloudFront, Cloudflare, BunnyCDN)
+    - Processing: **Integrate your choice** (Sharp, Cloudinary, Imgix)
+
+    **Uploadcare:**
+    - Free: 3k uploads + 3GB storage/month
+    - Start: $25/month (10k uploads + 10GB)
+    - Pro: $99/month (50k uploads + 100GB)
+    - Enterprise: Custom
+
+    **Filestack:**
+    - Free: 100 uploads + 100 transformations/month
+    - Starter: $49/month (1k uploads)
+    - Professional: $249/month (10k uploads)
+
+    **Cost Example (10k monthly uploads, 20GB storage):**
+    - Pushduck + S3: **~$0.50/month** (+ optional CDN ~$1-5)
+    - Uploadcare Start: **$25/month**
+    - Filestack Professional: **$249/month**
+  </Tab>
+
+  <Tab value="Control">
+    | Aspect | Pushduck | Uploadcare/Filestack |
+    |--------|----------|----------------------|
+    | **Storage** | Your S3 bucket | Their infrastructure |
+    | **File URLs** | Your domain | Their CDN |
+    | **Processing** | Integrate as needed | Built-in |
+    | **Data Migration** | Standard S3 API | Proprietary API |
+    | **Privacy** | Full control | Trust third party |
+    | **Vendor Lock-in** | None | High |
+  </Tab>
+</Tabs>
+
+---
+
+### vs Uppy
+
+<Tabs items={["Overview", "Philosophy", "Use Case"]}>
+  <Tab value="Overview">
+    **Uppy** is a modular JavaScript file uploader with a focus on UI components and extensibility.
+
+    **When to choose Pushduck:**
+    - ✅ You're using React (Pushduck has first-class React support)
+    - ✅ You need type-safe APIs with TypeScript inference
+    - ✅ You want tighter Next.js integration
+    - ✅ You prefer schema-based validation over manual configuration
+
+    **When to choose Uppy:**
+    - ✅ You need a rich, pre-built UI (Dashboard, Drag & Drop, Webcam, Screen Capture)
+    - ✅ You're using vanilla JS or other frameworks (Vue, Svelte)
+    - ✅ You need resumable uploads (tus protocol)
+    - ✅ You want highly customizable UI components
+  </Tab>
+
+  <Tab value="Philosophy">
+    **Pushduck:**
+    - **Focus:** Direct-to-S3 uploads with presigned URLs
+    - **UI:** Bring your own (minimal bundle size)
+    - **Type Safety:** First-class TypeScript, runtime validation
+    - **Backend:** Server-first (schema definitions, middleware, hooks)
+
+    **Uppy:**
+    - **Focus:** Modular file uploader with rich UI
+    - **UI:** Built-in components (Dashboard, Drag & Drop, etc.)
+    - **Type Safety:** TypeScript definitions available
+    - **Backend:** Agnostic (works with any backend)
+  </Tab>
+
+  <Tab value="Use Case">
+    **Choose Pushduck if:**
+    ```typescript
+    // You want schema-based validation
+    const router = s3.createRouter({
+      profilePic: s3.image()
+        .maxFileSize('2MB')
+        .types(['image/jpeg', 'image/png'])
+        .middleware(auth)
+        .onUploadComplete(updateDatabase),
+    });
+    ```
+
+    **Choose Uppy if:**
+    ```typescript
+    // You want rich UI out of the box
+    import Uppy from '@uppy/core';
+    import Dashboard from '@uppy/dashboard';
+    import Webcam from '@uppy/webcam';
+    import ScreenCapture from '@uppy/screen-capture';
+
+    const uppy = new Uppy()
+      .use(Dashboard, { inline: true })
+      .use(Webcam, { target: Dashboard })
+      .use(ScreenCapture, { target: Dashboard });
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Decision Matrix
+
+### Choose Pushduck if:
+
+✅ You want **full control** over storage and infrastructure  
+✅ You need **edge runtime** compatibility (Vercel, Cloudflare Workers)  
+✅ You prefer **self-hosted** over managed services  
+✅ You want to **minimize costs** (pay only S3 storage fees)  
+✅ You need **type-safe APIs** with TypeScript inference  
+✅ You're building with **React** and **Next.js**  
+✅ You want to avoid **vendor lock-in**  
+✅ You need support for **multiple S3-compatible providers**
+
+---
+
+### Choose UploadThing if:
+
+✅ You want **zero infrastructure setup**  
+✅ You prefer **managed service** over self-hosting  
+✅ You're building a **rapid prototype** or **MVP**  
+✅ You want to **avoid S3 configuration**  
+✅ You're **okay with per-upload pricing**
+
+---
+
+### Choose AWS SDK if:
+
+✅ You need **advanced S3 features** (lifecycle, versioning, bucket management)  
+✅ You're **AWS-only** (not using other providers)  
+✅ You need **multipart uploads** for very large files (100GB+)  
+✅ You don't need **edge runtime** compatibility  
+✅ Bundle size is **not a concern**  
+✅ You have **15-20 hours** to build upload infrastructure from scratch  
+✅ You want **full low-level control** over every S3 operation  
+⚠️ You're comfortable **manually implementing** presigned URLs, progress tracking, validation, error handling, and React state management
+
+---
+
+### Choose Uploadcare/Filestack if:
+
+✅ You need **built-in image/video processing**  
+✅ You want **zero infrastructure** management  
+✅ You need a **global CDN** with automatic optimization  
+✅ You have **budget for managed services** ($25-250/month)  
+✅ You want **all-in-one** (upload + storage + processing + CDN)
+
+---
+
+### Choose Uppy if:
+
+✅ You need **rich, pre-built UI** components  
+✅ You want **highly customizable** upload widgets  
+✅ You need **resumable uploads** (tus protocol)  
+✅ You're **not using React** (vanilla JS, Vue, Svelte)  
+✅ You want **modular architecture** (pick and choose plugins)
+
+---
+
+## Feature Comparison
+
+### Core Features
+
+| Feature | Pushduck | UploadThing | AWS SDK | Uploadcare | Uppy |
+|---------|----------|-------------|---------|------------|------|
+| **Direct-to-S3** | ✅ | ✅ | ✅ | ❌ | ✅ |
+| **Presigned URLs** | ✅ | ✅ | ✅ | ❌ | ⚠️ |
+| **Progress Tracking** | ✅ | ✅ | ⚠️ Manual | ✅ | ✅ |
+| **Multi-file Upload** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Type Safety** | ✅ Full | ✅ Full | ⚠️ Partial | ⚠️ Partial | ⚠️ Partial |
+| **Schema Validation** | ✅ | ✅ | ❌ | ⚠️ | ⚠️ |
+| **Middleware System** | ✅ | ✅ | ❌ | ❌ | ⚠️ |
+| **Lifecycle Hooks** | ✅ | ✅ | ❌ | ⚠️ | ✅ |
+| **React Hooks** | ✅ | ✅ | ❌ | ✅ | ✅ |
+
+### Storage & Providers
+
+| Feature | Pushduck | UploadThing | AWS SDK | Uploadcare | Uppy |
+|---------|----------|-------------|---------|------------|------|
+| **AWS S3** | ✅ | ❌ | ✅ | ❌ | ✅ |
+| **Cloudflare R2** | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **DigitalOcean Spaces** | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **Google Cloud Storage** | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **MinIO** | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **Backblaze B2** | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **Custom Domain** | ✅ | ⚠️ Limited | ✅ | ✅ | ✅ |
+
+### Runtime & Compatibility
+
+| Feature | Pushduck | UploadThing | AWS SDK | Uploadcare | Uppy |
+|---------|----------|-------------|---------|------------|------|
+| **Edge Runtime** | ✅ | ✅ | ❌ | ✅ | ✅ |
+| **Node.js** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Cloudflare Workers** | ✅ | ✅ | ❌ | ✅ | ✅ |
+| **Vercel Edge** | ✅ | ✅ | ❌ | ✅ | ✅ |
+| **Next.js App Router** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Next.js Pages Router** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Remix** | ✅ | ⚠️ | ✅ | ✅ | ✅ |
+| **SvelteKit** | ✅ | ❌ | ✅ | ✅ | ✅ |
+
+---
+
+## Bundle Size Breakdown
+
+```
+┌────────────────────────────────────────────────┐
+│ Bundle Size Comparison (minified + gzipped)    │
+├────────────────────────────────────────────────┤
+│ Pushduck:      ██                         7KB  │
+│ Uppy (core):   ████████████              50KB  │
+│ Uploadcare:    ██████████████████       150KB  │
+│ UploadThing:   ████████████████████████ 200KB  │
+│ AWS SDK:       ████████████████████████ 500KB  │
+└────────────────────────────────────────────────┘
+```
+
+**Why bundle size matters:**
+- **Faster initial page load** (especially on mobile)
+- **Lower bandwidth costs**
+- **Better Core Web Vitals** (LCP, FCP)
+- **Improved SEO** (Google considers page speed)
+
+---
+
+## Pricing Breakdown
+
+### Monthly Cost Example
+**Scenario:** 10,000 uploads/month, 2MB average file size, 20GB total storage
+
+| Solution | Monthly Cost | Breakdown |
+|----------|--------------|-----------|
+| **Pushduck + AWS S3** | **$0.50** | Storage: $0.46, Requests: $0.04 |
+| **Pushduck + Cloudflare R2** | **$0.30** | Storage: $0.30, Egress: $0 |
+| **AWS SDK + S3** | **$0.50** | Same as Pushduck (library is free) |
+| **UploadThing Pro** | **$20** | (if within 10k upload limit) |
+| **Uploadcare Start** | **$25** | (if within 10k upload limit) |
+| **Filestack Professional** | **$249** | (10k uploads tier) |
+
+<Callout type="info">
+  **Note:** Pushduck and AWS SDK are libraries, not services. You pay only for S3 storage. Managed services (UploadThing, Uploadcare, Filestack) handle infrastructure but charge per-upload fees.
+</Callout>
+
+---
+
+## Migration Guide
+
+### From AWS SDK to Pushduck
+
+```typescript
+// Before (AWS SDK)
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+
+const s3 = new S3Client({ region: 'us-east-1' });
+
+const uploadFile = async (file: File) => {
+  const command = new PutObjectCommand({
+    Bucket: 'my-bucket',
+    Key: `uploads/${file.name}`,
+    Body: await file.arrayBuffer(),
+  });
+  await s3.send(command);
+};
+
+// After (Pushduck)
+// Server
+const { s3 } = createUploadConfig()
+  .provider('aws', { bucket: 'my-bucket', region: 'us-east-1' })
+  .build();
+
+const router = s3.createRouter({
+  fileUpload: s3.file().maxFileSize('10MB'),
+});
+
+export const { GET, POST } = router.handlers;
+
+// Client
+const { uploadFiles } = useUploadRoute('fileUpload');
+```
+
+**Benefits:**
+- ✅ 31x smaller bundle (~16KB vs ~500KB)
+- ✅ Edge runtime compatible
+- ✅ Built-in React hooks
+- ✅ Type-safe APIs
+- ✅ Automatic progress tracking
+
+---
+
+### From UploadThing to Pushduck
+
+**Migration Steps:**
+
+1. **Set up S3 bucket** (one-time setup)
+2. **Replace UploadThing config with Pushduck config**
+3. **Update client imports**
+4. **Migrate files** (optional, can use UploadThing's S3 export if available)
+
+**Data Ownership:**
+- UploadThing: Files on their infrastructure (requires export)
+- Pushduck: Files in your S3 bucket (you own them)
+
+---
+
+## Frequently Asked Questions
+
+### "Should I use Pushduck or a managed service?"
+
+**Use Pushduck if:**
+- You want full control and ownership
+- You want to minimize costs
+- You're comfortable with basic S3 setup
+
+**Use managed service if:**
+- You want zero infrastructure setup
+- You need built-in processing (images, videos)
+- You have budget for convenience
+
+---
+
+### "Is Pushduck production-ready?"
+
+✅ Yes! Pushduck is used in production by multiple projects.
+
+**Production features:**
+- Comprehensive error handling
+- Health checks and metrics
+- Battle-tested S3 upload flow
+- Type-safe APIs
+- Extensive test coverage
+
+See: [Production Checklist](/docs/guides/production-checklist)
+
+---
+
+### "Can I migrate from Pushduck later?"
+
+✅ Yes, easily! Your files are in standard S3 buckets.
+
+**Migration path:**
+1. Your files are already in S3 (standard format)
+2. Switch to any S3-compatible solution
+3. No data migration needed (files stay in your bucket)
+4. No vendor lock-in
+
+---
+
+### "Does Pushduck support image processing?"
+
+⚠️ **Not built-in** (by design - keeps bundle small).
+
+**Integration options:**
+- [Sharp](/docs/guides/image-uploads) - Server-side processing
+- [Cloudinary](/docs/guides/image-uploads) - API-based
+- [Imgix](/docs/guides/image-uploads) - URL-based
+- Any image processing tool
+
+See: [Image Uploads Guide](/docs/guides/image-uploads)
+
+---
+
+## Conclusion
+
+**Pushduck** is ideal for developers who want:
+- 🪶 Lightweight library (~16KB)
+- 🔒 Full control over storage
+- 💰 Minimal costs (S3 only)
+- 🚀 Edge runtime support
+- 🔌 No vendor lock-in
+
+If you need a managed service with built-in processing and global CDN, consider **Uploadcare** or **Filestack**.
+
+If you want rapid prototyping with zero S3 setup, consider **UploadThing**.
+
+For advanced S3 features and AWS-only projects, **AWS SDK** is the right choice.
+
+For rich UI components and resumable uploads, **Uppy** is a great option.
+
+---
+
+<Callout type="success">
+  **Ready to get started?** Head to the [Quick Start](/docs/quick-start) guide to set up Pushduck in 5 minutes.
+</Callout>
+

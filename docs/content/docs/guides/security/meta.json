@@ -1,5 +1,7 @@
 {
     "title": "Security",
+    "description": "Secure your file uploads with authentication, CORS, and access control",
+    "icon": "ShieldCheck",
     "pages": [
         "authentication",
         "cors-and-acl"
