@@ -60,61 +60,63 @@ These features are actively being designed and will be released based on communi
 
 ## 🚧 In Progress
 
-### Enhanced Developer Experience
-🚧 **Visual Studio Code Extension** - IntelliSense, snippets, and debugging tools  
+### Developer Experience
 🚧 **Enhanced Error Messages** - Contextual help and troubleshooting suggestions  
-🚧 **Performance Monitoring** - Built-in metrics and optimization recommendations  
-
-### Advanced Features
-🚧 **Image Processing Pipeline** - Automatic optimization, resizing, and format conversion  
-🚧 **Video Processing** - Transcoding, thumbnail generation, and streaming support  
-🚧 **Advanced Validation** - Content scanning, virus detection, and custom rules  
+🚧 **Testing Utilities** - Mock S3 providers and testing helpers for CI/CD  
+🚧 **Performance Profiling** - Debugging hooks for upload performance analysis  
 
 ## 📋 Planned
 
-### Q3 2025 - Enterprise Features
-- **Advanced Analytics** - Upload metrics, performance insights, and usage tracking
+### Q3 2025 - Core Upload Features
 - ✅ **Enhanced Hook APIs** - onProgress callbacks and advanced upload state management (with `onStart` lifecycle)
 - **Advanced Upload Control** - Resumable, pausable uploads with cancel support and network resilience
-- **Team Management** - Multi-user access, role-based permissions, and audit logs
-- **Advanced Security** - Content scanning, encryption at rest, and compliance tools
-- **SLA & Support** - Enterprise support plans and guaranteed uptime
+- **Upload Queue Management** - Concurrent upload limits, prioritization, and bandwidth throttling
+- **Chunk Upload Optimization** - Configurable chunk sizes and parallel chunk uploads for large files
+- **Better Error Recovery** - Automatic retry with exponential backoff and network change detection
 
-### Q4 2025 - Platform Expansion
-- **Mobile SDKs** - React Native, Flutter, and native iOS/Android support
-- **Desktop Applications** - Electron and Tauri integration
-- **Serverless Optimization** - Enhanced edge runtime support and cold start optimization
-- **Global CDN** - Built-in content delivery and edge caching
+### Q4 2025 - Framework Support
+- **Mobile SDKs** - React Native and Expo support for mobile apps
+- **Additional Framework Adapters** - Astro, Qwik, Solid.js, and Fresh
+- **Testing Framework** - Built-in test utilities and mock providers
+- **Migration Tools** - Automated migration from uploadthing, uppy, and other libraries
 
-### Q1 2026 - AI Integration
-- **Smart Tagging** - Automatic content categorization and metadata extraction
-- **Image Recognition** - Object detection, OCR, and content moderation
-- **Intelligent Compression** - AI-powered optimization for different use cases
-- **Content Insights** - Usage patterns and optimization recommendations
+### Q1 2026 - Developer Experience
+- **Enhanced TypeScript** - Better type inference and IDE support
+- **Plugin System** - Hooks-based extension system for custom upload logic
+- **Debug Mode** - Detailed logging and upload lifecycle visualization
+- **Performance Monitoring Hooks** - Metrics collection for custom analytics integration
 
-### Q2 2026 - Ecosystem Growth
-- **Plugin Architecture** - Extensible middleware system for custom workflows
-- **Third-party Integrations** - CMS platforms, e-commerce solutions, and productivity tools
-- **Community Templates** - Shared configurations and best practices
-- **Certification Program** - Training and certification for developers and teams
+### Q2 2026 - Integration Ecosystem
+- **Integration Guides** - Documented patterns for Sharp, FFmpeg, Cloudflare Images, etc.
+- **Example Applications** - Production-ready examples for common use cases
+- **Community Adapters** - Framework adapters maintained by the community
+- **Best Practices Library** - Shared configurations and patterns
 
 ## 🎯 Long-term Vision
 
-### Universal File Management Platform
-Transform pushduck from a upload library into a comprehensive file management platform that handles the entire file lifecycle:
+### Stay Focused, Stay Lightweight
 
-- **Intelligent Storage** - Automatic tier management and cost optimization
-- **Global Distribution** - Multi-region replication and edge delivery
-- **Advanced Processing** - Real-time transformation and processing pipelines
-- **Collaborative Features** - Shared workspaces, comments, and version control
+Pushduck will remain a **focused upload library**, not a platform. Our mission:
 
-### Developer Ecosystem
-Build a thriving ecosystem around pushduck:
+> "The fastest, most lightweight way to add S3 file uploads to any web application"
 
-- **Marketplace** - Community-driven plugins, templates, and integrations
-- **Certification** - Professional training and certification programs
-- **Events & Community** - Conferences, meetups, and developer advocacy
-- **Enterprise Solutions** - Custom implementations and consulting services
+**What we'll always prioritize:**
+- 🪶 **Minimal bundle size** - Keep dependencies light
+- 🎯 **Core upload features** - Do one thing exceptionally well  
+- 🔧 **Extensibility** - Provide hooks, not built-in features for everything
+- 📚 **Integration guides** - Document how to integrate with other tools
+- 🌍 **Universal compatibility** - Work everywhere JavaScript runs
+
+**What we won't build:**
+- ❌ File processing (use Sharp, FFmpeg, etc.)
+- ❌ Content moderation (use Cloudflare, AWS services)
+- ❌ Analytics dashboards (provide hooks for your analytics)
+- ❌ Team management (that's your app's concern)
+- ❌ Platform features (we're a library, not a SaaS)
+
+<Callout type="info">
+  📖 **Read our full philosophy** - For detailed scope boundaries, integration patterns, and decision framework, see [Philosophy & Scope](/docs/philosophy)
+</Callout>
 
 ## 💡 Ideas & Suggestions
 
@@ -131,11 +133,12 @@ Want to help build the future of file uploads? Check out our [Contributing Guide
 ### Current Priorities
 We're actively looking for contributors in these areas:
 
-- **Framework Integrations** - Help us support more frameworks and platforms
+- **Core Upload Features** - Resumable uploads, better error recovery
+- **Framework Adapters** - Help us support more frameworks and platforms
 - **Documentation** - Improve guides, examples, and API documentation  
 - **Testing** - Expand test coverage and add integration tests
 - **Performance** - Optimize bundle size and runtime performance
-- **Security** - Security audits and vulnerability assessments
+- **Integration Guides** - Document patterns for common tools (Sharp, FFmpeg, etc.)
 
 ---
 
@@ -160,60 +163,12 @@ We've already solved the core problems that have frustrated developers for years
 
 ## What's Next
 
-### 🚀 Q3 2025: Developer Experience Revolution
+### 🚀 Q3 2025: Core Upload Features
 
 <Cards>
   <Card
-    title="Interactive CLI Tool"
-    description="One command setup for any provider"
-  >
-    The CLI will automatically detect your project structure and configure everything:
-
-    <Files>
-      <Folder name="your-app" defaultOpen>
-        <Folder name="app">
-          <Folder name="api">
-            <File name="upload/" />
-          </Folder>
-          <File name="layout.tsx" />
-          <File name="page.tsx" />
-        </Folder>
-        <File name=".env.local" />
-        <File name="upload.config.ts" />
-      </Folder>
-    </Files>
-
-    ```bash
-    npx @pushduck/cli@latest init
-    # ✅ Detected Next.js 14 with App Router
-    # ✅ Created upload route at /api/upload
-    # ✅ Added environment variables to .env.local
-    # ✅ Generated type-safe upload config
-    ```
-
-  </Card>
-
-{" "}
-
-<Card
-  title="Visual Upload Builder"
-  description="Configure complex upload flows with a GUI"
->
-  No more YAML or complex configuration files. Build upload pipelines visually
-  and export to code with real-time preview of your upload components.
-</Card>
-
-  <Card
-    title="Real-time Preview"
-    description="See your upload UI as you build it"
-  >
-    Hot-reload your upload components with live preview of validation, progress,
-    and error states. Perfect for rapid prototyping and design iteration.
-  </Card>
-
-  <Card
     title="Advanced Upload Control"
-    description="Resumable, pausable, and cancellable uploads with network resilience"
+    description="Resumable, pausable, and cancellable uploads"
   >
     **Planned for Q3 2025** - Complete control over upload lifecycle with automatic recovery from network issues:
 
@@ -239,96 +194,66 @@ We've already solved the core problems that have frustrated developers for years
     ```
 
   </Card>
-</Cards>
 
-### 🔒 Q4 2025: Enterprise & Security
-
-<Cards>
-  <Card title="Advanced Access Control" description="Role-based permissions and audit trails">
-    <TypeTable
-      type={{
-        permissions: {
-          description: 'Array of permission strings for role-based access',
-          type: 'string[]',
-          default: '[]',
-        },
-        auditLog: {
-          description: 'Enable detailed audit logging for compliance',
-          type: 'boolean',
-          default: 'false',
-        },
-        compliance: {
-          description: 'Compliance framework integration',
-          type: '"SOC2" | "HIPAA" | "GDPR"',
-        },
-      }}
-    />
+  <Card
+    title="Upload Queue Management"
+    description="Control concurrent uploads and bandwidth"
+  >
+    Manage upload queues with prioritization and bandwidth throttling:
 
     ```typescript
-    const s3Router = s3.createRouter({
-      images: s3.image()
-        .permissions(["user:upload", "admin:all"])
-        .auditLog(true)
-        .compliance("SOC2")
+    // PLANNED API
+    const { uploadFiles } = upload.images({
+      queue: {
+        maxConcurrent: 3,
+        maxBandwidth: '5MB/s',
+        priority: 'high'
+      }
     })
     ```
 
   </Card>
-  
-  <Card title="Content Scanning" description="Automatic malware and content policy detection">
-    Built-in integration with leading security providers for automatic threat detection, content moderation, and policy enforcement.
-  </Card>
-  
-  <Card title="Compliance Suite" description="GDPR, HIPAA, and SOC2 compliance helpers">
-    Pre-built compliance workflows and automatic data handling policies with audit trails and data retention management.
-  </Card>
-</Cards>
 
-### ⚡ Q1 2026: Performance & Scale
-
-<Cards>
-  <Card title="Edge Computing" description="Process uploads at the edge globally">
-    <TypeTable
-      type={{
-        processing: {
-          description: 'Image/video processing configuration',
-          type: 'ProcessingConfig',
-        },
-        edge: {
-          description: 'Enable edge processing for faster uploads',
-          type: 'boolean',
-          default: 'false',
-        },
-        regions: {
-          description: 'Specify target regions for processing',
-          type: 'string[]',
-        },
-      }}
-    />
+  <Card
+    title="Chunk Upload Optimization"
+    description="Configurable chunking for large files"
+  >
+    Optimize large file uploads with configurable chunk sizes and parallel processing:
 
     ```typescript
-    const s3Router = s3.createRouter({
-      images: s3.image()
-        .processing({
-          resize: { width: 800, height: 600 },
-          format: "webp",
-          edge: true // Process at nearest edge location
-        })
+    // PLANNED API
+    const { uploadFiles } = upload.videos({
+      chunking: {
+        chunkSize: '10MB',
+        parallelChunks: 3,
+        retryChunks: true
+      }
     })
     ```
 
   </Card>
-  
-  <Card title="Smart Caching" description="Intelligent CDN integration and cache invalidation">
-    Automatic cache warming and smart invalidation strategies for optimal performance. Includes built-in CDN integration with major providers.
-  </Card>
-  
-  <Card title="Analytics Dashboard" description="Upload metrics, performance insights, and cost optimization">
-    Real-time dashboard showing upload success rates, processing times, storage costs, and performance bottlenecks with actionable insights.
+
+  <Card
+    title="Better Error Recovery"
+    description="Automatic retry with exponential backoff"
+  >
+    Robust error handling with automatic retry and network change detection:
+
+    ```typescript
+    // PLANNED API
+    const { uploadFiles } = upload.files({
+      retry: {
+        attempts: 3,
+        exponentialBackoff: true,
+        detectNetworkChange: true
+      }
+    })
+    ```
+
   </Card>
 </Cards>
 
-### 🌍 Q2 2026: Ecosystem Expansion
+### 🌍 Q4 2025: Framework Support
 
 <Cards>
   <Card
@@ -381,61 +306,39 @@ We've already solved the core problems that have frustrated developers for years
 
 {" "}
 
-<Card title="Mobile SDKs" description="React Native and Flutter support">
-  Native mobile SDKs with the same type-safe API you love on the web. Full
-  offline support with automatic retry and background uploads.
+<Card title="Mobile Support" description="React Native and Expo compatibility">
+  Upload support for React Native and Expo apps with the same type-safe API. Platform-specific optimizations for iOS and Android.
 </Card>
 
   <Card
-    title="AI Integration"
-    description="Smart image tagging and content analysis"
+    title="Testing Utilities"
+    description="Mock providers and testing helpers"
   >
-    Automatic alt text generation, content categorization, duplicate
-    detection, and smart compression based on content analysis.
+    Built-in mock S3 providers, upload simulation utilities, and testing helpers for comprehensive test coverage in your CI/CD pipeline.
   </Card>
 </Cards>
 
-## Community Roadmap
+## Community Feedback
 
-### What You're Asking For
+### What We're Hearing From You
 
-Based on community feedback, GitHub issues, and Discord discussions:
+Based on community feedback, GitHub issues, and Discord discussions, here are the most requested **in-scope** features:
 
-<Tabs
-  items={["Most Requested", "Under Discussion", "Long Term"]}
-  groupId="community-requests"
->
-  <Tab value="Most Requested">
-    **🔥 High Priority (Next 3 months)** - **Drag & Drop File Manager** - Visual
-    file organization and bulk operations - **Video Processing Pipeline** -
-    Automatic transcoding and thumbnail generation - **Better Error Messages** -
-    More helpful error descriptions with suggested fixes - **Upload Resume** -
-    Automatic retry and resume for failed large file uploads - **Real-time
-    Collaboration** - Multiple users uploading to shared spaces *These features
-    have 100+ upvotes across GitHub and Discord*
-  </Tab>
+**🔥 High Priority:**
+- ✅ **Upload Resume & Retry** - Automatic retry and resume for failed uploads (Q3 2025)
+- **Better Error Messages** - More helpful error descriptions with suggested fixes
+- **Queue Management** - Control concurrent uploads and bandwidth throttling
+- **Progress Customization** - More granular progress tracking hooks
+- **Example Library** - More real-world examples and integration patterns
 
-{" "}
+**💭 Under Discussion:**
+- **GraphQL Integration** - Native GraphQL subscription support for upload progress
+- **Webhook Support** - Custom webhook configuration for upload lifecycle events
+- **Component Library** - Headless UI components for common upload patterns
+- **Performance Profiling** - Built-in profiling tools for debugging upload issues
 
-<Tab value="Under Discussion">
-  **💭 Exploring (6 months)** - **GraphQL Integration** - Native GraphQL
-  subscription support for upload progress - **Webhook Builder** - Visual
-  webhook configuration for upload events - **Template Gallery** - Pre-built
-  upload components for common use cases - **A/B Testing** - Built-in
-  experimentation for upload flows - **White-label Solution** - Fully
-  customizable upload interface *Join the discussion on these features in our
-  Discord*
-</Tab>
-
-  <Tab value="Long Term">
-    **🔮 Vision (12+ months)** - **No-Code Integration** - Zapier/Make.com
-    connectors - **Blockchain Storage** - IPFS and decentralized storage options
-    - **AI-Powered Optimization** - Automatic performance tuning -
-    **Cross-Platform Desktop** - Electron-based upload manager - **Enterprise
-    Marketplace** - Plugin ecosystem for custom integrations *These are
-    aspirational goals that depend on community growth*
-  </Tab>
-</Tabs>
+**Out of Scope:**
+We won't build features like file processing (use Sharp/FFmpeg), content moderation (use specialized services), or platform features (team management, dashboards). We're staying focused as a lightweight upload library.
 
 ## How We Prioritize
 
@@ -466,64 +369,20 @@ Have an idea or want to prioritize something? Here's how to influence our roadma
   </Card>
 </Cards>
 
-## Behind the Scenes
-
-### What We're Working on Right Now
-
-**Week of June 23, 2025:**
-
-- 🔨 Enhanced type inference for nested upload schemas
-- 🧪 Testing framework for upload workflows
-- 📚 Interactive examples in documentation
-- 🐛 Bug fixes for edge cases in multi-part uploads
-
-<Callout type="info">
-  Follow our [GitHub project
-  board](https://github.com/abhay-ramesh/pushduck/projects) for real-time
-  updates on development progress.
-</Callout>
-
-### Development Structure
-
-Our development process is organized around clear modules:
-
-<Files>
-  <Folder name="packages" defaultOpen>
-    <Folder name="pushduck">
-      <Folder name="src">
-        <Folder name="client">
-          <File name="upload-client.ts" />
-          <File name="hooks.ts" />
-        </Folder>
-        <Folder name="server">
-          <File name="router.ts" />
-          <File name="providers.ts" />
-        </Folder>
-        <Folder name="types">
-          <File name="index.ts" />
-        </Folder>
-      </Folder>
-    </Folder>
-    <Folder name="cli">
-      <File name="index.ts" />
-      <File name="templates/" />
-    </Folder>
-    <Folder name="integrations">
-      <File name="vue/" />
-      <File name="svelte/" />
-      <File name="react-native/" />
-    </Folder>
-  </Folder>
-</Files>
-
-### Core Principles
+## Development Principles
 
 As we build new features, we never compromise on:
 
-- **Type Safety First** - Every feature must have full TypeScript support
-- **Zero Breaking Changes** - Backward compatibility is non-negotiable
-- **Performance by Default** - New features can't slow down existing workflows
-- **Developer Happiness** - If it's not delightful to use, we rebuild it
+- **🪶 Lightweight First** - Bundle size is a feature, not an afterthought
+- **🎯 Focused Scope** - Do one thing (uploads) exceptionally well
+- **📘 Type Safety** - Every feature must have full TypeScript support
+- **🔄 Zero Breaking Changes** - Backward compatibility is non-negotiable
+- **⚡ Performance** - New features can't slow down existing workflows
+- **🔌 Extensibility** - Provide hooks, not built-in everything
+
+<Callout type="info">
+  Follow our [GitHub project board](https://github.com/abhay-ramesh/pushduck/projects) for real-time updates on development progress.
+</Callout>
 
 ## Get Involved
 

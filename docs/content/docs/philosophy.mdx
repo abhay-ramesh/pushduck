@@ -1,0 +1,741 @@
+---
+title: Philosophy & Scope
+description: What Pushduck does (and doesn't do) - our principles, boundaries, and integration approach
+# icon: Lightbulb
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+## Our Philosophy
+
+Pushduck is a **focused upload library**, not a platform. We believe in doing one thing exceptionally well:
+
+> The fastest, most lightweight way to add S3 file uploads to any web application
+
+This document defines the boundaries of what Pushduck will and won't do, and explains why.
+
+---
+
+## Core Principles
+
+### 🪶 Lightweight First
+Bundle size is a feature, not an afterthought. Every dependency is carefully considered.
+
+**We use:**
+- `aws4fetch` (6.4KB) instead of AWS SDK (500KB+)
+- Native `fetch()` API
+- Zero unnecessary dependencies
+
+**Result:** Core library stays under 10KB minified + gzipped
+
+---
+
+### 🎯 Focused Scope
+Do one thing (uploads) exceptionally well, rather than many things poorly.
+
+**We believe:**
+- Specialized tools beat all-in-one solutions
+- Small, focused libraries are easier to maintain
+- Users prefer composing tools over vendor lock-in
+
+**Result:** You can replace Pushduck easily if needed, or use it alongside other tools
+
+---
+
+### 🔌 Extensibility Over Features
+Provide hooks and APIs, not built-in everything.
+
+**We provide:**
+- Middleware system for custom logic
+- Lifecycle hooks for integration points
+- Type-safe APIs for extension
+
+**You implement:**
+- Your specific business logic
+- Integration with your services
+- Custom workflows
+
+**Result:** Maximum flexibility without bloat
+
+---
+
+### 📚 Document, Don't Implement
+Show users how to integrate, don't build the integration.
+
+**We provide:**
+- Clear integration patterns
+- Example code
+- Best practices documentation
+
+**We don't build:**
+- Database adapters
+- Auth providers
+- Email services
+- Analytics platforms
+
+**Result:** Works with any stack, no vendor lock-in
+
+---
+
+## ✅ What Pushduck Does
+
+### Core Upload Features
+
+<Cards>
+  <Card title="Direct-to-S3 Uploads" description="Secure presigned URL generation">
+    Upload files directly to S3 without touching your server. Reduces bandwidth costs and improves performance.
+  </Card>
+  
+  <Card title="Progress Tracking" description="Real-time upload monitoring">
+    Track upload progress, speed, and ETA. Per-file and overall progress metrics for multi-file uploads.
+  </Card>
+  
+  <Card title="File Validation" description="Client and server-side checks">
+    Validate file size, type, count, and custom rules. Prevent invalid uploads before they reach S3.
+  </Card>
+  
+  <Card title="Multi-Provider Support" description="S3-compatible storage">
+    Works with AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, and any S3-compatible provider.
+  </Card>
+</Cards>
+
+### Storage Operations
+
+```typescript
+// List files
+const files = await storage.list.files({
+  prefix: "uploads/",
+  maxResults: 50
+});
+
+// Delete files
+await storage.delete.file("uploads/old.jpg");
+await storage.delete.byPrefix("temp/");
+
+// Get metadata
+const info = await storage.metadata.getInfo("uploads/doc.pdf");
+
+// Generate download URLs
+const url = await storage.download.presignedUrl("uploads/file.pdf", 3600);
+```
+
+**What we provide:**
+- ✅ List files with pagination and filtering
+- ✅ Delete files (single, batch, by prefix)
+- ✅ Get file metadata (size, date, content-type)
+- ✅ Generate presigned URLs (upload/download)
+- ✅ Check file existence
+
+**What we don't provide:**
+- ❌ File search/indexing (use Algolia, Elasticsearch)
+- ❌ File versioning (use S3 versioning)
+- ❌ Storage analytics (provide hooks for your analytics)
+- ❌ Duplicate detection (implement via hooks)
+
+---
+
+### Developer Experience
+
+<Cards>
+  <Card title="Type-Safe APIs" description="Full TypeScript support">
+    Intelligent type inference from server to client. Catch errors at compile time.
+  </Card>
+  
+  <Card title="Framework Adapters" description="Universal compatibility">
+    Works with Next.js, React, Express, Fastify, and more. Web Standards-based.
+  </Card>
+  
+  <Card title="CLI Tools" description="Zero-config setup">
+    Interactive setup wizard, automatic provider detection, and project scaffolding.
+  </Card>
+  
+  <Card title="Testing Utilities" description="Mock providers">
+    Test your upload flows without hitting real S3. Perfect for CI/CD.
+  </Card>
+</Cards>
+
+---
+
+### Optional UI Components
+
+Following the [shadcn/ui](https://ui.shadcn.com) approach:
+
+```bash
+# Copy components into your project
+npx @pushduck/cli add upload-dropzone
+npx @pushduck/cli add file-list
+```
+
+**What we provide:**
+- ✅ Basic upload UI components (dropzone, file-list, progress-bar)
+- ✅ Headless/unstyled components you can customize
+- ✅ Copy-paste, not installed as dependency
+
+**What we don't provide:**
+- ❌ Full-featured file manager UI
+- ❌ Image gallery/carousel components
+- ❌ File preview modals
+- ❌ Admin dashboard components
+
+**Philosophy:** You own the code, you customize it. We provide starting points, not rigid components.
+
+---
+
+## ❌ What Pushduck Doesn't Do
+
+### File Processing
+
+<Callout type="warn">
+  **Out of Scope** - Use specialized tools for these tasks
+</Callout>
+
+**We don't process files. Use these instead:**
+
+| Task | Recommended Tool | Why |
+|------|-----------------|-----|
+| Image optimization | [Sharp](https://sharp.pixelplumbing.com/) | Best-in-class, battle-tested |
+| Video transcoding | [FFmpeg](https://ffmpeg.org/) | Industry standard |
+| PDF generation | [PDFKit](https://pdfkit.org/) | Specialized library |
+| Image transformations | [Cloudflare Images](https://cloudflare.com/images) | Edge-optimized |
+| Content moderation | AWS Rekognition, Cloudflare | Purpose-built services |
+
+**Why not?**
+- These tools do it better than we ever could
+- Adding them would balloon our bundle size
+- Creates unnecessary dependencies
+- Limits user choice
+
+**Our approach:** Document integration patterns
+
+```typescript
+// Example: Integrate with Sharp
+import sharp from 'sharp';
+
+const router = s3.createRouter({
+  imageUpload: s3.image()
+    .onUploadComplete(async ({ key }) => {
+      // Download from S3
+      const buffer = await s3.download(key);
+      
+      // Process with Sharp
+      const optimized = await sharp(buffer)
+        .resize(800, 600)
+        .webp({ quality: 80 })
+        .toBuffer();
+      
+      // Upload optimized version
+      await s3.upload(optimized, `optimized/${key}`);
+    })
+});
+```
+
+---
+
+### Backend Services
+
+<Callout type="info">
+  **Integration Pattern** - We provide hooks, you connect services
+</Callout>
+
+**We don't implement these services:**
+
+| Service | What We Provide | You Implement |
+|---------|----------------|---------------|
+| Webhooks | Lifecycle hooks | Webhook delivery |
+| Notifications | `onUploadComplete` hook | Email/SMS sending |
+| Database | File metadata in hooks | DB storage logic |
+| Queue Systems | Hooks with context | Queue integration |
+| Background Jobs | Async hook support | Job processing |
+| Analytics | Hooks with event data | Analytics tracking |
+
+**Example Integration:**
+
+<Tabs items={["Database", "Webhooks", "Notifications", "Queue", "Analytics"]}>
+  <Tab value="Database">
+    ```typescript
+    import { db } from '@/lib/database';
+    
+    const router = s3.createRouter({
+      fileUpload: s3.file()
+        .onUploadComplete(async ({ file, key, url, metadata }) => {
+          // You implement database logic
+          await db.files.create({
+            data: {
+              name: file.name,
+              size: file.size,
+              url: url,
+              s3Key: key,
+              userId: metadata.userId,
+              uploadedAt: new Date()
+            }
+          });
+        })
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Webhooks">
+    ```typescript
+    import { sendWebhook } from '@/lib/webhooks';
+    
+    const router = s3.createRouter({
+      fileUpload: s3.file()
+        .onUploadComplete(async ({ file, url }) => {
+          // You implement webhook delivery
+          await sendWebhook({
+            event: 'file.uploaded',
+            data: {
+              filename: file.name,
+              url: url,
+              timestamp: new Date().toISOString()
+            }
+          });
+        })
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Notifications">
+    ```typescript
+    import { sendEmail } from '@/lib/email';
+    
+    const router = s3.createRouter({
+      fileUpload: s3.file()
+        .onUploadComplete(async ({ file, metadata }) => {
+          // You implement email notifications
+          await sendEmail({
+            to: metadata.userEmail,
+            subject: 'File Upload Complete',
+            body: `Your file "${file.name}" has been uploaded successfully.`
+          });
+        })
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Queue">
+    ```typescript
+    import { queue } from '@/lib/queue';
+    
+    const router = s3.createRouter({
+      fileUpload: s3.file()
+        .onUploadComplete(async ({ file, key }) => {
+          // You implement queue integration
+          await queue.add('process-file', {
+            fileKey: key,
+            fileName: file.name,
+            processType: 'thumbnail-generation'
+          });
+        })
+    });
+    ```
+  </Tab>
+
+  <Tab value="Analytics">
+    ```typescript
+    import { analytics } from '@/lib/analytics';
+    
+    const router = s3.createRouter({
+      fileUpload: s3.file()
+        .onUploadStart(async ({ file, metadata }) => {
+          // Track upload start
+          await analytics.track('upload_started', {
+            userId: metadata.userId,
+            fileSize: file.size,
+            fileType: file.type
+          });
+        })
+        .onUploadComplete(async ({ file, url, metadata }) => {
+          // Track successful upload
+          await analytics.track('upload_completed', {
+            userId: metadata.userId,
+            fileName: file.name,
+            fileSize: file.size,
+            fileUrl: url
+          });
+        })
+        .onUploadError(async ({ error, metadata }) => {
+          // Track errors
+          await analytics.track('upload_failed', {
+            userId: metadata.userId,
+            error: error.message
+          });
+        })
+    });
+    ```
+  </Tab>
+</Tabs>
+
+**Why this approach?**
+- ✅ You're not locked into our choice of services
+- ✅ Use your existing infrastructure
+- ✅ Switch services without changing upload library
+- ✅ Keeps our bundle size minimal
+
+---
+
+### Platform Features
+
+<Callout type="error">
+  **Not a Platform** - Pushduck is a library, not a SaaS
+</Callout>
+
+**We will never build:**
+
+❌ **User Management** - Use NextAuth, Clerk, Supabase Auth, etc.  
+❌ **Team/Organization Systems** - Build in your application  
+❌ **Permission/Role Management** - Implement in your middleware  
+❌ **Analytics Dashboards** - We provide hooks for your analytics  
+❌ **Admin Panels** - Build with your UI framework  
+❌ **Billing/Subscriptions** - Use Stripe, Paddle, etc.  
+❌ **API Key Management** - Implement in your system  
+❌ **Audit Logs** - Log via hooks to your logging service  
+
+**Why not?**
+- Every app has different requirements
+- Would require a backend service (we're a library)
+- Creates vendor lock-in
+- Massive scope creep from our core mission
+
+**Our approach:** Provide middleware hooks
+
+```typescript
+import { auth } from '@/lib/auth';
+import { checkPermission } from '@/lib/permissions';
+import { logAudit } from '@/lib/audit';
+
+const router = s3.createRouter({
+  fileUpload: s3.file()
+    .middleware(async ({ req, metadata }) => {
+      // YOUR auth system
+      const user = await auth.getUser(req);
+      if (!user) throw new Error('Unauthorized');
+      
+      // YOUR permissions system
+      if (!checkPermission(user, 'upload:create')) {
+        throw new Error('Forbidden');
+      }
+      
+      // YOUR audit logging
+      await logAudit({
+        userId: user.id,
+        action: 'file.upload.started',
+        metadata: metadata
+      });
+      
+      return { userId: user.id };
+    })
+});
+```
+
+---
+
+### Authentication & Authorization
+
+**What we provide:**
+- ✅ Middleware hooks for auth checks
+- ✅ Access to request context (headers, cookies, etc.)
+- ✅ Integration examples with popular auth providers
+
+**What we don't provide:**
+- ❌ Built-in auth system
+- ❌ Session management
+- ❌ OAuth providers
+- ❌ API key generation
+- ❌ User database
+
+**Example Integrations:**
+
+<Tabs items={["Better Auth", "NextAuth", "Clerk", "Supabase", "Custom"]}>
+  <Tab value="Better Auth">
+    ```typescript
+    import { auth } from '@/lib/auth';
+    
+    const router = s3.createRouter({
+      fileUpload: s3.file()
+        .middleware(async ({ req }) => {
+          const session = await auth.api.getSession({
+            headers: req.headers
+          });
+          
+          if (!session?.user) {
+            throw new Error('Please sign in to upload files');
+          }
+          
+          return {
+            userId: session.user.id,
+            userEmail: session.user.email
+          };
+        })
+    });
+    ```
+  </Tab>
+  
+  <Tab value="NextAuth">
+    ```typescript
+    import { getServerSession } from 'next-auth';
+    
+    const router = s3.createRouter({
+      fileUpload: s3.file()
+        .middleware(async ({ req }) => {
+          const session = await getServerSession();
+          
+          if (!session?.user) {
+            throw new Error('Please sign in to upload files');
+          }
+          
+          return {
+            userId: session.user.id,
+            userEmail: session.user.email
+          };
+        })
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Clerk">
+    ```typescript
+    import { auth } from '@clerk/nextjs';
+    
+    const router = s3.createRouter({
+      fileUpload: s3.file()
+        .middleware(async () => {
+          const { userId } = auth();
+          
+          if (!userId) {
+            throw new Error('Unauthorized');
+          }
+          
+          return { userId };
+        })
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Supabase">
+    ```typescript
+    import { createServerClient } from '@supabase/ssr';
+    
+    const router = s3.createRouter({
+      fileUpload: s3.file()
+        .middleware(async ({ req }) => {
+          const supabase = createServerClient(/* config */);
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          if (!user) {
+            throw new Error('Unauthorized');
+          }
+          
+          return { userId: user.id };
+        })
+    });
+    ```
+  </Tab>
+  
+  <Tab value="Custom">
+    ```typescript
+    import { verifyToken } from '@/lib/auth';
+    
+    const router = s3.createRouter({
+      fileUpload: s3.file()
+        .middleware(async ({ req }) => {
+          const token = req.headers.get('authorization')?.replace('Bearer ', '');
+          
+          if (!token) {
+            throw new Error('No token provided');
+          }
+          
+          const user = await verifyToken(token);
+          
+          if (!user) {
+            throw new Error('Invalid token');
+          }
+          
+          return { userId: user.id };
+        })
+    });
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## 🎯 The Integration Pattern
+
+This is our core philosophy in action:
+
+```typescript
+// 1. We handle uploads
+// 2. You connect your services via hooks
+// 3. Everyone wins
+
+const router = s3.createRouter({
+  fileUpload: s3.file()
+    // YOUR auth
+    .middleware(async ({ req }) => {
+      const user = await yourAuth.getUser(req);
+      return { userId: user.id };
+    })
+    
+    // YOUR business logic  
+    .onUploadStart(async ({ file, metadata }) => {
+      await yourAnalytics.track('upload_started', {
+        userId: metadata.userId,
+        fileSize: file.size
+      });
+    })
+    
+    // YOUR database
+    .onUploadComplete(async ({ file, url, key, metadata }) => {
+      await yourDatabase.files.create({
+        userId: metadata.userId,
+        url: url,
+        s3Key: key,
+        name: file.name,
+        size: file.size
+      });
+      
+      // YOUR notifications
+      await yourEmailService.send({
+        to: metadata.userEmail,
+        template: 'upload-complete',
+        data: { fileName: file.name }
+      });
+      
+      // YOUR webhooks
+      await yourWebhooks.trigger({
+        event: 'file.uploaded',
+        data: { url, fileName: file.name }
+      });
+      
+      // YOUR queue
+      await yourQueue.add('process-file', {
+        fileKey: key,
+        userId: metadata.userId
+      });
+
+      // YOUR analytics
+      await yourAnalytics.track('upload_completed', {
+        userId: metadata.userId,
+        fileName: file.name,
+        fileSize: file.size,
+        fileUrl: url,
+        fileKey: key
+      });
+    })
+    
+    // YOUR error handling
+    .onUploadError(async ({ error, metadata }) => {
+      await yourErrorTracking.log({
+        error: error,
+        userId: metadata.userId
+      });
+    })
+});
+```
+
+**Benefits:**
+- 🪶 Pushduck stays lightweight (only upload logic)
+- 🔌 You use your preferred services
+- 🎯 No vendor lock-in
+- ⚡ No unnecessary code in your bundle
+- 🔧 Maximum flexibility
+
+---
+
+## 🤔 Decision Framework
+
+When considering new features, we ask:
+
+### ✅ Add if:
+1. **Core to uploads** - Directly helps files get to S3
+2. **Universally needed** - 80%+ of users need it
+3. **Can't be solved externally** - Must be part of upload flow
+4. **Lightweight** - Doesn't balloon bundle size
+5. **Framework agnostic** - Works everywhere
+
+### ❌ Don't add if:
+1. **Better tools exist** - Sharp does image processing better
+2. **Service-specific** - Requires backend infrastructure
+3. **Opinion-heavy** - Database choice, auth provider, etc.
+4. **UI-specific** - Every app needs different UI
+5. **Platform feature** - User management, billing, etc.
+
+### 🔌 Provide hooks if:
+1. **Common integration point** - Many users need it
+2. **Can be external** - Services can be swapped
+3. **Timing matters** - Needs to happen at specific point in upload lifecycle
+
+---
+
+## 🌟 What This Means For You
+
+### As a User
+
+**You get:**
+- ✅ Lightweight, focused upload library
+- ✅ Freedom to choose your own tools
+- ✅ No vendor lock-in
+- ✅ Clear integration patterns
+- ✅ Stable, predictable API
+
+**You're responsible for:**
+- 🔧 Choosing and integrating your services
+- 🔧 Building your UI (or copy ours)
+- 🔧 Implementing your business logic
+- 🔧 Managing your infrastructure
+
+### As a Contributor
+
+**Focus contributions on:**
+- ✅ Core upload features (resumable, queuing, etc.)
+- ✅ Framework adapters
+- ✅ Testing utilities
+- ✅ Documentation & examples
+- ✅ Integration guides
+
+**We'll reject PRs for:**
+- ❌ File processing features
+- ❌ Backend services (webhooks, notifications)
+- ❌ Database adapters
+- ❌ Auth providers
+- ❌ Platform features
+
+---
+
+## 📚 Further Reading
+
+<Cards>
+  <Card title="Roadmap" href="/docs/roadmap" description="See what we're building next">
+    Our development roadmap and planned features
+  </Card>
+  
+  <Card title="Contributing" href="https://github.com/abhay-ramesh/pushduck/blob/main/CONTRIBUTING.md" description="Help build Pushduck">
+    Guidelines for contributing to the project
+  </Card>
+  
+  <Card title="Integration Guides" href="/docs/guides" description="Connect your services">
+    Patterns for integrating databases, auth, notifications, and more
+  </Card>
+  
+  <Card title="Examples" href="/docs/examples" description="Real-world implementations">
+    Complete examples showing integration patterns
+  </Card>
+</Cards>
+
+---
+
+## 💬 Questions?
+
+Have questions about scope or philosophy?
+
+- 💭 [GitHub Discussions](https://github.com/abhay-ramesh/pushduck/discussions)
+- 💬 [Discord Community](https://pushduck.dev/discord)
+- 🐛 [GitHub Issues](https://github.com/abhay-ramesh/pushduck/issues)
+
+<Callout type="success">
+  **Remember:** We're focused on being the best upload library, not the biggest. Every feature we say "no" to keeps Pushduck fast, lightweight, and maintainable.
+</Callout>
+

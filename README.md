@@ -62,167 +62,72 @@ npx @pushduck/cli add-route
 npx @pushduck/cli test
 ```
 
-### Manual Setup
+### Manual Setup (3 Steps)
 
-#### 1. Configure Your Storage (Server)
+**Step 1: Create API Route** (`app/api/upload/route.ts`)
 
 ```typescript
-// lib/upload.ts
 import { createUploadConfig } from "pushduck/server";
 
 const { s3 } = createUploadConfig()
   .provider("aws", {
+    bucket: process.env.AWS_BUCKET_NAME!,
+    region: process.env.AWS_REGION!,
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    region: process.env.AWS_REGION!,
-    bucket: process.env.AWS_S3_BUCKET_NAME!,
   })
   .build();
 
-export { s3 };
-```
-
-```typescript
-// app/api/upload/route.ts
-import { s3 } from "@/lib/upload";
-
 const router = s3.createRouter({
-  imageUpload: s3
-    .image()
-    .maxFileSize("5MB")
-    .formats(["jpeg", "jpg", "png", "webp"])
-    .middleware(async ({ file, metadata }) => {
-      // Add authentication and user context
-      return {
-        ...metadata,
-        userId: "user-123",
-        uploadedAt: new Date().toISOString(),
-      };
-    }),
-
-  documentUpload: s3
-    .file()
-    .maxFileSize("10MB")
-    .types(["application/pdf", "text/plain"])
-    .paths({
-      prefix: "documents",
-    }),
+  imageUpload: s3.image().maxFileSize('5MB'),
 });
 
 export const { GET, POST } = router.handlers;
 export type AppRouter = typeof router;
 ```
 
-#### 2. Create Upload Client
+**Step 2: Create Upload Client** (`lib/upload-client.ts`)
 
-```typescript
-// lib/upload-client.ts
+```tsx
 import { createUploadClient } from "pushduck/client";
 import type { AppRouter } from "@/app/api/upload/route";
 
 export const upload = createUploadClient<AppRouter>({
-  endpoint: "/api/upload",
+  endpoint: "/api/upload"
 });
 ```
 
-#### 3. Upload Files (Client)
+**Step 3: Use in Component** (`app/upload.tsx`)
 
 ```tsx
 "use client";
 import { upload } from "@/lib/upload-client";
-import { formatETA, formatUploadSpeed } from "pushduck";
 
-export default function FileUpload() {
-  const { 
-    uploadFiles, 
-    files, 
-    isUploading, 
-    errors 
-  } = upload.imageUpload();
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (selectedFiles) {
-      // Optional: Pass client-side context as metadata
-      await uploadFiles(Array.from(selectedFiles), {
-        albumId: 'vacation-2025',
-        tags: ['summer', 'beach'],
-        visibility: 'private'
-      });
-    }
-  };
+export default function Upload() {
+  const { uploadFiles, files, isUploading } = upload.imageUpload();
 
   return (
-    <div className="space-y-4">
+    <div>
       <input
         type="file"
         multiple
         accept="image/*"
-        onChange={handleFileSelect}
+        onChange={(e) => uploadFiles(Array.from(e.target.files || []))}
         disabled={isUploading}
-        className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
       />
 
-      {isUploading && (
-        <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm text-gray-600">Uploading files...</span>
+      {files.map((file) => (
+        <div key={file.id}>
+          {file.name} - {file.progress}%
+          {file.status === "success" && <img src={file.url} alt={file.name} />}
         </div>
-      )}
-
-      {errors.length > 0 && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-600">{errors.join(", ")}</p>
-        </div>
-      )}
-
-      {files.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {files.map((file) => (
-            <div key={file.id} className="space-y-2">
-              <img
-                src={file.url}
-                alt="Uploaded image"
-                className="w-full h-32 object-cover rounded-lg border"
-              />
-              <p className="text-xs text-gray-500 truncate">{file.name}</p>
-              
-              {/* Individual file progress with speed and ETA */}
-              {file.status === "uploading" && (
-                <div className="space-y-1">
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${file.progress}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>{file.progress}%</span>
-                    <div className="flex gap-2">
-                      {file.uploadSpeed && (
-                        <span>{formatUploadSpeed(file.uploadSpeed)}</span>
-                      )}
-                      {file.eta && file.eta > 0 && (
-                        <span>ETA: {formatETA(file.eta)}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {file.status === "error" && (
-                <p className="text-xs text-red-500">{file.error}</p>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      ))}
     </div>
   );
 }
 ```
 
-That's it! Your files are now uploading directly to S3 with enterprise-grade security.
+**Done!** 3 files, ~50 lines of code, production-ready uploads.
 
 ## 📊 Advanced Features
 
@@ -265,6 +170,7 @@ const recentFiles = await storage.list.byDate(new Date("2024-01-01"));
 ## 📚 Documentation
 
 - **[Getting Started](https://pushduck.dev/docs/quick-start)** - Complete setup guide
+- **[Philosophy & Scope](https://pushduck.dev/docs/philosophy)** - What we do (and don't do)
 - **[API Reference](https://pushduck.dev/docs/api)** - Full API documentation
 - **[Examples](https://pushduck.dev/docs/examples)** - Real-world examples
 - **[Providers](https://pushduck.dev/docs/providers)** - S3, R2, Spaces, MinIO
