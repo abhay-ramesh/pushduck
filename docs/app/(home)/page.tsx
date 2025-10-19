@@ -1,4 +1,5 @@
 import { CodeTabsSection } from "@/components/ui/code-tabs";
+import { GitHubStars } from "@/components/ui/github-stars";
 import { HomepageUploadDemo } from "@/components/ui/homepage-upload-demo";
 import {
   ArrowRight,
@@ -8,7 +9,6 @@ import {
   Database,
   FileText,
   Gauge,
-  Github,
   Globe,
   Image as ImageIcon,
   Settings,
@@ -360,23 +360,15 @@ export default async function HomePage() {
                 </div>
               </div>
               {/* CTA Buttons */}
-              <div className="flex flex-col gap-3 sm:flex-row lg:justify-start justify-center">
+              <div className="flex flex-col gap-3 sm:flex-row lg:justify-start justify-center items-center sm:items-start lg:items-start">
                 <Link
                   href="/docs/quick-start"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium border border-primary/20 hover:bg-primary/90 transition-colors"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium border border-primary/20 hover:bg-fd-secondary/90 dark:hover:bg-fd-primary-foreground/90 transition-colors"
                 >
                   Quick Start
                   <ArrowRight className="w-4 h-4" />
                 </Link>
-                <Link
-                  href="https://github.com/abhay-ramesh/pushduck"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md border border-border text-foreground text-sm font-medium bg-background hover:bg-muted transition-colors"
-                >
-                  <Github className="w-4 h-4" />
-                  GitHub
-                </Link>
+                <GitHubStars />
               </div>
 
               {/* Framework Logos */}
