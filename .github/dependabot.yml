@@ -1,81 +1,9 @@
 # Dependabot configuration for pushduck
-# Automates dependency updates across the monorepo with grouped updates
+# Automates dependency updates across the monorepo with a single weekly PR
 
 version: 2
 updates:
-  # Main package dependencies
-  - package-ecosystem: "npm"
-    directory: "/packages/pushduck"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 2
-    reviewers:
-      - "abhay-ramesh"
-    assignees:
-      - "abhay-ramesh"
-    commit-message:
-      prefix: "chore(deps)"
-      include: "scope"
-    labels:
-      - "dependencies"
-    groups:
-      production-dependencies:
-        patterns:
-          - "*"
-        exclude-patterns:
-          - "@types/*"
-          - "eslint*"
-          - "prettier*"
-          - "typescript"
-          - "vitest*"
-          - "@vitest/*"
-          - "@testing-library/*"
-        update-types:
-          - "minor"
-          - "patch"
-      development-dependencies:
-        patterns:
-          - "@types/*"
-          - "eslint*"
-          - "prettier*"
-          - "typescript"
-          - "vitest*"
-          - "@vitest/*"
-          - "@testing-library/*"
-        update-types:
-          - "minor"
-          - "patch"
-
-  # CLI package dependencies
-  - package-ecosystem: "npm"
-    directory: "/packages/cli"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 2
-    reviewers:
-      - "abhay-ramesh"
-    assignees:
-      - "abhay-ramesh"
-    commit-message:
-      prefix: "chore(deps)"
-      include: "scope"
-    labels:
-      - "dependencies"
-    groups:
-      cli-dependencies:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-
-  # Workspace root dependencies
+  # All npm dependencies across the entire monorepo
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
@@ -83,7 +11,7 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Etc/UTC"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 1
     reviewers:
       - "abhay-ramesh"
     assignees:
@@ -94,36 +22,11 @@ updates:
     labels:
       - "dependencies"
     groups:
-      workspace-dependencies:
+      all-dependencies:
         patterns:
           - "*"
         update-types:
           - "minor"
-          - "patch"
-
-  # Documentation dependencies
-  - package-ecosystem: "npm"
-    directory: "/docs"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 2
-    reviewers:
-      - "abhay-ramesh"
-    commit-message:
-      prefix: "chore(deps)"
-      include: "scope"
-    labels:
-      - "dependencies"
-    groups:
-      docs-dependencies:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
 
   # GitHub Actions dependencies
   - package-ecosystem: "github-actions"
@@ -136,6 +39,8 @@ updates:
     open-pull-requests-limit: 1
     reviewers:
       - "abhay-ramesh"
+    assignees:
+      - "abhay-ramesh"
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
@@ -147,4 +52,3 @@ updates:
           - "*"
         update-types:
           - "minor"
-          - "patch"
