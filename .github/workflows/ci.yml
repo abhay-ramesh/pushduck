@@ -95,7 +95,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: 🔐 Audit dependencies
-        run: pnpm audit --audit-level moderate
+        run: pnpm audit --audit-level high
 
   # 🎯 Matrix Testing (multiple Node versions) - Optimized
   compatibility:
