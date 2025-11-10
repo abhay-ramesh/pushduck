@@ -138,7 +138,7 @@ jobs:
           cd ../cli && tar -czf ../../cli-dist.tar.gz dist/
 
       - name: 💾 Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: build-artifacts
           path: |
