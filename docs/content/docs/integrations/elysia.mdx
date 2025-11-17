@@ -85,9 +85,8 @@ Elysia is a TypeScript-first web framework designed for Bun. Since Elysia uses W
     const app = new Elysia();
 
     // Direct usage - no adapter needed!
-    app.all('/api/upload/*', (context) => {
-      return uploadRouter.handlers(context.request);
-    });
+    app.get('/api/upload', ({ request }) => uploadRouter.handlers.GET(request));
+    app.post('/api/upload', ({ request }) => uploadRouter.handlers.POST(request));
 
     app.listen(3000);
     ```
@@ -104,14 +103,9 @@ import { uploadRouter } from './lib/upload';
 
 const app = new Elysia();
 
-// Method 1: Combined handler (recommended)
-app.all('/api/upload/*', (context) => {
-  return uploadRouter.handlers(context.request);
-});
-
-// Method 2: Separate handlers (if you need method-specific logic)
-app.get('/api/upload/*', (context) => uploadRouter.handlers.GET(context.request));
-app.post('/api/upload/*', (context) => uploadRouter.handlers.POST(context.request));
+// Separate GET and POST handlers (required)
+app.get('/api/upload', ({ request }) => uploadRouter.handlers.GET(request));
+app.post('/api/upload', ({ request }) => uploadRouter.handlers.POST(request));
 
 app.listen(3000);
 ```
@@ -131,7 +125,8 @@ const app = new Elysia()
   }))
   
   // Upload routes
-  .all('/api/upload/*', (context) => uploadRouter.handlers(context.request))
+  .get('/api/upload', ({ request }) => uploadRouter.handlers.GET(request))
+  .post('/api/upload', ({ request }) => uploadRouter.handlers.POST(request))
   
   // Health check
   .get('/health', () => ({ status: 'ok' }))
@@ -237,7 +232,8 @@ const app = new Elysia()
   }))
   
   // Upload routes
-  .all('/api/upload/*', (context) => uploadRouter.handlers(context.request))
+  .get('/api/upload', ({ request }) => uploadRouter.handlers.GET(request))
+  .post('/api/upload', ({ request }) => uploadRouter.handlers.POST(request))
   
   // Health check
   .get('/health', () => ({ 
