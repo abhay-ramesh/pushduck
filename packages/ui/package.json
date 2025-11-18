@@ -39,7 +39,7 @@
     ],
     "dependencies": {
         "clsx": "^2.1.1",
-        "lucide-react": "^0.553.0",
+        "lucide-react": "^0.554.0",
         "pushduck": "workspace:*",
         "tailwind-merge": "^3.4.0"
     },
