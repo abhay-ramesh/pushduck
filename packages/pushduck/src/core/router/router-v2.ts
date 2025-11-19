@@ -56,8 +56,6 @@
  *
  */
 
-import { NextRequest } from "next/server";
-
 import { UploadConfig } from "../config/upload-config";
 import { createUniversalHandler } from "../handler/universal-handler";
 import { InferS3Input, InferS3Output, S3Schema } from "../schema";
@@ -80,7 +78,7 @@ import {
  */
 export interface S3RouteContext {
   /** The incoming HTTP request */
-  req: NextRequest;
+  req: Request;
   /** Optional metadata from middleware or other sources */
   metadata?: Record<string, any>;
 }
@@ -728,7 +726,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
    *
    * @template K - Route name type from router definition
    * @param routeName - Name of the upload route
-   * @param req - NextRequest object for accessing headers, cookies, etc.
+   * @param req - Request object for accessing headers, etc.
    * @param files - Array of file metadata (name, size, type)
    * @param metadata - Optional client-provided metadata (untrusted)
    * @returns Array of presigned URL responses
@@ -790,7 +788,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
    */
   async generatePresignedUrls<K extends keyof TRoutes>(
     routeName: K,
-    req: NextRequest,
+    req: Request,
     files: S3FileMetadata[],
     metadata?: any
   ): Promise<PresignedUrlResponse[]> {
@@ -886,7 +884,11 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
 
         // Call onUploadError hook with enriched metadata
         if (routeConfig.onUploadError) {
-          await routeConfig.onUploadError({ file, metadata: fileMetadata, error: err });
+          await routeConfig.onUploadError({
+            file,
+            metadata: fileMetadata,
+            error: err,
+          });
         }
 
         results.push({
@@ -903,7 +905,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
   // Handle upload completion notification
   async handleUploadComplete<K extends keyof TRoutes>(
     routeName: K,
-    req: NextRequest,
+    req: Request,
     completions: UploadCompletion[]
   ): Promise<CompletionResponse[]> {
     const route = this.getRoute(routeName);
