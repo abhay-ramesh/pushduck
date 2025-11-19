@@ -67,9 +67,6 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
           );
         }
 
-        // Create a NextRequest-compatible object for router methods
-        const routerRequest = createRouterRequest(request);
-
         /**
          * Generate presigned URLs with client metadata.
          *
@@ -80,7 +77,7 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
          */
         const results = await router.generatePresignedUrls(
           routeName,
-          routerRequest,
+          request,
           files,
           metadata
         );
@@ -108,12 +105,9 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
           );
         }
 
-        // Create a NextRequest-compatible object for router methods
-        const routerRequest = createRouterRequest(request);
-
         const results = await router.handleUploadComplete(
           routeName,
-          routerRequest,
+          request,
           completions
         );
 
@@ -172,26 +166,4 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
   }
 
   return { GET, POST };
-}
-
-/**
- * Helper function to create a NextRequest-compatible object from Web Request
- * This bridges the gap between Web Request and the current router expectations
- */
-function createRouterRequest(request: Request): any {
-  // For most cases, we can pass the request as-is since NextRequest extends Request
-  // But we need to ensure it has the NextRequest interface shape
-
-  // If it's already a NextRequest (like in Next.js), use it directly
-  if (request.constructor.name === "NextRequest") {
-    return request;
-  }
-
-  // Create a NextRequest-like object that satisfies the router interface
-  const nextRequestLike = Object.create(request);
-
-  // Add any NextRequest-specific properties if needed
-  // For now, the base Request should be sufficient for most operations
-
-  return nextRequestLike;
 }
