@@ -185,7 +185,14 @@ jobs:
       - name: 🚀 Create GitHub Release
         run: |
           NEW_VERSION="${{ needs.prepare-release.outputs.new_version }}"
-          RELEASE_NOTES="${{ needs.prepare-release.outputs.release_notes }}"
+
+          # Write release notes to a temporary file to avoid shell interpretation issues
+          # Using heredoc with quoted delimiter to safely handle multi-line content with special characters
+          # The quoted delimiter prevents bash from interpreting the content
+          NOTES_FILE=$(mktemp)
+          cat > "$NOTES_FILE" <<'NOTES_EOF'
+          ${{ needs.prepare-release.outputs.release_notes }}
+          NOTES_EOF
 
           # Determine if prerelease
           PRERELEASE_FLAG=""
@@ -196,8 +203,11 @@ jobs:
           # Create GitHub release (this will trigger the publish-packages workflow)
           gh release create "v$NEW_VERSION" \
             --title "v$NEW_VERSION" \
-            --notes "$RELEASE_NOTES" \
+            --notes-file "$NOTES_FILE" \
             $PRERELEASE_FLAG
+
+          # Clean up temp file
+          rm -f "$NOTES_FILE"
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
 
