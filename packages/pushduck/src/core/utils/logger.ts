@@ -39,15 +39,15 @@ class Logger {
   private getLogPrefix(level: LogLevel): string {
     switch (level) {
       case "debug":
-        return "🔧";
+        return "[DEBUG]";
       case "info":
-        return "📦";
+        return "[INFO]";
       case "warn":
-        return "⚠️";
+        return "[WARN]";
       case "error":
-        return "❌";
+        return "[ERROR]";
       default:
-        return "📝";
+        return "[LOG]";
     }
   }
 

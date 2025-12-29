@@ -2,7 +2,7 @@ import chalk from "chalk";
 import inquirer from "inquirer";
 
 export async function addRouteCommand() {
-  console.log(chalk.cyan("🛠️ Add a new upload route\n"));
+  console.log(chalk.cyan("Add a new upload route\n"));
 
   try {
     const { routeName } = await inquirer.prompt([
@@ -34,7 +34,7 @@ export async function addRouteCommand() {
       },
     ]);
 
-    console.log(chalk.green("\n✨ Route configuration generated!\n"));
+    console.log(chalk.green("\nRoute configuration generated!\n"));
     console.log(chalk.cyan("Add this to your upload-config.ts:"));
     console.log(chalk.gray("----------------------------------------"));
 
@@ -43,10 +43,10 @@ export async function addRouteCommand() {
 
     console.log(chalk.gray("----------------------------------------"));
     console.log(
-      chalk.blue("\n💡 Don't forget to update your TypeScript types!")
+      chalk.blue("\nDon't forget to update your TypeScript types!")
     );
   } catch (error) {
-    console.error(chalk.red("❌ Failed to generate route:"), error);
+    console.error(chalk.red("Failed to generate route:"), error);
   }
 }
 

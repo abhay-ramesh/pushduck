@@ -1,8 +1,8 @@
 import {
-  CreateBucketCommand,
-  HeadBucketCommand,
-  PutBucketCorsCommand,
-  S3Client,
+    CreateBucketCommand,
+    HeadBucketCommand,
+    PutBucketCorsCommand,
+    S3Client,
 } from "@aws-sdk/client-s3";
 import chalk from "chalk";
 import inquirer from "inquirer";
@@ -144,7 +144,7 @@ export async function selectProvider(
     return skipSelection;
   }
 
-  console.log(chalk.cyan("\n📦 Choose your storage provider:\n"));
+  console.log(chalk.cyan("\nChoose your storage provider:\n"));
 
   const choices = Object.entries(PROVIDER_INFO).map(([key, info]) => ({
     name: `${info.name.padEnd(20)} ${chalk.gray(info.description)}`,
@@ -165,7 +165,7 @@ export async function selectProvider(
   const selectedInfo = PROVIDER_INFO[provider];
   console.log(chalk.green(`\n→ ${selectedInfo.name} selected\n`));
 
-  console.log(chalk.blue("💡 Why " + selectedInfo.name + "?"));
+  console.log(chalk.blue("Why " + selectedInfo.name + "?"));
   console.log(chalk.gray("   • " + selectedInfo.description));
   console.log(
     chalk.gray("   • Need help choosing? https://pushduck.dev/docs/providers\n")

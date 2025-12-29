@@ -176,7 +176,7 @@ Add lifecycle hooks for upload events:
 ```typescript
 .hooks({
   onUploadStart: async ({ file, metadata }) => {
-    console.log(`🚀 Upload started: ${file.name}`)
+    console.log(`Upload started: ${file.name}`)
     // Log to analytics, validate user, etc.
   },
   

@@ -23,7 +23,7 @@ export async function installDependencies(
 
     spinner.succeed("Dependencies installed successfully");
 
-    console.log(chalk.green("\n📦 Added to package.json:"));
+    console.log(chalk.green("\nAdded to package.json:"));
     console.log("  ✓ pushduck@latest");
     console.log("  ✓ react-dropzone (for drag & drop)");
   } catch (error) {

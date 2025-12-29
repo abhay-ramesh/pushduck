@@ -22,7 +22,7 @@ const log = {
     success: (msg) => console.log(`${colors.green}[SUCCESS]${colors.reset} ${msg}`),
     warning: (msg) => console.log(`${colors.yellow}[WARNING]${colors.reset} ${msg}`),
     error: (msg) => console.log(`${colors.red}[ERROR]${colors.reset} ${msg}`),
-    title: (msg) => console.log(`${colors.bold}${colors.cyan}🦆 ${msg}${colors.reset}`)
+    title: (msg) => console.log(`${colors.bold}${colors.cyan}${msg}${colors.reset}`)
 };
 
 const rl = readline.createInterface({
@@ -340,11 +340,11 @@ async function main() {
         const editorOpened = openInEditor(notesPath);
 
         console.log();
-        log.title('📋 Next Steps:');
-        console.log('1. ✍️  Edit release notes in your editor');
-        console.log(`2. 🔍 Review staged changes: ${colors.cyan}git diff --staged${colors.reset}`);
-        console.log(`3. 🚀 When ready to publish: ${colors.cyan}pnpm release:publish${colors.reset}`);
-        console.log(`4. 🚫 To abort this release: ${colors.cyan}pnpm release:abort${colors.reset}`);
+        log.title('Next Steps:');
+        console.log('1. Edit release notes in your editor');
+        console.log(`2. Review staged changes: ${colors.cyan}git diff --staged${colors.reset}`);
+        console.log(`3. When ready to publish: ${colors.cyan}pnpm release:publish${colors.reset}`);
+        console.log(`4. To abort this release: ${colors.cyan}pnpm release:abort${colors.reset}`);
         console.log();
         log.success(`Release v${newVersion} prepared successfully!`);
 

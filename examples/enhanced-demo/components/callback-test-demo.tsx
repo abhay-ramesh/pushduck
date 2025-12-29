@@ -32,17 +32,17 @@ export function CallbackTestDemo() {
     eta,
   } = upload.imageUpload({
     onStart: (files) => {
-      addLog(`🚀 onStart called with ${files.length} files`);
+      addLog(`onStart called with ${files.length} files`);
     },
     onProgress: (progress) => {
-      addLog(`📊 onProgress called: ${progress}%`);
+      addLog(`onProgress called: ${progress}%`);
     },
     onSuccess: (results) => {
-      addLog(`✅ onSuccess called with ${results.length} files`);
+      addLog(`onSuccess called with ${results.length} files`);
       setShowSuccess(true);
     },
     onError: (error) => {
-      addLog(`❌ onError called: ${error.message}`);
+      addLog(`onError called: ${error.message}`);
       setShowError(true);
     },
   });
@@ -56,13 +56,13 @@ export function CallbackTestDemo() {
     reset: resetSizeLimit,
   } = upload.imageUpload({
     onStart: (files) => {
-      addLog(`🚀 Size limit test - onStart: ${files.length} files`);
+      addLog(`Size limit test - onStart: ${files.length} files`);
     },
     onProgress: (progress) => {
       addLog(`📊 Size limit test - onProgress: ${progress}%`);
     },
     onSuccess: (results) => {
-      addLog(`✅ Size limit test - onSuccess: ${results.length} files`);
+      addLog(`Size limit test - onSuccess: ${results.length} files`);
     },
     onError: (error) => {
       addLog(`❌ Size limit test - onError: ${error.message}`);
@@ -72,7 +72,7 @@ export function CallbackTestDemo() {
   const handleProgressTest = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     if (files.length > 0) {
-      addLog(`🚀 Starting progress test with ${files.length} files`);
+      addLog(`Starting progress test with ${files.length} files`);
       uploadForProgress(files);
     }
   };
@@ -80,7 +80,7 @@ export function CallbackTestDemo() {
   const handleSizeLimitTest = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     if (files.length > 0) {
-      addLog(`🚀 Starting size limit test with ${files.length} files`);
+      addLog(`Starting size limit test with ${files.length} files`);
       addLog(
         `📏 Files sizes: ${files
           .map((f) => `${f.name}: ${(f.size / 1024 / 1024).toFixed(2)}MB`)
@@ -257,7 +257,7 @@ export function CallbackTestDemo() {
       {/* Callback Logs */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-2">
-          <h3 className="text-lg font-semibold">📋 Callback Logs</h3>
+          <h3 className="text-lg font-semibold">Callback Logs</h3>
           <button
             onClick={clearLogs}
             className="px-3 py-1 text-sm bg-gray-500 text-white rounded-md hover:bg-gray-600"
@@ -282,7 +282,7 @@ export function CallbackTestDemo() {
       <div className="flex gap-4">
         {showSuccess && (
           <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-md">
-            <span className="text-lg">✅</span>
+            <span className="text-lg">✓</span>
             <span>Success callback triggered!</span>
           </div>
         )}

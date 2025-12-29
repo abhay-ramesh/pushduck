@@ -74,7 +74,7 @@ async function buildRegistryItem(item: RegistryItem): Promise<any> {
 }
 
 async function buildRegistry() {
-  console.log("🚀 Building pushduck UI registry...");
+  console.log("Building pushduck UI registry...");
 
   try {
     // Read registry.json
@@ -87,7 +87,7 @@ async function buildRegistry() {
 
     // Build each registry item
     for (const item of registry.items) {
-      console.log(`  📦 Building ${item.name}...`);
+      console.log(`  Building ${item.name}...`);
 
       const builtItem = await buildRegistryItem(item);
       const outputPath = path.join(outputDir, `${item.name}.json`);
@@ -98,18 +98,18 @@ async function buildRegistry() {
         "utf-8"
       );
 
-      console.log(`    ✅ Built ${item.name}.json`);
+      console.log(`    Built ${item.name}.json`);
     }
 
     // Build index file with all items
     const indexPath = path.join(outputDir, "index.json");
     await fs.writeFile(indexPath, JSON.stringify(registry, null, 2), "utf-8");
 
-    console.log("✨ Registry build complete!");
-    console.log(`📁 Output directory: ${outputDir}`);
-    console.log(`🔗 Registry items: ${registry.items.length}`);
+    console.log("Registry build complete!");
+    console.log(`Output directory: ${outputDir}`);
+    console.log(`Registry items: ${registry.items.length}`);
   } catch (error) {
-    console.error("❌ Registry build failed:", error);
+    console.error("Registry build failed:", error);
     process.exit(1);
   }
 }

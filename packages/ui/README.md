@@ -11,7 +11,7 @@ React UI components for pushduck - File upload components you can copy and paste
 
 ## Overview
 
-`@pushduck/ui` provides a collection of beautiful, accessible file upload components built with React, TypeScript, and Tailwind CSS. These components are designed to work seamlessly with the pushduck library and can be customized to match your application's design.
+`@pushduck/ui` provides a collection of accessible file upload components built with React, TypeScript, and Tailwind CSS. These components are designed to work with the pushduck library and can be customized to match your application's design.
 
 ## Philosophy
 

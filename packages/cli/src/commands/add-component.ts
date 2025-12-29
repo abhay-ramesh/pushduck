@@ -40,7 +40,7 @@ export async function addComponentCommand(componentName?: string) {
       chalk.cyan(`
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
-│   🦆 Add pushduck UI Components                            │
+│   Add pushduck UI Components                            │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 `)
@@ -108,18 +108,18 @@ export async function addComponentCommand(componentName?: string) {
 
       // Install dependencies if needed
       if (component.dependencies.length > 0) {
-        console.log(chalk.yellow(`\n📦 Installing dependencies...`));
+        console.log(chalk.yellow(`\nInstalling dependencies...`));
         await installDependencies(component.dependencies);
       }
 
       // Install registry dependencies (other components)
       if (component.registryDependencies.length > 0) {
-        console.log(chalk.yellow(`\n🔗 Installing component dependencies...`));
+        console.log(chalk.yellow(`\nInstalling component dependencies...`));
         for (const dep of component.registryDependencies) {
           console.log(chalk.gray(`  Installing ${dep}...`));
           // For registry dependencies, we would recursively call this function
           // For now, just log that they're needed
-          console.log(chalk.red(`  ⚠️  Please also install: ${dep}`));
+          console.log(chalk.red(`  Warning: Please also install: ${dep}`));
         }
       }
 
@@ -143,7 +143,7 @@ export async function addComponentCommand(componentName?: string) {
       }
 
       // Success message
-      console.log(chalk.green(`\n✨ Successfully added ${component.title}!`));
+      console.log(chalk.green(`\nSuccessfully added ${component.title}!`));
       console.log(
         chalk.gray(`\nYou can now import it in your React components:`)
       );

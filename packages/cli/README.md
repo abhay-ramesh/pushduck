@@ -212,13 +212,13 @@ The CLI provides a guided setup experience:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
-│   🚀 Welcome to Pushduck                       │
+│   Welcome to Pushduck                         │
 │                                                             │
 │   Let's get your file uploads working in 2 minutes!        │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 
-🔍 Detecting your project...
+Detecting your project...
   ✓ Next.js App Router detected
   ✓ TypeScript configuration found
   ✓ No existing upload configuration
@@ -228,8 +228,8 @@ The CLI provides a guided setup experience:
   Cloudflare R2 (S3-compatible, global edge)
   DigitalOcean Spaces (simple, affordable)
 
-🔧 Setting up AWS S3...
-🔍 Checking for existing credentials...
+Setting up AWS S3...
+Checking for existing credentials...
   ✓ Found AWS_ACCESS_KEY_ID
   ✓ Found AWS_SECRET_ACCESS_KEY
   ✓ Found AWS_REGION
@@ -237,19 +237,19 @@ The CLI provides a guided setup experience:
 ? Enter your S3 bucket name: my-app-uploads
 ? Create bucket automatically? Yes
 
-🛠️ Generating files...
-✨ Created files:
+Generating files...
+Created files:
   ├── app/api/upload/route.ts
   ├── app/upload/page.tsx
   ├── components/ui/upload-button.tsx
   ├── lib/upload-client.ts
   └── .env.example
 
-📦 Installing dependencies...
+Installing dependencies...
   ✓ pushduck
   ✓ react-dropzone
 
-🎉 Setup complete! Your uploads are ready.
+Setup complete! Your uploads are ready.
 ```
 
 ## Troubleshooting

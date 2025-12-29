@@ -20,15 +20,15 @@ export function PropertyBasedImageUpload() {
     eta,
   } = upload.imageUpload({
     onSuccess: (results) => {
-      console.log("✅ Images uploaded successfully!", results);
+      console.log("Images uploaded successfully!", results);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     },
     onError: (error) => {
-      console.error("❌ Image upload failed:", error);
+      console.error("Image upload failed:", error);
     },
     onProgress: (progress) => {
-      console.log(`📊 Upload progress: ${progress}%`);
+      console.log(`Upload progress: ${progress}%`);
     },
   });
 
@@ -75,11 +75,11 @@ export function PropertyBasedImageUpload() {
     <div className="p-6 bg-white rounded-lg border-2 border-emerald-200 shadow-md">
       <div className="flex gap-2 items-center mb-4">
         <h2 className="text-xl font-semibold text-gray-800">
-          🚀 Enhanced Property-Based Client
+          Enhanced Property-Based Client
         </h2>
         {showSuccess && (
           <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-            ✅ Upload Successful!
+            Upload Successful!
           </span>
         )}
       </div>
@@ -330,7 +330,7 @@ export function PropertyBasedImageUpload() {
                     </a>
                   )}
                   <p className="mt-1 text-xs text-green-600">
-                    ✅ Successfully uploaded via enhanced property-based client
+                    Successfully uploaded via enhanced property-based client
                   </p>
                 </div>
               )}
@@ -391,7 +391,7 @@ export function PropertyBasedDocumentUpload() {
     <div className="p-6 bg-white rounded-lg border-2 border-amber-200 shadow-md">
       <div className="flex gap-2 items-center mb-4">
         <h2 className="text-xl font-semibold text-gray-800">
-          📄 Property-Based Documents
+          Property-Based Documents
         </h2>
         <div className="px-2 py-1 text-xs font-medium text-amber-800 bg-amber-100 rounded-full">
           Type-Safe Routes
@@ -400,7 +400,7 @@ export function PropertyBasedDocumentUpload() {
 
       <div className="p-3 mb-4 bg-amber-50 rounded-md border border-amber-200">
         <h3 className="mb-2 text-sm font-medium text-amber-800">
-          🔧 Developer Experience:
+          Developer Experience:
         </h3>
         <ul className="space-y-1 text-xs text-amber-700">
           <li>
@@ -541,7 +541,7 @@ export function PropertyBasedDocumentUpload() {
                     </a>
                   )}
                   <p className="mt-1 text-xs text-green-600">
-                    ✅ Successfully uploaded via property-based client
+                    Successfully uploaded via property-based client
                   </p>
                 </div>
               )}

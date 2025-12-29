@@ -22,7 +22,7 @@ const log = {
     success: (msg) => console.log(`${colors.green}[SUCCESS]${colors.reset} ${msg}`),
     warning: (msg) => console.log(`${colors.yellow}[WARNING]${colors.reset} ${msg}`),
     error: (msg) => console.log(`${colors.red}[ERROR]${colors.reset} ${msg}`),
-    title: (msg) => console.log(`${colors.bold}${colors.cyan}🦆 ${msg}${colors.reset}`)
+    title: (msg) => console.log(`${colors.bold}${colors.cyan}${msg}${colors.reset}`)
 };
 
 const rl = readline.createInterface({
@@ -92,15 +92,15 @@ async function main() {
 
         const stagedFiles = getStagedFiles();
         if (stagedFiles.length > 0) {
-            console.log('📝 Staged changes:');
+            console.log('Staged changes:');
             stagedFiles.forEach(file => console.log(`  - ${file}`));
         }
 
         if (fs.existsSync(releaseInfo.notesPath)) {
-            console.log(`📄 Release notes: ${releaseInfo.notesPath}`);
+            console.log(`Release notes: ${releaseInfo.notesPath}`);
         }
 
-        console.log('🗑️  Release metadata: .release/.current-release.json');
+        console.log('Release metadata: .release/.current-release.json');
         console.log();
 
         const confirm = await question(`${colors.yellow}Are you sure you want to abort this release? (y/N): ${colors.reset}`);

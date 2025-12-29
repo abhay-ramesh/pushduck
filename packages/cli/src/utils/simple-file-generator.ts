@@ -175,7 +175,7 @@ const uploadRouter = s3.createRouter({
       };
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
-      console.log(\`✅ Image upload complete: \${file.name} -> \${url}\`, metadata);
+      console.log(\`Image upload complete: \${file.name} -> \${url}\`, metadata);
     }),
 
   // File upload route  
@@ -198,7 +198,7 @@ const uploadRouter = s3.createRouter({
       };
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
-      console.log(\`✅ File upload complete: \${file.name} -> \${url}\`, metadata);
+      console.log(\`File upload complete: \${file.name} -> \${url}\`, metadata);
     }),
 });
 
@@ -595,7 +595,7 @@ export default function UploadPage() {
     <div className="container px-4 py-8 mx-auto max-w-4xl">
       <div className="mb-8">
         <h1 className="mb-2 text-3xl font-bold text-gray-900">
-          🚀 File Upload Demo
+          File Upload Demo
         </h1>
         <p className="text-gray-600">
           Enhanced type-safe uploads with property-based client
