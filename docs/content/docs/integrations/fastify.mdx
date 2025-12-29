@@ -14,7 +14,7 @@ import { Steps, Step } from "fumadocs-ui/components/steps";
 Fastify is a high-performance Node.js web framework that uses custom `request`/`reply` objects. Pushduck provides a simple adapter that converts Web Standard handlers to Fastify handler format.
 
 <Callout type="info">
-  **Custom Request/Response API**: Fastify uses `request`/`reply` objects instead of Web Standards, so pushduck provides the `toFastifyHandler` adapter for seamless integration.
+  **Custom Request/Response API**: Fastify uses `request`/`reply` objects instead of Web Standards, so pushduck provides the `toFastifyHandler` adapter for straightforward integration.
 </Callout>
 
 ## Quick Setup
@@ -89,7 +89,7 @@ Fastify is a high-performance Node.js web framework that uses custom `request`/`
     const start = async () => {
       try {
         await fastify.listen({ port: 3000 });
-        console.log('🚀 Fastify server running on http://localhost:3000');
+        console.log('Fastify server running on http://localhost:3000');
       } catch (err) {
         fastify.log.error(err);
         process.exit(1);
@@ -413,7 +413,7 @@ const start = async () => {
     const host = process.env.HOST || '0.0.0.0';
     
     await fastify.listen({ port, host });
-    fastify.log.info(`🚀 Fastify server running on http://${host}:${port}`);
+    fastify.log.info(`Fastify server running on http://${host}:${port}`);
     fastify.log.info(`📁 Upload endpoint: http://${host}:${port}/api/upload`);
   } catch (err) {
     fastify.log.error(err);
@@ -612,19 +612,19 @@ R2_ACCOUNT_ID=your-account-id
 ## Performance Benefits
 
 <Cards>
-  <Card title="🚀 High Performance" description="Fastify's speed advantage">
+  <Card title="High Performance" description="Fastify's speed advantage">
     Fastify is one of the fastest Node.js frameworks, perfect for high-throughput upload APIs.
   </Card>
   
-  <Card title="🔧 Plugin Ecosystem" description="Rich plugin architecture">
+  <Card title="Plugin Ecosystem" description="Rich plugin architecture">
     Leverage Fastify's extensive plugin ecosystem alongside pushduck's upload capabilities.
   </Card>
   
-  <Card title="📦 TypeScript Support" description="First-class TypeScript">
+  <Card title="TypeScript Support" description="First-class TypeScript">
     Excellent TypeScript support with full type safety for both Fastify and pushduck.
   </Card>
   
-  <Card title="🛡️ Production Ready" description="Enterprise features">
+  <Card title="Production Ready" description="Enterprise features">
     Built-in schema validation, logging, and error handling for production deployments.
   </Card>
 </Cards>

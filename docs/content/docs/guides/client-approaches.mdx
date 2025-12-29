@@ -189,7 +189,7 @@ export function AdvancedUpload() {
   const { uploadFiles, files, isUploading, errors, reset } = 
     upload.imageUpload({
       onStart: (files) => {
-        console.log('🚀 Upload starting!', files)
+        console.log('Upload starting!', files)
         setUploadStarted(true)
       },
       onSuccess: (results) => {

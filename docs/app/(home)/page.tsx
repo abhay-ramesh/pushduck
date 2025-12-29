@@ -374,7 +374,7 @@ export default async function HomePage() {
               {/* Framework Logos */}
               <div className="mt-8 pt-8 border-t">
                 <p className="text-xs text-muted-foreground font-mono mb-4">
-                  // Works with
+                  {"// Works with"}
                 </p>
                 <div className="flex flex-wrap items-center gap-4">
                   {[
@@ -463,7 +463,7 @@ export default async function HomePage() {
                 Technical Overview
               </h2>
               <p className="text-sm text-muted-foreground font-mono">
-                // Key features and architectural decisions
+                {"// Key features and architectural decisions"}
               </p>
             </div>
 
@@ -498,7 +498,7 @@ export default async function HomePage() {
                 Framework Support
               </h2>
               <p className="text-sm text-muted-foreground font-mono">
-                // Universal adapter works everywhere
+                {"// Universal adapter works everywhere"}
               </p>
             </div>
 
@@ -561,7 +561,7 @@ export default async function HomePage() {
                 Storage Providers
               </h2>
               <p className="text-sm text-muted-foreground font-mono">
-                // S3-compatible storage, swap anytime
+                {"// S3-compatible storage, swap anytime"}
               </p>
             </div>
 
@@ -622,7 +622,7 @@ export default async function HomePage() {
                 File Type Validation
               </h2>
               <p className="text-sm text-muted-foreground font-mono">
-                // Built-in MIME type checking & custom rules
+                {"// Built-in MIME type checking & custom rules"}
               </p>
             </div>
 
@@ -657,7 +657,7 @@ export default async function HomePage() {
                 Key Benefits
               </h2>
               <p className="text-sm text-muted-foreground font-mono">
-                // What makes Pushduck different
+                {"// What makes Pushduck different"}
               </p>
             </div>
 
@@ -778,7 +778,7 @@ export default async function HomePage() {
                   Get Started
                 </h2>
                 <p className="mb-6 text-sm text-muted-foreground font-mono">
-                  // Production-ready uploads in minutes
+                  {"// Production-ready uploads in minutes"}
                 </p>
                 <div className="flex flex-col gap-3 sm:flex-row lg:justify-start justify-center">
                   <Link

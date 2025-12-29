@@ -30,7 +30,7 @@ const s3Router = s3.createRouter({
       prefix: "images",
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
-      console.log(`✅ Image upload complete: ${file.name} -> ${url}`, metadata);
+      console.log(`Image upload complete: ${file.name} -> ${url}`, metadata);
 
       // Here you could save to database, send notifications, etc.
       // await db.images.create({
@@ -71,7 +71,7 @@ const s3Router = s3.createRouter({
       prefix: "documents",
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
-      console.log(`✅ Document uploaded: ${file.name} -> ${url}`);
+      console.log(`Document uploaded: ${file.name} -> ${url}`);
     }),
 
   // Custom organized images: uploads/gallery/2024/06/demo-user/filename.jpg
@@ -101,7 +101,7 @@ const s3Router = s3.createRouter({
       },
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
-      console.log(`✅ Gallery image uploaded: ${file.name} -> ${url}`);
+      console.log(`Gallery image uploaded: ${file.name} -> ${url}`);
     }),
 
   // General uploads: uploads/{userId}/{timestamp}/{randomId}/filename.ext
@@ -118,7 +118,7 @@ const s3Router = s3.createRouter({
     })
     // No .paths() - uses global configuration only
     .onUploadComplete(async ({ file, url, metadata }) => {
-      console.log(`✅ General file uploaded: ${file.name} -> ${url}`);
+      console.log(`General file uploaded: ${file.name} -> ${url}`);
     }),
 });
 

@@ -26,7 +26,7 @@ export default function UploadPage() {
     <div className="container px-4 py-8 mx-auto max-w-4xl">
       <div className="mb-8">
         <h1 className="mb-2 text-3xl font-bold text-gray-900">
-          🚀 File Upload Demo
+          File Upload Demo
         </h1>
         <p className="text-gray-600 mb-4">
           Experience pushduck's enhanced type-safe uploads with our interactive
@@ -39,25 +39,25 @@ export default function UploadPage() {
             href="/docs/quick-start"
             className="text-blue-600 hover:text-blue-800 hover:underline"
           >
-            📚 Quick Start Guide
+            Quick Start Guide
           </a>
           <a
             href="/docs/api/client/create-upload-client"
             className="text-blue-600 hover:text-blue-800 hover:underline"
           >
-            🔧 Property-Based Client API
+            Property-Based Client API
           </a>
           <a
             href="/docs/providers"
             className="text-blue-600 hover:text-blue-800 hover:underline"
           >
-            ☁️ Storage Providers
+            Storage Providers
           </a>
           <a
             href="/docs/examples"
             className="text-blue-600 hover:text-blue-800 hover:underline"
           >
-            💡 More Examples
+            More Examples
           </a>
         </div>
       </div>
@@ -72,7 +72,7 @@ export default function UploadPage() {
               : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
         >
-          🖼️ Images (.jpg, .png, .webp)
+          Images (.jpg, .png, .webp)
         </button>
         <button
           onClick={() => setActiveTab("files")}
@@ -82,7 +82,7 @@ export default function UploadPage() {
               : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
         >
-          📄 Documents (.pdf, .doc, .txt)
+          Documents (.pdf, .doc, .txt)
         </button>
       </div>
 
@@ -149,7 +149,7 @@ export default function UploadPage() {
             .length > 0 && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800">
-                📸 Uploaded Images
+                Uploaded Images
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {currentUpload.files
@@ -227,7 +227,7 @@ export default function UploadPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-800">
-              🎯 Features Demonstrated
+              Features Demonstrated
             </h3>
             <ul className="space-y-2 text-gray-600">
               <li className="flex items-start gap-2">
@@ -255,7 +255,7 @@ export default function UploadPage() {
 
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-800">
-              ⚡ Technology Stack
+              Technology Stack
             </h3>
             <ul className="space-y-2 text-gray-600">
               <li className="flex items-start gap-2">
@@ -284,7 +284,7 @@ export default function UploadPage() {
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
           <h3 className="text-lg font-semibold text-blue-900 mb-3">
-            🚀 Ready to Build Your Own?
+            Ready to Build Your Own?
           </h3>
           <p className="text-blue-700 mb-4">
             This demo showcases pushduck's enhanced client approach. Get the
@@ -312,7 +312,7 @@ export default function UploadPage() {
             className="block p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
           >
             <h4 className="font-semibold text-gray-900 mb-2">
-              📋 Client Approaches
+              Client Approaches
             </h4>
             <p className="text-sm text-gray-600">
               Compare hook-based vs property-based clients
@@ -324,7 +324,7 @@ export default function UploadPage() {
             className="block p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
           >
             <h4 className="font-semibold text-gray-900 mb-2">
-              🖼️ Image Uploads
+              Image Uploads
             </h4>
             <p className="text-sm text-gray-600">
               Advanced image handling and optimization
@@ -336,7 +336,7 @@ export default function UploadPage() {
             className="block p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
           >
             <h4 className="font-semibold text-gray-900 mb-2">
-              🔐 Secure Uploads
+              Secure Uploads
             </h4>
             <p className="text-sm text-gray-600">
               Authentication and authorization patterns

@@ -14,7 +14,7 @@ import { Steps, Step } from "fumadocs-ui/components/steps";
 Bun is an ultra-fast JavaScript runtime with native Web Standards support. Since Bun uses Web Standard `Request` and `Response` objects natively, pushduck handlers work directly without any adapters!
 
 <Callout type="info">
-  **Web Standards Native**: Bun's `Bun.serve()` uses Web Standard `Request` objects directly, making pushduck integration seamless with zero overhead.
+  **Web Standards Native**: Bun's `Bun.serve()` uses Web Standard `Request` objects directly, making pushduck integration straightforward with zero overhead.
 </Callout>
 
 ## Quick Setup
@@ -93,7 +93,7 @@ Bun is an ultra-fast JavaScript runtime with native Web Standards support. Since
       },
     });
 
-    console.log('🚀 Bun server running on http://localhost:3000');
+    console.log('Bun server running on http://localhost:3000');
     ```
   </Step>
 </Steps>
@@ -126,7 +126,7 @@ Bun.serve({
   },
 });
 
-console.log('🚀 Bun server running on http://localhost:3000');
+console.log('Bun server running on http://localhost:3000');
 ```
 
 ### With CORS and Routing
@@ -188,7 +188,7 @@ Bun.serve({
   },
 });
 
-console.log('🚀 Bun server running on http://localhost:3000');
+console.log('Bun server running on http://localhost:3000');
 ```
 
 ## Advanced Configuration
@@ -378,8 +378,8 @@ Bun.serve({
   },
 });
 
-console.log(`🚀 Bun server running on http://localhost:${process.env.PORT || 3000}`);
-console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`Bun server running on http://localhost:${process.env.PORT || 3000}`);
+console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 ```
 
 ## File-based Routing
@@ -437,19 +437,19 @@ Bun.serve({
 ## Performance Benefits
 
 <Cards>
-  <Card title="🚀 Ultra-Fast Runtime" description="Bun's exceptional performance">
+  <Card title="Ultra-Fast Runtime" description="Bun's exceptional performance">
     Bun is 3x faster than Node.js, providing incredible performance for file upload operations.
   </Card>
   
-  <Card title="⚡ Zero Overhead" description="Direct Web Standards integration">
+  <Card title="Zero Overhead" description="Direct Web Standards integration">
     No adapter layer means zero performance overhead - pushduck handlers run directly in Bun.
   </Card>
   
-  <Card title="📦 Built-in Features" description="Batteries included">
+  <Card title="Built-in Features" description="Batteries included">
     Built-in bundler, test runner, package manager, and more - no extra tooling needed.
   </Card>
   
-  <Card title="🔧 Native TypeScript" description="First-class TypeScript support">
+  <Card title="Native TypeScript" description="First-class TypeScript support">
     Run TypeScript directly without compilation, perfect for rapid development.
   </Card>
 </Cards>

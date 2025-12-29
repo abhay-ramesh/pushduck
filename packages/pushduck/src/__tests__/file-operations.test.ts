@@ -403,7 +403,7 @@ describe("Performance Considerations", () => {
 // Example usage demonstrations
 describe("Usage Examples", () => {
   it("should demonstrate complete file management workflow", async () => {
-    console.log("\n🎯 Complete File Management Workflow Example:\n");
+    console.log("\nComplete File Management Workflow Example:\n");
 
     // 1. List user files
     console.log("1. List user files:");

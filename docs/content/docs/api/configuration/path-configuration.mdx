@@ -12,7 +12,7 @@ import { TypeTable } from "fumadocs-ui/components/type-table";
 
 ## Custom Route Paths
 
-Organize your uploads with powerful hierarchical path structures that provide clean file organization, prevent conflicts, and enable scalable storage patterns.
+Organize your uploads with hierarchical path structures that provide clean file organization, prevent conflicts, and enable scalable storage patterns.
 
 <Callout type="info">
   **New in v2.0:** The hierarchical path system allows global configuration to provide the foundation while route-level paths extend and nest within it - **no more overrides that lose configuration!**
@@ -411,7 +411,7 @@ const s3Router = s3.createRouter({
 
 ## Best Practices
 
-### 🎯 Path Organization
+### Path Organization
 
 <Cards>
   <Card title="Use Descriptive Prefixes" description="Make paths self-documenting">
@@ -446,7 +446,7 @@ const s3Router = s3.createRouter({
   </Card>
 </Cards>
 
-### 🚀 Performance Tips
+### Performance Tips
 
 <Callout type="warn">
   **Path Length Limits:** Most S3-compatible services have a 1024-character limit for object keys. Keep your paths reasonable!
@@ -457,7 +457,7 @@ const s3Router = s3.createRouter({
 - **Include timestamps** for natural chronological ordering
 - **Sanitize filenames** to prevent special character issues
 
-### 🔒 Security Considerations
+### Security Considerations
 
 ```typescript
 // ✅ Sanitize user input in paths

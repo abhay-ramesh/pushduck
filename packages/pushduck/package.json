@@ -4,7 +4,7 @@
   "type": "module",
   "author": "Abhay Ramesh",
   "license": "MIT",
-  "description": "The fastest way to add file uploads to any web application. Enterprise security, edge-ready. Works with 16+ frameworks and 5+ storage providers. No heavy AWS SDK required.",
+  "description": "Add file uploads to any web application. Secure, edge-ready. Works with 16+ frameworks and 5+ storage providers. No heavy AWS SDK required.",
   "repository": {
     "type": "git",
     "url": "https://github.com/abhay-ramesh/pushduck.git"
@@ -71,7 +71,7 @@
     "dev": "tsdown --watch",
     "build": "tsdown",
     "build:analyze": "pnpm build && pnpm bundle:analyze",
-    "bundle:analyze": "pnpm size-check && echo '\n📁 File Details:' && ls -la dist/",
+    "bundle:analyze": "pnpm size-check && echo '\nFile Details:' && ls -la dist/",
     "bundle:visualize": "npx esbuild-visualizer dist/index.js --open",
     "size-check": "node scripts/size-check.js",
     "lint": "eslint src",

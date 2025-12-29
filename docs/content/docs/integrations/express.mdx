@@ -15,7 +15,7 @@ import { File, Folder, Files } from "fumadocs-ui/components/files";
 Express uses the traditional Node.js `req`/`res` API pattern. Pushduck provides a simple adapter that converts Web Standard handlers to Express middleware format.
 
 <Callout type="info">
-  **Custom Request/Response API**: Express uses `req`/`res` objects instead of Web Standards, so pushduck provides the `toExpressHandler` adapter for seamless integration.
+  **Custom Request/Response API**: Express uses `req`/`res` objects instead of Web Standards, so pushduck provides the `toExpressHandler` adapter for straightforward integration.
 </Callout>
 
 ## Quick Setup
@@ -120,7 +120,7 @@ app.get('/health', (req, res) => {
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`🚀 Server running on http://localhost:${port}`);
+  console.log(`Server running on http://localhost:${port}`);
 });
 ```
 
@@ -346,7 +346,7 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`🚀 Express server running on http://localhost:${port}`);
+  console.log(`Express server running on http://localhost:${port}`);
   console.log(`📁 Upload endpoint: http://localhost:${port}/api/upload`);
 });
 ```

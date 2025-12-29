@@ -35,13 +35,13 @@ export function ServerUploadDemo() {
 
   const handleServerUpload = async () => {
     if (!url.trim()) {
-      addLog("❌ URL is required");
+      addLog("URL is required");
       return;
     }
 
     setIsUploading(true);
     setResult(null);
-    addLog(`🚀 Starting server-side upload for: ${url}`);
+    addLog(`Starting server-side upload for: ${url}`);
 
     try {
       const response = await fetch("/api/server-upload", {
@@ -60,22 +60,22 @@ export function ServerUploadDemo() {
       setResult(data);
 
       if (data.success) {
-        addLog(`✅ Upload successful! Key: ${data.result.key}`);
+        addLog(`Upload successful! Key: ${data.result.key}`);
         addLog(
-          `📄 File: ${data.result.filename} (${formatFileSize(
+          `File: ${data.result.filename} (${formatFileSize(
             data.result.size
           )})`
         );
-        addLog(`🔗 URL: ${data.result.url}`);
+        addLog(`URL: ${data.result.url}`);
       } else {
-        addLog(`❌ Upload failed: ${data.error}`);
+        addLog(`Upload failed: ${data.error}`);
         if (data.details) {
           addLog(`Details: ${data.details}`);
         }
       }
     } catch (error) {
       addLog(
-        `❌ Network error: ${
+        `Network error: ${
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
@@ -113,7 +113,7 @@ export function ServerUploadDemo() {
   return (
     <div className="p-6 bg-white rounded-lg border shadow-md">
       <h2 className="mb-4 text-2xl font-semibold text-gray-900">
-        🖥️ Server-Side Upload Demo
+        Server-Side Upload Demo
       </h2>
 
       <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -209,7 +209,7 @@ export function ServerUploadDemo() {
                 : "bg-blue-600 text-white hover:bg-blue-700"
             }`}
           >
-            {isUploading ? "Uploading..." : "🚀 Upload from URL"}
+            {isUploading ? "Uploading..." : "Upload from URL"}
           </button>
 
           <button
@@ -227,7 +227,7 @@ export function ServerUploadDemo() {
           {result.success ? (
             <div className="bg-green-50 border-green-200">
               <h3 className="mb-3 text-lg font-medium text-green-800">
-                ✅ Upload Successful!
+                Upload Successful!
               </h3>
               <div className="space-y-2 text-sm text-green-700">
                 <div>
@@ -276,7 +276,7 @@ export function ServerUploadDemo() {
           ) : (
             <div className="bg-red-50 border-red-200">
               <h3 className="mb-3 text-lg font-medium text-red-800">
-                ❌ Upload Failed
+                Upload Failed
               </h3>
               <p className="text-sm text-red-700">
                 <strong>Error:</strong> {result.error}
@@ -298,7 +298,7 @@ export function ServerUploadDemo() {
       {logs.length > 0 && (
         <div className="mt-6">
           <h3 className="mb-3 text-lg font-medium text-gray-800">
-            📝 Upload Log
+            Upload Log
           </h3>
           <div className="p-3 bg-gray-900 text-green-400 rounded-lg text-sm font-mono max-h-64 overflow-y-auto">
             {logs.map((log, index) => (

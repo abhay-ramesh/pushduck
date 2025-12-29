@@ -71,10 +71,10 @@ const { s3, config, storage } = createUploadConfig()
   })
   .hooks({
     onUploadStart: async ({ file, metadata }) => {
-      console.log(`🚀 Upload started: ${file.name}`, metadata);
+      console.log(`Upload started: ${file.name}`, metadata);
     },
     onUploadComplete: async ({ file, url, metadata }) => {
-      console.log(`✅ Upload completed: ${file.name} -> ${url}`, metadata);
+      console.log(`Upload completed: ${file.name} -> ${url}`, metadata);
 
       // Here you could:
       // - Save to database

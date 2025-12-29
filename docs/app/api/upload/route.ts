@@ -17,7 +17,7 @@ const uploadRouter = s3.createRouter({
       };
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
-      console.log(`✅ Image upload complete: ${file.name} -> ${url}`, metadata);
+      console.log(`Image upload complete: ${file.name} -> ${url}`, metadata);
     }),
 
   // File upload route
@@ -41,7 +41,7 @@ const uploadRouter = s3.createRouter({
       };
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
-      console.log(`✅ File upload complete: ${file.name} -> ${url}`, metadata);
+      console.log(`File upload complete: ${file.name} -> ${url}`, metadata);
     }),
 });
 

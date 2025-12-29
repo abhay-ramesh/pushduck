@@ -24,7 +24,7 @@ function getGzipSize(filePath) {
 }
 
 function analyzeBundle() {
-    console.log('📦 Bundle Size Analysis\n');
+    console.log('Bundle Size Analysis\n');
 
     try {
         const files = readdirSync(DIST_DIR);
@@ -66,7 +66,7 @@ function analyzeBundle() {
         console.log('─'.repeat(68));
 
         for (const result of results) {
-            const status = result.withinLimit ? '✅' : '❌ OVER';
+            const status = result.withinLimit ? 'OK' : 'OVER';
             const limitStr = result.limit ? formatSize(result.limit) : 'N/A';
 
             console.log(
@@ -86,21 +86,21 @@ function analyzeBundle() {
             `${((totalRaw - totalGzip) / totalRaw * 100).toFixed(1)}% saved`.padEnd(12)
         );
 
-        console.log(`\n📊 Summary:`);
+        console.log(`\nSummary:`);
         console.log(`• Total files analyzed: ${results.length}`);
         console.log(`• Total raw size: ${formatSize(totalRaw)}`);
         console.log(`• Total gzipped: ${formatSize(totalGzip)}`);
         console.log(`• Compression ratio: ${((totalRaw - totalGzip) / totalRaw * 100).toFixed(1)}%`);
 
         if (hasErrors) {
-            console.log(`\n❌ Some bundles exceed size limits!`);
+            console.log(`\nError: Some bundles exceed size limits!`);
             process.exit(1);
         } else {
-            console.log(`\n✅ All bundles within size limits!`);
+            console.log(`\nAll bundles within size limits!`);
         }
 
     } catch (error) {
-        console.error(`❌ Error analyzing bundles: ${error.message}`);
+        console.error(`Error analyzing bundles: ${error.message}`);
         process.exit(1);
     }
 }

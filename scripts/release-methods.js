@@ -15,7 +15,7 @@ const colors = {
 };
 
 const log = {
-    title: (msg) => console.log(`${colors.bold}${colors.cyan}🦆 ${msg}${colors.reset}`),
+    title: (msg) => console.log(`${colors.bold}${colors.cyan}${msg}${colors.reset}`),
     method: (num, name, desc) => console.log(`${colors.bold}${colors.green}${num}. ${name}${colors.reset} ${colors.cyan}(${desc})${colors.reset}`),
     step: (msg) => console.log(`   ${colors.blue}→${colors.reset} ${msg}`),
     command: (cmd) => console.log(`   ${colors.cyan}${cmd}${colors.reset}`),
@@ -58,7 +58,7 @@ function main() {
     log.command('# OR combined:');
     log.command('pnpm release          # Both phases together');
     console.log();
-    console.log('   ✅ Best developer experience');
+    console.log('   • Best developer experience');
     console.log('   ✅ Full control and review capability');
     console.log('   ✅ Professional release notes');
     console.log();

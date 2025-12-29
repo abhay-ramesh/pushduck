@@ -20,7 +20,7 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 The full-featured demo showcasing all capabilities:
 
 <UploadDemo 
-  title="🚀 Full-Featured Demo" 
+  title="Full-Featured Demo" 
   description="Complete upload experience with type-safe client, progress tracking, and error handling"
   showTabs={true}
   compact={false}
@@ -35,7 +35,7 @@ The full-featured demo showcasing all capabilities:
 Focused demo for image uploads with preview capabilities:
 
 <UploadDemo 
-  title="🖼️ Image Upload Demo" 
+  title="Image Upload Demo" 
   description="Optimized for images with instant previews and validation"
   showTabs={false}
   defaultTab="images"
@@ -47,7 +47,7 @@ Focused demo for image uploads with preview capabilities:
 Streamlined demo for document uploads:
 
 <UploadDemo 
-  title="📄 Document Upload Demo" 
+  title="Document Upload Demo" 
   description="Professional document handling with type validation"
   showTabs={false}
   defaultTab="files"
@@ -56,7 +56,7 @@ Streamlined demo for document uploads:
 
 ## Key Features Demonstrated
 
-### ✅ **Type-Safe Client**
+### **Type-Safe Client**
 ```typescript
 // Property-based access with full TypeScript inference
 const imageUpload = upload.imageUpload();
@@ -66,14 +66,14 @@ const fileUpload = upload.fileUpload();
 await imageUpload.uploadFiles(selectedFiles);
 ```
 
-### ⚡ **Real-Time Progress**
+### **Real-Time Progress**
 - Individual file progress tracking with percentage completion
 - Upload speed monitoring (MB/s) with live updates
 - ETA calculations showing estimated time remaining
 - Pause/resume functionality (coming soon)
 - Comprehensive error handling with retry mechanisms
 
-### 🔒 **Built-in Validation**
+### **Built-in Validation**
 - File type validation (MIME types)
 - File size limits with user-friendly errors
 - Custom validation middleware
@@ -299,19 +299,19 @@ Secure file upload with expiration dates and access controls.
 <div className="not-prose">
   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
     <a href="/docs/quick-start" className="block p-4 border border-fd-border rounded-lg hover:border-fd-border-hover transition-colors">
-      <div className="font-semibold text-fd-foreground">⚡ Quick Start</div>
+      <div className="font-semibold text-fd-foreground">Quick Start</div>
       <div className="text-sm text-fd-muted-foreground">Get set up in 2 minutes with our CLI</div>
     </a>
     <a href="/docs/api" className="block p-4 border border-fd-border rounded-lg hover:border-fd-border-hover transition-colors">
-      <div className="font-semibold text-fd-foreground">📚 API Reference</div>
+      <div className="font-semibold text-fd-foreground">API Reference</div>
       <div className="text-sm text-fd-muted-foreground">Complete API documentation</div>
     </a>
     <a href="/docs/providers" className="block p-4 border border-fd-border rounded-lg hover:border-fd-border-hover transition-colors">
-      <div className="font-semibold text-fd-foreground">☁️ Providers</div>
+      <div className="font-semibold text-fd-foreground">Providers</div>
       <div className="text-sm text-fd-muted-foreground">Configure your storage provider</div>
     </a>
     <a href="/upload" className="block p-4 border border-fd-border rounded-lg hover:border-fd-border-hover transition-colors">
-      <div className="font-semibold text-fd-foreground">🎬 Full Demo</div>
+      <div className="font-semibold text-fd-foreground">Full Demo</div>
       <div className="text-sm text-fd-muted-foreground">Complete upload experience</div>
     </a>
   </div>

@@ -21,11 +21,11 @@ Client-side metadata allows you to pass contextual information from your UI dire
 
 Client metadata bridges the gap between UI context and server-side processing:
 
-- 🎯 **UI State** - Pass album selections, categories, or form data
-- 🏢 **Multi-tenant Context** - Send workspace, project, or organization IDs
-- 🏷️ **User Preferences** - Include tags, visibility settings, or custom fields
-- 📊 **Dynamic Organization** - Organize files based on client context
-- 🎨 **Flexible Workflows** - Adapt to different use cases without API changes
+- **UI State** - Pass album selections, categories, or form data
+- **Multi-tenant Context** - Send workspace, project, or organization IDs
+- **User Preferences** - Include tags, visibility settings, or custom fields
+- **Dynamic Organization** - Organize files based on client context
+- **Flexible Workflows** - Adapt to different use cases without API changes
 
 ## Basic Usage
 
@@ -348,7 +348,7 @@ export function CMSMediaUpload() {
 Never trust identity claims, permissions, or security-related data from the client. Always validate and extract identity from authenticated sessions on the server.
 </Callout>
 
-### ❌ DON'T: Trust Client Identity
+### DON'T: Trust Client Identity
 
 ```typescript
 // ❌ BAD: Trusting client-provided userId
@@ -366,7 +366,7 @@ uploadFiles(files, {
 })
 ```
 
-### ✅ DO: Validate and Override
+### DO: Validate and Override
 
 ```typescript
 // ✅ GOOD: Server determines identity
@@ -680,7 +680,7 @@ uploadFiles(files, {
 **Size Limits:** While there's no hard limit on metadata size, keep it reasonable (< 10KB). Large metadata objects increase request size and processing time.
 </Callout>
 
-### ✅ Good Metadata
+### Good Metadata
 
 ```typescript
 // Compact and purposeful
@@ -692,7 +692,7 @@ uploadFiles(files, {
 }
 ```
 
-### ⚠️ Avoid Large Metadata
+### Avoid Large Metadata
 
 ```typescript
 // Too large - send via separate API call
@@ -762,7 +762,7 @@ test('uploads files with correct metadata', async () => {
 
 ## Best Practices
 
-### ✅ DO
+### DO
 
 - Pass UI state and user selections
 - Validate metadata in middleware
@@ -772,7 +772,7 @@ test('uploads files with correct metadata', async () => {
 - Sanitize user input (tags, descriptions)
 - Verify access to referenced entities (albums, projects)
 
-### ❌ DON'T
+### DON'T
 
 - Trust client-provided identity (userId, role, permissions)
 - Send sensitive data (passwords, tokens, secrets)

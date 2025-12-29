@@ -10,14 +10,14 @@ interface TestOptions {
 }
 
 export async function testCommand(options: TestOptions = {}) {
-  console.log(chalk.cyan("🔍 Testing your S3 upload configuration...\n"));
+  console.log(chalk.cyan("Testing your S3 upload configuration...\n"));
 
   try {
     // Detect project and configuration
     const projectInfo = await detectProject();
 
     if (!projectInfo.hasExistingUpload) {
-      console.log(chalk.yellow("⚠ No upload configuration found."));
+      console.log(chalk.yellow("No upload configuration found."));
       console.log(chalk.gray("Run: npx @pushduck/cli@latest init"));
       return;
     }
@@ -49,10 +49,10 @@ export async function testCommand(options: TestOptions = {}) {
         if (works) {
           console.log(chalk.green("✓ Connection test successful"));
           console.log(
-            chalk.green("\n🎉 Your upload configuration is working correctly!")
+            chalk.green("\nYour upload configuration is working correctly!")
           );
         } else {
-          console.log(chalk.red("❌ Connection test failed"));
+          console.log(chalk.red("Connection test failed"));
         }
 
         foundCredentials = true;
@@ -62,7 +62,7 @@ export async function testCommand(options: TestOptions = {}) {
 
     if (!foundCredentials) {
       console.log(
-        chalk.yellow("⚠ No valid credentials found in environment variables")
+        chalk.yellow("No valid credentials found in environment variables")
       );
       console.log(
         chalk.gray(
@@ -71,7 +71,7 @@ export async function testCommand(options: TestOptions = {}) {
       );
     }
   } catch (error) {
-    console.error(chalk.red("❌ Test failed:"), error);
+    console.error(chalk.red("Test failed:"), error);
 
     if (options.verbose) {
       console.error(error);

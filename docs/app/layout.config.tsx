@@ -26,7 +26,7 @@ export const baseOptions: BaseLayoutProps = {
               Pushduck
             </span>
             <span className="text-[10px] font-mono text-muted-foreground">
-              // S3 uploads for any framework
+              {"// S3 uploads for any framework"}
             </span>
           </div>
         </div>

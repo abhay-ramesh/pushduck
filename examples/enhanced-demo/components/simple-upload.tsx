@@ -59,7 +59,7 @@ export function SimpleImageUpload() {
     <div className="p-6 bg-white rounded-lg shadow-md">
       <div className="flex gap-2 items-center mb-4">
         <h2 className="text-xl font-semibold text-gray-800">
-          📸 Multiple Image Upload
+          Multiple Image Upload
         </h2>
         <div className="px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full">
           Overall Progress
@@ -226,7 +226,7 @@ export function SimpleImageUpload() {
                   }`}
                 >
                   {file.status === "success"
-                    ? "✅ Complete"
+                    ? "Complete"
                     : file.status === "pending"
                     ? "⏳ Preparing..."
                     : file.status === "uploading"
@@ -283,7 +283,7 @@ export function SimpleImageUpload() {
                     </a>
                   )}
                   <p className="mt-1 text-xs text-green-600">
-                    ✅ Successfully uploaded to Cloudflare R2
+                    Successfully uploaded to Cloudflare R2
                   </p>
                 </div>
               )}
@@ -370,7 +370,7 @@ export function SimpleDocumentUpload() {
     <div className="p-6 bg-white rounded-lg shadow-md">
       <div className="flex gap-2 items-center mb-4">
         <h2 className="text-xl font-semibold text-gray-800">
-          📄 Document Upload
+          Document Upload
         </h2>
         <div className="px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full">
           Overall Progress
@@ -537,7 +537,7 @@ export function SimpleDocumentUpload() {
                   }`}
                 >
                   {file.status === "success"
-                    ? "✅ Complete"
+                    ? "Complete"
                     : file.status === "pending"
                     ? "⏳ Preparing..."
                     : file.status === "uploading"
@@ -594,7 +594,7 @@ export function SimpleDocumentUpload() {
                     </a>
                   )}
                   <p className="mt-1 text-xs text-green-600">
-                    ✅ Successfully uploaded to Cloudflare R2
+                    Successfully uploaded to Cloudflare R2
                   </p>
                 </div>
               )}
@@ -668,7 +668,7 @@ export function SingleImageUpload() {
   return (
     <div className="p-6 bg-white rounded-lg shadow-md">
       <h2 className="mb-4 text-xl font-semibold text-gray-800">
-        🖼️ Single Image Upload
+        Single Image Upload
       </h2>
 
       {/* File Selection */}
@@ -738,7 +738,7 @@ export function SingleImageUpload() {
                   }`}
                 >
                   {file.status === "success"
-                    ? "✅ Complete"
+                    ? "Complete"
                     : file.status === "pending"
                     ? "⏳ Preparing..."
                     : file.status === "uploading"
@@ -795,7 +795,7 @@ export function SingleImageUpload() {
                     </a>
                   )}
                   <p className="mt-1 text-xs text-green-600">
-                    ✅ Successfully uploaded to Cloudflare R2
+                    Successfully uploaded to Cloudflare R2
                   </p>
                 </div>
               )}

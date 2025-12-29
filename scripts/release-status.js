@@ -21,7 +21,7 @@ const log = {
     success: (msg) => console.log(`${colors.green}[SUCCESS]${colors.reset} ${msg}`),
     warning: (msg) => console.log(`${colors.yellow}[WARNING]${colors.reset} ${msg}`),
     error: (msg) => console.log(`${colors.red}[ERROR]${colors.reset} ${msg}`),
-    title: (msg) => console.log(`${colors.bold}${colors.cyan}🦆 ${msg}${colors.reset}`)
+    title: (msg) => console.log(`${colors.bold}${colors.cyan}${msg}${colors.reset}`)
 };
 
 function execCommand(command, silent = false) {
@@ -106,7 +106,7 @@ function main() {
 
     // Latest tag
     const latestTag = getLatestTag();
-    console.log(`🏷️  Latest tag: ${latestTag}`);
+    console.log(`Latest tag: ${latestTag}`);
 
     // Release preparation status
     const releaseInfo = checkReleaseInProgress();

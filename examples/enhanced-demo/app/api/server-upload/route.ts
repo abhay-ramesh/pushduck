@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log(`✅ Server-side upload successful: ${uploadKey}`);
+    console.log(`Server-side upload successful: ${uploadKey}`);
 
     // Step 4: Generate download URL for verification
     const downloadUrl = await storage.download.presignedUrl(uploadKey, 3600);
