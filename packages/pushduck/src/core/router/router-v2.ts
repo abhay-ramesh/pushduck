@@ -647,9 +647,10 @@ function generateHierarchicalPath<TMetadata>(
   // Build hierarchical path: global + route components
   const pathParts: string[] = [];
 
-  // 1. Start with global prefix (if any)
-  const globalPrefix = globalConfig?.prefix || "uploads";
-  pathParts.push(globalPrefix);
+  // 1. Start with global prefix (only if explicitly configured)
+  if (globalConfig?.prefix) {
+    pathParts.push(globalConfig.prefix);
+  }
 
   // 2. Add route-level prefix (if any)
   if (routeConfig?.prefix) {
@@ -663,14 +664,14 @@ function generateHierarchicalPath<TMetadata>(
     // Use global generateKey for the file part
     filePath = globalConfig.generateKey(file, metadata);
     // Remove global prefix if it was added by global generateKey to avoid duplication
-    if (filePath.startsWith(globalPrefix + "/")) {
-      filePath = filePath.substring(globalPrefix.length + 1);
+    if (globalConfig?.prefix && filePath.startsWith(globalConfig.prefix + "/")) {
+      filePath = filePath.substring(globalConfig.prefix.length + 1);
     }
   } else {
-    // Use default generation for the file part
+    // Use default generation for the file part (just filename by default)
+    // No assumptions about metadata structure - users control paths via generateKey
     filePath = generateFileKey(uploadConfig, {
       originalName: file.name,
-      userId: (metadata as any)?.userId || (metadata as any)?.user?.id,
       prefix: "", // Don't add prefix here, we're building it hierarchically
     });
   }
@@ -683,7 +684,10 @@ function generateHierarchicalPath<TMetadata>(
   }
 
   // Join all parts and clean up any double slashes
-  return pathParts.join("/").replace(/\/+/g, "/");
+  const result = pathParts.join("/").replace(/\/+/g, "/");
+  
+  // If result is empty or just slashes, return just the filename
+  return result || filePath;
 }
 
 // ========================================
@@ -858,15 +862,28 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           uploadConfig
         );
 
+        // Build metadata from user's metadata - no assumptions about structure
+        const s3Metadata: Record<string, string> = {
+          originalName: file.name,
+          routeName: String(routeName),
+        };
+
+        // Include any string values from user's metadata
+        if (fileMetadata && typeof fileMetadata === 'object') {
+          Object.entries(fileMetadata).forEach(([key, value]) => {
+            if (typeof value === 'string') {
+              s3Metadata[key] = value;
+            } else if (typeof value === 'number' || typeof value === 'boolean') {
+              s3Metadata[key] = String(value);
+            }
+          });
+        }
+
         const presignedResult = await generatePresignedUploadUrl(uploadConfig, {
           key,
           contentType: file.type,
           contentLength: file.size,
-          metadata: {
-            originalName: file.name,
-            userId: fileMetadata.userId || fileMetadata.user?.id || "anonymous",
-            routeName: String(routeName),
-          },
+          metadata: s3Metadata,
         });
 
         results.push({
