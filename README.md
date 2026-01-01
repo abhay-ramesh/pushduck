@@ -16,6 +16,23 @@
 
 Upload files directly to S3-compatible storage with just 3 lines of code. No heavy AWS SDK dependencies - works with Next.js, React, Express, Fastify, and more. Built by [Abhay Ramesh](https://github.com/abhay-ramesh).
 
+## Sponsors ❤️
+
+<p align="">
+<!-- CURRENT_SPONSORS_START -->
+<!-- CURRENT_SPONSORS_END -->
+</p>
+
+<p align="">
+<!-- PAST_SPONSORS_START -->
+<a href="https://github.com/cschmatzler">
+  <img src="https://github.com/cschmatzler.png?s=48" width="48" height="48" style="border-radius:50%;" />
+</a>
+<!-- PAST_SPONSORS_END -->
+</p>
+
+> Thank you to all our sponsors for supporting the project 💙
+
 ## Features
 
 - **Fast** - Optimized bundles with tree-shaking support
