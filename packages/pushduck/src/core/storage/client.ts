@@ -883,6 +883,8 @@ export function generateFileKey(
 
   if (!preserveExtension) {
     filename = filename.replace(/\.[^/.]+$/, "");
+    // Clean up trailing underscores that may be left after extension removal
+    filename = filename.replace(/^_+|_+$/g, "");
   }
 
   // Ensure filename is not empty or just underscores/dots
