@@ -209,7 +209,7 @@ export { createUploadClient } from "./client/upload-client";
  * });
  * ```
  */
-export { useUploadRoute } from "./hooks";
+export { useUploadRoute, usePasteUpload } from "./hooks";
 
 // ========================================
 // UTILITY FUNCTIONS
