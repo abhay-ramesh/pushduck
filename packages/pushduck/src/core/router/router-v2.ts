@@ -863,14 +863,19 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         );
 
         // Build metadata from user's metadata - no assumptions about structure
-        const s3Metadata: Record<string, string> = {
-          originalName: file.name,
-          routeName: String(routeName),
-        };
+        // System fields are protected from user overwrites
+        const s3Metadata: Record<string, string> = {};
 
-        // Include any string values from user's metadata
+        // Reserved system fields that should not be overwritten by user metadata
+        const RESERVED_FIELDS = ['originalName', 'routeName'];
+
+        // Include any string values from user's metadata (skip reserved fields)
         if (fileMetadata && typeof fileMetadata === 'object') {
           Object.entries(fileMetadata).forEach(([key, value]) => {
+            // Skip reserved system fields to prevent overwrites
+            if (RESERVED_FIELDS.includes(key)) {
+              return;
+            }
             if (typeof value === 'string') {
               s3Metadata[key] = value;
             } else if (typeof value === 'number' || typeof value === 'boolean') {
@@ -878,6 +883,10 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
             }
           });
         }
+
+        // Set system fields AFTER user metadata to ensure they are never overwritten
+        s3Metadata.originalName = file.name;
+        s3Metadata.routeName = String(routeName);
 
         const presignedResult = await generatePresignedUploadUrl(uploadConfig, {
           key,

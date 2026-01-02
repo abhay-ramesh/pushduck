@@ -869,11 +869,29 @@ export function generateFileKey(
     preserveExtension = true,
   } = options;
 
-  // Sanitize filename
-  let filename = originalName.replace(/[^a-zA-Z0-9.-]/g, "_");
+  // Validate input
+  if (!originalName || typeof originalName !== 'string') {
+    throw new Error('originalName must be a non-empty string');
+  }
+
+  // Sanitize filename: replace non-alphanumeric (except dots and hyphens) with single underscore
+  // Also collapse multiple consecutive underscores into one
+  let filename = originalName
+    .replace(/[^a-zA-Z0-9.-]/g, "_")
+    .replace(/_{2,}/g, "_") // Collapse multiple underscores
+    .replace(/^_+|_+$/g, ""); // Remove leading/trailing underscores
+
+  // Handle edge case: if filename is empty after sanitization, use a default
+  if (!filename || filename === "") {
+    filename = "file";
+  }
 
   if (!preserveExtension) {
     filename = filename.replace(/\.[^/.]+$/, "");
+    // If removing extension results in empty filename, use default
+    if (!filename || filename === "") {
+      filename = "file";
+    }
   }
 
   // If prefix is provided, return prefix/filename, otherwise just filename
