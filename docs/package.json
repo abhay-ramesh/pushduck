@@ -15,12 +15,12 @@
     "fumadocs-mdx": "12.0.3",
     "fumadocs-ui": "15.8.4",
     "jiti": "^2.6.1",
-    "lucide-react": "^0.554.0",
+    "lucide-react": "^0.563.0",
     "mermaid": "^11.12.0",
     "next": "15.5.9",
     "next-themes": "^0.4.6",
-    "posthog-js": "^1.293.0",
-    "posthog-node": "^5.11.2",
+    "posthog-js": "^1.335.2",
+    "posthog-node": "^5.24.2",
     "pushduck": "workspace:*",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -28,9 +28,9 @@
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "remark-mdx": "^3.1.1",
-    "shiki": "^3.15.0",
+    "shiki": "^3.21.0",
     "tailwind-merge": "^3.4.0",
-    "zod": "^4.1.12"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
