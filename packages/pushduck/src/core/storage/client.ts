@@ -834,52 +834,66 @@ export function getFileUrl(uploadConfig: UploadConfig, key: string): string {
 
 export interface FileKeyOptions {
   originalName: string;
-  userId?: string;
   prefix?: string;
   preserveExtension?: boolean;
-  addTimestamp?: boolean;
-  addRandomId?: boolean;
 }
 
 /**
- * Generates a unique file key for S3 storage
+ * Generates a simple file key for S3 storage
+ * 
+ * By default, returns just the sanitized filename with no automatic paths.
+ * Only adds a prefix if explicitly provided.
+ * 
+ * For custom path structures (timestamps, random IDs, metadata-based paths),
+ * use the `generateKey` function in your upload configuration instead.
+ * 
+ * @example Basic usage (just filename)
+ * ```typescript
+ * generateFileKey(config, { originalName: "photo.jpg" })
+ * // Returns: "photo.jpg"
+ * ```
+ * 
+ * @example With prefix
+ * ```typescript
+ * generateFileKey(config, { originalName: "photo.jpg", prefix: "images" })
+ * // Returns: "images/photo.jpg"
+ * ```
  */
 export function generateFileKey(
   uploadConfig: UploadConfig,
   options: FileKeyOptions
 ): string {
-  // Use config to get defaults
-  const configPrefix = uploadConfig.paths?.prefix || "uploads";
-
   const {
     originalName,
-    userId = "anonymous",
-    prefix = configPrefix,
+    prefix,
     preserveExtension = true,
-    addTimestamp = true,
-    addRandomId = true,
   } = options;
 
-  const parts: string[] = [prefix, userId];
-
-  if (addTimestamp) {
-    parts.push(Date.now().toString());
+  // Validate input
+  if (!originalName || typeof originalName !== 'string') {
+    throw new Error('originalName must be a non-empty string');
   }
 
-  if (addRandomId) {
-    parts.push(Math.random().toString(36).substring(2, 15));
-  }
-
-  // Sanitize filename
-  let filename = originalName.replace(/[^a-zA-Z0-9.-]/g, "_");
+  // Sanitize filename: replace non-alphanumeric (except dots and hyphens) with single underscore
+  // Collapse multiple consecutive underscores and remove leading/trailing underscores
+  let filename = originalName
+    .replace(/[^a-zA-Z0-9.-]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
 
   if (!preserveExtension) {
     filename = filename.replace(/\.[^/.]+$/, "");
+    // Clean up trailing underscores that may be left after extension removal
+    filename = filename.replace(/^_+|_+$/g, "");
   }
 
-  parts.push(filename);
+  // Ensure filename is not empty or just underscores/dots
+  if (!filename || /^[_.]+$/.test(filename)) {
+    throw new Error('Sanitized filename resulted in an invalid name');
+  }
 
-  return parts.join("/");
+  // If prefix is provided, return prefix/filename, otherwise just filename
+  return prefix ? `${prefix}/${filename}` : filename;
 }
 
 // ========================================
