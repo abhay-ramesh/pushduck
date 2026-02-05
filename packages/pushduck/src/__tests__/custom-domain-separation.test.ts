@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createUploadConfig } from "../core/config/upload-config";
 import {
-  checkFileExists,
-  deleteFile,
-  generatePresignedUploadUrl,
-  getFileInfo,
-  getFileUrl,
+    checkFileExists,
+    deleteFile,
+    generatePresignedUploadUrl,
+    getFileInfo,
+    getFileUrl,
 } from "../core/storage/client";
 
 describe("Custom Domain Separation", () => {
@@ -24,7 +24,7 @@ describe("Custom Domain Separation", () => {
     expect(publicUrl).toBe("https://cdn.example.com/uploads/test.jpg");
   });
 
-  it("should use custom domain for presigned URLs", async () => {
+  it("should use S3 endpoint for presigned upload URLs (not custom domain)", async () => {
     const { config } = createUploadConfig()
       .provider("aws", {
         accessKeyId: "test-key",
@@ -40,8 +40,10 @@ describe("Custom Domain Separation", () => {
       contentType: "image/jpeg",
     });
 
-    // The presigned URL should use the custom domain
-    expect(result.url).toContain("https://cdn.example.com/uploads/test.jpg");
+    // Presigned UPLOAD (PUT) must use the S3 API endpoint so the client can PUT successfully.
+    // Custom domains (e.g. R2) do not accept S3 API operations.
+    expect(result.url).toContain("test-bucket.s3.us-east-1.amazonaws.com");
+    expect(result.url).toContain("/uploads/test.jpg");
   });
 
   it("should NOT use custom domain for internal S3 operations", async () => {
