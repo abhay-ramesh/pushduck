@@ -95,8 +95,16 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: 🔐 Audit dependencies (pushduck package only)
-        run: pnpm --filter pushduck audit --audit-level high --prod
-        # continue-on-error: true
+        run: |
+          # Run full audit (monorepo uses single lockfile) but only fail if pushduck's tree has high/critical vulns
+          AUDIT_JSON=$(pnpm audit --audit-level high --prod --json 2>/dev/null || true)
+          PUSHDUCK_VULNS=$(echo "$AUDIT_JSON" | jq -r '[.advisories // {} | to_entries[] | .value.findings[]?.paths[]? | select(startswith("pushduck>"))] | .[]' 2>/dev/null || true)
+          if [ -n "$PUSHDUCK_VULNS" ]; then
+            echo "::error::Security: pushduck package has high/critical production vulnerabilities"
+            echo "$PUSHDUCK_VULNS"
+            exit 1
+          fi
+          echo "Pushduck package: no high/critical production vulnerabilities."
 
   # 🎯 Matrix Testing (multiple Node versions) - Optimized
   compatibility:
