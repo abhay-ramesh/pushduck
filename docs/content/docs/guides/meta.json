@@ -3,6 +3,8 @@
   "pages": [
     "client-approaches",
     "image-uploads",
+    "paste-to-upload",
+    "paste-to-upload-manual",
     "client-metadata",
     "security",
     "migrate-to-enhanced-client",

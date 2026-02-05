@@ -12,7 +12,6 @@ const { s3, config } = createUploadConfig()
   })
   .defaults({
     maxFileSize: "10MB",
-    acl: "public-read",
   })
   .build();
 
