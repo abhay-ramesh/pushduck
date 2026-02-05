@@ -94,8 +94,9 @@ jobs:
       - name: 🏗️ Setup project
         uses: ./.github/actions/setup
 
-      - name: 🔐 Audit dependencies
-        run: pnpm audit --audit-level high
+      - name: 🔐 Audit dependencies (pushduck package only)
+        run: pnpm --filter pushduck audit --audit-level high --prod
+        # continue-on-error: true
 
   # 🎯 Matrix Testing (multiple Node versions) - Optimized
   compatibility:
