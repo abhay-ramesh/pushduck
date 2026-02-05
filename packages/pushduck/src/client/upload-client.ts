@@ -51,6 +51,7 @@ function useTypedRoute<TRouter extends S3Router<any>>(
   // Merge global config with route-specific options
   const mergedConfig: UploadRouteConfig = {
     endpoint: routeOptions?.endpoint || config.endpoint,
+    fetcher: routeOptions?.fetcher || config.fetcher,
     onSuccess: routeOptions?.onSuccess || config.defaultOptions?.onSuccess,
     onError: routeOptions?.onError || config.defaultOptions?.onError,
     onProgress: routeOptions?.onProgress || config.defaultOptions?.onProgress,

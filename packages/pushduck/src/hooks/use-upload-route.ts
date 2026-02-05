@@ -499,7 +499,8 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
         setFiles(initialFiles);
 
         const endpoint = config.endpoint || "/api/s3-upload";
-        const presignResponse = await fetch(
+        const fetcher = config.fetcher || fetch;
+        const presignResponse = await fetcher(
           `${endpoint}?route=${String(routeName)}&action=presign`,
           {
             method: "POST",
@@ -619,7 +620,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
         if (successfulUploads.length > 0) {
           try {
-            const completeResponse = await fetch(
+            const completeResponse = await fetcher(
               `${endpoint}?route=${String(routeName)}&action=complete`,
               {
                 method: "POST",
