@@ -708,8 +708,12 @@ export async function generatePresignedUploadUrl(
   const expiresIn = options.expiresIn || 3600; // 1 hour default
 
   try {
-    // Follow the exact Cloudflare R2 aws4fetch pattern
-    const s3Url = buildPublicUrl(options.key, config);
+    // Presigned UPLOAD (PUT) must use the S3 API endpoint (buildS3Url), not the custom domain.
+    // This applies to all S3-compatible providers: the "custom domain" is typically a read-only
+    // public/CDN URL (R2, CloudFront, Spaces CDN, etc.) and does not accept S3 API operations
+    // like PUT. Only the provider's native API host (e.g. r2.cloudflarestorage.com,
+    // s3.region.amazonaws.com, region.digitaloceanspaces.com) accepts signed PUT.
+    const s3Url = buildS3Url(options.key, config);
     const url = new URL(s3Url);
 
     // Add expiration as query parameter (this is the Cloudflare R2 pattern)
