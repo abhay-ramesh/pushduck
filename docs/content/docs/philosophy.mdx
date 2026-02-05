@@ -20,7 +20,7 @@ This document defines the boundaries of what Pushduck will and won't do, and exp
 
 ## Core Principles
 
-### 🪶 Lightweight First
+### Lightweight First
 Bundle size is a feature, not an afterthought. Every dependency is carefully considered.
 
 **We use:**
@@ -32,7 +32,7 @@ Bundle size is a feature, not an afterthought. Every dependency is carefully con
 
 ---
 
-### 🎯 Focused Scope
+### Focused Scope
 Do one thing (uploads) exceptionally well, rather than many things poorly.
 
 **We believe:**
@@ -61,7 +61,7 @@ Provide hooks and APIs, not built-in everything.
 
 ---
 
-### 📚 Document, Don't Implement
+### Document, Don't Implement
 Show users how to integrate, don't build the integration.
 
 **We provide:**
@@ -79,7 +79,7 @@ Show users how to integrate, don't build the integration.
 
 ---
 
-## ✅ What Pushduck Does
+## What Pushduck Does
 
 ### Core Upload Features
 
@@ -183,7 +183,7 @@ npx @pushduck/cli add file-list
 
 ---
 
-## ❌ What Pushduck Doesn't Do
+## What Pushduck Doesn't Do
 
 ### File Processing
 
@@ -591,7 +591,7 @@ const router = s3.createRouter({
 
 ---
 
-## 🎯 The Integration Pattern
+## The Integration Pattern
 
 This is our core philosophy in action:
 
@@ -678,14 +678,14 @@ const router = s3.createRouter({
 
 When considering new features, we ask:
 
-### ✅ Add if:
+### Add if:
 1. **Core to uploads** - Directly helps files get to S3
 2. **Universally needed** - 80%+ of users need it
 3. **Can't be solved externally** - Must be part of upload flow
 4. **Lightweight** - Doesn't balloon bundle size
 5. **Framework agnostic** - Works everywhere
 
-### ❌ Don't add if:
+### Don't add if:
 1. **Better tools exist** - Sharp does image processing better
 2. **Service-specific** - Requires backend infrastructure
 3. **Opinion-heavy** - Database choice, auth provider, etc.
@@ -699,7 +699,7 @@ When considering new features, we ask:
 
 ---
 
-## 🌟 What This Means For You
+## What This Means For You
 
 ### As a User
 
@@ -734,7 +734,7 @@ When considering new features, we ask:
 
 ---
 
-## 📚 Further Reading
+## Further Reading
 
 <Cards>
   <Card title="Roadmap" href="/docs/roadmap" description="See what we're building next">

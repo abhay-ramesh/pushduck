@@ -10,10 +10,10 @@ Set up Cloudflare R2 for lightning-fast file uploads with zero egress fees.
 
 ## Why Choose Cloudflare R2?
 
-- **🚀 Global Performance**: Cloudflare's edge network for fast uploads worldwide
-- **💰 Cost Effective**: 10x cheaper than S3 with zero egress fees
-- **🔗 S3 Compatible**: Works with existing S3 tools and libraries
-- **🌍 Built-in CDN**: Automatic content distribution via Cloudflare's network
+- **Global Performance**: Cloudflare's edge network for fast uploads worldwide
+- **Cost Effective**: 10x cheaper than S3 with zero egress fees
+- **S3 Compatible**: Works with existing S3 tools and libraries
+- **Built-in CDN**: Automatic content distribution via Cloudflare's network
 
 ## 1. Create an R2 Bucket
 
@@ -151,7 +151,7 @@ npx @pushduck/cli@latest test --provider r2
 
 This will verify your R2 connection and upload a test file.
 
-## ✅ You're Ready!
+## You're Ready!
 
 Your Cloudflare R2 is now configured! Files will be:
 
@@ -159,7 +159,7 @@ Your Cloudflare R2 is now configured! Files will be:
 - **Served fast** with built-in CDN
 - **Cost effective** with zero egress fees
 
-## 🚀 Performance Benefits
+## Performance Benefits
 
 ### Global Upload Acceleration
 
@@ -184,7 +184,7 @@ Your uploaded files are automatically cached globally:
 const imageUrl = file.url; // Automatically CDN-accelerated
 ```
 
-## 🔧 Advanced Configuration
+## Advanced Configuration
 
 ### Worker Integration
 
@@ -219,7 +219,7 @@ Track upload performance:
 })
 ```
 
-## 🔒 Security Best Practices
+## Security Best Practices
 
 - **Use scoped API tokens** - Only grant permissions to specific buckets
 - **Enable custom domain** - Better security than r2.dev subdomain
@@ -233,11 +233,11 @@ Track upload performance:
 **Slow uploads?** → Ensure you're using the correct endpoint URL with your account ID  
 **Custom domain not working?** → Verify CNAME record and bucket public access settings
 
-## 💰 Cost Comparison
+## Cost Comparison
 
 | Provider          | Storage      | Egress        | Requests      |
 | ----------------- | ------------ | ------------- | ------------- |
-| **Cloudflare R2** | $0.015/GB    | **FREE** 🎉   | $0.36/million |
+| **Cloudflare R2** | $0.015/GB    | **FREE**      | $0.36/million |
 | AWS S3            | $0.023/GB    | $0.09/GB      | $0.40/million |
 | **Savings**       | **35% less** | **100% less** | **10% less**  |
 

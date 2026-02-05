@@ -77,7 +77,7 @@ export async function initCommand(options: InitOptions = {}) {
 
   try {
     // Step 1: Detect project
-    console.log(chalk.cyan("🔍 Detecting your project..."));
+    console.log(chalk.cyan("Detecting your project..."));
     const projectInfo = await detectProject();
     const infoLines = formatProjectInfo(projectInfo);
     infoLines.forEach((line) => console.log(`  ${line}`));
@@ -93,7 +93,7 @@ export async function initCommand(options: InitOptions = {}) {
           ? "Svelte"
           : "Unknown framework";
 
-      console.log(chalk.yellow(`\n⚠ ${frameworkName} Not Supported by CLI`));
+      console.log(chalk.yellow(`\nWarning: ${frameworkName} Not Supported by CLI`));
       console.log(
         chalk.gray("This CLI currently only works with Next.js projects.")
       );
@@ -103,10 +103,10 @@ export async function initCommand(options: InitOptions = {}) {
         )
       );
 
-      console.log(chalk.cyan("📖 Manual Setup Documentation:"));
+      console.log(chalk.cyan("Manual Setup Documentation:"));
       console.log("  https://pushduck.dev/docs/getting-started/manual-setup");
 
-      console.log(chalk.cyan("\n🔧 Integration Guides:"));
+      console.log(chalk.cyan("\nIntegration Guides:"));
 
       // Show specific framework integration if detected
       if (projectInfo.framework === "react") {
@@ -157,8 +157,8 @@ export async function initCommand(options: InitOptions = {}) {
     const provider = await selectProvider(options.provider);
 
     // Step 3: Environment detection & setup
-    console.log(chalk.cyan(`🔧 Setting up ${provider.toUpperCase()}...`));
-    console.log(chalk.cyan("\n🔍 Checking for existing credentials..."));
+    console.log(chalk.cyan(`Setting up ${provider.toUpperCase()}...`));
+    console.log(chalk.cyan("\nChecking for existing credentials..."));
 
     const existingCredentials = await detectExistingCredentials(provider);
 
@@ -167,7 +167,7 @@ export async function initCommand(options: InitOptions = {}) {
       if (value) {
         console.log(chalk.green(`  ✓ Found ${key.toUpperCase()}`));
       } else {
-        console.log(chalk.yellow(`  ⚠ ${key.toUpperCase()} not found`));
+        console.log(chalk.yellow(`  Warning: ${key.toUpperCase()} not found`));
       }
     });
 
@@ -214,7 +214,7 @@ export async function initCommand(options: InitOptions = {}) {
     }
 
     // Step 5: Route generation options
-    console.log(chalk.cyan("\n🛠️ Generating API routes..."));
+    console.log(chalk.cyan("\nGenerating API routes..."));
 
     const { apiPath } = await inquirer.prompt([
       {
@@ -326,7 +326,7 @@ export async function initCommand(options: InitOptions = {}) {
     }
 
     // Step 9: Configuration summary
-    console.log(chalk.green("\n🎉 Setup complete! Here's what was created:\n"));
+    console.log(chalk.green("\nSetup complete! Here's what was created:\n"));
 
     console.log(chalk.cyan("📁 Files created:"));
     console.log(
@@ -349,13 +349,13 @@ export async function initCommand(options: InitOptions = {}) {
 
     console.log(`  └── .env.local                     # Environment variables`);
 
-    console.log(chalk.cyan("\n🔧 Configuration:"));
+    console.log(chalk.cyan("\nConfiguration:"));
     console.log(`  Provider:   ${provider.toUpperCase()}`);
     console.log(`  Bucket:     ${credentials.bucket}`);
     console.log(`  Region:     ${credentials.region}`);
     console.log(`  API Route:  ${finalApiPath}`);
 
-    console.log(chalk.cyan("\n🚀 Next steps:"));
+    console.log(chalk.cyan("\nNext steps:"));
     console.log("  1. Run: npm run dev");
     if (generateExamples) {
       console.log("  2. Visit: http://localhost:3000/upload");

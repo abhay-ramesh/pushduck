@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     default: "Pushduck - Simple S3 Uploads for Next.js",
     template: "%s | Pushduck",
   },
-  description: "🦆 Simple, type-safe S3 uploads for Next.js with guided setup",
+  description: "Simple, type-safe S3 uploads for Next.js with guided setup",
   keywords: [
     "nextjs",
     "s3",
@@ -36,8 +36,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://pushduck.dev",
     title: "Pushduck - Simple S3 Uploads for Next.js",
-    description:
-      "🦆 Simple, type-safe S3 uploads for Next.js with guided setup",
+    description: "Simple, type-safe S3 uploads for Next.js with guided setup",
     siteName: "Pushduck",
     images: [
       {
@@ -51,8 +50,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Pushduck - Simple S3 Uploads for Next.js",
-    description:
-      "🦆 Simple, type-safe S3 uploads for Next.js with guided setup",
+    description: "Simple, type-safe S3 uploads for Next.js with guided setup",
     images: ["/pushduck-mascot.png"],
     creator: "@abhayramesh",
   },

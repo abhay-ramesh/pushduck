@@ -258,7 +258,7 @@ The callbacks follow a predictable order to provide clear upload lifecycle manag
 const { uploadFiles } = useUploadRoute<AppRouter>('imageUpload', {
   // 1. Called first after validation passes
   onStart: (files) => {
-    console.log('🚀 Upload starting for', files.length, 'files');
+    console.log('Upload starting for', files.length, 'files');
     setUploading(true);
   },
   

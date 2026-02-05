@@ -727,7 +727,7 @@ export function createProvider<T extends ProviderType>(
  *     process.exit(1);
  *   }
  *
- *   console.log('✅ Storage configuration valid');
+ *   console.log('Storage configuration valid');
  *   return createStorageClient(providerConfig);
  * }
  * ```

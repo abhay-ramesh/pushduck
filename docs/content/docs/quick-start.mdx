@@ -57,6 +57,10 @@ export type AppRouter = typeof router;
   **Environment variables**: Add your S3 credentials to `.env.local`. See [Provider Setup](/docs/providers) for getting credentials.
 </Callout>
 
+<Callout type="tip">
+  **File paths**: By default, files are uploaded with just the filename (e.g., `photo.jpg`). To organize files into folders, see [Path Configuration](/docs/api/configuration/path-configuration).
+</Callout>
+
 </Step>
 
 <Step>
@@ -108,7 +112,7 @@ export function UploadDemo() {
 
 </Steps>
 
-## ✅ Done!
+## Done!
 
 That's it - **3 steps, 3 files, ~40 lines of code**, and you have production-ready file uploads!
 
@@ -191,22 +195,22 @@ Or see our [Examples](/docs/examples) for production-ready components.
 <Cards>
   <Card
     href="/docs/examples"
-    title="📚 Complete Examples"
+    title="Complete Examples"
     description="Production-ready examples with auth, validation, and beautiful UI"
   />
   <Card
     href="/docs/guides/security/authentication"
-    title="🔒 Add Authentication"
+    title="Add Authentication"
     description="Secure your uploads with NextAuth, Clerk, or Better Auth"
   />
   <Card
     href="/docs/providers"
-    title="☁️ Other Providers"
+    title="Other Providers"
     description="Switch to Cloudflare R2, DigitalOcean Spaces, or MinIO"
   />
   <Card
     href="/docs/api/client/create-upload-client"
-    title="⚡ Enhanced Client"
+    title="Enhanced Client"
     description="Property-based API for better type safety and DX"
   />
 </Cards>

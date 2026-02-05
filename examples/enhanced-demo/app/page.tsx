@@ -17,25 +17,25 @@ export default function Home() {
       <div className="px-4 mx-auto max-w-6xl">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="mb-2 text-4xl font-bold text-gray-900">🚀 Pushduck</h1>
+          <h1 className="mb-2 text-4xl font-bold text-gray-900">Pushduck</h1>
           <p className="mb-4 text-lg text-gray-600">
             Complete S3 File Management Demo with Overall Progress Tracking
           </p>
           <div className="flex flex-col gap-2 items-center">
             <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-orange-800 bg-orange-100 rounded-full">
-              ⚡ NEW: Server-Side Upload from URLs
+              NEW: Server-Side Upload from URLs
             </div>
             <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-orange-800 bg-orange-100 rounded-full">
-              ⚡ NEW: Overall Progress Tracking
+              NEW: Overall Progress Tracking
             </div>
             <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full">
-              ✅ List Files & Metadata Operations
+              List Files & Metadata Operations
             </div>
             <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-blue-800 bg-blue-100 rounded-full">
-              🌐 Connected to S3-Compatible Storage
+              Connected to S3-Compatible Storage
             </div>
             <div className="inline-flex items-center px-3 py-1 text-sm font-medium text-purple-800 bg-purple-100 rounded-full">
-              🔧 Real S3 API Implementation
+              Real S3 API Implementation
             </div>
           </div>
         </div>
@@ -58,12 +58,12 @@ export default function Home() {
         {/* Property-Based Upload Components (Enhanced) */}
         <div className="mb-8">
           <h2 className="mb-4 text-2xl font-semibold text-gray-900">
-            🎯 Enhanced Type Inference (Property-Based Client) + Overall
+            Enhanced Type Inference (Property-Based Client) + Overall
             Progress
           </h2>
           <div className="p-4 mb-4 bg-orange-50 rounded-lg border border-orange-200">
             <h3 className="mb-2 text-lg font-medium text-orange-800">
-              ⚡ NEW: Overall Progress Tracking
+              NEW: Overall Progress Tracking
             </h3>
             <p className="mb-2 text-sm text-orange-700">
               Get real-time overall progress metrics across all files:
@@ -93,7 +93,7 @@ export default function Home() {
         {/* Original Upload Components (For Comparison) */}
         <div className="mb-8">
           <h2 className="mb-4 text-2xl font-semibold text-gray-900">
-            📋 Original Hook-Based Approach (For Comparison)
+            Original Hook-Based Approach (For Comparison)
           </h2>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <SimpleImageUpload />

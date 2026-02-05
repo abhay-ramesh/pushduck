@@ -17,7 +17,7 @@ import { File, Folder, Files } from "fumadocs-ui/components/files";
 Hono is a fast, lightweight web framework built on Web Standards. Since Hono uses `Request` and `Response` objects natively, pushduck handlers work directly without any adapters!
 
 <Callout type="info">
-  **Web Standards Native**: Hono exposes `c.req.raw` as a Web Standard `Request` object, making pushduck integration seamless with zero overhead.
+  **Web Standards Native**: Hono exposes `c.req.raw` as a Web Standard `Request` object, making pushduck integration straightforward with zero overhead.
 </Callout>
 
 ## Quick Setup
@@ -301,19 +301,19 @@ export type AppUploadRouter = typeof uploadRouter;
 ## Performance Benefits
 
 <Cards>
-  <Card title="🚀 Zero Overhead" description="Direct Web Standards integration">
+  <Card title="Zero Overhead" description="Direct Web Standards integration">
     No adapter layer means zero performance overhead - pushduck handlers run directly in Hono.
   </Card>
   
-  <Card title="⚡ Fast Runtime" description="Hono's lightweight design">
+  <Card title="Fast Runtime" description="Hono's lightweight design">
     Hono is one of the fastest web frameworks, perfect for high-performance upload APIs.
   </Card>
   
-  <Card title="🌐 Edge Ready" description="Deploy anywhere">
+  <Card title="Edge Ready" description="Deploy anywhere">
     Works on Cloudflare Workers, Bun, Node.js, and Deno with the same code.
   </Card>
   
-  <Card title="📦 Small Bundle" description="Minimal dependencies">
+  <Card title="Small Bundle" description="Minimal dependencies">
     Hono + pushduck creates incredibly lightweight upload services.
   </Card>
 </Cards>
@@ -321,5 +321,5 @@ export type AppUploadRouter = typeof uploadRouter;
 ---
 
 <Callout type="success">
-  **Perfect Match**: Hono's Web Standards foundation and pushduck's universal design create a powerful, fast, and lightweight file upload solution that works everywhere.
+  **Perfect Match**: Hono's Web Standards foundation and pushduck's universal design create a fast and lightweight file upload solution that works everywhere.
 </Callout> 

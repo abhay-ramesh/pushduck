@@ -1,16 +1,16 @@
-# 📜 Contributor Covenant Code of Conduct
+# Contributor Covenant Code of Conduct
 
-## 🎯 Our Pledge
+## Our Pledge
 
 We as members, contributors, and leaders pledge to make participation in our community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, caste, color, religion, or sexual identity and orientation.
 
 We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and healthy community.
 
-## 📋 Our Standards
+## Our Standards
 
 Examples of behavior that contributes to a positive environment for our community include:
 
-### ✅ Positive Behaviors
+### Positive Behaviors
 
 - **Demonstrating empathy and kindness** toward other people
 - **Being respectful** of differing opinions, viewpoints, and experiences
@@ -21,7 +21,7 @@ Examples of behavior that contributes to a positive environment for our communit
 - **Being patient** with newcomers and those learning
 - **Celebrating others' achievements** and contributions
 
-### ❌ Unacceptable Behaviors
+### Unacceptable Behaviors
 
 Examples of unacceptable behavior include:
 
@@ -34,13 +34,13 @@ Examples of unacceptable behavior include:
 - **Disruptive behavior** in discussions or community spaces
 - **Other conduct** which could reasonably be considered inappropriate in a professional setting
 
-## 🛡️ Enforcement Responsibilities
+## Enforcement Responsibilities
 
 Community leaders are responsible for clarifying and enforcing our standards of acceptable behavior and will take appropriate and fair corrective action in response to any behavior that they deem inappropriate, threatening, offensive, or harmful.
 
 Community leaders have the right and responsibility to remove, edit, or reject comments, commits, code, wiki edits, issues, and other contributions that are not aligned to this Code of Conduct, and will communicate reasons for moderation decisions when appropriate.
 
-## 🌍 Scope
+## Scope
 
 This Code of Conduct applies within all community spaces, and also applies when an individual is officially representing the community in public spaces. Examples of representing our community include using an official e-mail address, posting via an official social media account, or acting as an appointed representative at an online or offline event.
 
@@ -105,7 +105,7 @@ Community leaders will follow these Community Impact Guidelines in determining t
 
 **Consequence**: A permanent ban from any sort of public interaction within the community.
 
-## 🤝 Community Guidelines
+## Community Guidelines
 
 ### For Contributors
 
@@ -134,7 +134,7 @@ Community leaders will follow these Community Impact Guidelines in determining t
 - **Follow project guidelines** and standards
 - **Report violations** of this code of conduct
 
-## 🌟 Positive Community Building
+## Positive Community Building
 
 We encourage all community members to:
 
@@ -159,7 +159,7 @@ We encourage all community members to:
 - **Give credit** where credit is due
 - **Maintain transparency** in decision-making processes
 
-## 🔄 Continuous Improvement
+## Continuous Improvement
 
 This Code of Conduct is a living document that may be updated as our community grows and evolves. We welcome feedback and suggestions for improvement.
 
@@ -193,4 +193,4 @@ For answers to common questions about this code of conduct, see the FAQ at [http
 
 ---
 
-**Together, we can build an amazing, inclusive community around Pushduck! 🦆✨**
+**Together, we can build an amazing, inclusive community around Pushduck!**

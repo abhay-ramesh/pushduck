@@ -11,21 +11,21 @@
 
 ![](https://pushduck.dev/banner.png)
 
-**Pushduck** is a powerful, type-safe file upload library for Next.js applications with S3-compatible storage providers. Built with modern React patterns and comprehensive TypeScript support.
+**Pushduck** is a type-safe file upload library for Next.js applications with S3-compatible storage providers. Built with modern React patterns and comprehensive TypeScript support.
 
 ## Features
 
-- **🔧 Easy Integration**: Seamless setup with Next.js App Router
-- **🏗️ Config-Aware Architecture**: Type-safe configuration with multiple provider support
-- **🔒 Type Safety**: Full TypeScript support with schema validation
-- **📊 Progress Tracking**: Real-time upload progress with comprehensive state management
-- **🎯 Lifecycle Callbacks**: Complete upload lifecycle with `onStart`, `onProgress`, `onSuccess`, and `onError`
-- **🔄 Error Handling**: Robust error handling with retry mechanisms
-- **🚫 Cancellation**: Cancel uploads with AbortController support
-- **🌐 Multi-Provider**: AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, and more
-- **🔐 Security**: Private/public bucket support with presigned URLs
-- **✅ Validation**: Built-in file type, size, and custom validation
-- **🎯 Modern**: Built for React 18+ and Next.js App Router
+- **Easy Integration**: Straightforward setup with Next.js App Router
+- **Config-Aware Architecture**: Type-safe configuration with multiple provider support
+- **Type Safety**: Full TypeScript support with schema validation
+- **Progress Tracking**: Real-time upload progress with comprehensive state management
+- **Lifecycle Callbacks**: Complete upload lifecycle with `onStart`, `onProgress`, `onSuccess`, and `onError`
+- **Error Handling**: Robust error handling with retry mechanisms
+- **Cancellation**: Cancel uploads with AbortController support
+- **Multi-Provider**: AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, and more
+- **Security**: Private/public bucket support with presigned URLs
+- **Validation**: Built-in file type, size, and custom validation
+- **Modern**: Built for React 18+ and Next.js App Router
 
 ## Installation
 
@@ -177,26 +177,26 @@ Pushduck provides comprehensive callback support for handling the complete uploa
 const { uploadFiles } = useUpload<AppRouter>('imageUpload', {
   // Called when upload process begins (after validation passes)
   onStart: (files) => {
-    console.log(`🚀 Starting upload of ${files.length} files`);
+    console.log(`Starting upload of ${files.length} files`);
     setUploadStarted(true);
   },
   
   // Called with progress updates (0-100)
   onProgress: (progress) => {
-    console.log(`📊 Progress: ${progress}%`);
+    console.log(`Progress: ${progress}%`);
     setProgress(progress);
   },
   
   // Called when all uploads complete successfully
   onSuccess: (results) => {
-    console.log('✅ Upload complete!', results);
+    console.log('Upload complete!', results);
     setUploadStarted(false);
     // Update your UI with uploaded file URLs
   },
   
   // Called when upload fails
   onError: (error) => {
-    console.error('❌ Upload failed:', error.message);
+    console.error('Upload failed:', error.message);
     setUploadStarted(false);
     // Show error message to user
   },

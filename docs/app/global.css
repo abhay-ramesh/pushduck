@@ -165,8 +165,8 @@ nav a:hover {
 }
 
 [data-sidebar] a[href*="cli-setup"]::before {
-  content: "⚡";
-  margin-right: 0.5rem;
+  content: "";
+  margin-right: 0;
   font-size: 0.875rem;
 }
 
@@ -194,7 +194,7 @@ nav a:hover {
 
 /* Quick access indicators */
 [data-sidebar] a[href*="quick-start"]::after {
-  content: "🚀";
+  content: "";
   margin-left: auto;
   font-size: 0.75rem;
   opacity: 0.6;

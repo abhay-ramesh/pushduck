@@ -8,20 +8,20 @@
 import { storage } from "./upload";
 
 async function testS3Connection() {
-  console.log("🔧 Testing S3 connection...");
+  console.log("Testing S3 connection...");
 
   try {
     // Test connection
     const connectionResult = await storage.validation.connection();
     if (connectionResult.success) {
-      console.log("✅ S3 connection successful!");
+      console.log("S3 connection successful!");
     } else {
-      console.log("❌ S3 connection failed:", connectionResult.error);
+      console.log("S3 connection failed:", connectionResult.error);
       return;
     }
 
     // Test listing files
-    console.log("\n📋 Testing file listing...");
+    console.log("\nTesting file listing...");
     const files = await storage.list.files({ maxFiles: 5 });
     console.log(`Found ${files.length} files:`);
 
@@ -34,14 +34,14 @@ async function testS3Connection() {
 
     // Test getting file info for the first file
     if (files.length > 0) {
-      console.log("\n📄 Testing file info...");
+      console.log("\nTesting file info...");
       const fileInfo = await storage.metadata.getInfo(files[0].key);
       console.log("File info:", fileInfo);
     }
 
-    console.log("\n🎉 All tests passed!");
+    console.log("\nAll tests passed!");
   } catch (error) {
-    console.error("❌ Test failed:", error);
+    console.error("Test failed:", error);
 
     // Check if it's a configuration issue
     const requiredEnvVars = [
@@ -56,11 +56,11 @@ async function testS3Connection() {
     );
 
     if (missingVars.length > 0) {
-      console.log("\n⚠️  Missing environment variables:");
+      console.log("\nMissing environment variables:");
       missingVars.forEach((varName) => {
         console.log(`   - ${varName}`);
       });
-      console.log("\n💡 Make sure to:");
+      console.log("\nMake sure to:");
       console.log("   1. Copy env.example to .env.local");
       console.log("   2. Fill in your actual R2 credentials");
       console.log("   3. Make sure the bucket exists and is accessible");

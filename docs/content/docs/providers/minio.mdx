@@ -12,11 +12,11 @@ Set up MinIO for self-hosted, S3-compatible object storage with full control and
 
 - **🏠 Self-Hosted**: Complete control over your data and infrastructure
 - **🔗 S3 Compatible**: Drop-in replacement for AWS S3 API
-- **💰 Cost Effective**: No cloud provider fees - just your server costs
-- **🔒 Private**: Keep sensitive data on your own infrastructure
-- **⚡ High Performance**: Optimized for speed and throughput
+- **Cost Effective**: No cloud provider fees - just your server costs
+- **Private**: Keep sensitive data on your own infrastructure
+- **High Performance**: Optimized for speed and throughput
 
-## 🚀 Quick Start with Docker
+## Quick Start with Docker
 
 ### 1. Start MinIO Server
 
@@ -150,7 +150,7 @@ sudo certbot --nginx -d uploads.yourdomain.com
 sudo certbot --nginx -d minio-console.yourdomain.com
 ```
 
-## 🔧 Configure Your App
+## Configure Your App
 
 ### Environment Variables
 
@@ -199,7 +199,7 @@ For production deployments, you can use a custom domain:
    certbot --nginx -d uploads.yourdomain.com
    ```
 
-## 📝 Update Your Upload Configuration
+## Update Your Upload Configuration
 
 ```typescript
 // lib/upload.ts
@@ -232,7 +232,7 @@ npx @pushduck/cli@latest test --provider minio
 
 This will verify your MinIO connection and upload a test file.
 
-## ✅ You're Ready!
+## You're Ready!
 
 Your MinIO server is configured! Benefits:
 
@@ -241,7 +241,7 @@ Your MinIO server is configured! Benefits:
 - **High performance** for local/regional traffic
 - **Complete privacy** for sensitive files
 
-## 🔒 Security Configuration
+## Security Configuration
 
 ### 1. Bucket Policies
 
@@ -302,7 +302,7 @@ networks:
     driver: bridge
 ```
 
-## 📊 Monitoring & Maintenance
+## Monitoring & Maintenance
 
 ### Health Checks
 
@@ -348,7 +348,7 @@ docker run --rm \
 docker exec minio mc admin config export /backup/
 ```
 
-## 🚀 Performance Optimization
+## Performance Optimization
 
 ### 1. Storage Configuration
 
@@ -386,7 +386,7 @@ export const { s3,  } = createUploadConfig()
   .build();
 ```
 
-## 🔧 Advanced Features
+## Advanced Features
 
 ### Multi-Tenant Setup
 
@@ -433,7 +433,7 @@ services:
 **Slow uploads?** → Check network connection and server resources  
 **SSL errors?** → Verify certificate configuration for custom domains
 
-## 💡 Use Cases
+## Use Cases
 
 ### Development Environment
 

@@ -12,7 +12,11 @@ import { TypeTable } from "fumadocs-ui/components/type-table";
 
 ## Custom Route Paths
 
-Organize your uploads with powerful hierarchical path structures that provide clean file organization, prevent conflicts, and enable scalable storage patterns.
+Organize your uploads with hierarchical path structures that provide clean file organization, prevent conflicts, and enable scalable storage patterns.
+
+<Callout type="warning">
+  **Default Behavior:** By default, files are uploaded with just the sanitized filename (e.g., `photo.jpg`). No automatic paths, prefixes, or organization are added. You must explicitly configure paths if you want file organization.
+</Callout>
 
 <Callout type="info">
   **New in v2.0:** The hierarchical path system allows global configuration to provide the foundation while route-level paths extend and nest within it - **no more overrides that lose configuration!**
@@ -51,11 +55,28 @@ The path system works in **layers** that build upon each other:
 - **Route prefix:** `images`, `documents` (category organization)  
 - **Global generated:** `{userId}/{timestamp}/{randomId}/{filename}` (file structure)
 
+## Default Behavior
+
+**Without any path configuration**, files are uploaded with just the sanitized filename:
+
+```typescript
+// No path configuration
+const { s3 } = createUploadConfig()
+  .provider("aws", { /* config */ })
+  .build();
+
+const router = s3.createRouter({
+  imageUpload: s3.image().maxFileSize("5MB"),
+});
+```
+
+**Result:** Files are stored as `photo.jpg`, `document.pdf`, etc. (just the filename)
+
 ## Basic Path Configuration
 
 ### Global Foundation
 
-Configure the base structure that all uploads will use:
+To organize files, explicitly configure the base structure that all uploads will use:
 
 ```typescript title="lib/upload.ts"
 import { createUploadConfig } from "pushduck/server";
@@ -69,14 +90,23 @@ const { s3 } = createUploadConfig()
     prefix: "uploads",
     
     // Global structure - used when routes don't override
+    // Use whatever metadata structure fits your app
     generateKey: (file, metadata) => {
-      const userId = metadata.userId || "anonymous";
+      // Example: Using organizationId from your metadata
+      const orgId = (metadata as any)?.organizationId || "default";
+      
+      // Add timestamp if you want chronological organization
       const timestamp = Date.now();
+      
+      // Add random ID if you want to prevent filename conflicts
       const randomId = Math.random().toString(36).substring(2, 8);
+      
+      // Sanitize filename
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
 
       // Return ONLY the file path part (no prefix)
-      return `${userId}/${timestamp}/${randomId}/${sanitizedName}`;
+      // You control what goes in the path - timestamps, random IDs, etc.
+      return `${orgId}/${timestamp}/${randomId}/${sanitizedName}`;
     },
   })
   .build();
@@ -90,7 +120,7 @@ Extend the global foundation with route-specific organization:
 import { s3 } from "@/lib/upload";
 
 const s3Router = s3.createRouter({
-  // Images: uploads/images/{userId}/{timestamp}/{randomId}/photo.jpg
+  // Images: uploads/images/{orgId}/{timestamp}/{randomId}/photo.jpg
   imageUpload: s3
     .image()
     .maxFileSize("5MB")
@@ -98,7 +128,7 @@ const s3Router = s3.createRouter({
       prefix: "images", // Nests under global prefix
     }),
 
-  // Documents: uploads/documents/{userId}/{timestamp}/{randomId}/report.pdf  
+  // Documents: uploads/documents/{orgId}/{timestamp}/{randomId}/report.pdf  
   documentUpload: s3
     .file()
     .maxFileSize("10MB")
@@ -106,7 +136,7 @@ const s3Router = s3.createRouter({
       prefix: "documents", // Nests under global prefix
     }),
 
-  // General: uploads/{userId}/{timestamp}/{randomId}/file.ext
+  // General: uploads/{orgId}/{timestamp}/{randomId}/file.ext
   generalUpload: s3
     .file()
     .maxFileSize("20MB")
@@ -124,12 +154,16 @@ const s3Router = s3.createRouter({
 
 Override the default structure for specific use cases:
 
-<Tabs items={["Date-Based", "Category-Based", "User-Based"]} groupId="path-patterns">
+<Tabs items={["Date-Based", "Category-Based", "Project-Based"]} groupId="path-patterns">
   <Tab value="Date-Based">
     ```typescript
     galleryUpload: s3
       .image()
       .maxFileSize("5MB")
+      .middleware(async ({ req }) => {
+        // Your metadata structure - could be organizationId, projectId, etc.
+        return { organizationId: await getOrgId(req) };
+      })
       .paths({
         generateKey: (ctx) => {
           const { file, metadata, globalConfig } = ctx;
@@ -137,14 +171,14 @@ Override the default structure for specific use cases:
           const date = new Date();
           const year = date.getFullYear();
           const month = String(date.getMonth() + 1).padStart(2, "0");
-          const userId = metadata.userId || "anonymous";
+          const orgId = (metadata as any)?.organizationId || "default";
           
-          // Custom path: uploads/gallery/2024/06/demo-user/photo.jpg
-          return `${globalPrefix}/gallery/${year}/${month}/${userId}/${file.name}`;
+          // Custom path: uploads/gallery/2024/06/org-123/photo.jpg
+          return `${globalPrefix}/gallery/${year}/${month}/${orgId}/${file.name}`;
         },
       })
     ```
-    **Result:** `uploads/gallery/2024/06/demo-user/photo.jpg`
+    **Result:** `uploads/gallery/2024/06/org-123/photo.jpg`
   </Tab>
   
   <Tab value="Category-Based">
@@ -168,24 +202,28 @@ Override the default structure for specific use cases:
     **Result:** `uploads/products/electronics/prod-123/1234567890/image.jpg`
   </Tab>
   
-  <Tab value="User-Based">
+  <Tab value="Project-Based">
     ```typescript
-    profileUpload: s3
+    projectAssets: s3
       .image()
       .maxFileSize("2MB")
+      .middleware(async ({ req }) => {
+        // Your metadata - could be projectId, teamId, workspaceId, etc.
+        return { projectId: await getProjectId(req) };
+      })
       .paths({
         generateKey: (ctx) => {
           const { file, metadata, globalConfig } = ctx;
           const globalPrefix = globalConfig.prefix || "uploads";
-          const userId = metadata.userId || "anonymous";
+          const projectId = (metadata as any)?.projectId || "default";
           const fileType = file.type.split('/')[0]; // image, video, etc.
           
-          // Custom path: uploads/users/user-123/profile/image/avatar.jpg
-          return `${globalPrefix}/users/${userId}/profile/${fileType}/${file.name}`;
+          // Custom path: uploads/projects/proj-123/assets/image/logo.jpg
+          return `${globalPrefix}/projects/${projectId}/assets/${fileType}/${file.name}`;
         },
       })
     ```
-    **Result:** `uploads/users/user-123/profile/image/avatar.jpg`
+    **Result:** `uploads/projects/proj-123/assets/image/logo.jpg`
   </Tab>
 </Tabs>
 
@@ -203,19 +241,22 @@ const { s3 } = createUploadConfig()
     prefix: process.env.NODE_ENV === "production" ? "prod" : "dev",
     
     generateKey: (file, metadata) => {
-      const userId = metadata.userId || "anonymous";
+      // Use whatever identifier fits your app - organizationId, teamId, etc.
+      const orgId = (metadata as any)?.organizationId || "default";
+      
+      // Add timestamp and random ID yourself if you want them
       const timestamp = Date.now();
       const randomId = Math.random().toString(36).substring(2, 8);
       
-      return `${userId}/${timestamp}/${randomId}/${file.name}`;
+      return `${orgId}/${timestamp}/${randomId}/${file.name}`;
     },
   })
   .build();
 ```
 
 **Result Paths:**
-- **Development:** `dev/images/user123/1234567890/abc123/photo.jpg`
-- **Production:** `prod/images/user123/1234567890/abc123/photo.jpg`
+- **Development:** `dev/images/org123/1234567890/abc123/photo.jpg`
+- **Production:** `prod/images/org123/1234567890/abc123/photo.jpg`
 
 ## Path Configuration API
 
@@ -224,12 +265,12 @@ const { s3 } = createUploadConfig()
 <TypeTable
   type={{
     prefix: {
-      description: "Base prefix for all uploaded files",
+      description: "Base prefix for all uploaded files (optional - no default)",
       type: "string",
-      default: '"uploads"',
+      default: "undefined (no prefix by default)",
     },
     generateKey: {
-      description: "Function to generate the file path structure",
+      description: "Function to generate the file path structure (optional - defaults to just filename)",
       type: "(file, metadata) => string",
     },
   }}
@@ -240,7 +281,9 @@ const { s3 } = createUploadConfig()
   prefix: "uploads",
   generateKey: (file, metadata) => {
     // Return the file path structure (without prefix)
-    return `${metadata.userId}/${Date.now()}/${file.name}`;
+    // Use whatever metadata structure fits your app
+    const identifier = (metadata as any)?.organizationId || "default";
+    return `${identifier}/${Date.now()}/${file.name}`;
   }
 })
 ```
@@ -320,18 +363,21 @@ const s3Router = s3.createRouter({
     }),
 
   // User avatars: uploads/users/{userId}/avatar/profile.jpg
+  // Note: This example uses userId, but you can use any metadata structure
   userAvatar: s3
     .image()
     .maxFileSize("2MB")
     .formats(["jpeg", "png", "webp"])
     .middleware(async ({ req }) => {
+      // Your metadata structure - could be userId, accountId, memberId, etc.
       const userId = await getUserId(req);
       return { userId, type: "avatar" };
     })
     .paths({
       generateKey: (ctx) => {
         const { file, metadata, globalConfig } = ctx;
-        return `${globalConfig.prefix}/users/${metadata.userId}/avatar/${file.name}`;
+        const userId = (metadata as any)?.userId;
+        return `${globalConfig.prefix}/users/${userId}/avatar/${file.name}`;
       },
     }),
 
@@ -411,7 +457,7 @@ const s3Router = s3.createRouter({
 
 ## Best Practices
 
-### 🎯 Path Organization
+### Path Organization
 
 <Cards>
   <Card title="Use Descriptive Prefixes" description="Make paths self-documenting">
@@ -436,17 +482,21 @@ const s3Router = s3.createRouter({
     ```
   </Card>
   
-  <Card title="Prevent Conflicts" description="Use unique identifiers">
+  <Card title="Prevent Conflicts" description="Use unique identifiers when needed">
     ```typescript
-    // ✅ Good - timestamp + random ID
+    // ✅ Good - add timestamp and random ID yourself if you want them
     const timestamp = Date.now();
     const randomId = Math.random().toString(36).substring(2, 8);
-    return `${prefix}/${userId}/${timestamp}/${randomId}/${file.name}`;
+    const identifier = metadata.organizationId || "default";
+    return `${prefix}/${identifier}/${timestamp}/${randomId}/${file.name}`;
+    
+    // ✅ Also valid - simple path if conflicts aren't a concern
+    return `${prefix}/${identifier}/${file.name}`;
     ```
   </Card>
 </Cards>
 
-### 🚀 Performance Tips
+### Performance Tips
 
 <Callout type="warn">
   **Path Length Limits:** Most S3-compatible services have a 1024-character limit for object keys. Keep your paths reasonable!
@@ -454,10 +504,11 @@ const s3Router = s3.createRouter({
 
 - **Use short, meaningful prefixes** instead of long descriptive names
 - **Avoid deep nesting** beyond 5-6 levels for better performance
-- **Include timestamps** for natural chronological ordering
+- **Add timestamps yourself** if you want chronological ordering (e.g., `Date.now()`)
+- **Add random IDs yourself** if you need to prevent filename conflicts (e.g., `Math.random().toString(36).substring(2, 8)`)
 - **Sanitize filenames** to prevent special character issues
 
-### 🔒 Security Considerations
+### Security Considerations
 
 ```typescript
 // ✅ Sanitize user input in paths
@@ -468,10 +519,12 @@ const sanitizePathSegment = (input: string) => {
 .paths({
   generateKey: (ctx) => {
     const { file, metadata, globalConfig } = ctx;
-    const safeUserId = sanitizePathSegment(metadata.userId);
+    // Sanitize whatever identifier you use from metadata
+    const identifier = (metadata as any)?.organizationId || "default";
+    const safeIdentifier = sanitizePathSegment(identifier);
     const safeFilename = sanitizePathSegment(file.name);
     
-    return `${globalConfig.prefix}/users/${safeUserId}/${Date.now()}/${safeFilename}`;
+    return `${globalConfig.prefix}/orgs/${safeIdentifier}/${Date.now()}/${safeFilename}`;
   }
 })
 ```
@@ -498,7 +551,9 @@ const { s3 } = createUploadConfig()
   .paths({
     prefix: "uploads",
     generateKey: (file, metadata) => {
-      return `${metadata.userId}/${Date.now()}/${file.name}`;
+      // Use whatever metadata structure fits your app
+      const identifier = (metadata as any)?.organizationId || "default";
+      return `${identifier}/${Date.now()}/${file.name}`;
     }
   })
   .build();

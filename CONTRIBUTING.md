@@ -1,6 +1,6 @@
 # Contributing to Pushduck
 
-Thank you for your interest in contributing to Pushduck! 🦆 We welcome contributions from the community and are excited to work with you.
+Thank you for your interest in contributing to Pushduck! We welcome contributions from the community and are excited to work with you.
 
 ## 📋 Table of Contents
 
@@ -98,21 +98,21 @@ pnpm format               # Format code with Prettier
 
 ## How to Contribute
 
-### 🐛 Reporting Bugs
+### Reporting Bugs
 
 1. **Check existing issues** to avoid duplicates
 2. **Use the bug report template** when creating new issues
 3. **Include reproduction steps** and environment details
 4. **Add relevant labels** (bug, needs-triage, etc.)
 
-### 💡 Suggesting Features
+### Suggesting Features
 
 1. **Check the roadmap** and existing feature requests
 2. **Use the feature request template**
 3. **Explain the use case** and expected behavior
 4. **Consider implementation complexity**
 
-### 🔧 Code Contributions
+### Code Contributions
 
 1. **Pick an issue** (good first issues are labeled)
 2. **Comment on the issue** to claim it
@@ -339,8 +339,8 @@ By contributing to Pushduck, you agree that your contributions will be licensed 
 
 ---
 
-## 🎉 Thank You
+## Thank You
 
 Your contributions help make Pushduck better for everyone. Whether you're fixing bugs, adding features, improving documentation, or helping other users, every contribution matters.
 
-**Happy coding!** 🦆✨
+Thank you for contributing!

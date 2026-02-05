@@ -1,4 +1,4 @@
-# 🦆 Pushduck - Universal S3 File Upload Library
+# Pushduck - Universal S3 File Upload Library
 
 ![Banner](./docs/public/banner.png)
 
@@ -12,27 +12,44 @@
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-7289DA?style=flat&colorA=18181B&colorB=7289DA)](https://pushduck.dev/discord)
 [![Twitter](https://img.shields.io/badge/Twitter-Share%20on%20Twitter-1DA1F2?style=flat&colorA=18181B&colorB=1DA1F2)](https://twitter.com/intent/tweet?text=Just%20discovered%20%40pushduck%20-%20the%20fastest%20way%20to%20add%20file%20uploads%20to%20any%20web%20app!%20🦆%20https%3A//github.com/abhay-ramesh/pushduck)
 
-**The fastest way to add file uploads to any web application. Enterprise security, edge-ready.**
+**Add file uploads to any web application. Secure, edge-ready.**
 
 Upload files directly to S3-compatible storage with just 3 lines of code. No heavy AWS SDK dependencies - works with Next.js, React, Express, Fastify, and more. Built by [Abhay Ramesh](https://github.com/abhay-ramesh).
 
-## ✨ Features
+## Sponsors ❤️
 
-- 🚀 **Lightning Fast** - Optimized bundles with tree-shaking support
-- 🪶 **Ultra Lightweight** - No heavy AWS SDK bloat, minimal dependencies
-- 🎯 **Type Safe** - Full TypeScript support with intelligent inference
-- ☁️ **Multi-Provider** - AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO
-- 🎨 **Framework Agnostic** - Next.js, Express, Fastify, and more
-- 📱 **Modern React** - Hooks and utilities for seamless integration
-- 🔒 **Enterprise Security** - Presigned URLs, CORS handling, file validation
-- 🌍 **Edge Runtime** - Runs on Vercel Edge, Cloudflare Workers, and more
-- 📊 **Progress Tracking** - Real-time progress, upload speed, and ETA estimation
-- 🔄 **Lifecycle Callbacks** - Complete upload control with `onStart`, `onProgress`, `onSuccess`, and `onError`
-- 🗄️ **Storage Operations** - Complete file management API (list, delete, metadata)
-- 🛠️ **CLI Tools** - Interactive setup and project scaffolding
-- 🛡️ **Production Ready** - Used by thousands of applications
+<p align="">
+<!-- CURRENT_SPONSORS_START -->
+<!-- CURRENT_SPONSORS_END -->
+</p>
 
-## 🚀 Quick Start
+<p align="">
+<!-- PAST_SPONSORS_START -->
+<a href="https://github.com/cschmatzler">
+  <img src="https://github.com/cschmatzler.png?s=48" width="48" height="48" style="border-radius:50%;" />
+</a>
+<!-- PAST_SPONSORS_END -->
+</p>
+
+> Thank you to all our sponsors for supporting the project 💙
+
+## Features
+
+- **Fast** - Optimized bundles with tree-shaking support
+- **Lightweight** - No heavy AWS SDK bloat, minimal dependencies
+- **Type Safe** - Full TypeScript support with intelligent inference
+- **Multi-Provider** - AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO
+- **Framework Agnostic** - Next.js, Express, Fastify, and more
+- **Modern React** - Hooks and utilities for easy integration
+- **Secure** - Presigned URLs, CORS handling, file validation
+- **Edge Runtime** - Runs on Vercel Edge, Cloudflare Workers, and more
+- **Progress Tracking** - Real-time progress, upload speed, and ETA estimation
+- **Lifecycle Callbacks** - Complete upload control with `onStart`, `onProgress`, `onSuccess`, and `onError`
+- **Storage Operations** - Complete file management API (list, delete, metadata)
+- **CLI Tools** - Interactive setup and project scaffolding
+- **Production Ready** - Used in production by many applications
+
+## Quick Start
 
 ### Installation
 
@@ -129,7 +146,7 @@ export default function Upload() {
 
 **Done!** 3 files, ~50 lines of code, production-ready uploads.
 
-## 📊 Advanced Features
+## Advanced Features
 
 ### Storage Operations API
 
@@ -167,7 +184,7 @@ const largeFiles = await storage.list.bySize(1024 * 1024); // Files > 1MB
 const recentFiles = await storage.list.byDate(new Date("2024-01-01"));
 ```
 
-## 📚 Documentation
+## Documentation
 
 - **[Getting Started](https://pushduck.dev/docs/quick-start)** - Complete setup guide
 - **[Philosophy & Scope](https://pushduck.dev/docs/philosophy)** - What we do (and don't do)
@@ -177,7 +194,7 @@ const recentFiles = await storage.list.byDate(new Date("2024-01-01"));
 - **[Security](https://pushduck.dev/docs/guides/security)** - Security best practices
 - **[CLI Guide](https://pushduck.dev/docs/api/cli)** - CLI commands and usage
 
-## 🎯 Why Pushduck?
+## Why Pushduck?
 
 ### Before Pushduck
 
@@ -193,20 +210,20 @@ const recentFiles = await storage.list.byDate(new Date("2024-01-01"));
 ### After Pushduck
 
 ```typescript
-// 3 lines of code + ultra-lightweight (no heavy AWS SDK)
+// 3 lines of code + lightweight (no heavy AWS SDK)
 const { uploadFiles } = upload.imageUpload();
 await uploadFiles(selectedFiles);
 ```
 
-## 🪶 Ultra Lightweight Architecture
+## Lightweight Architecture
 
 Unlike other solutions that bundle the entire AWS SDK (2MB+), Pushduck uses **[aws4fetch](https://github.com/mhart/aws4fetch)** - a tiny, zero-dependency AWS request signer that works everywhere:
 
-- ✅ **Tiny Bundle** - Only 1 dependency, works on edge runtimes
-- ✅ **Zero Dependencies** - `aws4fetch` has no dependencies itself
-- ✅ **Edge Compatible** - Runs on Vercel Edge, Cloudflare Workers, Deno Deploy
-- ✅ **Modern Fetch** - Uses native `fetch()` API, no legacy HTTP clients
-- ✅ **Tree Shakeable** - Only import what you need
+- **Tiny Bundle** - Only 1 dependency, works on edge runtimes
+- **Zero Dependencies** - `aws4fetch` has no dependencies itself
+- **Edge Compatible** - Runs on Vercel Edge, Cloudflare Workers, Deno Deploy
+- **Modern Fetch** - Uses native `fetch()` API, no legacy HTTP clients
+- **Tree Shakeable** - Only import what you need
 
 ```typescript
 // What you get with Pushduck
@@ -215,7 +232,7 @@ import { createUploadConfig } from "pushduck/server"; // ~5KB
 import { S3Client } from "@aws-sdk/client-s3"; // ~500KB+
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 Pushduck follows a **secure-by-default** architecture:
 
@@ -235,7 +252,7 @@ Pushduck follows a **secure-by-default** architecture:
 - **Files** upload directly to S3 (no server bandwidth used)
 - **Edge Compatible** - runs anywhere modern JavaScript runs
 
-## 🔧 Advanced Usage
+## Advanced Usage
 
 ### Custom Configuration
 
@@ -272,7 +289,7 @@ const { s3 } = createUploadConfig()
   .hooks({
     onUploadComplete: async ({ file, url, metadata }) => {
       // Save to database, send notifications, etc.
-      console.log(`✅ Upload complete: ${file.name} -> ${url}`);
+      console.log(`Upload complete: ${file.name} -> ${url}`);
     },
   })
   .build();
@@ -347,7 +364,7 @@ const { s3: minioS3 } = createUploadConfig()
   .build();
 ```
 
-## 🚀 Framework Support
+## Framework Support
 
 Pushduck works with all major frameworks:
 
@@ -360,7 +377,7 @@ Pushduck works with all major frameworks:
 - **Astro** - Static site generation
 - **Hono** - Edge runtime APIs
 
-## 📦 Packages
+## Packages
 
 | Package | Description | Version |
 |---------|-------------|---------|
@@ -368,7 +385,7 @@ Pushduck works with all major frameworks:
 | `@pushduck/cli` | CLI tools | ![NPM Version](https://img.shields.io/npm/v/@pushduck/cli) |
 | `@pushduck/ui` | React components | ![NPM Version](https://img.shields.io/npm/v/@pushduck/ui) |
 
-## 🤝 Contributing
+## Contributing
 
 We love contributions! Please read our [Contributing Guide](CONTRIBUTING.md) to get started.
 
@@ -392,28 +409,28 @@ pnpm type-check       # TypeScript type checking
 pnpm format           # Format code with Prettier
 ```
 
-## 📄 License
+## License
 
 MIT © [Abhay Ramesh](https://github.com/abhay-ramesh)
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-Built with ❤️ using:
+Built using:
 
 - [TypeScript](https://www.typescriptlang.org/)
 - [aws4fetch](https://github.com/mhart/aws4fetch) - Lightweight AWS signing (the secret sauce!)
 
-## 🌟 Support
+## Support
 
-- ⭐ **Star us on GitHub** — it helps!
-- 🐛 **Report bugs** — [Create an issue](https://github.com/abhay-ramesh/pushduck/issues)
-- 💡 **Request features** — [Start a discussion](https://github.com/abhay-ramesh/pushduck/discussions)
-- 📧 **Contact** — [ramesh.abhay14@gmail.com](ramesh.abhay14@gmail.com)
+- **Star us on GitHub** — it helps!
+- **Report bugs** — [Create an issue](https://github.com/abhay-ramesh/pushduck/issues)
+- **Request features** — [Start a discussion](https://github.com/abhay-ramesh/pushduck/discussions)
+- **Contact** — [ramesh.abhay14@gmail.com](ramesh.abhay14@gmail.com)
 
 ---
 
 <div align="center">
-  <strong>🦆 Made with love by the Pushduck team</strong>
+  <strong>Built by the Pushduck team</strong>
   <br>
   <a href="https://github.com/abhay-ramesh/pushduck">GitHub</a> •
   <a href="https://pushduck.dev">Documentation</a> •

@@ -21,23 +21,23 @@ interface FileGalleryProps {
 
 // File type icons
 const getFileIcon = (contentType: string, fileName: string) => {
-  if (contentType.startsWith("image/")) return "🖼️";
-  if (contentType === "application/pdf") return "📄";
+  if (contentType.startsWith("image/")) return "IMG";
+  if (contentType === "application/pdf") return "PDF";
   if (contentType.includes("document") || contentType.includes("word"))
-    return "📝";
+    return "DOC";
   if (contentType.includes("spreadsheet") || contentType.includes("excel"))
-    return "📊";
+    return "XLS";
   if (
     contentType.includes("presentation") ||
     contentType.includes("powerpoint")
   )
-    return "📈";
-  if (contentType.startsWith("video/")) return "🎥";
-  if (contentType.startsWith("audio/")) return "🎵";
-  if (contentType.includes("zip") || contentType.includes("rar")) return "🗜️";
-  if (fileName.endsWith(".txt")) return "📄";
-  if (fileName.endsWith(".json")) return "📋";
-  return "📁";
+    return "PPT";
+  if (contentType.startsWith("video/")) return "VID";
+  if (contentType.startsWith("audio/")) return "AUD";
+  if (contentType.includes("zip") || contentType.includes("rar")) return "ZIP";
+  if (fileName.endsWith(".txt")) return "TXT";
+  if (fileName.endsWith(".json")) return "JSON";
+  return "FILE";
 };
 
 // File type colors
