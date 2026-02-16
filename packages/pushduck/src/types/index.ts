@@ -36,6 +36,7 @@ export interface S3FileMetadata {
 // Unified upload configuration interface
 export interface UploadRouteConfig {
   endpoint?: string;
+  fetcher?: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
   onStart?: (files: S3FileMetadata[]) => void | Promise<void>;
   onSuccess?: (results: S3UploadedFile[]) => void | Promise<void>;
   onError?: (error: Error) => void;
@@ -226,11 +227,11 @@ export type RouterRouteNames<T> =
 // Each route property returns a hook factory function that accepts optional configuration
 export type InferClientRouter<T> =
   T extends S3Router<infer TRoutes>
-    ? {
-        readonly [K in keyof TRoutes]: (
-          options?: RouteUploadOptions
-        ) => TypedRouteHook<T, K extends string ? K : string>;
-      }
-    : never;
+  ? {
+    readonly [K in keyof TRoutes]: (
+      options?: RouteUploadOptions
+    ) => TypedRouteHook<T, K extends string ? K : string>;
+  }
+  : never;
 
 // Legacy types removed - use TypedRouteHook and ClientConfig instead
