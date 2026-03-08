@@ -348,9 +348,9 @@ function getS3CompatibleConfig(
     default:
       throw new Error(
         `Unsupported provider: ${(config as any).provider}. ` +
-          `Supported providers: aws, cloudflare-r2, digitalocean-spaces, minio. ` +
-          `Coming soon: wasabi, backblaze-b2, azure-blob, ibm-cloud, oracle-oci, storj-dcs, telnyx-storage, tigris-data, cloudian-hyperstore. ` +
-          `For other providers, use "s3-compatible" with a custom endpoint.`
+        `Supported providers: aws, cloudflare-r2, digitalocean-spaces, minio. ` +
+        `Coming soon: wasabi, backblaze-b2, azure-blob, ibm-cloud, oracle-oci, storj-dcs, telnyx-storage, tigris-data, cloudian-hyperstore. ` +
+        `For other providers, use "s3-compatible" with a custom endpoint.`
       );
   }
 }
@@ -645,8 +645,7 @@ export async function generatePresignedDownloadUrl(
       key,
     });
     throw createS3Error(
-      `Failed to generate presigned download URL: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Failed to generate presigned download URL: ${error instanceof Error ? error.message : "Unknown error"
       }`,
       {
         operation: "generate-presigned-download-url",
@@ -699,6 +698,39 @@ export async function generatePresignedDownloadUrl(
  * ```
  *
  */
+/**
+ * Internal helper to prepare S3 upload headers (ACL, Content-Type, Metadata).
+ * Ensures consistency between presigned URL generation and direct server-side uploads.
+ *
+ * @internal
+ */
+function prepareS3UploadHeaders(
+  uploadConfig: UploadConfig,
+  options: {
+    contentType?: string;
+    metadata?: Record<string, string>;
+  }
+): Record<string, string> {
+  const headers: Record<string, string> = {};
+
+  if (options.contentType) {
+    headers["Content-Type"] = options.contentType;
+  }
+
+  const acl = uploadConfig.defaults?.acl || uploadConfig.provider.acl;
+  if (acl) {
+    headers["x-amz-acl"] = acl;
+  }
+
+  if (options.metadata) {
+    Object.entries(options.metadata).forEach(([key, value]) => {
+      headers[`x-amz-meta-${key}`] = value;
+    });
+  }
+
+  return headers;
+}
+
 export async function generatePresignedUploadUrl(
   uploadConfig: UploadConfig,
   options: PresignedUrlOptions
@@ -716,23 +748,29 @@ export async function generatePresignedUploadUrl(
     const s3Url = buildS3Url(options.key, config);
     const url = new URL(s3Url);
 
-    // Add expiration as query parameter (this is the Cloudflare R2 pattern)
+    // Add expiration as query parameter
     url.searchParams.set("X-Amz-Expires", expiresIn.toString());
 
-    // Create a signed request for PUT operation - minimal headers approach
+    // Prepare headers for signing. These MUST be sent by the client in the actual PUT request.
+    const headers = prepareS3UploadHeaders(uploadConfig, options);
+
+    // Create a signed request for PUT operation
+    // Passing headers to sign() ensures they are included in the signature (SigV4)
     const signedRequest = await awsClient.sign(
       new Request(url.toString(), {
         method: "PUT",
+        headers: headers,
       }),
       {
         aws: { signQuery: true },
-      }
+      },
     );
 
     if (config.debug) {
       logger.presignedUrl(options.key, {
         originalUrl: s3Url,
         signedUrl: signedRequest.url,
+        headers,
         config: {
           region: config.region,
           endpoint: config.endpoint,
@@ -745,6 +783,7 @@ export async function generatePresignedUploadUrl(
     return {
       url: signedRequest.url,
       key: options.key,
+      fields: Object.keys(headers).length > 0 ? headers : undefined,
     };
   } catch (error) {
     logger.error("Failed to generate presigned URL", error, {
@@ -752,8 +791,7 @@ export async function generatePresignedUploadUrl(
       key: options.key,
     });
     throw createS3Error(
-      `Failed to generate presigned URL: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Failed to generate presigned URL: ${error instanceof Error ? error.message : "Unknown error"
       }`,
       {
         operation: "generate-presigned-upload-url",
@@ -938,22 +976,7 @@ export async function uploadFileToS3(
     const s3Url = buildS3Url(key, config);
 
     // Prepare headers
-    const headers: Record<string, string> = {};
-
-    if (options.contentType) {
-      headers["Content-Type"] = options.contentType;
-    }
-
-    if (config.acl) {
-      headers["x-amz-acl"] = config.acl;
-    }
-
-    // Add metadata as x-amz-meta-* headers
-    if (options.metadata) {
-      Object.entries(options.metadata).forEach(([metaKey, value]) => {
-        headers[`x-amz-meta-${metaKey}`] = value;
-      });
-    }
+    const headers = prepareS3UploadHeaders(uploadConfig, options);
 
     // Convert File or Buffer to ArrayBuffer for fetch API
     // ArrayBuffer is part of BufferSource which is accepted by BodyInit
@@ -1025,8 +1048,7 @@ export async function uploadFileToS3(
   } catch (error) {
     console.error("Failed to upload file:", error);
     throw new Error(
-      `Failed to upload file: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Failed to upload file: ${error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
@@ -1199,8 +1221,7 @@ export async function listFilesPaginated(
   } catch (error) {
     console.error("Failed to list files:", error);
     throw new Error(
-      `Failed to list files: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Failed to list files: ${error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
@@ -1306,8 +1327,7 @@ export async function listDirectories(
   } catch (error) {
     console.error("Failed to list directories:", error);
     throw new Error(
-      `Failed to list directories: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Failed to list directories: ${error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
@@ -1407,8 +1427,7 @@ export async function getFileInfo(
     };
   } catch (error) {
     throw new Error(
-      `Failed to get file info for ${key}: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Failed to get file info for ${key}: ${error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
@@ -1542,8 +1561,7 @@ export async function setFileMetadata(
     }
   } catch (error) {
     throw new Error(
-      `Failed to set metadata for ${key}: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Failed to set metadata for ${key}: ${error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
@@ -1624,8 +1642,7 @@ export async function validateFile(
     return {
       valid: false,
       errors: [
-        `Failed to validate file: ${
-          error instanceof Error ? error.message : "Unknown error"
+        `Failed to validate file: ${error instanceof Error ? error.message : "Unknown error"
         }`,
       ],
       warnings: [],
@@ -1660,10 +1677,9 @@ export async function validateFiles(
       return {
         valid: false,
         errors: [
-          `Failed to validate: ${
-            result.reason instanceof Error
-              ? result.reason.message
-              : "Unknown error"
+          `Failed to validate: ${result.reason instanceof Error
+            ? result.reason.message
+            : "Unknown error"
           }`,
         ],
         warnings: [],
@@ -1834,8 +1850,7 @@ export async function deleteFile(
     });
 
     throw createS3Error(
-      `Failed to delete file: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Failed to delete file: ${error instanceof Error ? error.message : "Unknown error"
       }`,
       {
         operation: "delete-file",
@@ -1895,8 +1910,7 @@ export async function deleteFiles(
     });
 
     throw createS3Error(
-      `Failed to delete files: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Failed to delete files: ${error instanceof Error ? error.message : "Unknown error"
       }`,
       {
         operation: "delete-files-batch",
@@ -1954,8 +1968,7 @@ export async function deleteFilesByPrefix(
     };
   } catch (error) {
     throw new Error(
-      `Failed to delete files by prefix: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Failed to delete files by prefix: ${error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }

@@ -900,6 +900,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           file,
           presignedUrl: presignedResult.url,
           key: presignedResult.key,
+          fields: presignedResult.fields,
           metadata: fileMetadata,
         });
       } catch (error) {
@@ -1007,6 +1008,7 @@ export interface PresignedUrlResponse {
   file: S3FileMetadata;
   presignedUrl?: string;
   key?: string;
+  fields?: Record<string, string>;
   metadata?: any;
   error?: string;
 }
