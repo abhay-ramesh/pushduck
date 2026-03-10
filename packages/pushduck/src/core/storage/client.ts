@@ -2037,20 +2037,14 @@ function parseBatchDeleteResponse(xmlText: string): DeleteFilesResult {
 
 /**
  * Calculate MD5 hash for S3 batch delete request
+ * Note: Web Crypto API does NOT support MD5, so we always use Node.js crypto.
+ * Batch delete operations should only run on the server anyway (for security).
  */
 async function calculateMD5(content: string): Promise<string> {
-  if (typeof crypto !== "undefined" && crypto.subtle) {
-    // Browser environment
-    const encoder = new TextEncoder();
-    const data = encoder.encode(content);
-    const hashBuffer = await crypto.subtle.digest("MD5", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return btoa(String.fromCharCode.apply(null, hashArray));
-  } else {
-    // Node.js environment - dynamic import to avoid bundling issues
-    const { createHash } = await import("crypto");
-    return createHash("md5").update(content).digest("base64");
-  }
+  // Always use Node.js crypto - Web Crypto API doesn't support MD5
+  // This is server-only code (batch delete requires S3 credentials)
+  const { createHash } = await import("crypto");
+  return createHash("md5").update(content).digest("base64");
 }
 
 /**
