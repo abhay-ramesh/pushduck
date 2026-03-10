@@ -52,6 +52,7 @@
  *
  */
 
+import { createHash } from "crypto";
 import { AwsClient } from "aws4fetch";
 import type { UploadConfig } from "../config";
 import type { ProviderConfig } from "../providers/providers";
@@ -1985,7 +1986,7 @@ async function deleteBatch(
     method: "POST",
     headers: {
       "Content-Type": "application/xml",
-      "Content-MD5": await calculateMD5(deleteXml),
+      "Content-MD5": calculateMD5(deleteXml),
     },
     body: deleteXml,
   });
@@ -2036,14 +2037,11 @@ function parseBatchDeleteResponse(xmlText: string): DeleteFilesResult {
 }
 
 /**
- * Calculate MD5 hash for S3 batch delete request
- * Note: Web Crypto API does NOT support MD5, so we always use Node.js crypto.
- * Batch delete operations should only run on the server anyway (for security).
+ * Calculate MD5 hash for S3 batch delete request.
+ * Web Crypto API does not support MD5. This is server-only code
+ * (batch delete requires S3 credentials), so Node.js crypto is always available.
  */
-async function calculateMD5(content: string): Promise<string> {
-  // Always use Node.js crypto - Web Crypto API doesn't support MD5
-  // This is server-only code (batch delete requires S3 credentials)
-  const { createHash } = await import("crypto");
+function calculateMD5(content: string): string {
   return createHash("md5").update(content).digest("base64");
 }
 
