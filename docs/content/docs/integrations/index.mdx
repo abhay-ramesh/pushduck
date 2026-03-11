@@ -22,12 +22,14 @@ Pushduck provides **universal file upload handlers** that work with any web fram
 All frameworks use the same core API:
 
 ```typescript
-import { createS3Router, s3 } from 'pushduck/server';
+import { createUploadConfig } from 'pushduck/server';
 
-const uploadRouter = createS3Router({
-  imageUpload: s3.image().maxFileSize("5MB"),
-  documentUpload: s3.file().maxFileSize("10MB"),
-  videoUpload: s3.file().maxFileSize("100MB").types(["video/*"])
+const { upload } = createUploadConfig().provider(/* ... */).build();
+
+const uploadRouter = upload.createRouter({
+  imageUpload: upload.image().maxSize("5MB"),
+  documentUpload: upload.file().maxSize("10MB"),
+  videoUpload: upload.file().maxSize("100MB").accept(["video/*"])
 });
 
 // Universal handlers - work with ANY framework
@@ -168,7 +170,7 @@ Your upload configuration is identical across all frameworks:
 ```typescript title="lib/upload.ts"
 import { createUploadConfig } from 'pushduck/server';
 
-const { s3, createS3Router } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -185,32 +187,32 @@ const { s3, createS3Router } = createUploadConfig()
   })
   .build();
 
-export const uploadRouter = createS3Router({
+export const uploadRouter = upload.createRouter({
   // Image uploads with validation
-  imageUpload: s3
+  imageUpload: upload
     .image()
-    .maxFileSize("5MB")
-    .formats(["jpeg", "png", "webp"])
+    .maxSize("5MB")
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ req }) => {
       const userId = await getUserId(req);
       return { userId, category: "images" };
     }),
 
   // Document uploads
-  documentUpload: s3
+  documentUpload: upload
     .file()
-    .maxFileSize("10MB")
-    .types(["application/pdf", "text/plain"])
+    .maxSize("10MB")
+    .accept(["application/pdf", "text/plain"])
     .middleware(async ({ req }) => {
       const userId = await getUserId(req);
       return { userId, category: "documents" };
     }),
 
   // Video uploads
-  videoUpload: s3
+  videoUpload: upload
     .file()
-    .maxFileSize("100MB")
-    .types(["video/mp4", "video/quicktime"])
+    .maxSize("100MB")
+    .accept(["video/mp4", "video/quicktime"])
     .middleware(async ({ req }) => {
       const userId = await getUserId(req);
       return { userId, category: "videos" };
@@ -228,7 +230,7 @@ The client-side code is identical regardless of your backend framework:
 import { createUploadClient } from 'pushduck/client';
 import type { AppUploadRouter } from './upload';
 
-export const upload = createUploadClient<AppUploadRouter>({
+export const { upload } = createUploadClient<AppUploadRouter>({
   endpoint: '/api/upload'
 });
 ```
@@ -256,7 +258,7 @@ export function UploadForm() {
         <div key={file.id}>
           <span>{file.name}</span>
           <progress value={file.progress} max={100} />
-          {file.url && <a href={file.url}>View</a>}
+          {file.publicUrl && <a href={file.publicUrl}>View</a>}
         </div>
       ))}
     </div>

@@ -28,8 +28,8 @@ These 8 items are critical for safe production deployment:
     - [ ] Unauthenticated requests are blocked
     
     ```typescript
-    const router = s3.createRouter({
-      userFiles: s3.image()
+    const uploadRouter = upload.createRouter({
+      userFiles: upload.image()
         .middleware(async ({ req }) => {
           const session = await getServerSession(req);
           if (!session) throw new Error("Auth required");
@@ -56,14 +56,14 @@ These 8 items are critical for safe production deployment:
   <Step>
     **3. File Validation**
     
-    - [ ] File type restrictions (`.formats()`)
-    - [ ] File size limits (`.maxFileSize()`)
-    
+    - [ ] File type restrictions (`.accept()`)
+    - [ ] File size limits (`.maxSize()`)
+
     ```typescript
-    userPhotos: s3.image()
-      .maxFileSize("10MB")
+    userPhotos: upload.image()
+      .maxSize("10MB")
       .maxFiles(5)
-      .formats(["jpeg", "png", "webp"])
+      .accept(["image/jpeg", "image/png", "image/webp"])
     ```
   </Step>
 
@@ -83,7 +83,7 @@ These 8 items are critical for safe production deployment:
     - [ ] Upload failures are logged
     
     ```typescript
-    .onUploadError(async ({ error }) => {
+    .onError(async ({ error }) => {
       console.error('Upload failed:', error);
       // Sentry.captureException(error);
     })

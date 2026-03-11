@@ -37,7 +37,7 @@ Create a type-safe upload client with **property-based access** and optional **p
 import { createUploadClient } from 'pushduck/client'
 import type { AppRouter } from './upload'
 
-export const upload = createUploadClient<AppRouter>({
+export const { upload, useUpload } = createUploadClient<AppRouter>({
   endpoint: '/api/upload' // [!code highlight]
 })
 ```
@@ -258,10 +258,10 @@ export function MultiUploadForm() {
       // Store images with both permanent and temporary URLs
       updateImageGallery(results.map(file => ({
         id: file.id,
-        url: file.url,                    // Permanent access URL
+        url: file.publicUrl,              // Permanent access URL
         downloadUrl: file.presignedUrl,   // Temporary download URL (1 hour)
         name: file.name,
-        key: file.key
+        storagePath: file.storagePath
       })));
     }
   })
@@ -271,7 +271,7 @@ export function MultiUploadForm() {
       // Store documents with metadata
       updateDocumentLibrary(results.map(file => ({
         id: file.id,
-        url: file.url,
+        url: file.publicUrl,
         name: file.name,
         size: file.size,
         uploadedAt: new Date().toISOString()
@@ -297,7 +297,7 @@ export function MultiUploadForm() {
 
 ```typescript tab="Global + Per-Route"
 // Global configuration with per-route overrides
-const upload = createUploadClient<AppRouter>({
+const { upload } = createUploadClient<AppRouter>({
   endpoint: '/api/upload',
   
   // These apply to all routes by default
@@ -331,9 +331,9 @@ export function MixedConfigUpload() {
 ```
 
 ```typescript tab="Advanced Config"
-const upload = createUploadClient<AppRouter>({
+const { upload } = createUploadClient<AppRouter>({
   endpoint: '/api/upload',
-  
+
   // Custom fetch function
   fetcher: async (input, init) => {
     const token = await getAuthToken()
@@ -385,7 +385,7 @@ export function AdvancedUpload() {
 The structured client provides superior TypeScript integration:
 
 ```typescript
-const upload = createUploadClient<AppRouter>({ endpoint: '/api/upload' })
+const { upload } = createUploadClient<AppRouter>({ endpoint: '/api/upload' })
 
 // ✅ IntelliSense shows available routes
 upload.imageUpload()      // Autocomplete suggests this
@@ -404,8 +404,8 @@ upload.imageUpload({
   onSuccess: (results) => {
     // `results` is fully typed based on your router configuration
     results.forEach(result => {
-      console.log(result.url)  // TypeScript knows this exists
-      console.log(result.key)  // And this
+      console.log(result.publicUrl)     // TypeScript knows this exists
+      console.log(result.storagePath)   // And this
     })
   }
 })

@@ -466,9 +466,9 @@ const config = createUploadConfig({
     bucket: "my-bucket",
     acl: "public-read", // Only for S3-compatible providers
   }),
-  onUploadComplete: async ({ file, url }) => {
+  onComplete: async ({ file, publicUrl }) => {
     // Verify file accessibility
-    const response = await fetch(url, { method: 'HEAD' });
+    const response = await fetch(publicUrl, { method: 'HEAD' });
     if (!response.ok) {
       console.error('File not publicly accessible:', response.status);
     }

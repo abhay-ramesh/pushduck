@@ -253,7 +253,7 @@ Configure pushduck to use your S3-compatible service:
 // lib/upload.ts
 import { createUploadConfig } from "pushduck/server";
 
-export const { s3, config } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("s3Compatible", {
     endpoint: process.env.S3_ENDPOINT!,
     bucket: process.env.S3_BUCKET_NAME!,
@@ -271,14 +271,14 @@ export const { s3, config } = createUploadConfig()
   })
   .build();
 
-export { s3 };
+export { upload };
 ```
 
 ### Advanced Configuration
 
 ```typescript
 // For services with specific requirements
-export const { s3, config } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("s3Compatible", {
     endpoint: process.env.S3_ENDPOINT!,
     bucket: process.env.S3_BUCKET_NAME!,
@@ -327,12 +327,12 @@ npm run dev
 // Create a simple test route
 // pages/api/test-upload.ts or app/api/test-upload/route.ts
 
-import { s3 } from '@/lib/upload';
+import { upload } from '@/lib/upload';
 
 export async function POST() {
   try {
     // Test creating an upload route
-    const imageUpload = s3.image().maxFileSize("5MB");
+    const imageUpload = upload.image().maxSize("5MB");
     
     return Response.json({ 
       success: true, 
@@ -365,7 +365,7 @@ Your S3-compatible storage is now configured! You can now:
 ### SeaweedFS
 
 ```typescript
-export const { s3, config } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("s3Compatible", {
     endpoint: "https://seaweedfs.yourdomain.com:8333",
     bucket: "uploads",
@@ -380,7 +380,7 @@ export const { s3, config } = createUploadConfig()
 ### Garage
 
 ```typescript
-export const { s3, config } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("s3Compatible", {
     endpoint: "https://garage.yourdomain.com",
     bucket: "my-app-files",
@@ -395,7 +395,7 @@ export const { s3, config } = createUploadConfig()
 ### Wasabi (Alternative to dedicated provider)
 
 ```typescript
-export const { s3, config } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("s3Compatible", {
     endpoint: "https://s3.wasabisys.com",
     bucket: "my-wasabi-bucket",
@@ -410,7 +410,7 @@ export const { s3, config } = createUploadConfig()
 ### Backblaze B2 (S3-Compatible API)
 
 ```typescript
-export const { s3, config } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("s3Compatible", {
     endpoint: "https://s3.us-west-000.backblazeb2.com",
     bucket: "my-b2-bucket",
@@ -496,14 +496,14 @@ validateConfig();
 ```typescript
 // Monitor storage service health
 .hooks({
-  onUploadStart: async ({ file }) => {
+  onStart: async ({ file }) => {
     // Check service availability
     const isHealthy = await checkStorageHealth();
     if (!isHealthy) {
       throw new Error("Storage service unavailable");
     }
   },
-  onUploadComplete: async ({ file, metadata }) => {
+  onComplete: async ({ file, metadata }) => {
     // Track successful uploads
     await analytics.track("upload_completed", {
       provider: "s3-compatible",
@@ -551,7 +551,7 @@ const getStorageMetrics = async () => {
 
 ```typescript
 // Optimize for high throughput
-export const { s3, config } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("s3Compatible", {
     // ... config
     maxRetries: 3,

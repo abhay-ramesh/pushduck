@@ -61,12 +61,12 @@ The path system works in **layers** that build upon each other:
 
 ```typescript
 // No path configuration
-const { s3 } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("aws", { /* config */ })
   .build();
 
-const router = s3.createRouter({
-  imageUpload: s3.image().maxFileSize("5MB"),
+const router = upload.createRouter({
+  imageUpload: upload.image().maxSize("5MB"),
 });
 ```
 
@@ -81,7 +81,7 @@ To organize files, explicitly configure the base structure that all uploads will
 ```typescript title="lib/upload.ts"
 import { createUploadConfig } from "pushduck/server";
 
-const { s3 } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     // ... provider config
   })
@@ -117,29 +117,29 @@ const { s3 } = createUploadConfig()
 Extend the global foundation with route-specific organization:
 
 ```typescript title="app/api/upload/route.ts"
-import { s3 } from "@/lib/upload";
+import { upload } from "@/lib/upload";
 
-const s3Router = s3.createRouter({
+const uploadRouter = upload.createRouter({
   // Images: uploads/images/{orgId}/{timestamp}/{randomId}/photo.jpg
-  imageUpload: s3
+  imageUpload: upload
     .image()
-    .maxFileSize("5MB")
+    .maxSize("5MB")
     .paths({
       prefix: "images", // Nests under global prefix
     }),
 
   // Documents: uploads/documents/{orgId}/{timestamp}/{randomId}/report.pdf  
-  documentUpload: s3
+  documentUpload: upload
     .file()
-    .maxFileSize("10MB")
+    .maxSize("10MB")
     .paths({
       prefix: "documents", // Nests under global prefix
     }),
 
   // General: uploads/{orgId}/{timestamp}/{randomId}/file.ext
-  generalUpload: s3
+  generalUpload: upload
     .file()
-    .maxFileSize("20MB")
+    .maxSize("20MB")
     // No .paths() - uses pure global configuration
 });
 ```
@@ -157,9 +157,9 @@ Override the default structure for specific use cases:
 <Tabs items={["Date-Based", "Category-Based", "Project-Based"]} groupId="path-patterns">
   <Tab value="Date-Based">
     ```typescript
-    galleryUpload: s3
+    galleryUpload: upload
       .image()
-      .maxFileSize("5MB")
+      .maxSize("5MB")
       .middleware(async ({ req }) => {
         // Your metadata structure - could be organizationId, projectId, etc.
         return { organizationId: await getOrgId(req) };
@@ -183,9 +183,9 @@ Override the default structure for specific use cases:
   
   <Tab value="Category-Based">
     ```typescript
-    productUpload: s3
+    productUpload: upload
       .image()
-      .maxFileSize("8MB")
+      .maxSize("8MB")
       .paths({
         generateKey: (ctx) => {
           const { file, metadata, globalConfig } = ctx;
@@ -204,9 +204,9 @@ Override the default structure for specific use cases:
   
   <Tab value="Project-Based">
     ```typescript
-    projectAssets: s3
+    projectAssets: upload
       .image()
-      .maxFileSize("2MB")
+      .maxSize("2MB")
       .middleware(async ({ req }) => {
         // Your metadata - could be projectId, teamId, workspaceId, etc.
         return { projectId: await getProjectId(req) };
@@ -232,7 +232,7 @@ Override the default structure for specific use cases:
 Organize files by environment for clean separation:
 
 ```typescript title="lib/upload.ts"
-const { s3 } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     // ... provider config
   })
@@ -344,12 +344,12 @@ When using custom `generateKey` functions at the route level, you receive a cont
 ### E-commerce Platform
 
 ```typescript title="app/api/upload/route.ts"
-const s3Router = s3.createRouter({
+const uploadRouter = upload.createRouter({
   // Product images: uploads/products/{category}/{productId}/images/photo.jpg
-  productImages: s3
+  productImages: upload
     .image()
-    .maxFileSize("8MB")
-    .formats(["jpeg", "png", "webp"])
+    .maxSize("8MB")
+    .accept(['image/jpeg', 'image/png', 'image/webp'])
     .middleware(async ({ req }) => {
       const { productId, category } = await getProductContext(req);
       return { productId, category, userId: await getUserId(req) };
@@ -364,10 +364,10 @@ const s3Router = s3.createRouter({
 
   // User avatars: uploads/users/{userId}/avatar/profile.jpg
   // Note: This example uses userId, but you can use any metadata structure
-  userAvatar: s3
+  userAvatar: upload
     .image()
-    .maxFileSize("2MB")
-    .formats(["jpeg", "png", "webp"])
+    .maxSize("2MB")
+    .accept(['image/jpeg', 'image/png', 'image/webp'])
     .middleware(async ({ req }) => {
       // Your metadata structure - could be userId, accountId, memberId, etc.
       const userId = await getUserId(req);
@@ -382,10 +382,10 @@ const s3Router = s3.createRouter({
     }),
 
   // Order documents: uploads/orders/{orderId}/documents/{timestamp}/receipt.pdf
-  orderDocuments: s3
+  orderDocuments: upload
     .file()
-    .maxFileSize("10MB")
-    .types(["application/pdf", "image/*"])
+    .maxSize("10MB")
+    .accept(["application/pdf", "image/*"])
     .middleware(async ({ req }) => {
       const { orderId } = await getOrderContext(req);
       return { orderId, uploadedAt: new Date().toISOString() };
@@ -403,11 +403,11 @@ const s3Router = s3.createRouter({
 ### Content Management System
 
 ```typescript title="app/api/upload/route.ts"
-const s3Router = s3.createRouter({
+const uploadRouter = upload.createRouter({
   // Media library: uploads/media/{year}/{month}/{type}/filename.ext
-  mediaLibrary: s3
+  mediaLibrary: upload
     .file()
-    .maxFileSize("50MB")
+    .maxSize("50MB")
     .middleware(async ({ req, file }) => {
       const userId = await getUserId(req);
       const mediaType = file.type.split('/')[0]; // image, video, audio
@@ -426,9 +426,9 @@ const s3Router = s3.createRouter({
     }),
 
   // Page assets: uploads/pages/{pageSlug}/assets/image.jpg
-  pageAssets: s3
+  pageAssets: upload
     .image()
-    .maxFileSize("10MB")
+    .maxSize("10MB")
     .middleware(async ({ req }) => {
       const { pageSlug } = await getPageContext(req);
       return { pageSlug, userId: await getUserId(req) };
@@ -441,9 +441,9 @@ const s3Router = s3.createRouter({
     }),
 
   // Temp uploads: uploads/temp/{userId}/{sessionId}/file.ext
-  tempUploads: s3
+  tempUploads: upload
     .file()
-    .maxFileSize("20MB")
+    .maxSize("20MB")
     .middleware(async ({ req }) => {
       const userId = await getUserId(req);
       const sessionId = req.headers.get('x-session-id') || 'unknown';
@@ -539,14 +539,14 @@ const sanitizePathSegment = (input: string) => {
 
 ```typescript
 // Old way - simple prefix only
-export const { POST, GET } = s3Router.handlers;
+export const { POST, GET } = uploadRouter.handlers;
 ```
 
 ### After (Hierarchical)
 
 ```typescript
 // New way - hierarchical configuration
-const { s3 } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{ /* config */ })
   .paths({
     prefix: "uploads",
@@ -558,9 +558,9 @@ const { s3 } = createUploadConfig()
   })
   .build();
 
-const s3Router = s3.createRouter({
-  images: s3.image().paths({ prefix: "images" }),
-  documents: s3.file().paths({ prefix: "documents" })
+const uploadRouter = upload.createRouter({
+  images: upload.image().paths({ prefix: "images" }),
+  documents: upload.file().paths({ prefix: "documents" })
 });
 ```
 

@@ -96,8 +96,8 @@ Upgrade to the new property-based client API for enhanced type safety, better de
     ```typescript title="lib/upload-client.ts"
     import { createUploadClient } from 'pushduck/client'
     import type { AppRouter } from './upload' // Your router type
-    
-    export const upload = createUploadClient<AppRouter>({
+
+    export const { upload, useUpload } = createUploadClient<AppRouter>({
       endpoint: '/api/upload'
     })
     ```
@@ -298,7 +298,7 @@ Upgrade to the new property-based client API for enhanced type safety, better de
       
       const handleImageUpload = async (files: File[]) => {
         const results = await uploadFiles(files)
-        setValue('images', results.map(r => r.url))
+        setValue('images', results.map(r => r.publicUrl))
       }
       
       return (
@@ -426,12 +426,12 @@ Upgrade to the new property-based client API for enhanced type safety, better de
 
 ```typescript
 // ❌ Missing router type
-export const upload = createUploadClient({
+export const { upload } = createUploadClient({
   endpoint: "/api/upload",
 });
 
 // ✅ With proper typing
-export const upload = createUploadClient<AppRouter>({
+export const { upload, useUpload } = createUploadClient<AppRouter>({
   endpoint: "/api/upload",
 });
 ```

@@ -58,8 +58,8 @@ Client metadata bridges the gap between UI context and server-side processing:
     
     ```typescript
     // app/api/upload/route.ts
-    const s3Router = s3.createRouter({
-      imageUpload: s3.image()
+    const uploadRouter = upload.createRouter({
+      imageUpload: upload.image()
         .middleware(async ({ req, metadata }) => {
           const user = await authenticateUser(req);
           
@@ -82,10 +82,10 @@ Client metadata bridges the gap between UI context and server-side processing:
         return `users/${ctx.metadata.userId}/albums/${ctx.metadata.albumId}/${ctx.file.name}`;
       }
     })
-    .onUploadComplete(async ({ metadata, url }) => {
+    .onComplete(async ({ metadata, publicUrl }) => {
       // Metadata available in lifecycle hooks
       await db.images.create({
-        url,
+        url: publicUrl,
         albumId: metadata.albumId,
         tags: metadata.tags,
         userId: metadata.userId
@@ -247,12 +247,12 @@ export function ProductImageManager({ product }: { product: Product }) {
     return `products/${metadata.productId}${variantPath}/${metadata.imageType}/${metadata.sortOrder}-${file.name}`;
   }
 })
-.onUploadComplete(async ({ metadata, url }) => {
+.onComplete(async ({ metadata, publicUrl }) => {
   await db.productImages.create({
     productId: metadata.productId,
     variantId: metadata.variantId,
     type: metadata.imageType,
-    url: url,
+    url: publicUrl,
     sortOrder: metadata.sortOrder,
     altText: metadata.altText
   });

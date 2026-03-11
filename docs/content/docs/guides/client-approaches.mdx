@@ -25,10 +25,10 @@ Pushduck provides **two ways** to integrate file uploads in your React component
     description="Property-based access with optional per-route configuration"
   >
     ```typescript
-    const upload = createUploadClient<AppRouter>({
+    const { upload } = createUploadClient<AppRouter>({
       endpoint: '/api/upload'
     })
-    
+
     // Simple usage
     const { uploadFiles, files } = upload.imageUpload()
     
@@ -84,7 +84,7 @@ Both approaches now return **exactly the same** properties and accept **exactly 
 // Hook-Based Approach
 const {
   uploadFiles,    // (files: File[]) => Promise<void>
-  files,          // S3UploadedFile[]
+  files,          // UploadedFile[]
   isUploading,    // boolean
   errors,         // string[]
   reset,          // () => void
@@ -103,7 +103,7 @@ const {
 // Enhanced Structured Client - IDENTICAL capabilities
 const {
   uploadFiles,    // (files: File[]) => Promise<void>
-  files,          // S3UploadedFile[]
+  files,          // UploadedFile[]
   isUploading,    // boolean
   errors,         // string[]
   reset,          // () => void
@@ -126,7 +126,7 @@ Both approaches support **identical configuration options**:
 
 ```typescript
 interface CommonUploadOptions {
-  onStart?: (files: S3FileMetadata[]) => void;
+  onStart?: (files: FileMetadata[]) => void;
   onSuccess?: (results: UploadResult[]) => void;
   onError?: (error: Error) => void;
   onProgress?: (progress: number) => void;
@@ -145,14 +145,14 @@ Both approaches return **identical properties**:
 ```typescript
 interface CommonUploadReturn {
   uploadFiles: (files: File[]) => Promise<void>;
-  files: S3UploadedFile[];
+  files: UploadedFile[];
   isUploading: boolean;
   errors: string[];
   reset: () => void;
-  
+
   // Overall progress tracking (NEW in both!)
   progress?: number;     // 0-100 percentage across all files
-  uploadSpeed?: number;  // bytes per second across all files  
+  uploadSpeed?: number;  // bytes per second across all files
   eta?: number;          // seconds remaining for all files
 }
 ```
@@ -165,7 +165,7 @@ interface CommonUploadReturn {
 import { createUploadClient } from 'pushduck/client'
 import type { AppRouter } from '@/lib/upload'
 
-const upload = createUploadClient<AppRouter>({ endpoint: '/api/upload' })
+const { upload } = createUploadClient<AppRouter>({ endpoint: '/api/upload' })
 
 export function SimpleUpload() {
   const { uploadFiles, files, isUploading } = upload.imageUpload()
@@ -195,7 +195,7 @@ export function AdvancedUpload() {
       onSuccess: (results) => {
         console.log('✅ Upload successful!', results)
         results.forEach(file => {
-          console.log('Public URL:', file.url);           // Permanent access
+          console.log('Public URL:', file.publicUrl);        // Permanent access
           console.log('Download URL:', file.presignedUrl); // Temporary access (1 hour)
         });
         showNotification('Images uploaded successfully!')
@@ -241,9 +241,9 @@ export function MultiUploadComponent() {
       updateDocumentLibrary(results.map(file => ({
         id: file.id,
         name: file.name,
-        downloadUrl: file.presignedUrl,   // Secure, time-limited access
-        permanentUrl: file.url,           // For internal operations
-        key: file.key
+        downloadUrl: file.presignedUrl,       // Secure, time-limited access
+        permanentUrl: file.publicUrl,         // For internal operations
+        storagePath: file.storagePath
       })));
     }
   })
@@ -266,9 +266,9 @@ export function MultiUploadComponent() {
 ### Global Configuration with Per-Route Overrides
 
 ```typescript
-const upload = createUploadClient<AppRouter>({
+const { upload } = createUploadClient<AppRouter>({
   endpoint: '/api/upload',
-  
+
   // Global defaults (optional)
   defaultOptions: {
     onStart: (files) => console.log(`Starting upload of ${files.length} files`),
@@ -324,7 +324,7 @@ const { uploadFiles, files } = useUploadRoute<AppRouter>('imageUpload', {
 })
 
 // After: Enhanced structured client
-const upload = createUploadClient<AppRouter>({ endpoint: '/api/upload' })
+const { upload } = createUploadClient<AppRouter>({ endpoint: '/api/upload' })
 const { uploadFiles, files } = upload.imageUpload({
   onStart: handleStart,
   onSuccess: handleSuccess,
@@ -509,7 +509,7 @@ The enhanced structured client adds zero runtime overhead while providing compil
     **Structured Client:**
     ```typescript
     // lib/upload-client.ts
-    export const upload = createUploadClient<AppRouter>({
+    export const { upload } = createUploadClient<AppRouter>({
       endpoint: '/api/upload',
       headers: {
         Authorization: `Bearer ${getAuthToken()}`

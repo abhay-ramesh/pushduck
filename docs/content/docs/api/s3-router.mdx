@@ -11,13 +11,13 @@ The S3 router provides a type-safe way to define upload endpoints with schema va
 
 ```typescript title="app/api/upload/route.ts"
 // app/api/upload/route.ts
-import { s3 } from '@/lib/upload'
+import { upload } from '@/lib/upload'
 
-const s3Router = s3.createRouter({
-  imageUpload: s3
+const uploadRouter = upload.createRouter({
+  imageUpload: upload
     .image()
-    .maxFileSize('5MB')
-    .formats(['jpeg', 'jpg', 'png', 'webp'])
+    .maxSize('5MB')
+    .accept(['image/jpeg', 'image/png', 'image/webp'])
     .middleware(async ({ file, metadata }) => { // [!code highlight]
       // Add authentication and user context
       return {
@@ -27,17 +27,17 @@ const s3Router = s3.createRouter({
       }
     }),
 
-  documentUpload: s3
+  documentUpload: upload
     .file()
-    .maxFileSize('10MB')
-    .types(['application/pdf', 'text/plain'])
+    .maxSize('10MB')
+    .accept(['application/pdf', 'text/plain'])
     .paths({
       prefix: 'documents',
     }),
 })
 
 // Export the handler
-export const { GET, POST } = s3Router.handlers; // [!code highlight]
+export const { GET, POST } = uploadRouter.handlers; // [!code highlight]
 ```
 
 ## Schema Builders
@@ -45,9 +45,9 @@ export const { GET, POST } = s3Router.handlers; // [!code highlight]
 ### Image Schema
 
 ```typescript title="Image Schema Configuration"
-s3.image()
-  .maxFileSize('5MB') // [!code highlight]
-  .formats(['jpeg', 'jpg', 'png', 'webp', 'gif'])
+upload.image()
+  .maxSize('5MB') // [!code highlight]
+  .accept(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
   .dimensions({ minWidth: 100, maxWidth: 2000 })
   .quality(0.8) // JPEG quality
 ```
@@ -55,19 +55,19 @@ s3.image()
 ### File Schema
 
 ```typescript title="File Schema Configuration"
-s3.file()
-  .maxFileSize('10MB') // [!code highlight]
-  .types(['application/pdf', 'text/plain', 'application/json'])
-  .extensions(['pdf', 'txt', 'json'])
+upload.file()
+  .maxSize('10MB') // [!code highlight]
+  .accept(['application/pdf', 'text/plain', 'application/json'])
+  .accept(['.pdf', '.txt', '.json'])
 ```
 
 ### Object Schema (Multiple Files)
 
 ```typescript title="Object Schema Configuration"
-s3.object({
-  images: s3.image().maxFileSize('5MB').maxFiles(5), // [!code highlight]
-  documents: s3.file().maxFileSize('10MB').maxFiles(2),
-  thumbnail: s3.image().maxFileSize('1MB').maxFiles(1),
+upload.object({
+  images: upload.image().maxSize('5MB').maxFiles(5), // [!code highlight]
+  documents: upload.file().maxSize('10MB').maxFiles(2),
+  thumbnail: upload.image().maxSize('1MB').maxFiles(1),
 })
 ```
 
@@ -178,9 +178,9 @@ Control where files are stored:
 React to upload events:
 
 ```typescript
-.onUploadStart(async ({ file, metadata }) => {
+.onStart(async ({ file, metadata }) => {
   console.log(`Starting upload: ${file.name}`)
-  
+
   // Log to analytics
   await analytics.track('upload_started', {
     userId: metadata.userId,
@@ -189,19 +189,20 @@ React to upload events:
   })
 })
 
-.onUploadComplete(async ({ file, url, metadata }) => {
-  console.log(`Upload complete: ${file.name} -> ${url}`)
-  
+.onComplete(async ({ file, publicUrl, storagePath, metadata }) => {
+  console.log(`Upload complete: ${file.name} -> ${publicUrl}`)
+
   // Save to database
   await db.files.create({
     filename: file.name,
-    url,
+    url: publicUrl,
+    storagePath,
     userId: metadata.userId,
     size: file.size,
     contentType: file.type,
     uploadedAt: new Date(),
   })
-  
+
   // Send notification
   await notificationService.send({
     userId: metadata.userId,
@@ -210,9 +211,9 @@ React to upload events:
   })
 })
 
-.onUploadError(async ({ file, error, metadata }) => {
+.onError(async ({ file, error, metadata }) => {
   console.error(`Upload failed: ${file.name}`, error)
-  
+
   // Log error
   await errorLogger.log({
     operation: 'file_upload',
@@ -229,15 +230,15 @@ Control how long the generated presigned upload URL remains valid. Defaults to `
 
 ```typescript
 // Short-lived window — 5 minutes
-secureUpload: s3
+secureUpload: upload
   .file()
-  .maxFileSize('10MB')
+  .maxSize('10MB')
   .expiresIn(300) // [!code highlight]
 
 // Extended window for large files — 2 hours
-largeFileUpload: s3
+largeFileUpload: upload
   .file()
-  .maxFileSize('500MB')
+  .maxSize('500MB')
   .expiresIn(7200) // [!code highlight]
 ```
 
@@ -255,11 +256,11 @@ largeFileUpload: s3
 ### E-commerce Product Images
 
 ```typescript
-const productRouter = s3.createRouter({
-  productImages: s3
+const productRouter = upload.createRouter({
+  productImages: upload
     .image()
-    .maxFileSize('5MB')
-    .formats(['jpeg', 'jpg', 'png', 'webp'])
+    .maxSize('5MB')
+    .accept(['image/jpeg', 'image/png', 'image/webp'])
     .dimensions({ minWidth: 800, maxWidth: 2000 })
     .middleware(async ({ metadata, req }) => {
       const user = await authenticateUser(req)
@@ -287,29 +288,30 @@ const productRouter = s3.createRouter({
         return `products/${metadata.productId}/images/${Date.now()}.jpg`
       }
     })
-    .onUploadComplete(async ({ url, metadata }) => {
+    .onComplete(async ({ publicUrl, storagePath, metadata }) => {
       // Update product with new image
       await db.products.update({
         where: { id: metadata.productId },
         data: {
           images: {
-            push: url
+            push: publicUrl
           }
         }
       })
     }),
 
-  productDocuments: s3
+  productDocuments: upload
     .file()
-    .maxFileSize('10MB')
-    .types(['application/pdf'])
+    .maxSize('10MB')
+    .accept(['application/pdf'])
     .paths({
       prefix: 'product-docs',
     })
-    .onUploadComplete(async ({ url, metadata }) => {
+    .onComplete(async ({ publicUrl, storagePath, metadata }) => {
       await db.productDocuments.create({
         productId: metadata.productId,
-        documentUrl: url,
+        documentUrl: publicUrl,
+        storagePath,
         type: 'specification',
       })
     }),
@@ -319,11 +321,11 @@ const productRouter = s3.createRouter({
 ### User Profile System
 
 ```typescript
-const profileRouter = s3.createRouter({
-  avatar: s3
+const profileRouter = upload.createRouter({
+  avatar: upload
     .image()
-    .maxFileSize('2MB')
-    .formats(['jpeg', 'jpg', 'png'])
+    .maxSize('2MB')
+    .accept(['image/jpeg', 'image/png'])
     .dimensions({ minWidth: 100, maxWidth: 500 })
     .middleware(async ({ req }) => {
       const user = await authenticateUser(req)
@@ -334,21 +336,21 @@ const profileRouter = s3.createRouter({
         return `users/${ctx.metadata.userId}/avatar.jpg`
       }
     })
-    .onUploadComplete(async ({ url, metadata }) => {
+    .onComplete(async ({ publicUrl, metadata }) => {
       // Update user profile
       await db.users.update({
         where: { id: metadata.userId },
-        data: { avatarUrl: url }
+        data: { avatarUrl: publicUrl }
       })
-      
+
       // Invalidate cache
       await cache.del(`user:${metadata.userId}`)
     }),
 
-  documents: s3
+  documents: upload
     .object({
-      resume: s3.file().maxFileSize('5MB').types(['application/pdf']).maxFiles(1),
-      portfolio: s3.file().maxFileSize('10MB').maxFiles(3),
+      resume: upload.file().maxSize('5MB').accept(['application/pdf']).maxFiles(1),
+      portfolio: upload.file().maxSize('10MB').maxFiles(3),
     })
     .middleware(async ({ req }) => {
       const user = await authenticateUser(req)
@@ -366,10 +368,10 @@ Once you have your router set up, use it from the client:
 
 ```typescript
 // components/FileUploader.tsx
-import { useUploadRoute } from 'pushduck'
+import { useUpload } from 'pushduck'
 
 export function FileUploader() {
-  const { upload, isUploading } = useUploadRoute('imageUpload')
+  const { upload, isUploading } = useUpload('imageUpload')
 
   const handleUpload = async (files: FileList) => {
     try {
@@ -406,7 +408,7 @@ The router provides full TypeScript support:
 
 ```typescript
 // Types are automatically inferred
-type RouterType = typeof s3Router
+type RouterType = typeof uploadRouter
 
 // Get route names
 type RouteNames = keyof RouterType // 'imageUpload' | 'documentUpload'

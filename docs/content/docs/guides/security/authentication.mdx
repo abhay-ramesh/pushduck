@@ -26,12 +26,12 @@ Secure your file upload endpoints with robust authentication and authorization m
 Modern, type-safe authentication with native TypeScript support:
 
 ```typescript
-import { s3 } from "@/lib/upload";
+import { upload } from "@/lib/upload";
 import { auth } from "@/lib/auth"; // Better Auth instance
 
-const s3Router = s3.createRouter({
-  userFiles: s3.image()
-    .maxFileSize("5MB")
+const uploadRouter = upload.createRouter({
+  userFiles: upload.image()
+    .maxSize("5MB")
     .maxFiles(10)
     .middleware(async ({ req, metadata }) => {
       const session = await auth.api.getSession({ headers: req.headers });
@@ -48,19 +48,19 @@ const s3Router = s3.createRouter({
     }),
 });
 
-export const { GET, POST } = s3Router.handlers;
+export const { GET, POST } = uploadRouter.handlers;
 ```
 
 ### NextAuth.js Integration
 
 ```typescript
-import { s3 } from "@/lib/upload";
+import { upload } from "@/lib/upload";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-const s3Router = s3.createRouter({
-  userFiles: s3.image()
-    .maxFileSize("5MB")
+const uploadRouter = upload.createRouter({
+  userFiles: upload.image()
+    .maxSize("5MB")
     .maxFiles(10)
     .middleware(async ({ req, metadata }) => {
       const session = await getServerSession(authOptions);
@@ -77,7 +77,7 @@ const s3Router = s3.createRouter({
     }),
 });
 
-export const { GET, POST } = s3Router.handlers;
+export const { GET, POST } = uploadRouter.handlers;
 ```
 
 ### JWT Token Validation
@@ -85,9 +85,9 @@ export const { GET, POST } = s3Router.handlers;
 ```typescript
 import jwt from "jsonwebtoken";
 
-const s3Router = s3.createRouter({
-  protectedUploads: s3.file()
-    .maxFileSize("10MB")
+const uploadRouter = upload.createRouter({
+  protectedUploads: upload.file()
+    .maxSize("10MB")
     .maxFiles(5)
     .middleware(async ({ req, metadata }) => {
       const token = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -114,11 +114,11 @@ const s3Router = s3.createRouter({
 ### Custom Authentication
 
 ```typescript
-const s3Router = s3.createRouter({
-  apiKeyUploads: s3.file()
-    .maxFileSize("25MB")
+const uploadRouter = upload.createRouter({
+  apiKeyUploads: upload.file()
+    .maxSize("25MB")
     .maxFiles(1)
-    .types(['application/pdf', 'application/msword'])
+    .accept(['application/pdf', 'application/msword'])
     .middleware(async ({ req, metadata }) => {
       const apiKey = req.headers.get("x-api-key");
 
@@ -148,9 +148,9 @@ const s3Router = s3.createRouter({
 For apps with admins vs regular users:
 
 ```typescript
-const s3Router = s3.createRouter({
-  adminUploads: s3.file()
-    .maxFileSize("100MB")
+const uploadRouter = upload.createRouter({
+  adminUploads: upload.file()
+    .maxSize("100MB")
     .middleware(async ({ req, metadata }) => {
       const { userId, role } = await authenticateUser(req);
       

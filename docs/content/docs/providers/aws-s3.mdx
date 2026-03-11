@@ -304,7 +304,7 @@ Set up pushduck with your AWS S3 configuration:
 // lib/upload.ts
 import { createUploadConfig } from "pushduck/server";
 
-export const { s3, config } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("aws", {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -319,7 +319,7 @@ export const { s3, config } = createUploadConfig()
   })
   .build();
 
-export { s3 };
+export { upload };
 ```
 
 <Callout type="info">

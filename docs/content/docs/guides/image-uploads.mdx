@@ -25,24 +25,24 @@ Handle image uploads with built-in optimization, validation, and processing feat
 
 ```typescript
 // app/api/upload/route.ts
-import { s3 } from "@/lib/upload";
+import { upload } from "@/lib/upload";
 
-const s3Router = s3.createRouter({
+const uploadRouter = upload.createRouter({
   // Basic image upload
-  profilePicture: s3.image()
-    .maxFileSize('5MB')
+  profilePicture: upload.image()
+    .maxSize('5MB')
     .maxFiles(1)
-    .formats(['jpeg', 'png', 'webp']),
+    .accept(['image/jpeg', 'image/png', 'image/webp']),
 
   // Multiple images with optimization
-  galleryImages: s3.image()
-    .maxFileSize('10MB')
+  galleryImages: upload.image()
+    .maxSize('10MB')
     .maxFiles(10)
-    .formats(['jpeg', 'png', 'webp', 'gif']),
+    .accept(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
 });
 
-export type AppS3Router = typeof s3Router;
-export const { GET, POST } = s3Router.handlers;
+export type AppRouter = typeof uploadRouter;
+export const { GET, POST } = uploadRouter.handlers;
 ```
 
 ### Client Implementation
@@ -73,7 +73,7 @@ export function ImageUploader() {
         {files.map((file) => (
           <div key={file.id} className="image-preview">
             {file.status === "success" && (
-              <img src={file.presignedUrl || file.url} alt={file.name} className="preview-image" />
+              <img src={file.presignedUrl || file.publicUrl} alt={file.name} className="preview-image" />
             )}
             {file.status === "uploading" && (
               <div className="upload-progress">
@@ -212,11 +212,11 @@ export function GalleryUpload() {
 />
 
 ```typescript
-const s3Router = s3.createRouter({
-  productImages: s3.image()
-    .maxFileSize('8MB')
+const uploadRouter = upload.createRouter({
+  productImages: upload.image()
+    .maxSize('8MB')
     .maxFiles(5)
-    .formats(['jpeg', 'png', 'webp'])
+    .accept(['image/jpeg', 'image/png', 'image/webp'])
     .dimensions({
       minWidth: 800,
       maxWidth: 4000,
@@ -253,7 +253,7 @@ const s3Router = s3.createRouter({
 ## Image Processing Integration
 
 <Callout type="info">
-**⚠️ Important:** Pushduck handles **file uploads only**. Image processing (resizing, optimization, format conversion) requires external tools. The examples below show **integration patterns** using `.onUploadComplete()` hooks.
+**⚠️ Important:** Pushduck handles **file uploads only**. Image processing (resizing, optimization, format conversion) requires external tools. The examples below show **integration patterns** using `.onComplete()` hooks.
 
 **Popular image processing tools:**
 - **Sharp** - Fast Node.js processing (recommended)
@@ -280,15 +280,15 @@ See [Philosophy](/docs/philosophy#what-pushduck-doesnt-do) for why we don't incl
 // First: npm install sharp
 import sharp from 'sharp';
 
-const s3Router = s3.createRouter({
-  optimizedImages: s3.image()
-    .maxFileSize('15MB')
+const uploadRouter = upload.createRouter({
+  optimizedImages: upload.image()
+    .maxSize('15MB')
     .maxFiles(10)
-    .formats(['jpeg', 'png', 'webp'])
+    .accept(['image/jpeg', 'image/png', 'image/webp'])
     .dimensions({ maxWidth: 1920, maxHeight: 1080 })
-    .onUploadComplete(async ({ file, url, metadata }) => {
+    .onComplete(async ({ file, publicUrl, metadata }) => {
       // ⚠️ This downloads the file from S3 (inbound bandwidth)
-      const imageBuffer = await fetch(url).then(r => r.arrayBuffer());
+      const imageBuffer = await fetch(publicUrl).then(r => r.arrayBuffer());
       
       // Process with Sharp (external tool)
       const variants = await Promise.all([
@@ -374,15 +374,15 @@ export function ClientSideImageUpload() {
 </Callout>
 
 ```typescript
-const s3Router = s3.createRouter({
-  images: s3.image()
-    .maxFileSize('10MB')
-    .onUploadComplete(async ({ file, url, metadata }) => {
+const uploadRouter = upload.createRouter({
+  images: upload.image()
+    .maxSize('10MB')
+    .onComplete(async ({ file, publicUrl, storagePath, metadata }) => {
       // Save original URL - NO download needed
       await db.images.create({
         userId: metadata.userId,
-        originalUrl: url,
-        s3Key: file.key,
+        originalUrl: publicUrl,
+        storagePath,
       });
       
       // ✅ Cloudinary can fetch from your S3 URL and transform
@@ -422,19 +422,19 @@ const imageVariants: ImageVariant[] = [
   { name: "xlarge", width: 1920, quality: 90 },
 ];
 
-const s3Router = s3.createRouter({
-  responsiveImages: s3.image()
-    .maxFileSize('20MB')
+const uploadRouter = upload.createRouter({
+  responsiveImages: upload.image()
+    .maxSize('20MB')
     .maxFiles(5)
-    .formats(['jpeg', 'png', 'webp'])
-    .onUploadComplete(async ({ file, url, metadata }) => {
+    .accept(['image/jpeg', 'image/png', 'image/webp'])
+    .onComplete(async ({ file, publicUrl, storagePath, metadata }) => {
       // Generate responsive variants
       const variants = await Promise.all(
         imageVariants.map((variant) => generateImageVariant(file, variant))
       );
 
       // Save variant information to database
-      await saveImageVariants(file.key, variants, metadata.userId);
+      await saveImageVariants(storagePath, variants, metadata.userId);
   }),
 });
 
@@ -642,12 +642,12 @@ export function ResponsiveImage({
   <Tab value="Upload Handler">
     ```typescript
     // Server-side image processing after upload
-    const s3Router = s3.createRouter({
-      profilePicture: s3.image()
-        .maxFileSize('10MB')
+    const uploadRouter = upload.createRouter({
+      profilePicture: upload.image()
+        .maxSize('10MB')
         .maxFiles(1)
-        .formats(['jpeg', 'png', 'webp'])
-        .onUploadComplete(async ({ file, url, metadata }) => {
+        .accept(['image/jpeg', 'image/png', 'image/webp'])
+        .onComplete(async ({ file, publicUrl, storagePath, metadata }) => {
           // Generate avatar sizes
           await Promise.all([
             generateImageVariant(file, {
@@ -672,13 +672,13 @@ export function ResponsiveImage({
               quality: 95
             })
           ])
-          
+
           // Update user profile with new avatar
           await updateUserAvatar(metadata.userId, {
-            original: url,
-            small: getVariantUrl(file.key, 'avatar-small'),
-            medium: getVariantUrl(file.key, 'avatar-medium'),
-            large: getVariantUrl(file.key, 'avatar-large')
+            original: publicUrl,
+            small: getVariantUrl(storagePath, 'avatar-small'),
+            medium: getVariantUrl(storagePath, 'avatar-medium'),
+            large: getVariantUrl(storagePath, 'avatar-large')
           })
       })
     })
@@ -737,7 +737,7 @@ export function ImageGalleryUploader() {
             <div key={file.id} className="image-item">
               {file.status === "success" && (
                 <div className="image-wrapper">
-                  <img src={file.presignedUrl || file.url} alt={file.name} />
+                  <img src={file.presignedUrl || file.publicUrl} alt={file.name} />
                   <button
                     className="remove-button"
                     onClick={() => removeFile(file.id)}
@@ -792,11 +792,11 @@ export function ImageGalleryUploader() {
 ### Image Upload with Metadata
 
 ```typescript
-const s3Router = s3.createRouter({
-  portfolioImages: s3.image()
-    .maxFileSize('15MB')
+const uploadRouter = upload.createRouter({
+  portfolioImages: upload.image()
+    .maxSize('15MB')
     .maxFiles(20)
-    .formats(['jpeg', 'png', 'webp'])
+    .accept(['image/jpeg', 'image/png', 'image/webp'])
     .middleware(async ({ req, file, metadata }) => {
       const { userId } = await authenticateUser(req);
 
@@ -814,12 +814,12 @@ const s3Router = s3.createRouter({
         ...imageMetadata,
         };
     })
-    .onUploadComplete(async ({ file, url, metadata }) => {
+    .onComplete(async ({ file, publicUrl, storagePath, metadata }) => {
       // Save detailed image information
         await saveImageToDatabase({
         userId: metadata.userId,
-          s3Key: file.key,
-        url: url,
+          storagePath,
+        url: publicUrl,
         filename: metadata.originalFilename,
           size: file.size,
           dimensions: {

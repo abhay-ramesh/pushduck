@@ -66,7 +66,7 @@ First, create your upload configuration:
 import { createUploadConfig } from "pushduck/server";
 
 // Configure your S3-compatible storage
-export const { s3, storage } = createUploadConfig()  
+export const { upload, storage } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
     secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
@@ -88,27 +88,27 @@ Create an API route to handle file uploads:
 
 ```typescript
 // app/api/s3-upload/route.ts
-import { s3 } from "@/lib/upload";
+import { upload } from "@/lib/upload";
 
-const s3Router = s3.createRouter({
+const uploadRouter = upload.createRouter({
   // Define your upload routes with validation
-  imageUpload: s3
+  imageUpload: upload
     .image()
-    .maxFileSize("10MB")
-    .formats(["jpg", "jpeg", "png", "webp"]),
+    .maxSize("10MB")
+    .accept(['image/jpeg', 'image/png', 'image/webp']),
 
-  documentUpload: s3.file().maxFileSize("50MB").types(["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]),
+  documentUpload: upload.file().maxSize("50MB").accept(["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]),
 });
 
-export const { GET, POST } = s3Router.handlers;
+export const { GET, POST } = uploadRouter.handlers;
 
 // Export the router type for client-side type safety
-export type Router = typeof s3Router;
+export type Router = typeof uploadRouter;
 ```
 
 <Callout type="info">
-  **What's happening here?** - `s3.createRouter()` creates a type-safe upload
-  handler - `s3.image()` and `s3.file()` provide validation and TypeScript
+  **What's happening here?** - `upload.createRouter()` creates a type-safe upload
+  handler - `upload.image()` and `upload.file()` provide validation and TypeScript
   inference - The router automatically handles presigned URLs, validation, and
   errors - Exporting the type enables full client-side type safety
 </Callout>
@@ -191,9 +191,9 @@ export function ImageUploader() {
       {uploadedFiles.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {uploadedFiles.map((file) => (
-            <div key={file.key} className="space-y-2">
+            <div key={file.storagePath} className="space-y-2">
               <img
-                src={file.url}
+                src={file.publicUrl}
                 alt="Uploaded image"
                 className="w-full h-32 object-cover rounded-lg border"
               />

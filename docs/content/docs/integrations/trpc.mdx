@@ -84,7 +84,7 @@ graph TD
     import { createUploadConfig } from 'pushduck/server';
 
     // Configure storage
-    export const { s3, storage, createS3Router } = createUploadConfig()
+    export const { upload, storage } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -96,9 +96,9 @@ graph TD
       .build();
 
     // Upload router for framework routes
-    export const uploadRouter = createS3Router({
-      imageUpload: s3.image().maxFileSize("5MB"),
-      documentUpload: s3.file().maxFileSize("10MB")
+    export const uploadRouter = upload.createRouter({
+      imageUpload: upload.image().maxSize("5MB"),
+      documentUpload: upload.file().maxSize("10MB")
     });
 
     export type AppUploadRouter = typeof uploadRouter;
@@ -752,7 +752,7 @@ export const storage = createStorage(config).middleware?.(async (operation, para
 });
 
 // Upload debug logging  
-export const uploadRouter = createS3Router({
+export const uploadRouter = upload.createRouter({
   // ... routes
 }).middleware(async ({ req, file }) => {
   if (debugConfig.storage) {

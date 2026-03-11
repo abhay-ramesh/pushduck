@@ -252,12 +252,12 @@ import { s3 } from '@/lib/upload'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
-const s3Router = s3.createRouter({
+const s3Router = upload.createRouter({
   // Image uploads for profile pictures
-  imageUpload: s3.image()
-    .maxFileSize("5MB")
+  imageUpload: upload.image()
+    .maxSize("5MB")
     .maxFiles(1)
-    .formats(["jpeg", "png", "webp"])
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ req, metadata }) => {
       const session = await getServerSession(authOptions)
       
@@ -273,8 +273,8 @@ const s3Router = s3.createRouter({
     }),
 
   // Document uploads
-  documentUpload: s3.file()
-    .maxFileSize("10MB")
+  documentUpload: upload.file()
+    .maxSize("10MB")
     .maxFiles(5)
     .types(["application/pdf", "text/plain", "application/msword"])
     .middleware(async ({ req, metadata }) => {
