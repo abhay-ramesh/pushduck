@@ -3,7 +3,6 @@
 import { upload } from "@/lib/upload-client";
 import { Check, Upload, X } from "lucide-react";
 import { formatETA, formatUploadSpeed } from "pushduck";
-import { useCallback } from "react";
 
 /**
  * Simplified upload demo for homepage
@@ -13,16 +12,13 @@ export function HomepageUploadDemo() {
   const { uploadFiles, files, isUploading, progress, uploadSpeed, eta, reset } =
     upload.imageUpload();
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent<HTMLLabelElement>) => {
-      e.preventDefault();
-      const droppedFiles = Array.from(e.dataTransfer.files);
-      if (droppedFiles.length > 0) {
-        uploadFiles(droppedFiles);
-      }
-    },
-    [uploadFiles]
-  );
+  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    if (droppedFiles.length > 0) {
+      uploadFiles(droppedFiles);
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
