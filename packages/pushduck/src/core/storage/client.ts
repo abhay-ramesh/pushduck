@@ -57,6 +57,7 @@ import type { UploadConfig } from "../config";
 import type { ProviderConfig } from "../providers/providers";
 import { createConfigError, createS3Error } from "../types/errors";
 import { logger } from "../utils/logger";
+import { md5Base64 } from "../utils/md5";
 
 // ========================================
 // Configuration Helper
@@ -1985,7 +1986,7 @@ async function deleteBatch(
     method: "POST",
     headers: {
       "Content-Type": "application/xml",
-      "Content-MD5": await calculateMD5(deleteXml),
+      "Content-MD5": md5Base64(deleteXml),
     },
     body: deleteXml,
   });
@@ -2033,18 +2034,6 @@ function parseBatchDeleteResponse(xmlText: string): DeleteFilesResult {
   }
 
   return { deleted, errors };
-}
-
-/**
- * Calculate MD5 hash for S3 batch delete request
- * Note: Web Crypto API does NOT support MD5, so we always use Node.js crypto.
- * Batch delete operations should only run on the server anyway (for security).
- */
-async function calculateMD5(content: string): Promise<string> {
-  // Always use Node.js crypto - Web Crypto API doesn't support MD5
-  // This is server-only code (batch delete requires S3 credentials)
-  const { createHash } = await import("crypto");
-  return createHash("md5").update(content).digest("base64");
 }
 
 /**
