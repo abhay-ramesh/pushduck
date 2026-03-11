@@ -872,13 +872,36 @@ export class S3FileSchema extends S3Schema<File, File> {
    *   });
    * ```
    */
+  /**
+   * @deprecated Use `.onStart()` instead.
+   */
   onUploadStart(
     hook: (ctx: {
       file: { name: string; size: number; type: string };
       metadata: any;
     }) => Promise<void> | void
   ) {
-    return new S3Route(this).onUploadStart(hook);
+    console.warn('⚠️ pushduck: .onUploadStart() is deprecated. Use .onStart() instead.');
+    return new S3Route(this).onStart(hook);
+  }
+
+  /**
+   * Adds a hook that executes when file upload starts.
+   *
+   * @example
+   * ```typescript
+   * upload.file().onStart(async ({ file, metadata }) => {
+   *   await logUploadEvent('start', file.name, metadata.userId);
+   * });
+   * ```
+   */
+  onStart(
+    hook: (ctx: {
+      file: { name: string; size: number; type: string };
+      metadata: any;
+    }) => Promise<void> | void
+  ) {
+    return new S3Route(this).onStart(hook);
   }
 
   /**
@@ -916,6 +939,9 @@ export class S3FileSchema extends S3Schema<File, File> {
    *   });
    * ```
    */
+  /**
+   * @deprecated Use `.onComplete()` instead.
+   */
   onUploadComplete(
     hook: (ctx: {
       file: { name: string; size: number; type: string };
@@ -924,7 +950,29 @@ export class S3FileSchema extends S3Schema<File, File> {
       key?: string;
     }) => Promise<void> | void
   ) {
-    return new S3Route(this).onUploadComplete(hook);
+    console.warn('⚠️ pushduck: .onUploadComplete() is deprecated. Use .onComplete() instead.');
+    return new S3Route(this).onComplete(hook);
+  }
+
+  /**
+   * Adds a hook that executes when file upload completes successfully.
+   *
+   * @example
+   * ```typescript
+   * upload.file().onComplete(async ({ file, url, key, metadata }) => {
+   *   await db.files.create({ name: file.name, url, uploadedBy: metadata.userId });
+   * });
+   * ```
+   */
+  onComplete(
+    hook: (ctx: {
+      file: { name: string; size: number; type: string };
+      metadata: any;
+      url?: string;
+      key?: string;
+    }) => Promise<void> | void
+  ) {
+    return new S3Route(this).onComplete(hook);
   }
 
   /**
@@ -959,6 +1007,9 @@ export class S3FileSchema extends S3Schema<File, File> {
    *   });
    * ```
    */
+  /**
+   * @deprecated Use `.onError()` instead.
+   */
   onUploadError(
     hook: (ctx: {
       file: { name: string; size: number; type: string };
@@ -966,7 +1017,28 @@ export class S3FileSchema extends S3Schema<File, File> {
       error: Error;
     }) => Promise<void> | void
   ) {
-    return new S3Route(this).onUploadError(hook);
+    console.warn('⚠️ pushduck: .onUploadError() is deprecated. Use .onError() instead.');
+    return new S3Route(this).onError(hook);
+  }
+
+  /**
+   * Adds a hook that executes when file upload fails.
+   *
+   * @example
+   * ```typescript
+   * upload.file().onError(async ({ file, error, metadata }) => {
+   *   await logUploadError({ fileName: file.name, error: error.message });
+   * });
+   * ```
+   */
+  onError(
+    hook: (ctx: {
+      file: { name: string; size: number; type: string };
+      metadata: any;
+      error: Error;
+    }) => Promise<void> | void
+  ) {
+    return new S3Route(this).onError(hook);
   }
 
   /**
