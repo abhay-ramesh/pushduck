@@ -588,7 +588,8 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
               updateFileStatus(fileState.id, "success", {
                 progress: 100,
-                key: result.key,
+                storagePath: result.key,
+                key: result.key, // deprecated alias
               });
 
               return {
@@ -646,9 +647,12 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                       );
                       if (fileToUpdate) {
                         updateFileStatus(fileToUpdate.id, "success", {
-                          url: result.url,
-                          key: result.key,
+                          storagePath: result.key,
+                          publicUrl: result.url,
                           presignedUrl: result.presignedUrl,
+                          // deprecated aliases
+                          key: result.key,
+                          url: result.url,
                           progress: 100,
                         });
                       }

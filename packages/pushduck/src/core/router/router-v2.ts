@@ -141,10 +141,25 @@ export interface S3LifecycleContext<T = any> {
   file: S3FileMetadata;
   /** Processed metadata from middleware */
   metadata: T;
-  /** Public URL of the uploaded file (available after upload) */
-  url?: string;
-  /** Storage key/path of the uploaded file */
+  /**
+   * Permanent storage path (e.g. 'uploads/user123/photo.jpg').
+   * Store this in your database — it never expires.
+   */
+  storagePath?: string;
+  /**
+   * Public URL of the uploaded file. Never expires if bucket has public access.
+   * Store this in your database.
+   */
+  publicUrl?: string;
+  /**
+   * Temporary presigned download URL — expires in ~1 hour.
+   * Use for immediate display only. Do NOT store in your database.
+   */
+  presignedUrl?: string;
+  /** @deprecated Use `storagePath` instead. */
   key?: string;
+  /** @deprecated Use `publicUrl` or `presignedUrl` instead. */
+  url?: string;
 }
 
 /**
@@ -998,6 +1013,10 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           await routeConfig.onUploadComplete({
             file: completion.file,
             metadata: completion.metadata || {},
+            storagePath: completion.key,
+            publicUrl: url,
+            presignedUrl,
+            // deprecated aliases
             url,
             key: completion.key,
           });
@@ -1006,7 +1025,9 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         results.push({
           success: true,
           key: completion.key,
+          storagePath: completion.key,
           url,
+          publicUrl: url,
           presignedUrl,
           file: completion.file,
         });
@@ -1058,9 +1079,16 @@ export interface UploadCompletion {
 
 export interface CompletionResponse {
   success: boolean;
+  /** Permanent storage path — store this in your database. */
+  storagePath?: string;
+  /** Public URL — store this in your database. */
+  publicUrl?: string;
+  /** Temporary presigned download URL — expires in ~1 hour, do not store. */
+  presignedUrl?: string;
+  /** @deprecated Use `storagePath` instead. */
   key: string;
+  /** @deprecated Use `publicUrl` or `presignedUrl` instead. */
   url?: string;
-  presignedUrl?: string; // Temporary download URL (expires in 1 hour)
   file?: S3FileMetadata;
   error?: string;
 }
