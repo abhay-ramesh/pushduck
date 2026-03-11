@@ -456,6 +456,14 @@ function createProviderBuilder<T extends ProviderConfig>(
       result[key] = config[key as keyof T] || spec.defaults[key] || "";
     }
 
+    // Pass through any config keys not covered by spec.configKeys
+    // (e.g. visibility, forcePathStyle overrides, future BaseProviderConfig fields)
+    for (const [key, value] of Object.entries(config)) {
+      if (!(key in result) && value !== undefined) {
+        result[key] = value;
+      }
+    }
+
     // Apply custom logic if provided
     if (spec.customLogic) {
       Object.assign(result, spec.customLogic(config, result));

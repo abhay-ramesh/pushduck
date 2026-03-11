@@ -123,25 +123,40 @@ For better performance and branding, you can use a custom domain:
 
 ## 6. Update Your Upload Configuration
 
+**Private bucket (default):**
+
 ```typescript
 // lib/upload.ts
 import { createUploadConfig } from "pushduck/server";
 
-export const { s3,  } = createUploadConfig()
-  .provider("cloudflareR2",{
+export const { s3 } = createUploadConfig()
+  .provider("cloudflareR2", {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    accountId: process.env.R2_ACCOUNT_ID!, // Found in R2 dashboard
+    accountId: process.env.R2_ACCOUNT_ID!,
     bucket: process.env.S3_BUCKET_NAME!,
-    // Optional: Custom domain for faster access
-    customDomain: process.env.CLOUDFLARE_R2_CUSTOM_DOMAIN,
   })
-  .defaults({
-    maxFileSize: "10MB",
-    acl: "public-read", // For public access
-  })
+  .defaults({ maxFileSize: "10MB" })
   .build();
 ```
+
+**Public bucket with custom domain:**
+
+```typescript
+export const { s3 } = createUploadConfig()
+  .provider("cloudflareR2", {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    accountId: process.env.R2_ACCOUNT_ID!,
+    bucket: process.env.S3_BUCKET_NAME!,
+    customDomain: process.env.CLOUDFLARE_R2_CUSTOM_DOMAIN!, // e.g. https://cdn.yourdomain.com // [!code highlight]
+    visibility: 'public', // returns CDN URLs after upload instead of presigned URLs // [!code highlight]
+  })
+  .defaults({ maxFileSize: "10MB" })
+  .build();
+```
+
+> **Note:** For R2, `visibility: 'public'` requires `customDomain` to be set. R2 presigned URLs cannot be used with custom domains — TypeScript enforces this at compile time.
 
 ## 7. Test Your Setup
 

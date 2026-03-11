@@ -101,8 +101,10 @@ export class StorageInstance {
 
   // Download operations - grouped under 'download' namespace
   download = {
+    // Always generates a presigned GET URL regardless of the provider's
+    // visibility setting — the caller is explicitly asking for a presigned URL.
     presignedUrl: (key: string, expiresIn?: number) =>
-      client.generateDownloadUrl(this.config, key, expiresIn),
+      client.generatePresignedDownloadUrl(this.config, key, expiresIn),
 
     url: (key: string) => client.getFileUrl(this.config, key),
   };

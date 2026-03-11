@@ -608,60 +608,39 @@ export interface PresignedUrlResult {
 }
 
 /**
- * Generates a download URL for a file from S3.
+ * Always generates a presigned GET URL for a file, regardless of the provider's
+ * `visibility` setting. Signs against the S3 API endpoint (never the custom domain).
  *
- * - When `visibility` is `'public'` on the provider config, returns the plain
- *   public URL (custom domain if configured, otherwise the provider's public URL).
- *   No signing is performed — the bucket/objects must already be publicly accessible.
+ * Use this when the caller explicitly wants a time-limited signed URL — for example,
+ * `storage.download.presignedUrl(key)` where the user is explicitly requesting a
+ * presigned URL even if the bucket is public.
  *
- * - When `visibility` is `'private'` (default), generates a presigned GET URL
- *   signed against the provider's S3 API endpoint. The URL expires after
- *   `expiresIn` seconds (default 3600).
- *
- * Note: Presigned URLs are always signed against the S3 API endpoint (`buildS3Url`),
- * never the custom domain. The `host` header is part of the SigV4 canonical request
- * and must match the endpoint being called. Custom domains (CDNs, CloudFront, R2
- * custom domains) cannot be used as the signing base.
+ * Note: The `host` header is part of the SigV4 canonical request and must match
+ * the endpoint being called. Custom domains (CDNs, CloudFront, R2 custom domains)
+ * cannot be used as the signing base for presigned URLs.
  */
-export async function generateDownloadUrl(
+export async function generatePresignedDownloadUrl(
   uploadConfig: UploadConfig,
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
+  const awsClient = createS3Client(uploadConfig);
   const config = getS3CompatibleConfig(uploadConfig.provider);
 
-  // Public bucket: return the plain URL (custom domain if set, otherwise S3 URL).
-  // No signing needed — objects are already publicly accessible.
-  if (config.visibility === "public") {
-    return buildPublicUrl(key, config);
-  }
-
-  // Private bucket (default): generate a presigned GET URL.
-  // Must sign against the S3 API endpoint, never the custom domain.
-  const awsClient = createS3Client(uploadConfig);
-
   try {
+    // Always sign against the S3 API endpoint, never the custom domain.
     const s3Url = buildS3Url(key, config);
     const url = new URL(s3Url);
 
-    // Add expiration as query parameter
     url.searchParams.set("X-Amz-Expires", expiresIn.toString());
 
-    // Create a signed request for GET operation (download/view)
     const signedRequest = await awsClient.sign(
-      new Request(url.toString(), {
-        method: "GET",
-      }),
-      {
-        aws: { signQuery: true },
-      }
+      new Request(url.toString(), { method: "GET" }),
+      { aws: { signQuery: true } }
     );
 
     if (config.debug) {
-      logger.presignedUrl(key, {
-        signedUrl: signedRequest.url,
-        expiresIn,
-      });
+      logger.presignedUrl(key, { signedUrl: signedRequest.url, expiresIn });
     }
 
     return signedRequest.url;
@@ -681,6 +660,35 @@ export async function generateDownloadUrl(
       }
     );
   }
+}
+
+/**
+ * Generates a download URL for a file, respecting the provider's `visibility` setting.
+ *
+ * - `visibility: 'public'` — returns the plain public URL (custom domain if configured,
+ *   otherwise the S3 URL). No signing. Bucket/objects must already be publicly accessible.
+ * - `visibility: 'private'` (default) — returns a presigned GET URL signed against the
+ *   S3 API endpoint. Expires after `expiresIn` seconds (default 3600).
+ *
+ * Used internally by the router to generate the download URL returned after upload.
+ * For explicit presigned URL generation regardless of visibility, use
+ * `generatePresignedDownloadUrl` instead.
+ */
+export async function generateDownloadUrl(
+  uploadConfig: UploadConfig,
+  key: string,
+  expiresIn: number = 3600
+): Promise<string> {
+  const config = getS3CompatibleConfig(uploadConfig.provider);
+
+  // Public bucket: return the plain URL (custom domain if set, otherwise S3 URL).
+  // No signing needed — objects are already publicly accessible.
+  if (config.visibility === "public") {
+    return buildPublicUrl(key, config);
+  }
+
+  // Private bucket (default): generate a presigned GET URL.
+  return generatePresignedDownloadUrl(uploadConfig, key, expiresIn);
 }
 
 /**
