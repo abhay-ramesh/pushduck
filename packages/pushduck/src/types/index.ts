@@ -234,4 +234,31 @@ export type InferClientRouter<T> =
   }
   : never;
 
-// Legacy types removed - use TypedRouteHook and ClientConfig instead
+// ========================================
+// Provider-Neutral Type Aliases
+// ========================================
+
+/**
+ * Provider-neutral alias for S3Router.
+ * Works regardless of whether you use AWS S3, Cloudflare R2, MinIO, or any other provider.
+ * @alias S3Router
+ */
+export type UploadRouter<TRoutes extends Record<string, any> = Record<string, any>> = S3Router<TRoutes>;
+
+/**
+ * Provider-neutral alias for S3UploadedFile.
+ * @alias S3UploadedFile
+ */
+export type UploadedFile = S3UploadedFile;
+
+/**
+ * Provider-neutral alias for S3RouteUploadResult.
+ * @alias S3RouteUploadResult
+ */
+export type UploadResult = S3RouteUploadResult;
+
+/**
+ * Provider-neutral alias for RouterRouteNames.
+ * @alias RouterRouteNames
+ */
+export type RouteNames<T> = RouterRouteNames<T>;

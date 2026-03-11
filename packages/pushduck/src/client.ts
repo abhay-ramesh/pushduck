@@ -320,4 +320,9 @@ export type {
   S3Router,
   TypedRouteHook,
   TypedUploadedFile,
+  // Provider-neutral aliases
+  UploadRouter,
+  UploadedFile,
+  UploadResult,
+  RouteNames,
 } from "./types";
