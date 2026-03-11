@@ -717,3 +717,33 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
 // Export utility functions for UI components
 export { formatETA, formatUploadSpeed };
+
+/**
+ * Hook for uploading files to a typed route.
+ * Preferred over `useUploadRoute` — hooks should look like hooks.
+ *
+ * @example
+ * ```typescript
+ * const { uploadFiles, files, isUploading } = useUpload<AppRouter>('imageUpload', {
+ *   onComplete: (results) => console.log('done', results),
+ * });
+ *
+ * const results = await uploadFiles(selectedFiles);
+ * ```
+ */
+export function useUpload<TRouter extends S3Router<any>>(
+  routeName: RouterRouteNames<TRouter>,
+  config?: UploadRouteConfig
+): S3RouteUploadResult;
+
+export function useUpload(
+  routeName: string,
+  config?: UploadRouteConfig
+): S3RouteUploadResult;
+
+export function useUpload<TRouter extends S3Router<any>>(
+  routeName: RouterRouteNames<TRouter> | string,
+  config?: UploadRouteConfig
+): S3RouteUploadResult {
+  return useUploadRoute(routeName as string, config);
+}

@@ -209,6 +209,9 @@ export { createUploadClient } from "./client/upload-client";
  * });
  * ```
  */
+// Preferred: hooks should look like hooks
+export { useUpload } from "./hooks/use-upload-route";
+// Legacy name kept for backward compatibility
 export { useUploadRoute } from "./hooks";
 
 // ========================================
