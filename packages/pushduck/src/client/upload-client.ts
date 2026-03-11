@@ -31,8 +31,10 @@ import { useUploadRoute } from "../hooks/use-upload-route";
 import type {
   ClientConfig,
   InferClientRouter,
+  RouterRouteNames,
   S3Router,
   TypedRouteHook,
+  UploadClientResult,
   UploadRouteConfig,
 } from "../types";
 
@@ -210,8 +212,8 @@ function useTypedRoute<TRouter extends S3Router<any>>(
  */
 export function createUploadClient<TRouter extends S3Router<any>>(
   config: ClientConfig
-): InferClientRouter<TRouter> {
-  return new Proxy({} as any, {
+): UploadClientResult<TRouter> {
+  const upload = new Proxy({} as any, {
     get(target, prop) {
       if (typeof prop !== "string") {
         throw new Error(
@@ -219,8 +221,6 @@ export function createUploadClient<TRouter extends S3Router<any>>(
         );
       }
 
-      // Return a hook factory function that accepts optional route configuration
-      // This ensures hooks are called consistently on every render
       return (routeOptions?: UploadRouteConfig) =>
         useTypedRoute<TRouter>(prop, config, routeOptions);
     },
@@ -230,7 +230,6 @@ export function createUploadClient<TRouter extends S3Router<any>>(
     },
 
     ownKeys() {
-      // Return empty array since we don't know routes at runtime
       return [];
     },
 
@@ -239,10 +238,23 @@ export function createUploadClient<TRouter extends S3Router<any>>(
         return {
           enumerable: true,
           configurable: true,
-          get: () => this.get!(target, prop, target),
+          get: () => upload[prop],
         };
       }
       return undefined;
     },
   }) as InferClientRouter<TRouter>;
+
+  function useUpload<K extends RouterRouteNames<TRouter>>(
+    routeName: K,
+    routeOptions?: UploadRouteConfig
+  ): TypedRouteHook<TRouter, K extends string ? K : string> {
+    return useTypedRoute<TRouter>(
+      routeName as string,
+      config,
+      routeOptions
+    ) as TypedRouteHook<TRouter, K extends string ? K : string>;
+  }
+
+  return { upload, useUpload };
 }

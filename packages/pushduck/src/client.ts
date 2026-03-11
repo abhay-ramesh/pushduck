@@ -320,4 +320,5 @@ export type {
   S3Router,
   TypedRouteHook,
   TypedUploadedFile,
+  UploadClientResult,
 } from "./types";

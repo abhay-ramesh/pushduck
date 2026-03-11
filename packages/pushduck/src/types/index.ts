@@ -223,8 +223,7 @@ export type { S3Router };
 export type RouterRouteNames<T> =
   T extends S3Router<infer TRoutes> ? keyof TRoutes : never;
 
-// Enhanced: Infer complete client interface from server router with optional configuration
-// Each route property returns a hook factory function that accepts optional configuration
+// Route proxy shape: each key is a hook factory
 export type InferClientRouter<T> =
   T extends S3Router<infer TRoutes>
   ? {
@@ -233,5 +232,29 @@ export type InferClientRouter<T> =
     ) => TypedRouteHook<T, K extends string ? K : string>;
   }
   : never;
+
+/**
+ * Return type of createUploadClient. Destructure to get both the proxy
+ * and a standalone typed hook:
+ *
+ * ```ts
+ * // lib/upload.ts
+ * export const { upload, useUpload } = createUploadClient<AppRouter>({ endpoint: '/api/upload' });
+ *
+ * // Component — no <AppRouter> needed, route name is still type-safe
+ * const { uploadFiles } = useUpload('imageUpload');
+ * // or use the proxy style (still works)
+ * const { uploadFiles } = upload.imageUpload();
+ * ```
+ */
+export type UploadClientResult<T extends S3Router<any>> = {
+  /** Route proxy — upload.routeName(options?) */
+  upload: InferClientRouter<T>;
+  /** Standalone typed hook — useUpload(routeName, options?) */
+  useUpload: <K extends RouterRouteNames<T>>(
+    routeName: K,
+    options?: RouteUploadOptions
+  ) => TypedRouteHook<T, K extends string ? K : string>;
+};
 
 // Legacy types removed - use TypedRouteHook and ClientConfig instead
