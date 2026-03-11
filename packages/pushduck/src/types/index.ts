@@ -89,7 +89,17 @@ export interface S3RouteUploadResult {
    * await uploadFiles(files, { albumId: '123', tags: ['vacation'] });
    * ```
    */
-  uploadFiles: (files: File[], metadata?: any) => Promise<void>;
+  /**
+   * Upload files and await the results directly.
+   * Returns the completed file objects — no need to watch `files` state or use `onSuccess`.
+   *
+   * @example
+   * ```typescript
+   * const results = await uploadFiles(selectedFiles);
+   * await db.save({ path: results[0].key });
+   * ```
+   */
+  uploadFiles: (files: File[], metadata?: any) => Promise<S3UploadedFile[]>;
 
   /** Reset upload state and clear files */
   reset: () => void;
