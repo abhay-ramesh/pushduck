@@ -61,7 +61,7 @@ import { createUniversalHandler } from "../handler/universal-handler";
 import { InferS3Input, InferS3Output, S3Schema } from "../schema";
 import {
   generateFileKey,
-  generatePresignedDownloadUrl,
+  generateDownloadUrl,
   generatePresignedUploadUrl,
   getFileUrl,
 } from "../storage/client";
@@ -987,7 +987,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         const url = getFileUrl(this.config, completion.key);
 
         // Generate presigned download URL (expires in 1 hour by default)
-        const presignedUrl = await generatePresignedDownloadUrl(
+        const presignedUrl = await generateDownloadUrl(
           this.config,
           completion.key,
           3600

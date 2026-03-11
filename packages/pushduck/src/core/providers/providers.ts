@@ -91,6 +91,24 @@ export interface BaseProviderConfig {
   customDomain?: string;
   /** Force path-style URLs instead of virtual-hosted style */
   forcePathStyle?: boolean;
+  /**
+   * Controls what kind of download URL the library returns after a file is uploaded.
+   *
+   * - `'private'` (default) — generates a presigned GET URL signed against the
+   *   provider's S3 API endpoint. Works for private buckets. The URL expires
+   *   after `expiresIn` seconds (default 3600).
+   * - `'public'` — returns the plain public URL (custom domain if configured,
+   *   otherwise the provider's public URL). No signing. Use this when your
+   *   bucket/objects are already publicly accessible.
+   *
+   * **Important:** This setting must match your actual bucket configuration.
+   * Setting `visibility: 'public'` on a private bucket will result in 403 errors
+   * when clients try to access the returned URLs. pushduck does not verify or
+   * enforce your bucket's access settings.
+   *
+   * @default 'private'
+   */
+  visibility?: "public" | "private";
 }
 
 // ========================================
@@ -141,36 +159,10 @@ export interface AWSProviderConfig extends BaseProviderConfig {
 }
 
 /**
- * Configuration for Cloudflare R2 object storage.
- * S3-compatible storage with zero egress fees and global distribution.
- *
- * @interface CloudflareR2Config
- * @extends BaseProviderConfig
- *
- * @example Basic Configuration
- * ```typescript
- * const r2Config: CloudflareR2Config = {
- *   provider: 'cloudflare-r2',
- *   bucket: 'my-r2-bucket',
- *   accountId: 'your-cloudflare-account-id',
- *   accessKeyId: 'your-r2-access-key',
- *   secretAccessKey: 'your-r2-secret-key',
- * };
- * ```
- *
- * @example With Custom Domain
- * ```typescript
- * const r2WithDomain: CloudflareR2Config = {
- *   provider: 'cloudflare-r2',
- *   bucket: 'assets',
- *   accountId: 'abc123',
- *   accessKeyId: 'key123',
- *   secretAccessKey: 'secret123',
- *   customDomain: 'assets.myapp.com',
- * };
- * ```
+ * Base fields for Cloudflare R2 object storage (without visibility/customDomain).
+ * Use the exported `CloudflareR2Config` type, not this interface directly.
  */
-export interface CloudflareR2Config extends BaseProviderConfig {
+interface CloudflareR2BaseConfig extends Omit<BaseProviderConfig, "customDomain" | "visibility"> {
   provider: "cloudflare-r2";
   /** Cloudflare Account ID */
   accountId: string;
@@ -183,6 +175,45 @@ export interface CloudflareR2Config extends BaseProviderConfig {
   /** Custom endpoint (auto-generated from accountId if not provided) */
   endpoint?: string;
 }
+
+/**
+ * Configuration for Cloudflare R2 object storage.
+ * S3-compatible storage with zero egress fees and global distribution.
+ *
+ * R2 presigned URLs only work with the R2 S3 API endpoint — they cannot be
+ * used with custom domains. Therefore `visibility: 'public'` requires a
+ * `customDomain` to be set (R2 public access requires a custom domain or
+ * the r2.dev subdomain; the API endpoint does not serve public content).
+ *
+ * @example Basic Configuration (private bucket)
+ * ```typescript
+ * const r2Config: CloudflareR2Config = {
+ *   provider: 'cloudflare-r2',
+ *   bucket: 'my-r2-bucket',
+ *   accountId: 'your-cloudflare-account-id',
+ *   accessKeyId: 'your-r2-access-key',
+ *   secretAccessKey: 'your-r2-secret-key',
+ * };
+ * ```
+ *
+ * @example Public bucket with custom domain
+ * ```typescript
+ * const r2WithDomain: CloudflareR2Config = {
+ *   provider: 'cloudflare-r2',
+ *   bucket: 'assets',
+ *   accountId: 'abc123',
+ *   accessKeyId: 'key123',
+ *   secretAccessKey: 'secret123',
+ *   customDomain: 'assets.myapp.com', // required when visibility is 'public'
+ *   visibility: 'public',
+ * };
+ * ```
+ */
+export type CloudflareR2Config = CloudflareR2BaseConfig &
+  (
+    | { visibility: "public"; customDomain: string }
+    | { visibility?: "private"; customDomain?: string }
+  );
 
 /**
  * Configuration for DigitalOcean Spaces object storage.

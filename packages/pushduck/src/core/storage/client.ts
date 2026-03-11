@@ -89,6 +89,8 @@ interface S3CompatibleConfig {
   customDomain?: string;
   /** Enable debug logging */
   debug?: boolean;
+  /** Whether the bucket is public or private (controls download URL format) */
+  visibility?: "public" | "private";
 }
 
 /**
@@ -131,6 +133,7 @@ function getS3CompatibleConfig(
     acl: config.acl,
     customDomain: config.customDomain,
     forcePathStyle: config.forcePathStyle,
+    visibility: config.visibility,
     debug: options.debug ?? false,
   };
 
@@ -605,18 +608,40 @@ export interface PresignedUrlResult {
 }
 
 /**
- * Generates a presigned URL for downloading/viewing a file from S3
+ * Generates a download URL for a file from S3.
+ *
+ * - When `visibility` is `'public'` on the provider config, returns the plain
+ *   public URL (custom domain if configured, otherwise the provider's public URL).
+ *   No signing is performed — the bucket/objects must already be publicly accessible.
+ *
+ * - When `visibility` is `'private'` (default), generates a presigned GET URL
+ *   signed against the provider's S3 API endpoint. The URL expires after
+ *   `expiresIn` seconds (default 3600).
+ *
+ * Note: Presigned URLs are always signed against the S3 API endpoint (`buildS3Url`),
+ * never the custom domain. The `host` header is part of the SigV4 canonical request
+ * and must match the endpoint being called. Custom domains (CDNs, CloudFront, R2
+ * custom domains) cannot be used as the signing base.
  */
-export async function generatePresignedDownloadUrl(
+export async function generateDownloadUrl(
   uploadConfig: UploadConfig,
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
-  const awsClient = createS3Client(uploadConfig);
   const config = getS3CompatibleConfig(uploadConfig.provider);
 
+  // Public bucket: return the plain URL (custom domain if set, otherwise S3 URL).
+  // No signing needed — objects are already publicly accessible.
+  if (config.visibility === "public") {
+    return buildPublicUrl(key, config);
+  }
+
+  // Private bucket (default): generate a presigned GET URL.
+  // Must sign against the S3 API endpoint, never the custom domain.
+  const awsClient = createS3Client(uploadConfig);
+
   try {
-    const s3Url = buildPublicUrl(key, config);
+    const s3Url = buildS3Url(key, config);
     const url = new URL(s3Url);
 
     // Add expiration as query parameter

@@ -102,7 +102,7 @@ export class StorageInstance {
   // Download operations - grouped under 'download' namespace
   download = {
     presignedUrl: (key: string, expiresIn?: number) =>
-      client.generatePresignedDownloadUrl(this.config, key, expiresIn),
+      client.generateDownloadUrl(this.config, key, expiresIn),
 
     url: (key: string) => client.getFileUrl(this.config, key),
   };
