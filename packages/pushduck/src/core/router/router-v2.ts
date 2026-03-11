@@ -396,8 +396,8 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
    * ```
    */
   paths(paths: S3RoutePathConfig<TMetadata>): this {
-    this.config.paths = { ...this.config.paths, ...paths };
-    return this;
+    const newConfig = { ...this.config, paths: { ...this.config.paths, ...paths } };
+    return new S3Route(this.schema, newConfig) as this;
   }
 
   /**
@@ -431,8 +431,8 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
         `expiresIn must be between 1 and 604800 seconds (7 days), got ${seconds}`
       );
     }
-    this.config.expiresIn = seconds;
-    return this;
+    const newConfig = { ...this.config, expiresIn: seconds };
+    return new S3Route(this.schema, newConfig) as this;
   }
 
   /**
