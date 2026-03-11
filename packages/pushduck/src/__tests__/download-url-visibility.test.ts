@@ -20,7 +20,12 @@ import {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function makeAWS(overrides: Record<string, unknown> = {}) {
+type AWSOverrides = {
+  visibility?: "public" | "private";
+  customDomain?: string;
+};
+
+function makeAWS(overrides: AWSOverrides = {}) {
   return createUploadConfig()
     .provider("aws", {
       accessKeyId: "test-key",
@@ -32,14 +37,29 @@ function makeAWS(overrides: Record<string, unknown> = {}) {
     .build().config;
 }
 
-function makeR2(overrides: Record<string, unknown> = {}) {
+/** Private R2 bucket — customDomain is optional */
+function makeR2Private(customDomain?: string) {
   return createUploadConfig()
     .provider("cloudflareR2", {
       accessKeyId: "test-key",
       secretAccessKey: "test-secret",
       accountId: "abc123",
       bucket: "test-bucket",
-      ...overrides,
+      customDomain,
+    })
+    .build().config;
+}
+
+/** Public R2 bucket — customDomain is required */
+function makeR2Public(customDomain: string) {
+  return createUploadConfig()
+    .provider("cloudflareR2", {
+      accessKeyId: "test-key",
+      secretAccessKey: "test-secret",
+      accountId: "abc123",
+      bucket: "test-bucket",
+      visibility: "public",
+      customDomain,
     })
     .build().config;
 }
@@ -97,10 +117,7 @@ describe("generateDownloadUrl — public bucket", () => {
   });
 
   it("returns custom domain URL with no signing when customDomain is set", async () => {
-    const config = makeAWS({
-      visibility: "public",
-      customDomain: CUSTOM_DOMAIN,
-    });
+    const config = makeAWS({ visibility: "public", customDomain: CUSTOM_DOMAIN });
     const url = await generateDownloadUrl(config, KEY);
     expect(url).toBe(CDN_URL);
     expect(url).not.toContain("X-Amz-Signature");
@@ -108,10 +125,7 @@ describe("generateDownloadUrl — public bucket", () => {
   });
 
   it("strips trailing slash from custom domain", async () => {
-    const config = makeAWS({
-      visibility: "public",
-      customDomain: CUSTOM_DOMAIN + "/",
-    });
+    const config = makeAWS({ visibility: "public", customDomain: CUSTOM_DOMAIN + "/" });
     const url = await generateDownloadUrl(config, KEY);
     expect(url).toBe(CDN_URL);
   });
@@ -121,14 +135,14 @@ describe("generateDownloadUrl — public bucket", () => {
 
 describe("generateDownloadUrl — Cloudflare R2", () => {
   it("private (default): presigned GET against R2 API endpoint", async () => {
-    const config = makeR2();
+    const config = makeR2Private();
     const url = await generateDownloadUrl(config, KEY);
     expect(url).toContain(R2_API_URL);
     expect(url).toContain("X-Amz-Signature");
   });
 
   it("private + custom domain: still signs against R2 API, not custom domain", async () => {
-    const config = makeR2({ customDomain: CUSTOM_DOMAIN });
+    const config = makeR2Private(CUSTOM_DOMAIN);
     const url = await generateDownloadUrl(config, KEY);
     // R2 presigned URLs must use the API endpoint, not custom domain
     expect(url).toContain("r2.cloudflarestorage.com");
@@ -137,7 +151,7 @@ describe("generateDownloadUrl — Cloudflare R2", () => {
   });
 
   it("public + custom domain: returns custom domain URL with no signing", async () => {
-    const config = makeR2({ visibility: "public", customDomain: CUSTOM_DOMAIN });
+    const config = makeR2Public(CUSTOM_DOMAIN);
     const url = await generateDownloadUrl(config, KEY);
     expect(url).toBe(CDN_URL);
     expect(url).not.toContain("X-Amz-Signature");
@@ -156,10 +170,7 @@ describe("generatePresignedDownloadUrl — always presigns (ignores visibility)"
   });
 
   it("presigns even when visibility is 'public'", async () => {
-    const config = makeAWS({
-      visibility: "public",
-      customDomain: CUSTOM_DOMAIN,
-    });
+    const config = makeAWS({ visibility: "public", customDomain: CUSTOM_DOMAIN });
     const url = await generatePresignedDownloadUrl(config, KEY);
     // Ignores visibility — always presigns against S3 API endpoint
     expect(url).toContain("X-Amz-Signature");
@@ -180,35 +191,23 @@ describe("generatePresignedDownloadUrl — always presigns (ignores visibility)"
   });
 });
 
-// ─── R2 TypeScript discriminated union (documented, not runtime) ─────────────
+// ─── R2 TypeScript discriminated union ───────────────────────────────────────
 
 describe("R2 visibility: 'public' TypeScript constraint", () => {
   it("R2 private without customDomain is valid", () => {
-    expect(() =>
-      createUploadConfig()
-        .provider("cloudflareR2", {
-          accessKeyId: "k",
-          secretAccessKey: "s",
-          accountId: "id",
-          bucket: "b",
-          // no customDomain, no visibility — valid private config
-        })
-        .build()
-    ).not.toThrow();
+    expect(() => makeR2Private()).not.toThrow();
   });
 
   it("R2 public with customDomain is valid", () => {
+    expect(() => makeR2Public(CUSTOM_DOMAIN)).not.toThrow();
+  });
+
+  it("R2 public without customDomain throws at runtime", () => {
     expect(() =>
       createUploadConfig()
-        .provider("cloudflareR2", {
-          accessKeyId: "k",
-          secretAccessKey: "s",
-          accountId: "id",
-          bucket: "b",
-          customDomain: CUSTOM_DOMAIN,
-          visibility: "public",
-        })
+        // @ts-expect-error: visibility: 'public' without customDomain is a type error
+        .provider("cloudflareR2", { accessKeyId: "k", secretAccessKey: "s", accountId: "id", bucket: "b", visibility: "public" })
         .build()
-    ).not.toThrow();
+    ).toThrow("R2 requires customDomain when visibility is 'public'");
   });
 });
