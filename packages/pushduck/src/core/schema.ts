@@ -1164,40 +1164,23 @@ export class S3FileSchema extends S3Schema<File, File> {
 // ========================================
 
 /**
- * Preset: accepts any image (MIME type `image/*`).
+ * `upload.image()` — `S3FileSchema` with `allowedTypes: ['image/*']` pre-set.
  *
- * Equivalent to `upload.file().accept('image/*')` — a named shortcut
- * so you don't have to remember the MIME wildcard.
+ * Exactly the same as writing `upload.file().accept('image/*')`.
+ * Returns a plain `S3FileSchema` — every chain method works identically.
  *
- * Fully chainable and overridable — all methods from `upload.file()` work:
+ * **Overriding**: `.accept()` replaces the default, it does not merge.
+ * `upload.image().accept('image/jpeg')` → only JPEG, not `image/*` + JPEG.
  *
- * @example Basic usage
+ * @example
  * ```ts
- * const router = upload.createRouter({
- *   avatar: upload.image().maxSize('2MB'),
- * });
- * ```
- *
- * @example Narrow to specific formats
- * ```ts
- * // .accept() replaces the default image/* with your list
- * upload.image().accept(['image/jpeg', 'image/png', 'image/webp'])
- * ```
- *
- * @example Gallery with a file cap
- * ```ts
- * upload.image().maxSize('5MB').maxFiles(10)
- * ```
- *
- * @example Full route with middleware
- * ```ts
+ * upload.image()                                      // any image (image/*)
+ * upload.image().accept(['image/jpeg', 'image/webp']) // JPEG + WebP only
+ * upload.image().maxSize('5MB').maxFiles(10)          // gallery, 10 images max
  * upload.image()
- *   .maxSize('5MB')
- *   .middleware(async ({ req }) => {
- *     const user = await getUser(req);
- *     return { userId: user.id };
- *   })
- *   .onComplete(async ({ file, storagePath, metadata }) => {
+ *   .maxSize('2MB')
+ *   .middleware(async ({ req }) => ({ userId: (await getUser(req)).id }))
+ *   .onComplete(async ({ storagePath, metadata }) => {
  *     await db.avatars.upsert({ userId: metadata.userId, path: storagePath });
  *   })
  * ```
@@ -1207,19 +1190,20 @@ export function imagePreset(constraints?: S3FileConstraints): S3FileSchema {
 }
 
 /**
- * Preset: accepts any video (MIME type `video/*`).
+ * `upload.video()` — `S3FileSchema` with `allowedTypes: ['video/*']` pre-set.
  *
- * Equivalent to `upload.file().accept('video/*')`.
+ * Exactly the same as writing `upload.file().accept('video/*')`.
+ * Returns a plain `S3FileSchema` — every chain method works identically.
+ *
+ * **Overriding**: `.accept()` replaces the default.
+ * `upload.video().accept('video/mp4')` → only MP4.
  *
  * @example
  * ```ts
+ * upload.video()                                       // any video (video/*)
+ * upload.video().accept(['video/mp4', 'video/webm'])   // MP4 + WebM only
  * upload.video().maxSize('500MB')
- *
- * // Narrow to specific codecs
- * upload.video().accept(['video/mp4', 'video/webm'])
- *
- * // Up to 3 videos, 100 MB each
- * upload.video().maxSize('100MB').maxFiles(3)
+ * upload.video().maxSize('100MB').maxFiles(3)          // up to 3 videos
  * ```
  */
 export function videoPreset(constraints?: S3FileConstraints): S3FileSchema {
@@ -1227,16 +1211,19 @@ export function videoPreset(constraints?: S3FileConstraints): S3FileSchema {
 }
 
 /**
- * Preset: accepts any audio (MIME type `audio/*`).
+ * `upload.audio()` — `S3FileSchema` with `allowedTypes: ['audio/*']` pre-set.
  *
- * Equivalent to `upload.file().accept('audio/*')`.
+ * Exactly the same as writing `upload.file().accept('audio/*')`.
+ * Returns a plain `S3FileSchema` — every chain method works identically.
+ *
+ * **Overriding**: `.accept()` replaces the default.
+ * `upload.audio().accept('audio/mpeg')` → only MP3.
  *
  * @example
  * ```ts
+ * upload.audio()                                       // any audio (audio/*)
+ * upload.audio().accept(['audio/mpeg', 'audio/wav'])   // MP3 + WAV only
  * upload.audio().maxSize('50MB')
- *
- * // Narrow to MP3 + WAV
- * upload.audio().accept(['audio/mpeg', 'audio/wav'])
  * ```
  */
 export function audioPreset(constraints?: S3FileConstraints): S3FileSchema {
@@ -1244,19 +1231,23 @@ export function audioPreset(constraints?: S3FileConstraints): S3FileSchema {
 }
 
 /**
- * Preset: accepts common document formats
- * (`.pdf`, `.doc`, `.docx`, `.txt`, `.csv`, `.xls`, `.xlsx`, `.ppt`, `.pptx`).
+ * `upload.document()` — `S3FileSchema` with `allowedExtensions` pre-set to common
+ * document formats: `pdf, doc, docx, txt, csv, xls, xlsx, ppt, pptx`.
  *
- * Equivalent to `upload.file().accept(['.pdf', '.doc', ...])`.
+ * Exactly the same as writing:
+ * ```ts
+ * upload.file().accept(['.pdf', '.doc', '.docx', '.txt', '.csv', '.xls', '.xlsx', '.ppt', '.pptx'])
+ * ```
+ * Returns a plain `S3FileSchema` — every chain method works identically.
+ *
+ * **Overriding**: `.accept()` replaces the default extension list entirely.
+ * `upload.document().accept(['.pdf'])` → PDFs only.
  *
  * @example
  * ```ts
+ * upload.document()                     // all doc formats listed above
+ * upload.document().accept(['.pdf'])    // PDFs only
  * upload.document().maxSize('25MB')
- *
- * // Narrow to PDFs only
- * upload.document().accept(['.pdf'])
- *
- * // Up to 5 documents
  * upload.document().maxSize('10MB').maxFiles(5)
  * ```
  */

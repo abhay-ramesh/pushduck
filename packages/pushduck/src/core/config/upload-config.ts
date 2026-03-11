@@ -159,15 +159,15 @@ function createS3Instance(config: UploadConfig) {
     file: (constraints?: S3FileConstraints) => new S3FileSchema(constraints),
 
     /**
-     * Preset: accepts any image (`image/*`).
-     * Equivalent to `upload.file().accept('image/*')`.
+     * `S3FileSchema` with `allowedTypes: ['image/*']` pre-set.
+     * Exactly `upload.file().accept('image/*')`.
      *
-     * Fully chainable — `.accept()` replaces the default wildcard if you need
-     * to narrow to specific formats:
+     * `.accept()` **replaces** the default — it does not merge.
+     * `upload.image().accept('image/jpeg')` → JPEG only, not `image/*` + JPEG.
      *
      * @example
      * ```ts
-     * upload.image()                                     // any image
+     * upload.image()                                      // any image (image/*)
      * upload.image().accept(['image/jpeg', 'image/webp']) // JPEG + WebP only
      * upload.image().maxSize('5MB').maxFiles(10)
      * ```
@@ -175,40 +175,48 @@ function createS3Instance(config: UploadConfig) {
     image: imagePreset,
 
     /**
-     * Preset: accepts any video (`video/*`).
-     * Equivalent to `upload.file().accept('video/*')`.
+     * `S3FileSchema` with `allowedTypes: ['video/*']` pre-set.
+     * Exactly `upload.file().accept('video/*')`.
+     *
+     * `.accept()` **replaces** the default.
+     * `upload.video().accept('video/mp4')` → MP4 only.
      *
      * @example
      * ```ts
-     * upload.video().maxSize('500MB')
-     * upload.video().accept(['video/mp4', 'video/webm']).maxFiles(3)
+     * upload.video()                                      // any video (video/*)
+     * upload.video().accept(['video/mp4', 'video/webm'])  // MP4 + WebM only
+     * upload.video().maxSize('500MB').maxFiles(3)
      * ```
      */
     video: videoPreset,
 
     /**
-     * Preset: accepts any audio (`audio/*`).
-     * Equivalent to `upload.file().accept('audio/*')`.
+     * `S3FileSchema` with `allowedTypes: ['audio/*']` pre-set.
+     * Exactly `upload.file().accept('audio/*')`.
+     *
+     * `.accept()` **replaces** the default.
+     * `upload.audio().accept('audio/mpeg')` → MP3 only.
      *
      * @example
      * ```ts
+     * upload.audio()                                      // any audio (audio/*)
+     * upload.audio().accept(['audio/mpeg', 'audio/wav'])  // MP3 + WAV only
      * upload.audio().maxSize('50MB')
-     * upload.audio().accept(['audio/mpeg', 'audio/wav'])
      * ```
      */
     audio: audioPreset,
 
     /**
-     * Preset: accepts common document formats
-     * (`.pdf`, `.doc`, `.docx`, `.txt`, `.csv`, `.xls`, `.xlsx`, `.ppt`, `.pptx`).
-     * Equivalent to `upload.file().accept(['.pdf', '.doc', ...])`.
+     * `S3FileSchema` with `allowedExtensions: ['pdf','doc','docx','txt','csv','xls','xlsx','ppt','pptx']` pre-set.
+     * Exactly `upload.file().accept(['.pdf', '.doc', '.docx', ...])`.
      *
-     * Use `.accept()` to narrow the allowed extensions further:
+     * `.accept()` **replaces** the default extension list entirely.
+     * `upload.document().accept(['.pdf'])` → PDFs only.
      *
      * @example
      * ```ts
-     * upload.document().maxSize('25MB')           // all doc formats
-     * upload.document().accept(['.pdf'])           // PDFs only
+     * upload.document()                      // pdf, doc, docx, txt, csv, xls, xlsx, ppt, pptx
+     * upload.document().accept(['.pdf'])     // PDFs only
      * upload.document().maxSize('10MB').maxFiles(5)
      * ```
      */
