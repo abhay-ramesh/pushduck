@@ -12,6 +12,9 @@ export {
   useUploadRoute,
 } from "./use-upload-route";
 
+// Paste to upload hook
+export { usePasteUpload } from "./use-paste-upload";
+
 // Type exports for hooks
 export type {
   S3FileMetadata,
@@ -19,3 +22,10 @@ export type {
   S3RouteUploadResult,
   S3UploadedFile,
 } from "../types";
+
+// Paste upload types
+export type {
+  PasteFilePreview,
+  UsePasteUploadConfig,
+  UsePasteUploadResult,
+} from "./use-paste-upload";

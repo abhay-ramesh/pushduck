@@ -1,0 +1,548 @@
+---
+title: usePasteUpload
+description: React hook for paste-to-upload functionality with image preview support
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { TypeTable } from "fumadocs-ui/components/type-table";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+## usePasteUpload Hook
+
+A React hook that enables paste-to-upload functionality with image preview support. Perfect for chat interfaces, forms, and any application where users can paste images from their clipboard.
+
+<Callout type="info">
+  This hook supports both immediate upload mode (for chat interfaces) and preview mode (for controlled uploads). It works seamlessly with input fields, allowing users to paste images while typing.
+</Callout>
+
+## When to Use This Hook
+
+Use `usePasteUpload` when:
+
+- 💬 **Chat interfaces** - Users paste images while typing messages
+- 📋 **Form uploads** - Users paste images from clipboard
+- 🖼️ **Image galleries** - Quick image uploads via paste
+- 📱 **Mobile-friendly** - Works with mobile clipboard paste
+- ⚡ **Quick uploads** - Faster than drag-and-drop for some users
+
+## Basic Usage
+
+### Immediate Mode (Chat Interface)
+
+```typescript title="Chat App Example"
+import { usePasteUpload } from "pushduck/client";
+import type { AppRouter } from "@/lib/upload";
+
+export function ChatApp() {
+  const { files, isUploading } = usePasteUpload<AppRouter>("imageUpload", {
+    accept: "image/*",
+    mode: "immediate",
+    scope: "document", // Paste anywhere on page
+    allowInputPaste: true, // Works even when typing in input
+    onUploadStart: () => console.log("Uploading pasted image..."),
+  });
+
+  return (
+    <div>
+      <input type="text" placeholder="Type a message..." />
+      {/* User can paste image anywhere on page, even while typing */}
+      {isUploading && <div>Uploading...</div>}
+      {files.map((file) => (
+        <img key={file.id} src={file.url} alt={file.name} />
+      ))}
+    </div>
+  );
+}
+```
+
+### Preview Mode (Form Upload)
+
+```typescript title="Form Upload Example"
+import { usePasteUpload } from "pushduck/client";
+import { useRef } from "react";
+
+export function FormComponent() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const {
+    previewFiles,
+    uploadPastedFiles,
+    clearPreviews,
+    files,
+    isUploading,
+  } = usePasteUpload("imageUpload", {
+    accept: "image/*",
+    mode: "preview",
+    scope: "container",
+    containerRef, // Only paste within this container
+    onPaste: (files) => console.log("Pasted:", files),
+  });
+
+  return (
+    <div ref={containerRef} className="upload-boundary">
+      {/* Paste only works within this div */}
+      {previewFiles.map((file) => (
+        <div key={file.id}>
+          <img src={file.preview} alt={file.name} />
+          <button onClick={() => uploadPastedFiles()}>Upload</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Hook Signature
+
+```typescript
+// With type parameter (recommended)
+function usePasteUpload<TRouter>(
+  routeName: keyof TRouter,
+  config?: UsePasteUploadConfig
+): UsePasteUploadResult;
+
+// Without type parameter (also works)
+function usePasteUpload(
+  routeName: string,
+  config?: UsePasteUploadConfig
+): UsePasteUploadResult;
+```
+
+## Parameters
+
+<TypeTable
+  type={{
+    routeName: {
+      description: "The upload route name from your router",
+      type: "keyof TRouter | string",
+      required: true,
+    },
+    config: {
+      description: "Optional configuration for paste detection and upload behavior",
+      type: "UsePasteUploadConfig",
+    },
+  }}
+/>
+
+## Configuration Options
+
+<TypeTable
+  type={{
+    route: {
+      description: "Upload route name (overrides routeName parameter if provided)",
+      type: "string",
+    },
+    accept: {
+      description: "Accepted file types (MIME types or extensions, e.g., 'image/*', 'image/png')",
+      type: "string",
+    },
+    enabled: {
+      description: "Enable/disable paste detection",
+      type: "boolean",
+      default: "true",
+    },
+    scope: {
+      description: "Paste detection scope - 'document' (anywhere on page) or 'container' (within specific element)",
+      type: "'document' | 'container'",
+      default: "'document'",
+    },
+    containerRef: {
+      description: "React ref to container element (required when scope: 'container')",
+      type: "React.RefObject<HTMLElement>",
+    },
+    mode: {
+      description: "Upload mode - 'immediate' (upload immediately) or 'preview' (show preview, manual upload)",
+      type: "'immediate' | 'preview'",
+      default: "'preview'",
+    },
+    autoUpload: {
+      description: "Boolean alias for mode (true = 'immediate', false = 'preview')",
+      type: "boolean",
+    },
+    allowInputPaste: {
+      description: "Allow paste detection when user is in input/textarea (default: true, important for chat)",
+      type: "boolean",
+      default: "true",
+    },
+    maxSize: {
+      description: "Maximum file size in bytes",
+      type: "number",
+    },
+    maxFiles: {
+      description: "Maximum number of files",
+      type: "number",
+    },
+    validator: {
+      description: "Custom validation function",
+      type: "(files: File[]) => string | null",
+    },
+    onPaste: {
+      description: "Callback when files are pasted",
+      type: "(files: File[]) => void",
+    },
+    onPreview: {
+      description: "Callback when preview is created",
+      type: "(preview: PasteFilePreview) => void",
+    },
+    onUploadStart: {
+      description: "Callback when upload starts (only in immediate mode)",
+      type: "() => void",
+    },
+    onUploadComplete: {
+      description: "Callback when upload completes",
+      type: "(results: S3UploadedFile[]) => void",
+    },
+    onUploadError: {
+      description: "Callback when upload fails",
+      type: "(error: Error) => void",
+    },
+  }}
+/>
+
+## Return Value
+
+<TypeTable
+  type={{
+    previewFiles: {
+      description: "Array of files with preview URLs (only populated in preview mode)",
+      type: "PasteFilePreview[]",
+    },
+    handlePaste: {
+      description: "Manual paste handler function",
+      type: "(event: ClipboardEvent) => void",
+    },
+    uploadPastedFiles: {
+      description: "Function to manually trigger upload of previewed files (preview mode)",
+      type: "() => void",
+    },
+    clearPreviews: {
+      description: "Clear preview state and free memory",
+      type: "() => void",
+    },
+    files: {
+      description: "Array of files with upload status (from useUploadRoute)",
+      type: "S3UploadedFile[]",
+    },
+    uploadFiles: {
+      description: "Upload function from useUploadRoute",
+      type: "(files: File[], metadata?: any) => Promise<void>",
+    },
+    isUploading: {
+      description: "Whether an upload is currently in progress",
+      type: "boolean",
+    },
+    progress: {
+      description: "Upload progress (0-100)",
+      type: "number",
+    },
+    uploadSpeed: {
+      description: "Upload speed in bytes per second",
+      type: "number",
+    },
+    eta: {
+      description: "Estimated time remaining in seconds",
+      type: "number",
+    },
+    errors: {
+      description: "Array of error messages",
+      type: "string[]",
+    },
+  }}
+/>
+
+## Paste Detection Scopes
+
+### Document Scope
+
+Paste events are detected anywhere on the page (like WhatsApp Web):
+
+```typescript
+const { files } = usePasteUpload("imageUpload", {
+  scope: "document", // Paste anywhere on page
+  mode: "immediate",
+});
+```
+
+**Use cases:**
+- Chat applications
+- Global paste detection
+- WhatsApp-style interfaces
+
+### Container Scope
+
+Paste events are only detected within a specific container element:
+
+```typescript
+const containerRef = useRef<HTMLDivElement>(null);
+const { files } = usePasteUpload("imageUpload", {
+  scope: "container",
+  containerRef, // Required for container scope
+  mode: "preview",
+});
+```
+
+**Use cases:**
+- Form uploads
+- Specific upload areas
+- Boundary-controlled uploads
+
+## Upload Modes
+
+### Immediate Mode
+
+Files are uploaded immediately when pasted:
+
+```typescript
+const { files, isUploading } = usePasteUpload("imageUpload", {
+  mode: "immediate", // or autoUpload: true
+  onUploadStart: () => console.log("Uploading..."),
+});
+```
+
+**Best for:**
+- Chat interfaces
+- Quick uploads
+- Real-time applications
+
+### Preview Mode
+
+Files are shown as previews first, then uploaded manually:
+
+```typescript
+const { previewFiles, uploadPastedFiles } = usePasteUpload("imageUpload", {
+  mode: "preview", // or autoUpload: false
+});
+
+// User clicks upload button
+<button onClick={uploadPastedFiles}>Upload {previewFiles.length} files</button>
+```
+
+**Best for:**
+- Form uploads
+- Controlled uploads
+- User confirmation needed
+
+## Input Field Handling
+
+The hook can detect file pastes even when the user is typing in an input/textarea:
+
+```typescript
+const { files } = usePasteUpload("imageUpload", {
+  allowInputPaste: true, // Default: true
+  scope: "document",
+  mode: "immediate",
+});
+
+// User can paste images while typing in this input
+<input type="text" placeholder="Type a message..." />
+```
+
+**How it works:**
+- Checks if clipboard contains files (not just text)
+- If files exist: processes them
+- If only text: allows normal paste behavior (no interference)
+
+## Preview File Structure
+
+In preview mode, files are stored with preview URLs:
+
+```typescript
+interface PasteFilePreview {
+  id: string;
+  file: File;
+  preview: string; // blob URL for image preview
+  name: string;
+  size: number;
+  type: string;
+}
+```
+
+**Memory management:**
+- Preview URLs are automatically cleaned up when:
+  - Component unmounts
+  - Previews are cleared manually
+  - Files are uploaded (in immediate mode)
+
+## Advanced Examples
+
+<Tabs items={["Chat Interface", "Form Upload", "Custom Validation"]}>
+  <Tab value="Chat Interface">
+```typescript
+import { usePasteUpload } from "pushduck/client";
+
+export function ChatInterface() {
+  const { files, isUploading } = usePasteUpload("imageUpload", {
+    accept: "image/*",
+    mode: "immediate",
+    scope: "document",
+    allowInputPaste: true,
+    maxSize: 5 * 1024 * 1024, // 5MB
+    onUploadStart: () => {
+      toast.info("Uploading image...");
+    },
+    onUploadComplete: (results) => {
+      toast.success("Image uploaded!");
+      // Add image to chat
+      addMessageToChat({
+        type: "image",
+        url: results[0].url,
+      });
+    },
+    onUploadError: (error) => {
+      toast.error(`Upload failed: ${error.message}`);
+    },
+  });
+
+  return (
+    <div>
+      <input type="text" placeholder="Type a message..." />
+      {isUploading && <div>Uploading image...</div>}
+      {files
+        .filter((f) => f.status === "success")
+        .map((file) => (
+          <img key={file.id} src={file.url} alt="Uploaded" />
+        ))}
+    </div>
+  );
+}
+```
+  </Tab>
+  <Tab value="Form Upload">
+```typescript
+import { usePasteUpload } from "pushduck/client";
+import { useRef } from "react";
+
+export function ImageUploadForm() {
+  const formRef = useRef<HTMLFormElement>(null);
+  const {
+    previewFiles,
+    uploadPastedFiles,
+    clearPreviews,
+    files,
+    isUploading,
+  } = usePasteUpload("galleryImages", {
+    accept: "image/*",
+    mode: "preview",
+    scope: "container",
+    containerRef: formRef,
+    maxFiles: 5,
+    maxSize: 10 * 1024 * 1024, // 10MB
+    onPaste: (files) => {
+      console.log(`Pasted ${files.length} images`);
+    },
+  });
+
+  return (
+    <form ref={formRef}>
+      <h2>Upload Gallery Images</h2>
+      
+      {previewFiles.length > 0 && (
+        <div className="preview-grid">
+          {previewFiles.map((preview) => (
+            <div key={preview.id} className="preview-item">
+              <img src={preview.preview} alt={preview.name} />
+              <p>{preview.name}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="actions">
+        <button
+          type="button"
+          onClick={uploadPastedFiles}
+          disabled={previewFiles.length === 0 || isUploading}
+        >
+          Upload {previewFiles.length} Images
+        </button>
+        <button type="button" onClick={clearPreviews}>
+          Clear
+        </button>
+      </div>
+
+      {files
+        .filter((f) => f.status === "success")
+        .map((file) => (
+          <input
+            key={file.id}
+            type="hidden"
+            name="images[]"
+            value={file.url}
+          />
+        ))}
+    </form>
+  );
+}
+```
+  </Tab>
+  <Tab value="Custom Validation">
+```typescript
+import { usePasteUpload } from "pushduck/client";
+
+export function ValidatedUpload() {
+  const { previewFiles, uploadPastedFiles } = usePasteUpload("imageUpload", {
+    accept: "image/*",
+    mode: "preview",
+    validator: (files) => {
+      // Custom validation logic
+      for (const file of files) {
+        // Check image dimensions
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            if (img.width < 800 || img.height < 600) {
+              resolve("Image must be at least 800x600 pixels");
+            } else {
+              resolve(null);
+            }
+          };
+          img.src = URL.createObjectURL(file);
+        });
+      }
+      return null;
+    },
+  });
+
+  return (
+    <div>
+      {previewFiles.map((preview) => (
+        <img key={preview.id} src={preview.preview} alt={preview.name} />
+      ))}
+      <button onClick={uploadPastedFiles}>Upload</button>
+    </div>
+  );
+}
+```
+  </Tab>
+</Tabs>
+
+## Best Practices
+
+<Callout type="info">
+  **Memory Management:** Preview URLs are automatically cleaned up, but you can manually clear them with `clearPreviews()` if needed.
+</Callout>
+
+1. **Use document scope for chat interfaces** - Allows pasting anywhere on the page
+2. **Use container scope for forms** - Limits paste detection to specific areas
+3. **Enable input paste for chat** - Set `allowInputPaste: true` for chat interfaces
+4. **Clean up previews** - Call `clearPreviews()` when component unmounts or user cancels
+5. **Validate files** - Use `maxSize`, `maxFiles`, and `validator` to ensure quality uploads
+
+## Browser Support
+
+The hook uses the Clipboard API which is supported in:
+- ✅ Chrome 66+
+- ✅ Firefox 63+
+- ✅ Safari 13.1+
+- ✅ Edge 79+
+
+<Callout type="warning">
+  Clipboard API requires a secure context (HTTPS or localhost). The hook will gracefully degrade if the API is unavailable.
+</Callout>
+
+---
+
+<Callout type="success">
+  **Flexible API:** Use this hook for paste-to-upload functionality in chat interfaces, forms, or any application where users can paste images from their clipboard.
+</Callout>
+
+

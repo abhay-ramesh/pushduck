@@ -2,6 +2,7 @@
     "title": "Client API",
     "pages": [
         "create-upload-client",
-        "use-upload-route"
+        "use-upload-route",
+        "use-paste-upload"
     ]
 }
