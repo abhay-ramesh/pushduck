@@ -969,6 +969,33 @@ export class S3FileSchema extends S3Schema<File, File> {
     return new S3Route(this).onUploadError(hook);
   }
 
+  /**
+   * Sets the expiration time for presigned upload URLs.
+   *
+   * Controls how long the generated presigned URL remains valid for the client
+   * to perform the upload. Defaults to 3600 seconds (1 hour) if not set.
+   *
+   * @param seconds - Expiration in seconds. Must be between 1 and 604800 (7 days).
+   * @returns S3Route instance with expiresIn set
+   *
+   * @example Short-lived upload window
+   * ```typescript
+   * const secureUpload = s3.file()
+   *   .maxFileSize('10MB')
+   *   .expiresIn(300) // URL expires in 5 minutes
+   * ```
+   *
+   * @example Extended window for large files
+   * ```typescript
+   * const largeFileUpload = s3.file()
+   *   .maxFileSize('500MB')
+   *   .expiresIn(7200) // URL expires in 2 hours
+   * ```
+   */
+  expiresIn(seconds: number) {
+    return new S3Route(this).expiresIn(seconds);
+  }
+
   // Helper methods
   private _parseSize(size: string | number): number {
     if (typeof size === "number") return size;
