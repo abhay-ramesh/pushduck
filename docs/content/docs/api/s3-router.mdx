@@ -223,6 +223,33 @@ React to upload events:
 })
 ```
 
+### Presigned URL Expiry
+
+Control how long the generated presigned upload URL remains valid. Defaults to `3600` seconds (1 hour).
+
+```typescript
+// Short-lived window — 5 minutes
+secureUpload: s3
+  .file()
+  .maxFileSize('10MB')
+  .expiresIn(300) // [!code highlight]
+
+// Extended window for large files — 2 hours
+largeFileUpload: s3
+  .file()
+  .maxFileSize('500MB')
+  .expiresIn(7200) // [!code highlight]
+```
+
+| Value | Duration |
+|-------|----------|
+| `300` | 5 minutes |
+| `3600` | 1 hour (default) |
+| `7200` | 2 hours |
+| `86400` | 24 hours |
+
+> **Note:** This controls the upload window — how long the client has to start the `PUT` to S3 after receiving the URL. Setting it too low may cause failures for large files or slow connections. Maximum is `604800` (7 days), enforced by AWS S3.
+
 ## Advanced Examples
 
 ### E-commerce Product Images

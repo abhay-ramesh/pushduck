@@ -350,6 +350,7 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
     middleware: S3Middleware<TMetadata, TNewMetadata>
   ): S3Route<TSchema, TNewMetadata> {
     const newConfig: S3RouteConfig<TNewMetadata> = {
+      ...(this.config as unknown as S3RouteConfig<TNewMetadata>),
       middleware: [
         ...(this.config.middleware || []),
         middleware as S3Middleware<any, any>,
@@ -396,6 +397,41 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
    */
   paths(paths: S3RoutePathConfig<TMetadata>): this {
     this.config.paths = { ...this.config.paths, ...paths };
+    return this;
+  }
+
+  /**
+   * Sets the expiration time for presigned upload URLs.
+   *
+   * Controls how long the generated presigned URL remains valid for the client
+   * to perform the upload. Defaults to 3600 seconds (1 hour) if not set.
+   *
+   * @param seconds - Expiration time in seconds
+   * @returns This route instance for chaining
+   *
+   * @param seconds - Expiration in seconds. Must be between 1 and 604800 (7 days).
+   *
+   * @example Short-lived upload window
+   * ```typescript
+   * const secureUpload = s3.file()
+   *   .maxFileSize('10MB')
+   *   .expiresIn(300) // URL expires in 5 minutes
+   * ```
+   *
+   * @example Extended window for large files
+   * ```typescript
+   * const largeFileUpload = s3.file()
+   *   .maxFileSize('500MB')
+   *   .expiresIn(7200) // URL expires in 2 hours
+   * ```
+   */
+  expiresIn(seconds: number): this {
+    if (seconds <= 0 || seconds > 604800) {
+      throw new Error(
+        `expiresIn must be between 1 and 604800 seconds (7 days), got ${seconds}`
+      );
+    }
+    this.config.expiresIn = seconds;
     return this;
   }
 
@@ -597,6 +633,8 @@ interface S3RouteConfig<TMetadata = any> {
   middleware?: S3Middleware<any, any>[];
   /** Path configuration for file organization */
   paths?: S3RoutePathConfig<TMetadata>;
+  /** Presigned upload URL expiration time in seconds (default: 3600 = 1 hour) */
+  expiresIn?: number;
   /** Hook for upload start events */
   onUploadStart?: S3LifecycleHook<TMetadata>;
   /** Hook for upload progress events */
@@ -893,6 +931,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           contentType: file.type,
           contentLength: file.size,
           metadata: s3Metadata,
+          expiresIn: routeConfig.expiresIn,
         });
 
         results.push({
