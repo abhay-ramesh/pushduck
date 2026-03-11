@@ -706,7 +706,7 @@ export async function generatePresignedUploadUrl(
 ): Promise<PresignedUrlResult> {
   const awsClient = createS3Client(uploadConfig);
   const config = getS3CompatibleConfig(uploadConfig.provider);
-  const expiresIn = options.expiresIn || 3600; // 1 hour default
+  const expiresIn = options.expiresIn ?? 3600; // 1 hour default
 
   try {
     // Presigned UPLOAD (PUT) must use the S3 API endpoint (buildS3Url), not the custom domain.
