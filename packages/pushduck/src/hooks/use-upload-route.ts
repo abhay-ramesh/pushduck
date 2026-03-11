@@ -468,10 +468,10 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
    * ```
    */
   const startUpload = useCallback(
-    async (uploadFiles: File[], metadata?: any) => {
+    async (uploadFiles: File[], metadata?: any): Promise<S3UploadedFile[]> => {
       if (!uploadFiles.length) {
         setIsUploading(false);
-        return;
+        return [];
       }
 
       try {
@@ -525,7 +525,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
           // Call onError callback for server errors
           config.onError?.(new Error(errorMessage));
-          return;
+          return [];
         }
 
         const presignData = await presignResponse.json();
@@ -545,7 +545,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
           // Call onError callback for presigned URL failures
           config.onError?.(new Error(errorMessage));
-          return;
+          return [];
         }
 
         // Upload validation passed - call onStart callback and initialize progress
@@ -588,7 +588,8 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
               updateFileStatus(fileState.id, "success", {
                 progress: 100,
-                key: result.key,
+                storagePath: result.key,
+                key: result.key, // deprecated alias
               });
 
               return {
@@ -618,6 +619,9 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
         const uploadResults = await Promise.all(uploadPromises);
         const successfulUploads = uploadResults.filter(Boolean);
 
+        // Track final completed files for the return value
+        const completedFiles: S3UploadedFile[] = [];
+
         if (successfulUploads.length > 0) {
           try {
             const completeResponse = await fetcher(
@@ -646,10 +650,22 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                       );
                       if (fileToUpdate) {
                         updateFileStatus(fileToUpdate.id, "success", {
+                          storagePath: result.key,
+                          publicUrl: result.url,
+                          presignedUrl: result.presignedUrl,
+                          // deprecated aliases
+                          key: result.key,
+                          url: result.url,
+                          progress: 100,
+                        });
+                        // Collect for return value
+                        completedFiles.push({
+                          ...fileToUpdate,
+                          status: "success",
+                          progress: 100,
                           url: result.url,
                           key: result.key,
                           presignedUrl: result.presignedUrl,
-                          progress: 100,
                         });
                       }
                     }
@@ -665,17 +681,23 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
           }
         }
 
-        if (config.onSuccess) {
+        const successCallback = config.onComplete || config.onSuccess;
+        if (successCallback) {
+          if (config.onSuccess && !config.onComplete) {
+            console.warn('⚠️ pushduck: onSuccess is deprecated. Use onComplete instead.');
+          }
           setFiles((currentFiles) => {
             const finalFiles = currentFiles.filter(
               (f) => f.status === "success"
             );
             if (finalFiles.length > 0) {
-              config.onSuccess?.(finalFiles);
+              successCallback(finalFiles);
             }
             return currentFiles;
           });
         }
+
+        return completedFiles;
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Upload failed";
@@ -693,6 +715,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
         config.onError?.(
           error instanceof Error ? error : new Error(errorMessage)
         );
+        return [];
       } finally {
         setIsUploading(false);
         abortControllers.current.clear();
@@ -717,3 +740,33 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
 // Export utility functions for UI components
 export { formatETA, formatUploadSpeed };
+
+/**
+ * Hook for uploading files to a typed route.
+ * Preferred over `useUploadRoute` — hooks should look like hooks.
+ *
+ * @example
+ * ```typescript
+ * const { uploadFiles, files, isUploading } = useUpload<AppRouter>('imageUpload', {
+ *   onComplete: (results) => console.log('done', results),
+ * });
+ *
+ * const results = await uploadFiles(selectedFiles);
+ * ```
+ */
+export function useUpload<TRouter extends S3Router<any>>(
+  routeName: RouterRouteNames<TRouter>,
+  config?: UploadRouteConfig
+): S3RouteUploadResult;
+
+export function useUpload(
+  routeName: string,
+  config?: UploadRouteConfig
+): S3RouteUploadResult;
+
+export function useUpload<TRouter extends S3Router<any>>(
+  routeName: RouterRouteNames<TRouter> | string,
+  config?: UploadRouteConfig
+): S3RouteUploadResult {
+  return useUploadRoute(routeName as string, config);
+}

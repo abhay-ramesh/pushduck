@@ -170,26 +170,26 @@ describe(".middleware() config preservation (regression)", () => {
     expect(route._getConfig().paths?.prefix).toBe("uploads");
   });
 
-  it("preserves onUploadComplete when .middleware() is called after", () => {
+  it("preserves onComplete when .middleware() is called after", () => {
     const { s3 } = makeS3();
     const hook = vi.fn();
     const route = s3
       .file()
-      .onUploadComplete(hook)
+      .onComplete(hook)
       .middleware(async () => ({ userId: "123" }));
 
-    expect(route._getConfig().onUploadComplete).toBe(hook);
+    expect(route._getConfig().onComplete).toBe(hook);
   });
 
   it("preserves all config when multiple .middleware() calls are chained", () => {
     const { s3 } = makeS3();
     const hook = vi.fn();
-    // expiresIn and onUploadComplete start an S3Route; paths and further
+    // expiresIn and onComplete start an S3Route; paths and further
     // middleware calls must also preserve the accumulated config
     const route = s3
       .file()
       .expiresIn(600)
-      .onUploadComplete(hook)
+      .onComplete(hook)
       .middleware(async () => ({ step: 1 }))
       .paths({ prefix: "docs" })
       .middleware(async ({ metadata }) => ({ ...metadata, step: 2 }));
@@ -197,7 +197,7 @@ describe(".middleware() config preservation (regression)", () => {
     const config = route._getConfig();
     expect(config.expiresIn).toBe(600);
     expect(config.paths?.prefix).toBe("docs");
-    expect(config.onUploadComplete).toBe(hook);
+    expect(config.onComplete).toBe(hook);
     expect(config.middleware).toHaveLength(2);
   });
 

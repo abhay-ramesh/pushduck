@@ -16,9 +16,31 @@ export interface S3UploadedFile {
   type: string;
   status: "pending" | "uploading" | "success" | "error";
   progress: number;
-  url?: string;
+  /**
+   * Permanent storage path (e.g. 'uploads/user123/photo.jpg').
+   * Store this in your database — it never expires.
+   */
+  storagePath?: string;
+  /**
+   * Public CDN URL if the bucket/provider has public access configured.
+   * Store this in your database — it never expires.
+   */
+  publicUrl?: string;
+  /**
+   * Temporary presigned download URL — expires in ~1 hour.
+   * Use for immediate display only. Do NOT store in your database.
+   */
+  presignedUrl?: string;
+  /**
+   * @deprecated Use `storagePath` instead. Will be removed in 1.0.0.
+   * The S3 object key — same value as storagePath.
+   */
   key?: string;
-  presignedUrl?: string; // Temporary download URL (expires in 1 hour)
+  /**
+   * @deprecated Use `publicUrl` or `presignedUrl` instead. Will be removed in 1.0.0.
+   * Previously returned the public URL; now ambiguous with presignedUrl.
+   */
+  url?: string;
   error?: string;
   file?: File;
   // ETA tracking
@@ -38,6 +60,9 @@ export interface UploadRouteConfig {
   endpoint?: string;
   fetcher?: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
   onStart?: (files: S3FileMetadata[]) => void | Promise<void>;
+  /** Called when all uploads complete successfully. Preferred over onSuccess. */
+  onComplete?: (results: S3UploadedFile[]) => void | Promise<void>;
+  /** @deprecated Use onComplete instead. */
   onSuccess?: (results: S3UploadedFile[]) => void | Promise<void>;
   onError?: (error: Error) => void;
   onProgress?: (progress: number) => void;
@@ -89,7 +114,17 @@ export interface S3RouteUploadResult {
    * await uploadFiles(files, { albumId: '123', tags: ['vacation'] });
    * ```
    */
-  uploadFiles: (files: File[], metadata?: any) => Promise<void>;
+  /**
+   * Upload files and await the results directly.
+   * Returns the completed file objects — no need to watch `files` state or use `onSuccess`.
+   *
+   * @example
+   * ```typescript
+   * const results = await uploadFiles(selectedFiles);
+   * await db.save({ path: results[0].key });
+   * ```
+   */
+  uploadFiles: (files: File[], metadata?: any) => Promise<S3UploadedFile[]>;
 
   /** Reset upload state and clear files */
   reset: () => void;
@@ -234,4 +269,31 @@ export type InferClientRouter<T> =
   }
   : never;
 
-// Legacy types removed - use TypedRouteHook and ClientConfig instead
+// ========================================
+// Provider-Neutral Type Aliases
+// ========================================
+
+/**
+ * Provider-neutral alias for S3Router.
+ * Works regardless of whether you use AWS S3, Cloudflare R2, MinIO, or any other provider.
+ * @alias S3Router
+ */
+export type UploadRouter<TRoutes extends Record<string, any> = Record<string, any>> = S3Router<TRoutes>;
+
+/**
+ * Provider-neutral alias for S3UploadedFile.
+ * @alias S3UploadedFile
+ */
+export type UploadedFile = S3UploadedFile;
+
+/**
+ * Provider-neutral alias for S3RouteUploadResult.
+ * @alias S3RouteUploadResult
+ */
+export type UploadResult = S3RouteUploadResult;
+
+/**
+ * Provider-neutral alias for RouterRouteNames.
+ * @alias RouterRouteNames
+ */
+export type RouteNames<T> = RouterRouteNames<T>;
