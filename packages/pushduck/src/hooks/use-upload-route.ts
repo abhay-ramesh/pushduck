@@ -665,13 +665,17 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
           }
         }
 
-        if (config.onSuccess) {
+        const successCallback = config.onComplete || config.onSuccess;
+        if (successCallback) {
+          if (config.onSuccess && !config.onComplete) {
+            console.warn('⚠️ pushduck: onSuccess is deprecated. Use onComplete instead.');
+          }
           setFiles((currentFiles) => {
             const finalFiles = currentFiles.filter(
               (f) => f.status === "success"
             );
             if (finalFiles.length > 0) {
-              config.onSuccess?.(finalFiles);
+              successCallback(finalFiles);
             }
             return currentFiles;
           });

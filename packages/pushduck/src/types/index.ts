@@ -38,6 +38,9 @@ export interface UploadRouteConfig {
   endpoint?: string;
   fetcher?: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
   onStart?: (files: S3FileMetadata[]) => void | Promise<void>;
+  /** Called when all uploads complete successfully. Preferred over onSuccess. */
+  onComplete?: (results: S3UploadedFile[]) => void | Promise<void>;
+  /** @deprecated Use onComplete instead. */
   onSuccess?: (results: S3UploadedFile[]) => void | Promise<void>;
   onError?: (error: Error) => void;
   onProgress?: (progress: number) => void;
