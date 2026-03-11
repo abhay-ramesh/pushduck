@@ -16,9 +16,31 @@ export interface S3UploadedFile {
   type: string;
   status: "pending" | "uploading" | "success" | "error";
   progress: number;
-  url?: string;
+  /**
+   * Permanent storage path (e.g. 'uploads/user123/photo.jpg').
+   * Store this in your database — it never expires.
+   */
+  storagePath?: string;
+  /**
+   * Public CDN URL if the bucket/provider has public access configured.
+   * Store this in your database — it never expires.
+   */
+  publicUrl?: string;
+  /**
+   * Temporary presigned download URL — expires in ~1 hour.
+   * Use for immediate display only. Do NOT store in your database.
+   */
+  presignedUrl?: string;
+  /**
+   * @deprecated Use `storagePath` instead. Will be removed in 1.0.0.
+   * The S3 object key — same value as storagePath.
+   */
   key?: string;
-  presignedUrl?: string; // Temporary download URL (expires in 1 hour)
+  /**
+   * @deprecated Use `publicUrl` or `presignedUrl` instead. Will be removed in 1.0.0.
+   * Previously returned the public URL; now ambiguous with presignedUrl.
+   */
+  url?: string;
   error?: string;
   file?: File;
   // ETA tracking
