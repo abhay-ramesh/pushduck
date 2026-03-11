@@ -198,10 +198,17 @@ export { createUploadConfig } from "./core/config/upload-config";
 export {
   S3ArraySchema,
   S3FileSchema,
-  S3ImageSchema,
   S3ObjectSchema,
   S3Schema,
+  // Preset functions — these are the preferred API
+  imagePreset,
+  videoPreset,
+  audioPreset,
+  documentPreset,
 } from "./core/schema";
+
+// S3ImageSchema is now just S3FileSchema — kept as a type alias for backward compat
+export type { S3ImageSchema } from "./core/schema";
 
 // ========================================
 // ROUTER SYSTEM
@@ -586,27 +593,114 @@ export type { LogLevel } from "./core/utils/logger";
 // ========================================
 // PROVIDER-NEUTRAL TYPE ALIASES
 // ========================================
+// All S3-prefixed originals remain fully supported — these are additive.
 
-// These aliases drop the "S3" prefix so they read naturally when using R2, MinIO, or any provider.
-// The S3-prefixed originals remain fully supported.
-
-export type {
-  UploadRouter,
-  UploadedFile,
-  UploadResult,
-  RouteNames,
-} from "./types";
-
-// Schema aliases
-export type { S3FileConstraints as FileConstraints } from "./core/schema";
-export type { InferS3Input as InferFileInput, InferS3Output as InferFileOutput } from "./core/schema";
-
-// Router/lifecycle aliases
-export type {
-  S3LifecycleContext as LifecycleContext,
-  S3LifecycleHook as LifecycleHook,
-  S3Middleware as Middleware,
-  S3MiddlewareContext as MiddlewareContext,
-  S3RouteContext as RouteContext,
-  S3RouterDefinition as RouterDefinition,
+import type { S3FileConstraints, InferS3Input, InferS3Output, S3Schema } from "./core/schema";
+import type {
+  S3LifecycleContext,
+  S3LifecycleHook,
+  S3Middleware,
+  S3MiddlewareContext,
+  S3RouteContext,
+  S3RouterDefinition,
 } from "./core/router/router-v2";
+
+// Re-export client-side aliases (JSDoc lives on the declarations in types/index.ts)
+export type { UploadRouter, UploadedFile, UploadResult, RouteNames } from "./types";
+
+/**
+ * Validation constraints for a file schema — `{ maxSize, minSize, allowedTypes, allowedExtensions }`.
+ *
+ * Same as `S3FileConstraints`. Can be passed directly to any preset or `upload.file()`:
+ * ```ts
+ * upload.file({ maxSize: '10MB', allowedTypes: ['application/pdf'] })
+ * // same as:
+ * upload.file().accept('application/pdf').maxSize('10MB')
+ * ```
+ */
+export type FileConstraints = S3FileConstraints;
+
+/**
+ * Infers the **input** type of a file schema (always `File` unless transformed).
+ *
+ * Same as `InferS3Input`:
+ * ```ts
+ * type Input = InferFileInput<typeof mySchema>; // File
+ * ```
+ */
+export type InferFileInput<T extends S3Schema> = InferS3Input<T>;
+
+/**
+ * Infers the **output** type of a file schema after any transforms.
+ *
+ * Same as `InferS3Output`:
+ * ```ts
+ * type Output = InferFileOutput<typeof mySchema>; // File (or custom transformed type)
+ * ```
+ */
+export type InferFileOutput<T extends S3Schema> = InferS3Output<T>;
+
+/**
+ * The context object passed to `.onStart()`, `.onComplete()`, `.onError()` lifecycle hooks.
+ *
+ * Same as `S3LifecycleContext`. Key fields:
+ * - `file` — `{ name, size, type }` of the uploaded file
+ * - `metadata` — server-side metadata returned from your `.middleware()`
+ * - `storagePath` — permanent key in the bucket (available in `onComplete`)
+ * - `publicUrl` — public URL if bucket is public (available in `onComplete`)
+ * - `presignedUrl` — temporary signed URL, ~1h (available in `onComplete`)
+ */
+export type LifecycleContext = S3LifecycleContext;
+
+/**
+ * A lifecycle hook function: `(ctx: LifecycleContext) => void | Promise<void>`.
+ *
+ * Same as `S3LifecycleHook`. Passed to `.onStart()`, `.onComplete()`, `.onError()`.
+ */
+export type LifecycleHook = S3LifecycleHook;
+
+/**
+ * A middleware function that runs before the upload and returns server-trusted metadata.
+ *
+ * Same as `S3Middleware`. Passed to `.middleware()`:
+ * ```ts
+ * upload.image().middleware(async ({ req, file, metadata }): Promise<{ userId: string }> => {
+ *   const user = await getUser(req);
+ *   if (!user) throw new Error('Unauthorized');
+ *   return { userId: user.id };
+ * })
+ * ```
+ */
+export type Middleware = S3Middleware;
+
+/**
+ * The context passed into a `.middleware()` function.
+ *
+ * Same as `S3MiddlewareContext`. Contains:
+ * - `req` — the incoming `Request`
+ * - `file` — `{ name, size, type }` of the file being uploaded
+ * - `metadata` — **untrusted** client-provided data from `uploadFiles(files, metadata)`
+ */
+export type MiddlewareContext = S3MiddlewareContext;
+
+/**
+ * Per-route context used internally during request handling.
+ *
+ * Same as `S3RouteContext`. Flows through middleware and lifecycle hooks automatically —
+ * you typically don't need to reference this type directly.
+ */
+export type RouteContext = S3RouteContext;
+
+/**
+ * The plain object shape passed to `upload.createRouter()`.
+ *
+ * Same as `S3RouterDefinition`. A record of route names to `S3Route` instances:
+ * ```ts
+ * const definition: RouterDefinition = {
+ *   avatar: upload.image().maxSize('2MB').middleware(...),
+ *   resume: upload.document().accept(['.pdf']),
+ * };
+ * const router = upload.createRouter(definition);
+ * ```
+ */
+export type RouterDefinition = S3RouterDefinition;

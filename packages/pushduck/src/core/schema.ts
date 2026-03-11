@@ -1146,109 +1146,124 @@ export class S3FileSchema extends S3Schema<File, File> {
 }
 
 // ========================================
-// Image Schema Implementation
+// Preset Factory Functions
+// ========================================
+//
+// These are named shortcuts — each one is exactly upload.file() with a
+// sensible accept() pre-filled. They return plain S3FileSchema, so the
+// full chain (.accept, .maxSize, .minSize, .maxFiles, .middleware,
+// .onComplete, .paths, .expiresIn, …) works on all of them identically.
+//
+// Presets can be extended and overridden freely:
+//   upload.image()                      → accepts image/*
+//   upload.image().accept('image/jpeg') → narrows to JPEG only
+//   upload.image().maxSize('5MB')       → add a size limit
+//   upload.image().maxFiles(10)         → up to 10 images
+//   upload.image().middleware(...)      → add auth / path logic
+//
 // ========================================
 
-export class S3ImageSchema extends S3FileSchema {
-  constructor(constraints: S3FileConstraints = {}) {
-    // Default to image types if not specified
-    const imageConstraints = {
-      allowedTypes: ["image/*"],
-      ...constraints,
-    };
-    super(imageConstraints);
-  }
-
-  // Image-specific constraints
-  formats(formats: string[]): S3ImageSchema {
-    const mimeTypes = formats.map((format) => {
-      const mimeMap: Record<string, string> = {
-        jpg: "image/jpeg",
-        jpeg: "image/jpeg",
-        png: "image/png",
-        gif: "image/gif",
-        webp: "image/webp",
-        avif: "image/avif",
-        svg: "image/svg+xml",
-      };
-      return mimeMap[format.toLowerCase()] || `image/${format}`;
-    });
-
-    return new S3ImageSchema({ ...this.constraints, allowedTypes: mimeTypes });
-  }
-
-  // Override methods to maintain S3ImageSchema return type
-  /** @deprecated Use `.maxSize()` instead. */
-  override max(size: string | number): S3ImageSchema {
-    console.warn("⚠️ pushduck: .max() is deprecated. Use .maxSize() instead.");
-    return this.maxSize(size);
-  }
-
-  /** @deprecated Use `.maxSize()` instead. */
-  override maxFileSize(size: string | number): S3ImageSchema {
-    console.warn("⚠️ pushduck: .maxFileSize() is deprecated. Use .maxSize() instead.");
-    return this.maxSize(size);
-  }
-
-  override maxSize(size: string | number): S3ImageSchema {
-    return new S3ImageSchema({ ...this.constraints, maxSize: size });
-  }
-
-  /** @deprecated Use `.minSize()` instead. */
-  override min(size: string | number): S3ImageSchema {
-    console.warn("⚠️ pushduck: .min() is deprecated. Use .minSize() instead.");
-    return this.minSize(size);
-  }
-
-  override minSize(size: string | number): S3ImageSchema {
-    return new S3ImageSchema({ ...this.constraints, minSize: size });
-  }
-
-  override accept(types: string | string[]): S3ImageSchema {
-    const typeArray = Array.isArray(types) ? types : [types];
-    const mimeTypes = typeArray.filter((t) => !t.startsWith("."));
-    const exts = typeArray.filter((t) => t.startsWith(".")).map((e) => e.slice(1));
-    const newConstraints = { ...this.constraints };
-    if (mimeTypes.length > 0) newConstraints.allowedTypes = mimeTypes;
-    if (exts.length > 0) newConstraints.allowedExtensions = exts;
-    return new S3ImageSchema(newConstraints);
-  }
-
-  /** @deprecated Use `.accept()` instead. */
-  override types(allowedTypes: string[]): S3ImageSchema {
-    console.warn("⚠️ pushduck: .types() is deprecated. Use .accept() instead.");
-    return this.accept(allowedTypes);
-  }
-
-  /** @deprecated Use `.accept(['.ext'])` instead. */
-  override extensions(allowedExtensions: string[]): S3ImageSchema {
-    console.warn("⚠️ pushduck: .extensions() is deprecated. Use .accept() with dot-prefixed extensions instead.");
-    return this.accept(allowedExtensions.map((e) => (e.startsWith(".") ? e : `.${e}`)));
-  }
-
-  /**
-   * Creates an array schema that validates multiple images with a maximum count.
-   * This is a convenience method for creating image arrays with a maximum file limit.
-   *
-   * @param maxCount - Maximum number of images allowed
-   * @returns New array schema instance with maximum constraint
-   *
-   * @example
-   * ```typescript
-   * const gallerySchema = s3.image()
-   *   .maxFileSize('2MB')
-   *   .formats(['jpeg', 'png'])
-   *   .maxFiles(6); // Maximum 6 images, each max 2MB
-   * ```
-   */
-  maxFiles(maxCount: number): S3ArraySchema<this> {
-    return new S3ArraySchema(this, { max: maxCount });
-  }
-
-  protected _clone(): this {
-    return new S3ImageSchema(this.constraints) as this;
-  }
+/**
+ * `upload.image()` — `S3FileSchema` with `allowedTypes: ['image/*']` pre-set.
+ *
+ * Exactly the same as writing `upload.file().accept('image/*')`.
+ * Returns a plain `S3FileSchema` — every chain method works identically.
+ *
+ * **Overriding**: `.accept()` replaces the default, it does not merge.
+ * `upload.image().accept('image/jpeg')` → only JPEG, not `image/*` + JPEG.
+ *
+ * @example
+ * ```ts
+ * upload.image()                                      // any image (image/*)
+ * upload.image().accept(['image/jpeg', 'image/webp']) // JPEG + WebP only
+ * upload.image().maxSize('5MB').maxFiles(10)          // gallery, 10 images max
+ * upload.image()
+ *   .maxSize('2MB')
+ *   .middleware(async ({ req }) => ({ userId: (await getUser(req)).id }))
+ *   .onComplete(async ({ storagePath, metadata }) => {
+ *     await db.avatars.upsert({ userId: metadata.userId, path: storagePath });
+ *   })
+ * ```
+ */
+export function imagePreset(constraints?: S3FileConstraints): S3FileSchema {
+  return new S3FileSchema({ allowedTypes: ["image/*"], ...constraints });
 }
+
+/**
+ * `upload.video()` — `S3FileSchema` with `allowedTypes: ['video/*']` pre-set.
+ *
+ * Exactly the same as writing `upload.file().accept('video/*')`.
+ * Returns a plain `S3FileSchema` — every chain method works identically.
+ *
+ * **Overriding**: `.accept()` replaces the default.
+ * `upload.video().accept('video/mp4')` → only MP4.
+ *
+ * @example
+ * ```ts
+ * upload.video()                                       // any video (video/*)
+ * upload.video().accept(['video/mp4', 'video/webm'])   // MP4 + WebM only
+ * upload.video().maxSize('500MB')
+ * upload.video().maxSize('100MB').maxFiles(3)          // up to 3 videos
+ * ```
+ */
+export function videoPreset(constraints?: S3FileConstraints): S3FileSchema {
+  return new S3FileSchema({ allowedTypes: ["video/*"], ...constraints });
+}
+
+/**
+ * `upload.audio()` — `S3FileSchema` with `allowedTypes: ['audio/*']` pre-set.
+ *
+ * Exactly the same as writing `upload.file().accept('audio/*')`.
+ * Returns a plain `S3FileSchema` — every chain method works identically.
+ *
+ * **Overriding**: `.accept()` replaces the default.
+ * `upload.audio().accept('audio/mpeg')` → only MP3.
+ *
+ * @example
+ * ```ts
+ * upload.audio()                                       // any audio (audio/*)
+ * upload.audio().accept(['audio/mpeg', 'audio/wav'])   // MP3 + WAV only
+ * upload.audio().maxSize('50MB')
+ * ```
+ */
+export function audioPreset(constraints?: S3FileConstraints): S3FileSchema {
+  return new S3FileSchema({ allowedTypes: ["audio/*"], ...constraints });
+}
+
+/**
+ * `upload.document()` — `S3FileSchema` with `allowedExtensions` pre-set to common
+ * document formats: `pdf, doc, docx, txt, csv, xls, xlsx, ppt, pptx`.
+ *
+ * Exactly the same as writing:
+ * ```ts
+ * upload.file().accept(['.pdf', '.doc', '.docx', '.txt', '.csv', '.xls', '.xlsx', '.ppt', '.pptx'])
+ * ```
+ * Returns a plain `S3FileSchema` — every chain method works identically.
+ *
+ * **Overriding**: `.accept()` replaces the default extension list entirely.
+ * `upload.document().accept(['.pdf'])` → PDFs only.
+ *
+ * @example
+ * ```ts
+ * upload.document()                     // all doc formats listed above
+ * upload.document().accept(['.pdf'])    // PDFs only
+ * upload.document().maxSize('25MB')
+ * upload.document().maxSize('10MB').maxFiles(5)
+ * ```
+ */
+export function documentPreset(constraints?: S3FileConstraints): S3FileSchema {
+  return new S3FileSchema({
+    allowedExtensions: ["pdf", "doc", "docx", "txt", "csv", "xls", "xlsx", "ppt", "pptx"],
+    ...constraints,
+  });
+}
+
+/**
+ * @deprecated `S3ImageSchema` is no longer a separate class.
+ * Use `upload.image()` or `upload.file().accept('image/*')` instead.
+ * This type alias is kept only for backward compatibility.
+ */
+export type S3ImageSchema = S3FileSchema;
 
 // ========================================
 // Array Schema Implementation
@@ -1437,7 +1452,10 @@ export class S3ObjectSchema<
 
 const s3 = {
   file: (constraints?: S3FileConstraints) => new S3FileSchema(constraints),
-  image: (constraints?: S3FileConstraints) => new S3ImageSchema(constraints),
+  image: imagePreset,
+  video: videoPreset,
+  audio: audioPreset,
+  document: documentPreset,
   object: <T extends Record<string, S3Schema>>(shape: T) =>
     new S3ObjectSchema(shape),
 } as const;

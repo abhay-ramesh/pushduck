@@ -274,26 +274,58 @@ export type InferClientRouter<T> =
 // ========================================
 
 /**
- * Provider-neutral alias for S3Router.
- * Works regardless of whether you use AWS S3, Cloudflare R2, MinIO, or any other provider.
- * @alias S3Router
+ * The router type returned by `upload.createRouter({ ... })`.
+ *
+ * Same as `S3Router` — alias exists so the type reads naturally when using
+ * Cloudflare R2, MinIO, or any provider other than AWS S3.
+ *
+ * Use this to annotate your exported router:
+ * ```ts
+ * import type { UploadRouter } from 'pushduck/server';
+ *
+ * export type AppRouter = typeof router;
+ * // AppRouter is UploadRouter<{ avatar: ..., resume: ... }>
+ * ```
  */
 export type UploadRouter<TRoutes extends Record<string, any> = Record<string, any>> = S3Router<TRoutes>;
 
 /**
- * Provider-neutral alias for S3UploadedFile.
- * @alias S3UploadedFile
+ * A single uploaded file with its status, URL, and storage path.
+ *
+ * Same as `S3UploadedFile`. Key fields:
+ * - `storagePath` — the permanent key in your bucket; **store this in your DB**
+ * - `publicUrl`   — permanent CDN/public URL (if your bucket is public)
+ * - `presignedUrl` — temporary signed URL (~1h); do **not** store this
+ * - `status`      — `'pending' | 'uploading' | 'success' | 'error'`
+ * - `progress`    — 0–100 upload progress
  */
 export type UploadedFile = S3UploadedFile;
 
 /**
- * Provider-neutral alias for S3RouteUploadResult.
- * @alias S3RouteUploadResult
+ * The object returned by `useUpload()` / `useUploadRoute()`.
+ *
+ * Same as `S3RouteUploadResult`. Contains:
+ * - `uploadFiles(files, metadata?)` — start the upload, returns `Promise<UploadedFile[]>`
+ * - `files`       — reactive array of `UploadedFile` with live progress
+ * - `isUploading` — `true` while any file is in flight
+ * - `errors`      — array of error messages from failed uploads
+ * - `progress`    — overall 0–100 progress across all files
+ * - `reset()`     — clear state and file list
  */
 export type UploadResult = S3RouteUploadResult;
 
 /**
- * Provider-neutral alias for RouterRouteNames.
- * @alias RouterRouteNames
+ * Union of all route names defined in a router.
+ *
+ * Same as `RouterRouteNames`. Use it to type a prop or variable that holds
+ * a route name:
+ * ```ts
+ * import type { RouteNames } from 'pushduck/client';
+ * import type { AppRouter } from '@/lib/upload';
+ *
+ * function UploadButton({ route }: { route: RouteNames<AppRouter> }) {
+ *   const { uploadFiles } = useUpload(route);
+ * }
+ * ```
  */
 export type RouteNames<T> = RouterRouteNames<T>;
