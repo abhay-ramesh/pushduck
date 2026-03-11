@@ -42,6 +42,11 @@ export type {
   RouterRouteNames,
   S3Router,
   TypedRouteHook,
+  // Provider-neutral aliases
+  UploadRouter,
+  UploadedFile,
+  UploadResult,
+  RouteNames,
 } from "./types";
 
 // ========================================
