@@ -300,30 +300,41 @@ If your bucket is public (not recommended for production):
 
 Set up pushduck with your AWS S3 configuration:
 
+**Private bucket (default — recommended):**
+
 ```typescript
 // lib/upload.ts
 import { createUploadConfig } from "pushduck/server";
 
-export const { s3, config } = createUploadConfig()
+export const { s3 } = createUploadConfig()
   .provider("aws", {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
     region: process.env.AWS_REGION!,
     bucket: process.env.AWS_S3_BUCKET_NAME!,
-    // Optional: Custom domain for public files
-    customDomain: process.env.S3_CUSTOM_DOMAIN,
   })
-  .defaults({
-    maxFileSize: "10MB",
-    acl: "private", // Use 'public-read' for public files
-  })
+  .defaults({ maxFileSize: "10MB" })
   .build();
+```
 
-export { s3 };
+**Public bucket with CloudFront CDN:**
+
+```typescript
+export const { s3 } = createUploadConfig()
+  .provider("aws", {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: process.env.AWS_REGION!,
+    bucket: process.env.AWS_S3_BUCKET_NAME!,
+    customDomain: process.env.S3_CUSTOM_DOMAIN, // e.g. https://cdn.yourdomain.com // [!code highlight]
+    visibility: 'public', // returns CDN URLs after upload instead of presigned URLs // [!code highlight]
+  })
+  .defaults({ maxFileSize: "10MB" })
+  .build();
 ```
 
 <Callout type="info">
-  **Custom Domain**: When `customDomain` is configured, public URLs will use your custom domain instead of the S3 URL. Internal operations (upload, delete) still use S3 endpoints.
+  **`visibility`**: Controls what download URL pushduck returns after upload. `'private'` (default) generates a presigned GET URL valid for 1 hour. `'public'` returns the plain CDN/S3 URL — use this only when your bucket or objects are publicly accessible. Upload signing always uses the S3 API endpoint regardless of this setting.
 </Callout>
 
 </Step>
