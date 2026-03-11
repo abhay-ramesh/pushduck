@@ -160,9 +160,9 @@ export interface AWSProviderConfig extends BaseProviderConfig {
 
 /**
  * Base fields for Cloudflare R2 object storage (without visibility/customDomain).
- * Use the exported `CloudflareR2Config` type, not this interface directly.
+ * Use the exported `CloudflareR2Config` type for the full discriminated union.
  */
-interface CloudflareR2BaseConfig extends Omit<BaseProviderConfig, "customDomain" | "visibility"> {
+export interface CloudflareR2BaseConfig extends Omit<BaseProviderConfig, "customDomain" | "visibility"> {
   provider: "cloudflare-r2";
   /** Cloudflare Account ID */
   accountId: string;
@@ -204,7 +204,7 @@ interface CloudflareR2BaseConfig extends Omit<BaseProviderConfig, "customDomain"
  *   accountId: 'abc123',
  *   accessKeyId: 'key123',
  *   secretAccessKey: 'secret123',
- *   customDomain: 'assets.myapp.com', // required when visibility is 'public'
+ *   customDomain: 'https://assets.myapp.com', // required when visibility is 'public'
  *   visibility: 'public',
  * };
  * ```
@@ -637,7 +637,11 @@ export type ProviderType = keyof ProviderSpecsType;
  */
 export type ProviderConfigMap = {
   aws: Partial<Omit<AWSProviderConfig, "provider">>;
-  cloudflareR2: Partial<Omit<CloudflareR2Config, "provider">>;
+  cloudflareR2: Partial<Omit<CloudflareR2BaseConfig, "provider">> &
+    (
+      | { visibility: "public"; customDomain: string }
+      | { visibility?: "private"; customDomain?: string }
+    );
   digitalOceanSpaces: Partial<Omit<DigitalOceanSpacesConfig, "provider">>;
   minio: Partial<Omit<MinIOConfig, "provider">>;
   gcs: Partial<Omit<GoogleCloudStorageConfig, "provider">>;
