@@ -468,10 +468,10 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
    * ```
    */
   const startUpload = useCallback(
-    async (uploadFiles: File[], metadata?: any) => {
+    async (uploadFiles: File[], metadata?: any): Promise<S3UploadedFile[]> => {
       if (!uploadFiles.length) {
         setIsUploading(false);
-        return;
+        return [];
       }
 
       try {
@@ -525,7 +525,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
           // Call onError callback for server errors
           config.onError?.(new Error(errorMessage));
-          return;
+          return [];
         }
 
         const presignData = await presignResponse.json();
@@ -545,7 +545,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
           // Call onError callback for presigned URL failures
           config.onError?.(new Error(errorMessage));
-          return;
+          return [];
         }
 
         // Upload validation passed - call onStart callback and initialize progress
@@ -619,6 +619,9 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
         const uploadResults = await Promise.all(uploadPromises);
         const successfulUploads = uploadResults.filter(Boolean);
 
+        // Track final completed files for the return value
+        const completedFiles: S3UploadedFile[] = [];
+
         if (successfulUploads.length > 0) {
           try {
             const completeResponse = await fetcher(
@@ -655,6 +658,15 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                           url: result.url,
                           progress: 100,
                         });
+                        // Collect for return value
+                        completedFiles.push({
+                          ...fileToUpdate,
+                          status: "success",
+                          progress: 100,
+                          url: result.url,
+                          key: result.key,
+                          presignedUrl: result.presignedUrl,
+                        });
                       }
                     }
                   }
@@ -684,6 +696,8 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
             return currentFiles;
           });
         }
+
+        return completedFiles;
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Upload failed";
@@ -701,6 +715,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
         config.onError?.(
           error instanceof Error ? error : new Error(errorMessage)
         );
+        return [];
       } finally {
         setIsUploading(false);
         abortControllers.current.clear();
