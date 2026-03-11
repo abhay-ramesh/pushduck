@@ -222,20 +222,20 @@ npx @pushduck/cli add file-list
 // Example: Integrate with Sharp
 import sharp from 'sharp';
 
-const router = s3.createRouter({
-  imageUpload: s3.image()
-    .onUploadComplete(async ({ key }) => {
+const router = upload.createRouter({
+  imageUpload: upload.image()
+    .onComplete(async ({ storagePath }) => {
       // ⚠️ Downloads file from S3 to server
-      const buffer = await s3.download(key);
-      
+      const buffer = await storage.download(storagePath);
+
       // Process with Sharp
       const optimized = await sharp(buffer)
         .resize(800, 600)
         .webp({ quality: 80 })
         .toBuffer();
-      
+
       // ⚠️ Uploads processed file back to S3
-      await storage.upload.file(optimized, `optimized/${key}`);
+      await storage.upload.file(optimized, `optimized/${storagePath}`);
     })
 });
 ```
@@ -273,7 +273,7 @@ function ImageUpload() {
 | Service | What We Provide | You Implement |
 |---------|----------------|---------------|
 | Webhooks | Lifecycle hooks | Webhook delivery |
-| Notifications | `onUploadComplete` hook | Email/SMS sending |
+| Notifications | `onComplete` hook | Email/SMS sending |
 | Database | File metadata in hooks | DB storage logic |
 | Queue Systems | Hooks with context | Queue integration |
 | Background Jobs | Async hook support | Job processing |
@@ -286,16 +286,16 @@ function ImageUpload() {
     ```typescript
     import { db } from '@/lib/database';
     
-    const router = s3.createRouter({
-      fileUpload: s3.file()
-        .onUploadComplete(async ({ file, key, url, metadata }) => {
+    const router = upload.createRouter({
+      fileUpload: upload.file()
+        .onComplete(async ({ file, storagePath, publicUrl, metadata }) => {
           // You implement database logic
           await db.files.create({
             data: {
               name: file.name,
               size: file.size,
-              url: url,
-              s3Key: key,
+              url: publicUrl,
+              s3Key: storagePath,
               userId: metadata.userId,
               uploadedAt: new Date()
             }
@@ -309,15 +309,15 @@ function ImageUpload() {
     ```typescript
     import { sendWebhook } from '@/lib/webhooks';
     
-    const router = s3.createRouter({
-      fileUpload: s3.file()
-        .onUploadComplete(async ({ file, url }) => {
+    const router = upload.createRouter({
+      fileUpload: upload.file()
+        .onComplete(async ({ file, publicUrl }) => {
           // You implement webhook delivery
           await sendWebhook({
             event: 'file.uploaded',
             data: {
               filename: file.name,
-              url: url,
+              url: publicUrl,
               timestamp: new Date().toISOString()
             }
           });
@@ -330,9 +330,9 @@ function ImageUpload() {
     ```typescript
     import { sendEmail } from '@/lib/email';
     
-    const router = s3.createRouter({
-      fileUpload: s3.file()
-        .onUploadComplete(async ({ file, metadata }) => {
+    const router = upload.createRouter({
+      fileUpload: upload.file()
+        .onComplete(async ({ file, metadata }) => {
           // You implement email notifications
           await sendEmail({
             to: metadata.userEmail,
@@ -348,12 +348,12 @@ function ImageUpload() {
     ```typescript
     import { queue } from '@/lib/queue';
     
-    const router = s3.createRouter({
-      fileUpload: s3.file()
-        .onUploadComplete(async ({ file, key }) => {
+    const router = upload.createRouter({
+      fileUpload: upload.file()
+        .onComplete(async ({ file, storagePath }) => {
           // You implement queue integration
           await queue.add('process-file', {
-            fileKey: key,
+            fileKey: storagePath,
             fileName: file.name,
             processType: 'thumbnail-generation'
           });
@@ -366,9 +366,9 @@ function ImageUpload() {
     ```typescript
     import { analytics } from '@/lib/analytics';
     
-    const router = s3.createRouter({
-      fileUpload: s3.file()
-        .onUploadStart(async ({ file, metadata }) => {
+    const router = upload.createRouter({
+      fileUpload: upload.file()
+        .onStart(async ({ file, metadata }) => {
           // Track upload start
           await analytics.track('upload_started', {
             userId: metadata.userId,
@@ -376,16 +376,16 @@ function ImageUpload() {
             fileType: file.type
           });
         })
-        .onUploadComplete(async ({ file, url, metadata }) => {
+        .onComplete(async ({ file, publicUrl, metadata }) => {
           // Track successful upload
           await analytics.track('upload_completed', {
             userId: metadata.userId,
             fileName: file.name,
             fileSize: file.size,
-            fileUrl: url
+            fileUrl: publicUrl
           });
         })
-        .onUploadError(async ({ error, metadata }) => {
+        .onError(async ({ error, metadata }) => {
           // Track errors
           await analytics.track('upload_failed', {
             userId: metadata.userId,
@@ -435,8 +435,8 @@ import { auth } from '@/lib/auth';
 import { checkPermission } from '@/lib/permissions';
 import { logAudit } from '@/lib/audit';
 
-const router = s3.createRouter({
-  fileUpload: s3.file()
+const router = upload.createRouter({
+  fileUpload: upload.file()
     .middleware(async ({ req, metadata }) => {
       // YOUR auth system
       const user = await auth.getUser(req);
@@ -482,8 +482,8 @@ const router = s3.createRouter({
     ```typescript
     import { auth } from '@/lib/auth';
     
-    const router = s3.createRouter({
-      fileUpload: s3.file()
+    const router = upload.createRouter({
+      fileUpload: upload.file()
         .middleware(async ({ req }) => {
           const session = await auth.api.getSession({
             headers: req.headers
@@ -506,8 +506,8 @@ const router = s3.createRouter({
     ```typescript
     import { getServerSession } from 'next-auth';
     
-    const router = s3.createRouter({
-      fileUpload: s3.file()
+    const router = upload.createRouter({
+      fileUpload: upload.file()
         .middleware(async ({ req }) => {
           const session = await getServerSession();
           
@@ -528,8 +528,8 @@ const router = s3.createRouter({
     ```typescript
     import { auth } from '@clerk/nextjs';
     
-    const router = s3.createRouter({
-      fileUpload: s3.file()
+    const router = upload.createRouter({
+      fileUpload: upload.file()
         .middleware(async () => {
           const { userId } = auth();
           
@@ -547,8 +547,8 @@ const router = s3.createRouter({
     ```typescript
     import { createServerClient } from '@supabase/ssr';
     
-    const router = s3.createRouter({
-      fileUpload: s3.file()
+    const router = upload.createRouter({
+      fileUpload: upload.file()
         .middleware(async ({ req }) => {
           const supabase = createServerClient(/* config */);
           const { data: { user } } = await supabase.auth.getUser();
@@ -567,8 +567,8 @@ const router = s3.createRouter({
     ```typescript
     import { verifyToken } from '@/lib/auth';
     
-    const router = s3.createRouter({
-      fileUpload: s3.file()
+    const router = upload.createRouter({
+      fileUpload: upload.file()
         .middleware(async ({ req }) => {
           const token = req.headers.get('authorization')?.replace('Bearer ', '');
           
@@ -600,8 +600,8 @@ This is our core philosophy in action:
 // 2. You connect your services via hooks
 // 3. Everyone wins
 
-const router = s3.createRouter({
-  fileUpload: s3.file()
+const router = upload.createRouter({
+  fileUpload: upload.file()
     // YOUR auth
     .middleware(async ({ req }) => {
       const user = await yourAuth.getUser(req);
@@ -609,7 +609,7 @@ const router = s3.createRouter({
     })
     
     // YOUR business logic  
-    .onUploadStart(async ({ file, metadata }) => {
+    .onStart(async ({ file, metadata }) => {
       await yourAnalytics.track('upload_started', {
         userId: metadata.userId,
         fileSize: file.size
@@ -617,31 +617,31 @@ const router = s3.createRouter({
     })
     
     // YOUR database
-    .onUploadComplete(async ({ file, url, key, metadata }) => {
+    .onComplete(async ({ file, publicUrl, storagePath, metadata }) => {
       await yourDatabase.files.create({
         userId: metadata.userId,
-        url: url,
-        s3Key: key,
+        url: publicUrl,
+        s3Key: storagePath,
         name: file.name,
         size: file.size
       });
-      
+
       // YOUR notifications
       await yourEmailService.send({
         to: metadata.userEmail,
         template: 'upload-complete',
         data: { fileName: file.name }
       });
-      
+
       // YOUR webhooks
       await yourWebhooks.trigger({
         event: 'file.uploaded',
-        data: { url, fileName: file.name }
+        data: { url: publicUrl, fileName: file.name }
       });
-      
+
       // YOUR queue
       await yourQueue.add('process-file', {
-        fileKey: key,
+        fileKey: storagePath,
         userId: metadata.userId
       });
 
@@ -650,13 +650,13 @@ const router = s3.createRouter({
         userId: metadata.userId,
         fileName: file.name,
         fileSize: file.size,
-        fileUrl: url,
-        fileKey: key
+        fileUrl: publicUrl,
+        fileKey: storagePath
       });
     })
     
     // YOUR error handling
-    .onUploadError(async ({ error, metadata }) => {
+    .onError(async ({ error, metadata }) => {
       await yourErrorTracking.log({
         error: error,
         userId: metadata.userId

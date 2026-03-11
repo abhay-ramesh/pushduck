@@ -144,9 +144,9 @@ Choosing the right file upload solution depends on your project's requirements. 
     **Pushduck:**
     ```typescript
     // Declarative schema
-    const router = s3.createRouter({
-      imageUpload: s3.image()
-        .maxFileSize('5MB')
+    const router = upload.createRouter({
+      imageUpload: upload.image()
+        .maxSize('5MB')
         .middleware(async ({ req }) => {
           const user = await auth(req);
           return { userId: user.id };
@@ -331,8 +331,8 @@ Choosing the right file upload solution depends on your project's requirements. 
     // ✅ Pushduck handles ALL of the above:
 
     // Server (3 lines)
-    const router = s3.createRouter({
-      imageUpload: s3.image().maxFileSize('5MB'),
+    const router = upload.createRouter({
+      imageUpload: upload.image().maxSize('5MB'),
     });
     export const { GET, POST } = router.handlers;
 
@@ -473,12 +473,12 @@ Choosing the right file upload solution depends on your project's requirements. 
     **Choose Pushduck if:**
     ```typescript
     // You want schema-based validation
-    const router = s3.createRouter({
-      profilePic: s3.image()
-        .maxFileSize('2MB')
+    const router = upload.createRouter({
+      profilePic: upload.image()
+        .maxSize('2MB')
         .types(['image/jpeg', 'image/png'])
         .middleware(auth)
-        .onUploadComplete(updateDatabase),
+        .onComplete(updateDatabase),
     });
     ```
 
@@ -664,12 +664,12 @@ const uploadFile = async (file: File) => {
 
 // After (Pushduck)
 // Server
-const { s3 } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider('aws', { bucket: 'my-bucket', region: 'us-east-1' })
   .build();
 
-const router = s3.createRouter({
-  fileUpload: s3.file().maxFileSize('10MB'),
+const router = upload.createRouter({
+  fileUpload: upload.file().maxSize('10MB'),
 });
 
 export const { GET, POST } = router.handlers;

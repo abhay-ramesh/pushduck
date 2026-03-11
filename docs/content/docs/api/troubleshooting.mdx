@@ -105,11 +105,11 @@ R2_BUCKET=your-bucket-name
 
 ```typescript
 // app/api/upload/route.ts
-const uploadRouter = s3.createRouter({
+const uploadRouter = upload.createRouter({
   imageUpload: s3
     .image()
-    .maxFileSize("10MB") // Increase as needed
-    .formats(["jpeg", "png", "webp"]),
+    .maxSize("10MB") // Increase as needed
+    .accept(["image/jpeg", "image/png", "image/webp"]),
 });
 ```
 

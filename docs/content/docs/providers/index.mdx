@@ -102,25 +102,21 @@ Pushduck supports multiple cloud storage providers through a unified S3-compatib
 All providers follow the same configuration pattern:
 
 ```typescript
-import { createS3Router, s3 } from 'pushduck/server';
+import { createUploadConfig } from 'pushduck/server';
 
-const uploadRouter = createS3Router({
-  // Configure your storage provider
-  storage: {
-    provider: 'aws-s3', // or 'cloudflare-r2', 'digitalocean-spaces', etc.
+const { upload } = createUploadConfig()
+  .provider("aws", {
+    // or 'cloudflareR2', 'digitalOceanSpaces', etc.
+    accessKeyId: process.env.ACCESS_KEY_ID!,
+    secretAccessKey: process.env.SECRET_ACCESS_KEY!,
     region: 'us-east-1',
     bucket: 'your-bucket-name',
-    credentials: {
-      accessKeyId: process.env.ACCESS_KEY_ID!,
-      secretAccessKey: process.env.SECRET_ACCESS_KEY!,
-    },
-  },
-  
-  // Define your upload routes
-  routes: {
-    imageUpload: s3.image().maxFileSize("5MB"),
-    documentUpload: s3.file().maxFileSize("10MB"),
-  },
+  })
+  .build();
+
+const uploadRouter = upload.createRouter({
+  imageUpload: upload.image().maxSize("5MB"),
+  documentUpload: upload.file().maxSize("10MB"),
 });
 ```
 

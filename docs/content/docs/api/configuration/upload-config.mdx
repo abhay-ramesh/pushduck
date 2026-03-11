@@ -13,7 +13,7 @@ The `createUploadConfig()` builder provides a fluent API for configuring your S3
 // lib/upload.ts
 import { createUploadConfig } from 'pushduck/server'
 
-const { storage, s3, config } = createUploadConfig() 
+const { storage, upload, config } = createUploadConfig()
   .provider("cloudflareR2",{ // [!code highlight]
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -24,7 +24,7 @@ const { storage, s3, config } = createUploadConfig()
   })
   .build()
 
-export { storage, s3 }
+export { storage, upload }
 ```
 
 ## Provider Configuration
@@ -175,22 +175,23 @@ Add lifecycle hooks for upload events:
 
 ```typescript
 .hooks({
-  onUploadStart: async ({ file, metadata }) => {
+  onStart: async ({ file, metadata }) => {
     console.log(`Upload started: ${file.name}`)
     // Log to analytics, validate user, etc.
   },
-  
-  onUploadComplete: async ({ file, url, metadata }) => {
-    console.log(`✅ Upload completed: ${file.name} -> ${url}`)
-    
+
+  onComplete: async ({ file, publicUrl, storagePath, metadata }) => {
+    console.log(`Upload completed: ${file.name} -> ${publicUrl}`)
+
     // Save to database
     await db.files.create({
       filename: file.name,
-      url,
+      url: publicUrl,
+      storagePath,
       userId: metadata.userId,
       size: file.size,
     })
-    
+
     // Send notifications
     await notificationService.send({
       type: 'upload_complete',
@@ -198,10 +199,10 @@ Add lifecycle hooks for upload events:
       filename: file.name,
     })
   },
-  
-  onUploadError: async ({ file, error, metadata }) => {
-    console.error(`❌ Upload failed: ${file.name}`, error)
-    
+
+  onError: async ({ file, error, metadata }) => {
+    console.error(`Upload failed: ${file.name}`, error)
+
     // Log to error tracking service
     await errorService.log({
       operation: 'file_upload',
@@ -219,7 +220,7 @@ Add lifecycle hooks for upload events:
 // lib/upload.ts
 import { createUploadConfig } from 'pushduck/server'
 
-const { storage, s3, config } = createUploadConfig()
+const { storage, upload, config } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -241,7 +242,7 @@ const { storage, s3, config } = createUploadConfig()
       const month = String(date.getMonth() + 1).padStart(2, '0')
       const day = String(date.getDate()).padStart(2, '0')
       const randomId = Math.random().toString(36).substring(2, 8)
-      
+
       return `${userId}/${year}/${month}/${day}/${randomId}/${file.name}`
     },
   })
@@ -256,11 +257,12 @@ const { storage, s3, config } = createUploadConfig()
     },
   })
   .hooks({
-    onUploadComplete: async ({ file, url, metadata }) => {
+    onComplete: async ({ file, publicUrl, storagePath, metadata }) => {
       // Save to your database
       await saveFileRecord({
         filename: file.name,
-        url,
+        url: publicUrl,
+        storagePath,
         userId: metadata.userId,
         uploadedAt: new Date(),
       })
@@ -268,7 +270,7 @@ const { storage, s3, config } = createUploadConfig()
   })
   .build()
 
-export { storage, s3 }
+export { storage, upload }
 ```
 
 ## Environment Variables
@@ -316,10 +318,10 @@ When `customDomain` is configured, public URLs will use your custom domain inste
 
 ```typescript
 // Without custom domain
-file.url = "https://bucket.s3.region.amazonaws.com/path/file.jpg"
+file.publicUrl = "https://bucket.s3.region.amazonaws.com/path/file.jpg"
 
 // With custom domain
-file.url = "https://cdn.yourdomain.com/path/file.jpg"
+file.publicUrl = "https://cdn.yourdomain.com/path/file.jpg"
 ```
 
 **Note**: Internal operations (upload, delete) still use the storage provider's endpoints. Only public URLs are affected by the custom domain.
@@ -330,13 +332,13 @@ After successful upload completion, clients receive file objects with both perma
 
 ```typescript
 // Client-side usage
-const { uploadFiles } = useUploadRoute('fileUpload', {
+const { uploadFiles } = useUpload('fileUpload', {
   onSuccess: (results) => {
     results.forEach(file => {
       console.log('File:', file.name);
-      console.log('Public URL:', file.url);           // Permanent access
+      console.log('Public URL:', file.publicUrl);      // Permanent access
       console.log('Download URL:', file.presignedUrl); // Temporary access (1 hour)
-      console.log('S3 Key:', file.key);               // Object key/path
+      console.log('Storage Path:', file.storagePath);  // Object key/path in storage
     });
   }
 });
@@ -344,14 +346,14 @@ const { uploadFiles } = useUploadRoute('fileUpload', {
 
 ### URL Types
 
-- **`url`** - Permanent URL for public file access, CDN caching, and embedding
+- **`publicUrl`** - Permanent URL for public file access, CDN caching, and embedding
 - **`presignedUrl`** - Temporary download URL (expires in 1 hour) for secure access
-- **`key`** - S3 object key/path for direct storage operations
+- **`storagePath`** - Object key/path in storage for database storage and storage API operations
 
 Use the appropriate URL based on your access requirements:
-- Public files: Use `url` for permanent access
+- Public files: Use `publicUrl` for permanent access
 - Private files: Use `presignedUrl` for time-limited access
-- File operations: Use `key` with storage API
+- File operations: Use `storagePath` with storage API
 
 ## Type Definitions
 
@@ -380,13 +382,14 @@ interface UploadConfig {
     }
   }
   hooks?: {
-    onUploadStart?: (ctx: { file: any; metadata: any }) => Promise<void> | void
-    onUploadComplete?: (ctx: {
+    onStart?: (ctx: { file: any; metadata: any }) => Promise<void> | void
+    onComplete?: (ctx: {
       file: any
-      url: string          // Permanent file URL
+      publicUrl: string    // Permanent file URL
+      storagePath: string  // Object key/path in storage
       metadata: any
     }) => Promise<void> | void
-    onUploadError?: (ctx: {
+    onError?: (ctx: {
       file: any
       error: Error
       metadata: any

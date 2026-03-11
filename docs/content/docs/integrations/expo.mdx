@@ -94,7 +94,7 @@ Expo Router is a file-based router for React Native and web applications that en
     ```typescript title="lib/upload.ts"
     import { createUploadConfig } from 'pushduck/server';
 
-    const { s3 } = createUploadConfig()
+    const { upload } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -105,9 +105,9 @@ Expo Router is a file-based router for React Native and web applications that en
       })
       .build();
 
-    export const uploadRouter = s3.createRouter({
-      imageUpload: s3.image().maxFileSize("5MB"),
-      documentUpload: s3.file().maxFileSize("10MB")
+    export const uploadRouter = upload.createRouter({
+      imageUpload: upload.image().maxSize("5MB"),
+      documentUpload: upload.file().maxSize("10MB")
     });
 
     export type AppUploadRouter = typeof uploadRouter;
@@ -193,7 +193,7 @@ export async function POST(request: Request) {
 import { createUploadConfig } from 'pushduck/server';
 import { jwtVerify } from 'jose';
 
-const { s3 } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -210,12 +210,12 @@ const { s3 } = createUploadConfig()
   })
   .build();
 
-export const uploadRouter = s3.createRouter({
+export const uploadRouter = upload.createRouter({
   // Private uploads with JWT authentication
-  privateUpload: s3
+  privateUpload: upload
     .image()
-    .maxFileSize("5MB")
-    .formats(['jpeg', 'jpg', 'png', 'webp'])
+    .maxSize("5MB")
+    .accept(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
     .middleware(async ({ req }) => {
       const authHeader = req.headers.get('authorization');
       if (!authHeader?.startsWith('Bearer ')) {
@@ -223,11 +223,11 @@ export const uploadRouter = s3.createRouter({
       }
 
       const token = authHeader.substring(7);
-      
+
       try {
         const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
         const { payload } = await jwtVerify(token, secret);
-        
+
         return {
           userId: payload.sub as string,
           platform: 'mobile'
@@ -238,11 +238,11 @@ export const uploadRouter = s3.createRouter({
     }),
 
   // User profile pictures
-  profilePicture: s3
+  profilePicture: upload
     .image()
-    .maxFileSize("2MB")
+    .maxSize("2MB")
     .maxFiles(1)
-    .formats(['jpeg', 'jpg', 'png', 'webp'])
+    .accept(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
     .middleware(async ({ req }) => {
       const userId = await authenticateUser(req);
       return { userId, category: 'profile' };
@@ -254,10 +254,10 @@ export const uploadRouter = s3.createRouter({
     }),
 
   // Document uploads
-  documents: s3
+  documents: upload
     .file()
-    .maxFileSize("10MB")
-    .types(['application/pdf', 'text/plain'])
+    .maxSize("10MB")
+    .accept(['application/pdf', 'text/plain'])
     .maxFiles(5)
     .middleware(async ({ req }) => {
       const userId = await authenticateUser(req);
@@ -265,9 +265,9 @@ export const uploadRouter = s3.createRouter({
     }),
 
   // Public uploads (no auth)
-  publicUpload: s3
+  publicUpload: upload
     .image()
-    .maxFileSize("2MB")
+    .maxSize("2MB")
     // No middleware = public access
 });
 
@@ -392,7 +392,7 @@ export default function ImageUploader() {
                   {file.status === 'success' ? 'Complete' : `${file.progress}%`}
                 </Text>
               </View>
-              {file.status === 'success' && file.url && (
+              {file.status === 'success' && file.publicUrl && (
                 <Text style={{ color: '#007AFF', fontSize: 12 }}>✓ Uploaded</Text>
               )}
             </View>
@@ -442,7 +442,7 @@ export default function DocumentUploader() {
           const newFiles = uploadResult.results.map(file => ({
             name: file.name,
             size: file.size,
-            url: file.url,                    // Permanent URL
+            url: file.publicUrl,              // Permanent URL
             downloadUrl: file.presignedUrl,   // Temporary download URL (1 hour)
           }));
           
@@ -820,7 +820,7 @@ const { upload } = useUpload('/api/upload', {
 Enable debug logging for development:
 
 ```typescript title="lib/upload.ts"
-const { s3 } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{ /* config */ })
   .defaults({
     debug: __DEV__, // Only in development

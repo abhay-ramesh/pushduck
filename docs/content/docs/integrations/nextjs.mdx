@@ -36,7 +36,7 @@ Pushduck provides straightforward integration with both Next.js App Router and P
 ```typescript title="lib/upload.ts"
 import { createUploadConfig } from 'pushduck/server';
 
-const { s3, createS3Router } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{ // [!code highlight]
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -47,9 +47,9 @@ const { s3, createS3Router } = createUploadConfig()
   })
   .build();
 
-export const uploadRouter = createS3Router({
-  imageUpload: s3.image().maxFileSize("5MB"), // [!code highlight]
-  documentUpload: s3.file().maxFileSize("10MB")
+export const uploadRouter = upload.createRouter({
+  imageUpload: upload.image().maxSize("5MB"), // [!code highlight]
+  documentUpload: upload.file().maxSize("10MB")
 });
 
 export type AppUploadRouter = typeof uploadRouter;
@@ -107,7 +107,7 @@ import { createUploadConfig } from 'pushduck/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-const { s3, createS3Router } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -124,19 +124,19 @@ const { s3, createS3Router } = createUploadConfig()
   })
   .build();
 
-const uploadRouter = createS3Router({
+const uploadRouter = upload.createRouter({
   // Profile pictures with authentication
-  profilePicture: s3
+  profilePicture: upload
     .image()
-    .maxFileSize("2MB")
-    .formats(["jpeg", "png", "webp"])
+    .maxSize("2MB")
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ req }) => {
       const session = await getServerSession(authOptions);
-      
+
       if (!session?.user?.id) {
         throw new Error("Authentication required");
       }
-      
+
       return {
         userId: session.user.id,
         category: "profile"
@@ -144,17 +144,17 @@ const uploadRouter = createS3Router({
     }),
 
   // Document uploads for authenticated users
-  documents: s3
+  documents: upload
     .file()
-    .maxFileSize("10MB")
-    .types(["application/pdf", "text/plain", "application/msword"])
+    .maxSize("10MB")
+    .accept(["application/pdf", "text/plain", "application/msword"])
     .middleware(async ({ req }) => {
       const session = await getServerSession(authOptions);
-      
+
       if (!session?.user?.id) {
         throw new Error("Authentication required");
       }
-      
+
       return {
         userId: session.user.id,
         category: "documents"
@@ -162,10 +162,10 @@ const uploadRouter = createS3Router({
     }),
 
   // Public image uploads (no auth required)
-  publicImages: s3
+  publicImages: upload
     .image()
-    .maxFileSize("5MB")
-    .formats(["jpeg", "png", "webp"])
+    .maxSize("5MB")
+    .accept(["image/jpeg", "image/png", "image/webp"])
     // No middleware = publicly accessible
 });
 
@@ -193,24 +193,24 @@ import { createUploadConfig } from 'pushduck/server';
 import { toNextJsPagesHandler } from 'pushduck/adapters';
 import { getSession } from 'next-auth/react';
 
-const { s3, createS3Router } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     // ... your config
   })
   .build();
 
-const uploadRouter = createS3Router({
-  imageUpload: s3
+const uploadRouter = upload.createRouter({
+  imageUpload: upload
     .image()
-    .maxFileSize("5MB")
+    .maxSize("5MB")
     .middleware(async ({ req }) => {
       // Convert Web Request to get session
       const session = await getSession({ req: req as any });
-      
+
       if (!session?.user?.id) {
         throw new Error("Authentication required");
       }
-      
+
       return {
         userId: session.user.id
       };
@@ -230,7 +230,7 @@ The client-side code is identical for both App Router and Pages Router:
 import { createUploadClient } from 'pushduck/client';
 import type { AppUploadRouter } from './upload';
 
-export const upload = createUploadClient<AppUploadRouter>({
+export const { upload, useUpload } = createUploadClient<AppUploadRouter>({
   endpoint: '/api/upload'
 });
 ```
@@ -294,10 +294,10 @@ export function UploadForm() {
                 </p>
               </div>
               
-              {file.status === 'success' && file.url && (
-                <a 
-                  href={file.url} 
-                  target="_blank" 
+              {file.status === 'success' && file.publicUrl && (
+                <a
+                  href={file.publicUrl}
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 hover:text-blue-800 text-sm"
                 >
@@ -350,7 +350,7 @@ import { createUploadConfig } from 'pushduck/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from './auth';
 
-const { s3, createS3Router } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -369,13 +369,13 @@ const { s3, createS3Router } = createUploadConfig()
   })
   .build();
 
-export const uploadRouter = createS3Router({
+export const uploadRouter = upload.createRouter({
   // Profile pictures - single image, authenticated
-  profilePicture: s3
+  profilePicture: upload
     .image()
-    .maxFileSize("2MB")
+    .maxSize("2MB")
     .maxFiles(1)
-    .formats(["jpeg", "png", "webp"])
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ req }) => {
       const session = await getServerSession(authOptions);
       if (!session?.user?.id) throw new Error("Authentication required");
@@ -383,11 +383,11 @@ export const uploadRouter = createS3Router({
     }),
 
   // Gallery images - multiple images, authenticated
-  gallery: s3
+  gallery: upload
     .image()
-    .maxFileSize("5MB")
+    .maxSize("5MB")
     .maxFiles(10)
-    .formats(["jpeg", "png", "webp"])
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ req }) => {
       const session = await getServerSession(authOptions);
       if (!session?.user?.id) throw new Error("Authentication required");
@@ -395,11 +395,11 @@ export const uploadRouter = createS3Router({
     }),
 
   // Documents - various file types, authenticated
-  documents: s3
+  documents: upload
     .file()
-    .maxFileSize("10MB")
+    .maxSize("10MB")
     .maxFiles(5)
-    .types([
+    .accept([
       "application/pdf",
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -412,11 +412,11 @@ export const uploadRouter = createS3Router({
     }),
 
   // Public uploads - no authentication required
-  public: s3
+  public: upload
     .image()
-    .maxFileSize("1MB")
+    .maxSize("1MB")
     .maxFiles(1)
-    .formats(["jpeg", "png"])
+    .accept(["image/jpeg", "image/png"])
     // No middleware = public access
 });
 
@@ -519,10 +519,10 @@ export default function UploadPage() {
                   {file.status === 'pending' && '⏸️'}
                 </div>
                 
-                {file.status === 'success' && file.url && (
-                  <a 
-                    href={file.url} 
-                    target="_blank" 
+                {file.status === 'success' && file.publicUrl && (
+                  <a
+                    href={file.publicUrl}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                   >

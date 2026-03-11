@@ -36,7 +36,7 @@ One file with your S3 config and upload route:
 ```ts title="app/api/upload/route.ts"
 import { createUploadConfig } from 'pushduck/server';
 
-const { s3 } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("aws", {
     bucket: process.env.AWS_BUCKET_NAME!,
     region: process.env.AWS_REGION!,
@@ -45,8 +45,8 @@ const { s3 } = createUploadConfig()
   })
   .build();
 
-const router = s3.createRouter({
-  imageUpload: s3.image().maxFileSize('5MB'),
+const router = upload.createRouter({
+  imageUpload: upload.image().maxSize('5MB'),
 });
 
 export const { GET, POST } = router.handlers;
@@ -100,7 +100,7 @@ export function UploadDemo() {
       {files.map((file) => (
         <div key={file.id}>
           {file.name} - {file.progress}%
-          {file.status === 'success' && <img src={file.url} alt={file.name} />}
+          {file.status === 'success' && <img src={file.publicUrl} alt={file.name} />}
         </div>
       ))}
     </div>
@@ -126,18 +126,18 @@ That's it - **3 steps, 3 files, ~40 lines of code**, and you have production-rea
 For production apps, you'll want to add authentication and custom paths:
 
 ```ts title="app/api/upload/route.ts"
-const { s3 } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("aws", { /* ... */ })
   .paths({
     prefix: 'uploads',
-    generateKey: (file, metadata) => 
+    generateKey: (file, metadata) =>
       `${metadata.userId}/${Date.now()}/${file.name}`
   })
   .build();
 
-const router = s3.createRouter({
-  imageUpload: s3.image()
-    .maxFileSize('5MB')
+const router = upload.createRouter({
+  imageUpload: upload.image()
+    .maxSize('5MB')
     .middleware(async ({ req }) => {
       const user = await getUser(req);
       if (!user) throw new Error('Unauthorized');

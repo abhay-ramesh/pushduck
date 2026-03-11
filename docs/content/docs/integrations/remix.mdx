@@ -35,7 +35,7 @@ Remix is a full-stack React framework focused on web standards and modern UX. It
     ```typescript title="app/lib/upload.ts"
     import { createUploadConfig } from 'pushduck/server';
 
-    const { s3, createS3Router } = createUploadConfig()
+    const { upload } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -46,9 +46,9 @@ Remix is a full-stack React framework focused on web standards and modern UX. It
       })
       .build();
 
-    export const uploadRouter = createS3Router({
-      imageUpload: s3.image().maxFileSize("5MB"),
-      documentUpload: s3.file().maxFileSize("10MB")
+    export const uploadRouter = upload.createRouter({
+      imageUpload: upload.image().maxSize("5MB"),
+      documentUpload: upload.file().maxSize("10MB")
     });
 
     export type AppUploadRouter = typeof uploadRouter;
@@ -153,7 +153,7 @@ export async function action({ request }: ActionFunctionArgs) {
 import { createUploadConfig } from 'pushduck/server';
 import { getSession } from '~/sessions';
 
-const { s3, createS3Router } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -170,19 +170,19 @@ const { s3, createS3Router } = createUploadConfig()
   })
   .build();
 
-export const uploadRouter = createS3Router({
+export const uploadRouter = upload.createRouter({
   // Private uploads with session authentication
-  privateUpload: s3
+  privateUpload: upload
     .image()
-    .maxFileSize("5MB")
+    .maxSize("5MB")
     .middleware(async ({ req }) => {
       const cookie = req.headers.get("Cookie");
       const session = await getSession(cookie);
-      
+
       if (!session.has("userId")) {
         throw new Error("Authentication required");
       }
-      
+
       return {
         userId: session.get("userId"),
         username: session.get("username"),
@@ -190,9 +190,9 @@ export const uploadRouter = createS3Router({
     }),
 
   // Public uploads (no auth)
-  publicUpload: s3
+  publicUpload: upload
     .image()
-    .maxFileSize("2MB")
+    .maxSize("2MB")
     // No middleware = public access
 });
 
@@ -606,7 +606,7 @@ export default function UploadForm() {
 Enable debug logging:
 
 ```typescript title="app/lib/upload.ts"
-export const uploadRouter = createS3Router({
+export const uploadRouter = upload.createRouter({
   // ... routes
 }).middleware(async ({ req, file }) => {
   if (process.env.NODE_ENV === "development") {

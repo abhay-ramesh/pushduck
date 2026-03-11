@@ -155,22 +155,20 @@ Complete reference documentation for all pushduck APIs, from client-side hooks t
 ### Basic Server Setup
 
 ```typescript
-import { createS3Router, s3 } from 'pushduck/server';
+import { createUploadConfig } from 'pushduck/server';
 
-const uploadRouter = createS3Router({
-  storage: {
-    provider: 'aws-s3',
+const { upload } = createUploadConfig()
+  .provider("aws", {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
     region: 'us-east-1',
     bucket: 'my-bucket',
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    },
-  },
-  routes: {
-    imageUpload: s3.image().maxFileSize("5MB"),
-    documentUpload: s3.file().maxFileSize("10MB"),
-  },
+  })
+  .build();
+
+const uploadRouter = upload.createRouter({
+  imageUpload: upload.image().maxSize("5MB"),
+  documentUpload: upload.file().maxSize("10MB"),
 });
 
 export const { GET, POST } = uploadRouter.handlers;

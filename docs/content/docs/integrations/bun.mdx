@@ -53,7 +53,7 @@ Bun is an ultra-fast JavaScript runtime with native Web Standards support. Since
     ```typescript title="lib/upload.ts"
     import { createUploadConfig } from 'pushduck/server';
 
-    const { s3, createS3Router } = createUploadConfig()
+    const { upload } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -64,9 +64,9 @@ Bun is an ultra-fast JavaScript runtime with native Web Standards support. Since
       })
       .build();
 
-    export const uploadRouter = createS3Router({
-      imageUpload: s3.image().maxFileSize("5MB"),
-      documentUpload: s3.file().maxFileSize("10MB")
+    export const uploadRouter = upload.createRouter({
+      imageUpload: upload.image().maxSize("5MB"),
+      documentUpload: upload.file().maxSize("10MB")
     });
 
     export type AppUploadRouter = typeof uploadRouter;
@@ -198,7 +198,7 @@ console.log('Bun server running on http://localhost:3000');
 ```typescript title="lib/upload.ts"
 import { createUploadConfig } from 'pushduck/server';
 
-const { s3, createS3Router } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -215,11 +215,11 @@ const { s3, createS3Router } = createUploadConfig()
   })
   .build();
 
-export const uploadRouter = createS3Router({
+export const uploadRouter = upload.createRouter({
   // Private uploads with authentication
-  privateUpload: s3
+  privateUpload: upload
     .image()
-    .maxFileSize("5MB")
+    .maxSize("5MB")
     .middleware(async ({ req }) => {
       const authHeader = req.headers.get('authorization');
       if (!authHeader?.startsWith('Bearer ')) {
@@ -227,7 +227,7 @@ export const uploadRouter = createS3Router({
       }
 
       const token = authHeader.substring(7);
-      
+
       try {
         const payload = await verifyJWT(token);
         return {
@@ -240,9 +240,9 @@ export const uploadRouter = createS3Router({
     }),
 
   // Public uploads (no auth)
-  publicUpload: s3
+  publicUpload: upload
     .image()
-    .maxFileSize("2MB")
+    .maxSize("2MB")
     // No middleware = public access
 });
 

@@ -54,7 +54,7 @@ Nitro is a universal web server framework that powers Nuxt.js, built on top of H
     ```typescript title="lib/upload.ts"
     import { createUploadConfig } from 'pushduck/server';
 
-    const { s3, createS3Router } = createUploadConfig()
+    const { upload } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -65,9 +65,9 @@ Nitro is a universal web server framework that powers Nuxt.js, built on top of H
       })
       .build();
 
-    export const uploadRouter = createS3Router({
-      imageUpload: s3.image().maxFileSize("5MB"),
-      documentUpload: s3.file().maxFileSize("10MB")
+    export const uploadRouter = upload.createRouter({
+      imageUpload: upload.image().maxSize("5MB"),
+      documentUpload: upload.file().maxSize("10MB")
     });
 
     export type AppUploadRouter = typeof uploadRouter;
@@ -161,7 +161,7 @@ export default defineEventHandler(async (event) => {
 import { createUploadConfig } from 'pushduck/server';
 import { getCookie } from 'h3';
 
-const { s3, createS3Router } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -178,24 +178,24 @@ const { s3, createS3Router } = createUploadConfig()
   })
   .build();
 
-export const uploadRouter = createS3Router({
+export const uploadRouter = upload.createRouter({
   // Private uploads with session authentication
-  privateUpload: s3
+  privateUpload: upload
     .image()
-    .maxFileSize("5MB")
+    .maxSize("5MB")
     .middleware(async ({ req }) => {
       const cookies = req.headers.cookie;
       const sessionId = parseCookie(cookies)?.sessionId;
-      
+
       if (!sessionId) {
         throw new Error('Authentication required');
       }
-      
+
       const user = await getUserFromSession(sessionId);
       if (!user) {
         throw new Error('Invalid session');
       }
-      
+
       return {
         userId: user.id,
         username: user.username,
@@ -203,9 +203,9 @@ export const uploadRouter = createS3Router({
     }),
 
   // Public uploads (no auth)
-  publicUpload: s3
+  publicUpload: upload
     .image()
-    .maxFileSize("2MB")
+    .maxSize("2MB")
     // No middleware = public access
 });
 
@@ -668,7 +668,7 @@ export default async (nitroApp) => {
 Enable debug logging:
 
 ```typescript title="lib/upload.ts"
-export const uploadRouter = createS3Router({
+export const uploadRouter = upload.createRouter({
   // ... routes
 }).middleware(async ({ req, file }) => {
   if (process.env.NODE_ENV === "development") {

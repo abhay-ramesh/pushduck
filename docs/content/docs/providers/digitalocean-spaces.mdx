@@ -97,7 +97,7 @@ DO_SPACES_CUSTOM_DOMAIN=https://your-space-name.nyc3.cdn.digitaloceanspaces.com
 // lib/upload.ts
 import { createUploadConfig } from "pushduck/server";
 
-export const { s3,  } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("digitalOceanSpaces",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -137,7 +137,7 @@ Your files are automatically cached worldwide:
 
 ```typescript
 // Files are served from the nearest CDN location
-const imageUrl = file.url; // Automatically CDN-accelerated
+const imageUrl = file.publicUrl; // Automatically CDN-accelerated
 
 // CDN locations include:
 // - North America: NYC, SF, Toronto
@@ -151,23 +151,23 @@ Optimize caching for different file types:
 
 ```typescript
 // Configure caching per upload type
-const imageUpload = s3
+const imageUpload = upload
   .image()
-  .maxFileSize("10MB")
-  .onUploadComplete(async ({ file, key }) => {
+  .maxSize("10MB")
+  .onComplete(async ({ file, storagePath }) => {
     // Set cache headers for images (long cache)
-    await setObjectMetadata(key, {
+    await setObjectMetadata(storagePath, {
       "Cache-Control": "public, max-age=31536000", // 1 year
       "Content-Type": file.type,
     });
   });
 
-const documentUpload = s3
+const documentUpload = upload
   .file()
-  .types(["pdf", "docx"])
-  .onUploadComplete(async ({ file, key }) => {
+  .accept(["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"])
+  .onComplete(async ({ file, storagePath }) => {
     // Shorter cache for documents
-    await setObjectMetadata(key, {
+    await setObjectMetadata(storagePath, {
       "Cache-Control": "public, max-age=86400", // 1 day
     });
   });
@@ -200,10 +200,10 @@ Automatically manage old files:
 ```typescript
 // Configure automatic cleanup
 .hooks({
-  onUploadComplete: async ({ file, metadata }) => {
+  onComplete: async ({ file, storagePath, metadata }) => {
     // Schedule deletion of temporary files
     if (metadata.category === 'temp') {
-      await scheduleCleanup(file.key, { days: 7 });
+      await scheduleCleanup(storagePath, { days: 7 });
     }
   }
 })
@@ -228,7 +228,7 @@ For sensitive files:
 
 ```typescript
 // Configure private access
-export const { s3,  } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("digitalOceanSpaces",{
     // ... config
     acl: "private", // Files not publicly accessible
@@ -267,14 +267,14 @@ Track your Space usage:
 ```typescript
 // Monitor uploads in real-time
 .hooks({
-  onUploadStart: async ({ file }) => {
+  onStart: async ({ file }) => {
     await analytics.track("upload_started", {
       provider: "digitalocean-spaces",
       fileSize: file.size,
       fileType: file.type,
     });
   },
-  onUploadComplete: async ({ file, metadata }) => {
+  onComplete: async ({ file, metadata }) => {
     await analytics.track("upload_completed", {
       provider: "digitalocean-spaces",
       duration: metadata.uploadTime,

@@ -205,7 +205,7 @@ For production deployments, you can use a custom domain:
 // lib/upload.ts
 import { createUploadConfig } from "pushduck/server";
 
-export const { s3,  } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("minio",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -309,7 +309,7 @@ networks:
 ```typescript
 // Add health monitoring
 .hooks({
-  onUploadStart: async () => {
+  onStart: async () => {
     // Check MinIO connectivity
     const isHealthy = await checkMinIOHealth();
     if (!isHealthy) {
@@ -371,7 +371,7 @@ services:
 
 ```typescript
 // Optimize for high throughput
-export const { s3,  } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("minio",{
     // ... config
     maxRetries: 3,

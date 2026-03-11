@@ -99,7 +99,7 @@ Fresh is a modern web framework for Deno that uses islands architecture for opti
     ```typescript title="lib/upload.ts"
     import { createUploadConfig } from 'pushduck/server';
 
-    const { s3, createS3Router } = createUploadConfig()
+    const { upload } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: Deno.env.get("AWS_ACCESS_KEY_ID")!,
         secretAccessKey: Deno.env.get("AWS_SECRET_ACCESS_KEY")!,
@@ -110,9 +110,9 @@ Fresh is a modern web framework for Deno that uses islands architecture for opti
       })
       .build();
 
-    export const uploadRouter = createS3Router({
-      imageUpload: s3.image().maxFileSize("5MB"),
-      documentUpload: s3.file().maxFileSize("10MB")
+    export const uploadRouter = upload.createRouter({
+      imageUpload: upload.image().maxSize("5MB"),
+      documentUpload: upload.file().maxSize("10MB")
     });
 
     export type AppUploadRouter = typeof uploadRouter;
@@ -208,7 +208,7 @@ export async function handler(
 import { createUploadConfig } from 'pushduck/server';
 import { getCookies } from "https://deno.land/std@0.208.0/http/cookie.ts";
 
-const { s3, createS3Router } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: Deno.env.get("AWS_ACCESS_KEY_ID")!,
     secretAccessKey: Deno.env.get("AWS_SECRET_ACCESS_KEY")!,
@@ -225,24 +225,24 @@ const { s3, createS3Router } = createUploadConfig()
   })
   .build();
 
-export const uploadRouter = createS3Router({
+export const uploadRouter = upload.createRouter({
   // Private uploads with cookie-based authentication
-  privateUpload: s3
+  privateUpload: upload
     .image()
-    .maxFileSize("5MB")
+    .maxSize("5MB")
     .middleware(async ({ req }) => {
       const cookies = getCookies(req.headers);
       const sessionId = cookies.sessionId;
-      
+
       if (!sessionId) {
         throw new Error('Authentication required');
       }
-      
+
       const user = await getUserFromSession(sessionId);
       if (!user) {
         throw new Error('Invalid session');
       }
-      
+
       return {
         userId: user.id,
         username: user.username,
@@ -250,9 +250,9 @@ export const uploadRouter = createS3Router({
     }),
 
   // Public uploads (no auth)
-  publicUpload: s3
+  publicUpload: upload
     .image()
-    .maxFileSize("2MB")
+    .maxSize("2MB")
     // No middleware = public access
 });
 
@@ -691,7 +691,7 @@ export const fileStorage = new FileStorage();
 Enable debug logging:
 
 ```typescript title="lib/upload.ts"
-export const uploadRouter = createS3Router({
+export const uploadRouter = upload.createRouter({
   // ... routes
 }).middleware(async ({ req, file }) => {
   if (Deno.env.get("DENO_ENV") === "development") {

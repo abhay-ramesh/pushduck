@@ -53,7 +53,7 @@ Fastify is a high-performance Node.js web framework that uses custom `request`/`
     ```typescript title="lib/upload.ts"
     import { createUploadConfig } from 'pushduck/server';
 
-    const { s3, createS3Router } = createUploadConfig()
+    const { upload } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -64,9 +64,9 @@ Fastify is a high-performance Node.js web framework that uses custom `request`/`
       })
       .build();
 
-    export const uploadRouter = createS3Router({
-      imageUpload: s3.image().maxFileSize("5MB"),
-      documentUpload: s3.file().maxFileSize("10MB")
+    export const uploadRouter = upload.createRouter({
+      imageUpload: upload.image().maxSize("5MB"),
+      documentUpload: upload.file().maxSize("10MB")
     });
 
     export type AppUploadRouter = typeof uploadRouter;
@@ -201,7 +201,7 @@ start();
 ```typescript title="lib/upload.ts"
 import { createUploadConfig } from 'pushduck/server';
 
-const { s3, createS3Router } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -218,13 +218,13 @@ const { s3, createS3Router } = createUploadConfig()
   })
   .build();
 
-export const uploadRouter = createS3Router({
+export const uploadRouter = upload.createRouter({
   // Profile pictures with authentication
-  profilePicture: s3
+  profilePicture: upload
     .image()
-    .maxFileSize("2MB")
+    .maxSize("2MB")
     .maxFiles(1)
-    .formats(["jpeg", "png", "webp"])
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ req }) => {
       const authHeader = req.headers.get('authorization');
       if (!authHeader?.startsWith('Bearer ')) {
@@ -233,7 +233,7 @@ export const uploadRouter = createS3Router({
 
       const token = authHeader.substring(7);
       const user = await verifyJWT(token);
-      
+
       return {
         userId: user.id,
         userRole: user.role,
@@ -242,11 +242,11 @@ export const uploadRouter = createS3Router({
     }),
 
   // Document uploads for authenticated users
-  documents: s3
+  documents: upload
     .file()
-    .maxFileSize("10MB")
+    .maxSize("10MB")
     .maxFiles(5)
-    .types([
+    .accept([
       "application/pdf",
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -260,7 +260,7 @@ export const uploadRouter = createS3Router({
 
       const token = authHeader.substring(7);
       const user = await verifyJWT(token);
-      
+
       return {
         userId: user.id,
         category: "documents"
@@ -268,11 +268,11 @@ export const uploadRouter = createS3Router({
     }),
 
   // Public uploads (no authentication)
-  publicImages: s3
+  publicImages: upload
     .image()
-    .maxFileSize("1MB")
+    .maxSize("1MB")
     .maxFiles(1)
-    .formats(["jpeg", "png"])
+    .accept(["image/jpeg", "image/png"])
     // No middleware = public access
 });
 
@@ -485,7 +485,7 @@ The client-side integration is identical regardless of your backend framework:
 import { createUploadClient } from 'pushduck/client';
 import type { AppUploadRouter } from '../lib/upload';
 
-export const upload = createUploadClient<AppUploadRouter>({
+export const { upload, useUpload } = createUploadClient<AppUploadRouter>({
   endpoint: 'http://localhost:3000/api/upload',
   headers: {
     'Authorization': `Bearer ${getAuthToken()}`
@@ -529,7 +529,7 @@ export function DocumentUploader() {
           <span>{file.name}</span>
           <progress value={file.progress} max={100} />
           {file.status === 'success' && (
-            <a href={file.url} target="_blank" rel="noopener noreferrer">
+            <a href={file.publicUrl} target="_blank" rel="noopener noreferrer">
               Download
             </a>
           )}

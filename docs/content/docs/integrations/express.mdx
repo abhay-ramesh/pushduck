@@ -54,7 +54,7 @@ Express uses the traditional Node.js `req`/`res` API pattern. Pushduck provides 
     ```typescript title="lib/upload.ts"
     import { createUploadConfig } from 'pushduck/server';
 
-    const { s3, createS3Router } = createUploadConfig()
+    const { upload } = createUploadConfig()
       .provider("cloudflareR2",{
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -65,9 +65,9 @@ Express uses the traditional Node.js `req`/`res` API pattern. Pushduck provides 
       })
       .build();
 
-    export const uploadRouter = createS3Router({
-      imageUpload: s3.image().maxFileSize("5MB"),
-      documentUpload: s3.file().maxFileSize("10MB")
+    export const uploadRouter = upload.createRouter({
+      imageUpload: upload.image().maxSize("5MB"),
+      documentUpload: upload.file().maxSize("10MB")
     });
 
     export type AppUploadRouter = typeof uploadRouter;
@@ -168,7 +168,7 @@ app.listen(3000);
 ```typescript title="lib/upload.ts"
 import { createUploadConfig } from 'pushduck/server';
 
-const { s3, createS3Router } = createUploadConfig()
+const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -185,13 +185,13 @@ const { s3, createS3Router } = createUploadConfig()
   })
   .build();
 
-export const uploadRouter = createS3Router({
+export const uploadRouter = upload.createRouter({
   // Profile pictures with authentication
-  profilePicture: s3
+  profilePicture: upload
     .image()
-    .maxFileSize("2MB")
+    .maxSize("2MB")
     .maxFiles(1)
-    .formats(["jpeg", "png", "webp"])
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ req }) => {
       // Extract user from JWT token in Authorization header
       const authHeader = req.headers.get('authorization');
@@ -201,7 +201,7 @@ export const uploadRouter = createS3Router({
 
       const token = authHeader.substring(7);
       const user = await verifyJWT(token);
-      
+
       return {
         userId: user.id,
         userRole: user.role,
@@ -210,11 +210,11 @@ export const uploadRouter = createS3Router({
     }),
 
   // Document uploads for authenticated users
-  documents: s3
+  documents: upload
     .file()
-    .maxFileSize("10MB")
+    .maxSize("10MB")
     .maxFiles(5)
-    .types([
+    .accept([
       "application/pdf",
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -228,7 +228,7 @@ export const uploadRouter = createS3Router({
 
       const token = authHeader.substring(7);
       const user = await verifyJWT(token);
-      
+
       return {
         userId: user.id,
         category: "documents"
@@ -236,11 +236,11 @@ export const uploadRouter = createS3Router({
     }),
 
   // Public uploads (no authentication)
-  publicImages: s3
+  publicImages: upload
     .image()
-    .maxFileSize("1MB")
+    .maxSize("1MB")
     .maxFiles(1)
-    .formats(["jpeg", "png"])
+    .accept(["image/jpeg", "image/png"])
     // No middleware = public access
 });
 

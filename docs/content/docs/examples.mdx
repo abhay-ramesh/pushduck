@@ -110,7 +110,7 @@ await imageUpload.uploadFiles(selectedFiles);
             <div key={file.id}>
               <span>{file.name}</span>
               <span>{file.status}</span>
-              {file.url && <a href={file.url}>View</a>}
+              {file.publicUrl && <a href={file.publicUrl}>View</a>}
             </div>
           ))}
         </div>
@@ -118,7 +118,7 @@ await imageUpload.uploadFiles(selectedFiles);
     }
     ```
   </Tab>
-  
+
   <Tab value="With Metadata">
     ```typescript
     "use client";
@@ -168,7 +168,7 @@ await imageUpload.uploadFiles(selectedFiles);
             <div key={file.id}>
               <span>{file.name}</span>
               <span>{file.status}</span>
-              {file.url && <a href={file.url}>View</a>}
+              {file.publicUrl && <a href={file.publicUrl}>View</a>}
             </div>
           ))}
         </div>
@@ -176,13 +176,13 @@ await imageUpload.uploadFiles(selectedFiles);
     }
     ```
   </Tab>
-  
+
   <Tab value="Advanced Configuration">
     ```typescript
     // app/api/upload/route.ts
     import { createUploadConfig } from "pushduck/server";
     
-    const { s3,  } = createUploadConfig()
+    const { upload } = createUploadConfig()
       .provider("cloudflareR2",{
         accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
         bucket: process.env.R2_BUCKET!,
@@ -192,27 +192,27 @@ await imageUpload.uploadFiles(selectedFiles);
         acl: "public-read",
       })
       .build();
-    
-    const uploadRouter = s3.createRouter({
-      imageUpload: s3
+
+    const uploadRouter = upload.createRouter({
+      imageUpload: upload
         .image()
-        .maxFileSize("5MB")
-        .formats(["jpeg", "png", "webp"])
+        .maxSize("5MB")
+        .accept(['image/jpeg', 'image/png', 'image/webp'])
         .middleware(async ({ file, metadata }) => {
           // Custom authentication and metadata
           const session = await getServerSession();
           if (!session) throw new Error("Unauthorized");
-          
+
           return {
             ...metadata,
             userId: session.user.id,
             uploadedAt: new Date().toISOString(),
           };
         })
-        .onUploadComplete(async ({ file, url, metadata }) => {
+        .onComplete(async ({ file, publicUrl, metadata }) => {
           // Post-upload processing
-          console.log(`Upload complete: ${url}`);
-          await saveToDatabase({ url, metadata });
+          console.log(`Upload complete: ${publicUrl}`);
+          await saveToDatabase({ url: publicUrl, metadata });
         }),
     });
     
@@ -268,8 +268,8 @@ await imageUpload.uploadFiles(selectedFiles);
               {file.status === "error" && (
                 <span className="error">{file.error}</span>
               )}
-              {file.status === "success" && file.url && (
-                <a href={file.url} target="_blank">View File</a>
+              {file.status === "success" && file.publicUrl && (
+                <a href={file.publicUrl} target="_blank">View File</a>
               )}
             </div>
           ))}

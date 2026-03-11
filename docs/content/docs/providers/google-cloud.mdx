@@ -122,7 +122,7 @@ GCS_CUSTOM_DOMAIN=https://storage.googleapis.com/my-app-uploads-bucket
 // lib/upload.ts
 import { createUploadConfig } from "pushduck/server";
 
-export const { s3,  } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("gcs",{
     projectId: process.env.GCS_PROJECT_ID!,
     keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS!,
@@ -160,7 +160,7 @@ Your Google Cloud Storage is configured! Benefits:
 
 ```typescript
 // Configure multi-regional bucket for global performance
-export const { s3,  } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("gcs",{
     // ... basic config
     bucket: process.env.GCS_BUCKET_NAME!,
@@ -178,12 +178,12 @@ Optimize costs with different storage classes:
 ```typescript
 // Configure lifecycle policies for cost optimization
 .hooks({
-  onUploadComplete: async ({ file, key, metadata }) => {
+  onComplete: async ({ file, storagePath, metadata }) => {
     // Move old files to cheaper storage classes
     if (metadata.category === 'archive') {
-      await moveToStorageClass(key, 'COLDLINE');
+      await moveToStorageClass(storagePath, 'COLDLINE');
     } else if (metadata.category === 'backup') {
-      await moveToStorageClass(key, 'ARCHIVE');
+      await moveToStorageClass(storagePath, 'ARCHIVE');
     }
   }
 })
@@ -193,7 +193,7 @@ Optimize costs with different storage classes:
 
 ```typescript
 // Use Cloud CDN for faster global delivery
-export const { s3,  } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("gcs",{
     // ... config
     // Configure CDN endpoint
@@ -247,15 +247,15 @@ gcloud projects add-iam-policy-binding your-project-id \
 ```typescript
 // Generate time-limited access URLs
 .hooks({
-  onUploadComplete: async ({ file, key }) => {
+  onComplete: async ({ file, storagePath }) => {
     if (file.private) {
       // Generate signed URL valid for 1 hour
-      const signedUrl = await generateSignedUrl(key, {
+      const signedUrl = await generateSignedUrl(storagePath, {
         action: 'read',
         expires: Date.now() + 60 * 60 * 1000, // 1 hour
       });
 
-      return { ...file, url: signedUrl };
+      return { ...file, publicUrl: signedUrl };
     }
     return file;
   }
@@ -302,7 +302,7 @@ const lifecyclePolicy = {
 ```typescript
 // Track upload metrics
 .hooks({
-  onUploadStart: async ({ file }) => {
+  onStart: async ({ file }) => {
     await cloudMonitoring.createTimeSeries({
       name: 'custom.googleapis.com/upload/started',
       value: 1,
@@ -312,7 +312,7 @@ const lifecyclePolicy = {
       }
     });
   },
-  onUploadComplete: async ({ file, metadata }) => {
+  onComplete: async ({ file, metadata }) => {
     await cloudMonitoring.createTimeSeries({
       name: 'custom.googleapis.com/upload/completed',
       value: metadata.uploadDuration,
@@ -365,7 +365,7 @@ gcloud domains verify yourdomain.com
 
 ```typescript
 // Use custom domain for file URLs
-export const { s3,  } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("gcs",{
     // ... config
     customDomain: "https://uploads.yourdomain.com",

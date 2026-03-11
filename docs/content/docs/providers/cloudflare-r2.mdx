@@ -127,7 +127,7 @@ For better performance and branding, you can use a custom domain:
 // lib/upload.ts
 import { createUploadConfig } from "pushduck/server";
 
-export const { s3,  } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -181,7 +181,7 @@ Your uploaded files are automatically cached globally:
 
 ```typescript
 // Files are served from 250+ locations worldwide
-const imageUrl = file.url; // Automatically CDN-accelerated
+const imageUrl = file.publicUrl; // Automatically CDN-accelerated
 ```
 
 ## Advanced Configuration
@@ -192,7 +192,7 @@ Integrate with Cloudflare Workers for server-side processing:
 
 ```typescript
 // Advanced R2 setup with Workers
-export const { s3,  } = createUploadConfig()
+export const { upload } = createUploadConfig()
   .provider("cloudflareR2",{
     // ... basic config
     workerScript: "image-transform", // Optional: Transform images on upload
@@ -207,7 +207,7 @@ Track upload performance:
 
 ```typescript
 .hooks({
-  onUploadComplete: async ({ file, metadata }) => {
+  onComplete: async ({ file, metadata }) => {
     // Track successful uploads
     await analytics.track("file_uploaded", {
       provider: "cloudflare-r2",

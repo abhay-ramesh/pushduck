@@ -125,11 +125,9 @@ Learn how to build robust file upload features with pushduck through comprehensi
     Set up your upload routes with validation:
     
     ```typescript
-    const uploadRouter = createS3Router({
-      routes: {
-        imageUpload: s3.image().maxFileSize("5MB"),
-        documentUpload: s3.file().maxFileSize("10MB"),
-      },
+    const uploadRouter = upload.createRouter({
+      imageUpload: upload.image().maxSize("5MB"),
+      documentUpload: upload.file().maxSize("10MB"),
     });
     ```
   </Step>
@@ -154,7 +152,7 @@ Learn how to build robust file upload features with pushduck through comprehensi
     
     ```typescript
     const result = await upload(file);
-    console.log('File uploaded:', result.url);
+    console.log('File uploaded:', result.publicUrl);
     ```
   </Step>
 </Steps>
@@ -163,19 +161,14 @@ Learn how to build robust file upload features with pushduck through comprehensi
 
 ```typescript
 // Server: Add authentication middleware
-const uploadRouter = createS3Router({
-  middleware: [
-    async (req) => {
+const uploadRouter = upload.createRouter({
+  userAvatar: upload.image()
+    .maxSize("2MB")
+    .middleware(async (req) => {
       const user = await authenticate(req);
       if (!user) throw new Error('Unauthorized');
       return { user };
-    }
-  ],
-  routes: {
-    userAvatar: s3.image()
-      .maxFileSize("2MB")
-      .path(({ metadata }) => `avatars/${metadata.user.id}`),
-  },
+    }),
 });
 
 // Client: Include auth headers
@@ -210,16 +203,16 @@ const uploadRouter = createS3Router({
 const uploadRouter = createS3Router({
   routes: {
     // Public uploads
-    publicImages: s3.image().maxFileSize("5MB").public(),
+    publicImages: upload.image().maxSize("5MB").public(),
     
     // User-specific uploads
-    userDocuments: s3.file()
-      .maxFileSize("10MB")
+    userDocuments: upload.file()
+      .maxSize("10MB")
       .path(({ metadata }) => `users/${metadata.userId}/documents`),
       
     // Admin uploads
-    adminAssets: s3.file()
-      .maxFileSize("50MB")
+    adminAssets: upload.file()
+      .maxSize("50MB")
       .middleware([requireAdmin]),
   },
 });

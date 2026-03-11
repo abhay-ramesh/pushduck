@@ -55,7 +55,7 @@ sequenceDiagram
     Note right of Client: completions: [...]
     
     Note over Server: Step 6: Run Lifecycle Hooks
-    Server->>Server: onUploadComplete(file, url, metadata)
+    Server->>Server: onComplete(file, publicUrl, metadata)
     Note right of Server: Update DB, webhooks, analytics
     
     Server-->>Client: success: true
@@ -81,7 +81,7 @@ graph TB
     
     subgraph Server [Server Layer - pushduck/server]
         Config[createUploadConfig<br/>Builder Pattern]
-        Schema[Schemas<br/>s3.image, s3.file]
+        Schema[Schemas<br/>upload.image, upload.file]
         Router[Router<br/>createRouter]
         Provider[Providers<br/>AWS, R2, DO, etc]
         Storage[Storage API<br/>createStorage]
@@ -127,10 +127,10 @@ graph LR
     Defaults --> Paths[.paths<br/>File organization]
     Paths --> Build[.build<br/>Freeze config]
     
-    Build --> S3Instance[s3 object<br/>Schema builders]
+    Build --> S3Instance[upload object<br/>Schema builders]
     Build --> ConfigObj[config object<br/>Immutable]
-    
-    S3Instance --> CreateRouter[s3.createRouter<br/>Define routes]
+
+    S3Instance --> CreateRouter[upload.createRouter<br/>Define routes]
     CreateRouter --> Handlers[router.handlers<br/>GET & POST]
 " />
 
@@ -140,11 +140,11 @@ graph LR
 
 <Mermaid diagram="
 graph TB
-    Server1[Server: Define Router<br/>const router = s3.createRouter] --> Server2[Server: Export Type<br/>export type AppRouter = typeof router]
-    
+    Server1[Server: Define Router<br/>const router = upload.createRouter] --> Server2[Server: Export Type<br/>export type AppRouter = typeof router]
+
     Server2 --> Infer1[Infer: Route Names<br/>imageUpload, documentUpload]
     Server2 --> Infer2[Infer: Metadata Types<br/>userId: string, role: string]
-    Server2 --> Infer3[Infer: Output Types<br/>url, key, metadata]
+    Server2 --> Infer3[Infer: Output Types<br/>publicUrl, storagePath, metadata]
     
     Infer1 --> Client1[Client: Import Type<br/>import type AppRouter]
     Infer2 --> Client1
@@ -172,7 +172,7 @@ graph TB
     Enrich --> FinalMeta[Final Metadata]
     
     FinalMeta --> PathGen[Path Generation<br/>users/123/vacation/file.jpg]
-    FinalMeta --> Hooks[Lifecycle Hooks<br/>onUploadComplete]
+    FinalMeta --> Hooks[Lifecycle Hooks<br/>onComplete]
     
     PathGen --> Presigned[Presigned URL Generation]
 " />
@@ -278,7 +278,7 @@ graph TB
     end
     
     subgraph After [After Upload]
-        Complete[onUploadComplete<br/>Post-processing]
+        Complete[onComplete<br/>Post-processing]
         Database[(Database Update)]
         Webhooks[Webhooks & Notifications]
         Analytics[Analytics Tracking]

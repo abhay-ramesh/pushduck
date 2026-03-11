@@ -81,7 +81,7 @@ Configure pushduck to match your application's specific needs. From basic upload
 // lib/upload.ts
 import { createUploadConfig } from 'pushduck/server'
 
-export const { s3, storage } = createUploadConfig()
+export const { upload, storage } = createUploadConfig()
   .provider("cloudflareR2", {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -98,7 +98,7 @@ export const { s3, storage } = createUploadConfig()
 ### Advanced Configuration
 ```typescript
 // lib/upload.ts - Advanced setup
-export const { s3, storage } = createUploadConfig()
+export const { upload, storage } = createUploadConfig()
   .provider("aws", { /* credentials */ })
   .defaults({
     maxFileSize: '100MB',
@@ -113,11 +113,11 @@ export const { s3, storage } = createUploadConfig()
     },
   })
   .hooks({
-    onUploadStart: async ({ file, metadata }) => {
+    onStart: async ({ file, metadata }) => {
       console.log(`Starting upload: ${file.name}`)
     },
-    onUploadComplete: async ({ file, url, metadata }) => {
-      await saveToDatabase({ file, url, userId: metadata.userId })
+    onComplete: async ({ file, publicUrl, metadata }) => {
+      await saveToDatabase({ file, url: publicUrl, userId: metadata.userId })
     },
   })
   .build()
