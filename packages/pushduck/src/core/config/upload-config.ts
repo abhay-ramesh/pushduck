@@ -628,13 +628,20 @@ export class UploadConfigBuilder {
     // Create storage instance with config
     const storage = createStorage(finalConfig);
 
-    // Create S3 builder instance with config
-    const s3 = createS3Instance(finalConfig);
+    // Create upload builder instance with config
+    const upload = createS3Instance(finalConfig);
 
     return {
       config: finalConfig,
       storage,
-      s3,
+      upload,
+      /** @deprecated Use `upload` instead. The `s3` name is misleading when using R2, MinIO, or other providers. */
+      get s3() {
+        console.warn(
+          '⚠️ pushduck: Destructuring `s3` from build() is deprecated. Use `upload` instead: const { upload } = createUploadConfig()...build()'
+        );
+        return upload;
+      },
     };
   }
 }
@@ -670,7 +677,12 @@ export interface UploadInitResult {
   config: UploadConfig;
   /** Storage instance for file operations (list, delete, info, etc.) */
   storage: StorageInstance;
-  /** S3 builder instance with schema builders and router factory */
+  /** Provider-neutral upload builder with schema builders and router factory */
+  upload: ReturnType<typeof createS3Instance>;
+  /**
+   * @deprecated Use `upload` instead.
+   * The `s3` name is misleading when using Cloudflare R2, MinIO, or other providers.
+   */
   s3: ReturnType<typeof createS3Instance>;
 }
 
