@@ -198,10 +198,17 @@ export { createUploadConfig } from "./core/config/upload-config";
 export {
   S3ArraySchema,
   S3FileSchema,
-  S3ImageSchema,
   S3ObjectSchema,
   S3Schema,
+  // Preset functions — these are the preferred API
+  imagePreset,
+  videoPreset,
+  audioPreset,
+  documentPreset,
 } from "./core/schema";
+
+// S3ImageSchema is now just S3FileSchema — kept as a type alias for backward compat
+export type { S3ImageSchema } from "./core/schema";
 
 // ========================================
 // ROUTER SYSTEM

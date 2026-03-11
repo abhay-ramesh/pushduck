@@ -56,8 +56,11 @@ import { createS3RouterWithConfig, S3Route } from "../router/router-v2";
 import {
   S3FileConstraints,
   S3FileSchema,
-  S3ImageSchema,
   S3ObjectSchema,
+  audioPreset,
+  documentPreset,
+  imagePreset,
+  videoPreset,
 } from "../schema";
 import { createStorage, type StorageInstance } from "../storage/storage-api";
 import { logger } from "../utils/logger";
@@ -90,11 +93,7 @@ function smartCreateRouter<TRoutes extends Record<string, any>>(
   const convertedRoutes: Record<string, S3Route<any, any>> = {};
 
   for (const [key, value] of Object.entries(routes)) {
-    if (
-      value instanceof S3FileSchema ||
-      value instanceof S3ImageSchema ||
-      value instanceof S3ObjectSchema
-    ) {
+    if (value instanceof S3FileSchema || value instanceof S3ObjectSchema) {
       // Convert schema to route
       convertedRoutes[key] = new S3Route(value);
     } else {
@@ -121,67 +120,109 @@ function smartCreateRouter<TRoutes extends Record<string, any>>(
  *
  * @example
  * ```typescript
- * const { s3 } = createUploadConfig().provider("aws", {...}).build();
+ * const { upload } = createUploadConfig().provider("aws", {...}).build();
  *
- * // Use schema builders
- * const imageSchema = s3.image({ maxSize: '5MB' });
- * const fileSchema = s3.file({ allowedTypes: ['application/pdf'] });
+ * // Base schema — no type constraints
+ * upload.file().maxSize('10MB')
  *
- * // Create router with schemas
- * const router = s3.createRouter({
- *   avatarUpload: s3.image().maxFileSize('2MB'),
- *   documentUpload: s3.file({ maxSize: '10MB' }),
+ * // Named presets — accept() pre-filled, fully chainable
+ * upload.image().maxSize('5MB')
+ * upload.video().maxSize('500MB')
+ * upload.audio().maxSize('50MB')
+ * upload.document().maxSize('25MB')
+ *
+ * // Presets can be narrowed further with .accept()
+ * upload.image().accept(['image/jpeg', 'image/png'])
+ *
+ * // Build a router
+ * const router = upload.createRouter({
+ *   avatarUpload: upload.image().maxSize('2MB'),
+ *   resumeUpload: upload.document().accept(['.pdf']).maxSize('5MB'),
+ *   videoUpload:  upload.video().maxSize('100MB').maxFiles(3),
  * });
  * ```
  */
 function createS3Instance(config: UploadConfig) {
   return {
     /**
-     * Creates a file schema for general file uploads with optional constraints.
-     *
-     * @param constraints - Optional file validation constraints
-     * @returns A new S3FileSchema instance
+     * Base file schema — no type or size constraints pre-applied.
+     * Use this when no preset fits or you want full control.
      *
      * @example
-     * ```typescript
-     * const pdfSchema = s3.file({
-     *   maxSize: '10MB',
-     *   allowedTypes: ['application/pdf'],
-     * });
+     * ```ts
+     * upload.file()                           // unconstrained
+     * upload.file().accept('application/pdf') // PDFs only
+     * upload.file().maxSize('10MB')
+     * upload.file().accept(['.zip', '.tar']).maxSize('500MB')
      * ```
      */
     file: (constraints?: S3FileConstraints) => new S3FileSchema(constraints),
 
     /**
-     * Creates an image schema with image-specific validation and constraints.
+     * Preset: accepts any image (`image/*`).
+     * Equivalent to `upload.file().accept('image/*')`.
      *
-     * @param constraints - Optional image validation constraints
-     * @returns A new S3ImageSchema instance
+     * Fully chainable — `.accept()` replaces the default wildcard if you need
+     * to narrow to specific formats:
      *
      * @example
-     * ```typescript
-     * const avatarSchema = s3.image({
-     *   maxSize: '5MB',
-     *   allowedTypes: ['image/jpeg', 'image/png'],
-     * });
+     * ```ts
+     * upload.image()                                     // any image
+     * upload.image().accept(['image/jpeg', 'image/webp']) // JPEG + WebP only
+     * upload.image().maxSize('5MB').maxFiles(10)
      * ```
      */
-    image: (constraints?: S3FileConstraints) => new S3ImageSchema(constraints),
+    image: imagePreset,
 
     /**
-     * Creates an object schema for structured data validation.
-     *
-     * @template T - The shape of the object schema
-     * @param shape - Object defining the expected structure
-     * @returns A new S3ObjectSchema instance
+     * Preset: accepts any video (`video/*`).
+     * Equivalent to `upload.file().accept('video/*')`.
      *
      * @example
-     * ```typescript
-     * const metadataSchema = s3.object({
-     *   title: 'string',
-     *   tags: 'array',
-     *   userId: 'string',
-     * });
+     * ```ts
+     * upload.video().maxSize('500MB')
+     * upload.video().accept(['video/mp4', 'video/webm']).maxFiles(3)
+     * ```
+     */
+    video: videoPreset,
+
+    /**
+     * Preset: accepts any audio (`audio/*`).
+     * Equivalent to `upload.file().accept('audio/*')`.
+     *
+     * @example
+     * ```ts
+     * upload.audio().maxSize('50MB')
+     * upload.audio().accept(['audio/mpeg', 'audio/wav'])
+     * ```
+     */
+    audio: audioPreset,
+
+    /**
+     * Preset: accepts common document formats
+     * (`.pdf`, `.doc`, `.docx`, `.txt`, `.csv`, `.xls`, `.xlsx`, `.ppt`, `.pptx`).
+     * Equivalent to `upload.file().accept(['.pdf', '.doc', ...])`.
+     *
+     * Use `.accept()` to narrow the allowed extensions further:
+     *
+     * @example
+     * ```ts
+     * upload.document().maxSize('25MB')           // all doc formats
+     * upload.document().accept(['.pdf'])           // PDFs only
+     * upload.document().maxSize('10MB').maxFiles(5)
+     * ```
+     */
+    document: documentPreset,
+
+    /**
+     * Creates an object schema for multi-field structured uploads.
+     *
+     * @example
+     * ```ts
+     * upload.object({
+     *   avatar: upload.image().maxSize('2MB'),
+     *   resume: upload.document().accept(['.pdf']),
+     * })
      * ```
      */
     object: <T extends Record<string, any>>(shape: T) =>
@@ -189,26 +230,23 @@ function createS3Instance(config: UploadConfig) {
 
     /**
      * Creates a config-aware router with the provided route definitions.
-     * Routes can be schema objects or S3Route instances.
-     *
-     * @template TRoutes - The routes object type
-     * @param routes - Object mapping route names to schemas or routes
-     * @returns A configured S3Router instance
+     * Routes can be schema presets, `upload.file()` chains, or full `S3Route` instances.
      *
      * @example
      * ```typescript
-     * const router = s3.createRouter({
-     *   // Using schema builders
-     *   imageUpload: s3.image().maxFileSize('5MB'),
-     *   documentUpload: s3.file({ maxSize: '10MB' }),
+     * const router = upload.createRouter({
+     *   avatarUpload:   upload.image().maxSize('2MB'),
+     *   resumeUpload:   upload.document().accept(['.pdf']).maxSize('5MB'),
+     *   videoUpload:    upload.video().maxSize('100MB').maxFiles(3),
+     *   anyFile:        upload.file().maxSize('50MB'),
      *
-     *   // Using route with middleware
-     *   avatarUpload: s3.image()
-     *     .maxFileSize('2MB')
-     *     .middleware(async ({ metadata }) => ({
-     *       ...metadata,
-     *       userId: metadata.userId || 'anonymous',
-     *     })),
+     *   // With middleware (full route)
+     *   profilePic: upload.image()
+     *     .maxSize('2MB')
+     *     .middleware(async ({ req }) => {
+     *       const user = await getUser(req);
+     *       return { userId: user.id };
+     *     }),
      * });
      * ```
      */
