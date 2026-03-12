@@ -348,9 +348,9 @@ function getS3CompatibleConfig(
     default:
       throw new Error(
         `Unsupported provider: ${(config as any).provider}. ` +
-        `Supported providers: aws, cloudflare-r2, digitalocean-spaces, minio. ` +
-        `Coming soon: wasabi, backblaze-b2, azure-blob, ibm-cloud, oracle-oci, storj-dcs, telnyx-storage, tigris-data, cloudian-hyperstore. ` +
-        `For other providers, use "s3-compatible" with a custom endpoint.`
+          `Supported providers: aws, cloudflare-r2, digitalocean-spaces, minio. ` +
+          `Coming soon: wasabi, backblaze-b2, azure-blob, ibm-cloud, oracle-oci, storj-dcs, telnyx-storage, tigris-data, cloudian-hyperstore. ` +
+          `For other providers, use "s3-compatible" with a custom endpoint.`
       );
   }
 }
@@ -645,7 +645,8 @@ export async function generatePresignedDownloadUrl(
       key,
     });
     throw createS3Error(
-      `Failed to generate presigned download URL: ${error instanceof Error ? error.message : "Unknown error"
+      `Failed to generate presigned download URL: ${
+        error instanceof Error ? error.message : "Unknown error"
       }`,
       {
         operation: "generate-presigned-download-url",
@@ -796,7 +797,8 @@ export async function generatePresignedUploadUrl(
       key: options.key,
     });
     throw createS3Error(
-      `Failed to generate presigned URL: ${error instanceof Error ? error.message : "Unknown error"
+      `Failed to generate presigned URL: ${
+        error instanceof Error ? error.message : "Unknown error"
       }`,
       {
         operation: "generate-presigned-upload-url",
@@ -1053,7 +1055,8 @@ export async function uploadFileToS3(
   } catch (error) {
     console.error("Failed to upload file:", error);
     throw new Error(
-      `Failed to upload file: ${error instanceof Error ? error.message : "Unknown error"
+      `Failed to upload file: ${
+        error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
@@ -1226,7 +1229,8 @@ export async function listFilesPaginated(
   } catch (error) {
     console.error("Failed to list files:", error);
     throw new Error(
-      `Failed to list files: ${error instanceof Error ? error.message : "Unknown error"
+      `Failed to list files: ${
+        error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
@@ -1332,7 +1336,8 @@ export async function listDirectories(
   } catch (error) {
     console.error("Failed to list directories:", error);
     throw new Error(
-      `Failed to list directories: ${error instanceof Error ? error.message : "Unknown error"
+      `Failed to list directories: ${
+        error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
@@ -1432,7 +1437,8 @@ export async function getFileInfo(
     };
   } catch (error) {
     throw new Error(
-      `Failed to get file info for ${key}: ${error instanceof Error ? error.message : "Unknown error"
+      `Failed to get file info for ${key}: ${
+        error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
@@ -1566,7 +1572,8 @@ export async function setFileMetadata(
     }
   } catch (error) {
     throw new Error(
-      `Failed to set metadata for ${key}: ${error instanceof Error ? error.message : "Unknown error"
+      `Failed to set metadata for ${key}: ${
+        error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
@@ -1647,7 +1654,8 @@ export async function validateFile(
     return {
       valid: false,
       errors: [
-        `Failed to validate file: ${error instanceof Error ? error.message : "Unknown error"
+        `Failed to validate file: ${
+          error instanceof Error ? error.message : "Unknown error"
         }`,
       ],
       warnings: [],
@@ -1682,9 +1690,10 @@ export async function validateFiles(
       return {
         valid: false,
         errors: [
-          `Failed to validate: ${result.reason instanceof Error
-            ? result.reason.message
-            : "Unknown error"
+          `Failed to validate: ${
+            result.reason instanceof Error
+              ? result.reason.message
+              : "Unknown error"
           }`,
         ],
         warnings: [],
@@ -1855,7 +1864,8 @@ export async function deleteFile(
     });
 
     throw createS3Error(
-      `Failed to delete file: ${error instanceof Error ? error.message : "Unknown error"
+      `Failed to delete file: ${
+        error instanceof Error ? error.message : "Unknown error"
       }`,
       {
         operation: "delete-file",
@@ -1915,7 +1925,8 @@ export async function deleteFiles(
     });
 
     throw createS3Error(
-      `Failed to delete files: ${error instanceof Error ? error.message : "Unknown error"
+      `Failed to delete files: ${
+        error instanceof Error ? error.message : "Unknown error"
       }`,
       {
         operation: "delete-files-batch",
@@ -1973,7 +1984,8 @@ export async function deleteFilesByPrefix(
     };
   } catch (error) {
     throw new Error(
-      `Failed to delete files by prefix: ${error instanceof Error ? error.message : "Unknown error"
+      `Failed to delete files by prefix: ${
+        error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
