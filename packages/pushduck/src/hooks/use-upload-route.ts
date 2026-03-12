@@ -132,6 +132,7 @@ function formatUploadSpeed(bytesPerSecond: number): string {
 async function uploadToS3(
   file: File,
   presignedUrl: string,
+  fields?: Record<string, string>,
   onProgress?: (progress: number, uploadSpeed?: number, eta?: number) => void
 ): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -162,7 +163,17 @@ async function uploadToS3(
     xhr.onabort = () => reject(new Error("Upload aborted"));
 
     xhr.open("PUT", presignedUrl);
-    xhr.setRequestHeader("Content-Type", file.type);
+
+    // Set signed headers (includes x-amz-acl, Content-Type, metadata, etc.)
+    if (fields) {
+      Object.entries(fields).forEach(([key, value]) => {
+        xhr.setRequestHeader(key, value);
+      });
+    } else {
+      // Fallback for backward compatibility
+      xhr.setRequestHeader("Content-Type", file.type);
+    }
+
     xhr.send(file);
   });
 }
@@ -582,6 +593,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
               await uploadToS3(
                 file,
                 result.presignedUrl,
+                result.fields,
                 (progress, uploadSpeed, eta) =>
                   updateFileProgress(fileState.id, progress, uploadSpeed, eta)
               );
