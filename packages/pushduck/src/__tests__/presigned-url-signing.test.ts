@@ -4,19 +4,18 @@ import { createUploadConfig } from "../core/config/upload-config";
 import { createS3RouterWithConfig } from "../core/router/router-v2";
 
 // Mock aws4fetch
+const signMock = vi.fn().mockImplementation(async (request: any) => {
+    return {
+        url: request.url + "&signed=true",
+        method: request.method,
+        headers: request.headers,
+    };
+});
+
 vi.mock("aws4fetch", () => {
     return {
         AwsClient: class {
-            constructor() {
-                // console.log("Mock AwsClient constructor called");
-            }
-            sign = vi.fn().mockImplementation(async (request: any) => {
-                return {
-                    url: request.url + "&signed=true",
-                    method: request.method,
-                    headers: request.headers,
-                };
-            });
+            sign = signMock;
         },
     };
 });
@@ -24,6 +23,7 @@ vi.mock("aws4fetch", () => {
 describe("Presigned URL Signing", () => {
     beforeEach(() => {
         resetS3Client();
+        signMock.mockClear();
     });
 
     const baseProvider = {
@@ -49,11 +49,19 @@ describe("Presigned URL Signing", () => {
 
         const result = await generatePresignedUploadUrl(config, options);
 
+        // Verify result fields
         expect(result.fields).toEqual({
             "Content-Type": "text/plain",
             "x-amz-acl": "public-read",
             "x-amz-meta-userId": "123",
         });
+
+        // Verify sign() was called with correct headers
+        expect(signMock).toHaveBeenCalled();
+        const request = signMock.mock.calls[0][0] as Request;
+        expect(request.headers.get("Content-Type")).toBe("text/plain");
+        expect(request.headers.get("x-amz-acl")).toBe("public-read");
+        expect(request.headers.get("x-amz-meta-userId")).toBe("123");
     });
 
     it("should fallback to provider.acl if defaults.acl is missing", async () => {
@@ -61,9 +69,10 @@ describe("Presigned URL Signing", () => {
             .provider("aws", { ...baseProvider, acl: "authenticated-read" })
             .build();
 
-        const result = await generatePresignedUploadUrl(config, { key: "test.txt" });
+        await generatePresignedUploadUrl(config, { key: "test.txt" });
 
-        expect(result.fields?.["x-amz-acl"]).toBe("authenticated-read");
+        const request = signMock.mock.calls[0][0] as Request;
+        expect(request.headers.get("x-amz-acl")).toBe("authenticated-read");
     });
 
     it("should prioritize defaults.acl over provider.acl", async () => {
@@ -72,9 +81,10 @@ describe("Presigned URL Signing", () => {
             .defaults({ acl: "public-read" })
             .build();
 
-        const result = await generatePresignedUploadUrl(config, { key: "test.txt" });
+        await generatePresignedUploadUrl(config, { key: "test.txt" });
 
-        expect(result.fields?.["x-amz-acl"]).toBe("public-read");
+        const request = signMock.mock.calls[0][0] as Request;
+        expect(request.headers.get("x-amz-acl")).toBe("public-read");
     });
 
     it("should handle multiple metadata fields", async () => {
@@ -91,14 +101,13 @@ describe("Presigned URL Signing", () => {
             },
         };
 
-        const result = await generatePresignedUploadUrl(config, options);
+        await generatePresignedUploadUrl(config, options);
 
-        expect(result.fields).toEqual({
-            "x-amz-acl": "private",
-            "x-amz-meta-user-id": "123",
-            "x-amz-meta-project-id": "456",
-            "x-amz-meta-is-public": "true",
-        });
+        const request = signMock.mock.calls[0][0] as Request;
+        expect(request.headers.get("x-amz-acl")).toBe("private");
+        expect(request.headers.get("x-amz-meta-user-id")).toBe("123");
+        expect(request.headers.get("x-amz-meta-project-id")).toBe("456");
+        expect(request.headers.get("x-amz-meta-is-public")).toBe("true");
     });
 
     it("should include only provided options in fields or default ACL", async () => {
@@ -110,11 +119,11 @@ describe("Presigned URL Signing", () => {
             key: "test-minimal.txt",
         };
 
-        const result = await generatePresignedUploadUrl(config, options);
+        await generatePresignedUploadUrl(config, options);
 
-        expect(result.fields).toEqual({
-            "x-amz-acl": "private",
-        });
+        const request = signMock.mock.calls[0][0] as Request;
+        expect(request.headers.get("x-amz-acl")).toBe("private");
+        expect(request.headers.get("Content-Type")).toBeNull();
     });
 
     it("router should include fields in generatePresignedUrls response", async () => {
@@ -135,7 +144,10 @@ describe("Presigned URL Signing", () => {
 
         expect(results[0].success).toBe(true);
         expect(results[0].fields).toBeDefined();
-        expect(results[0].fields?.["x-amz-acl"]).toBe("private");
-        expect(results[0].fields?.["Content-Type"]).toBe("image/jpeg");
+
+        // Verify sign() was called via router
+        const request = signMock.mock.calls[0][0] as Request;
+        expect(request.headers.get("x-amz-acl")).toBe("private");
+        expect(request.headers.get("Content-Type")).toBe("image/jpeg");
     });
 });

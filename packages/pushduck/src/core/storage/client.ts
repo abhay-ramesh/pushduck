@@ -599,7 +599,7 @@ export interface PresignedUrlResult {
   url: string;
   /** The S3 object key where the file will be stored */
   key: string;
-  /** Additional form fields required for the upload (for POST uploads) */
+  /** Signed headers that must be sent with the PUT upload request (e.g. x-amz-acl, Content-Type, x-amz-meta-*) */
   fields?: Record<string, string>;
 }
 
