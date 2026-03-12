@@ -150,4 +150,20 @@ describe("Presigned URL Signing", () => {
         expect(request.headers.get("x-amz-acl")).toBe("private");
         expect(request.headers.get("Content-Type")).toBe("image/jpeg");
     });
+
+    it("should skip x-amz-acl for Cloudflare R2", async () => {
+        const { config } = createUploadConfig()
+            .provider("cloudflareR2", {
+                ...baseProvider,
+                accountId: "test-account",
+                region: "auto",
+            })
+            .defaults({ acl: "public-read" })
+            .build();
+
+        await generatePresignedUploadUrl(config, { key: "test.txt" });
+
+        const request = signMock.mock.calls[0][0] as Request;
+        expect(request.headers.get("x-amz-acl")).toBeNull();
+    });
 });

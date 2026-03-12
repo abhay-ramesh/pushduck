@@ -698,6 +698,9 @@ export async function generatePresignedDownloadUrl(
  * ```
  *
  */
+/** Providers that do not support standard S3 ACLs (x-amz-acl) */
+const ACL_UNSUPPORTED_PROVIDERS = new Set(["cloudflare-r2", "minio"]);
+
 /**
  * Internal helper to prepare S3 upload headers (ACL, Content-Type, Metadata).
  * Ensures consistency between presigned URL generation and direct server-side uploads.
@@ -712,13 +715,15 @@ function prepareS3UploadHeaders(
   }
 ): Record<string, string> {
   const headers: Record<string, string> = {};
+  const { provider, acl: providerAcl } = uploadConfig.provider;
 
   if (options.contentType) {
     headers["Content-Type"] = options.contentType;
   }
 
-  const acl = uploadConfig.defaults?.acl || uploadConfig.provider.acl;
-  if (acl) {
+  const acl = uploadConfig.defaults?.acl || providerAcl;
+  // Cloudflare R2 and MinIO do not support x-amz-acl headers and will return 400/501 errors
+  if (acl && !ACL_UNSUPPORTED_PROVIDERS.has(provider)) {
     headers["x-amz-acl"] = acl;
   }
 
