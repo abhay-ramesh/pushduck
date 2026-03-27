@@ -36,6 +36,11 @@
       "import": "./dist/client.mjs",
       "require": "./dist/client.js"
     },
+    "./react-native": {
+      "types": "./dist/react-native.d.ts",
+      "import": "./dist/react-native.mjs",
+      "require": "./dist/react-native.js"
+    },
     "./adapters": {
       "types": "./dist/adapters/index.d.ts",
       "import": "./dist/adapters/index.mjs",

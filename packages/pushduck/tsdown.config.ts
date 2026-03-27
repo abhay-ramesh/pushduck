@@ -5,6 +5,7 @@ export default defineConfig({
     "src/index.ts",
     "src/server.ts",
     "src/client.ts",
+    "src/react-native.ts",
     "src/adapters/index.ts",
   ],
   format: ["cjs", "esm"],
@@ -28,11 +29,12 @@ export default defineConfig({
     banner: (chunk) => {
       // Only add to the main client entry files, not shared chunks
       if (
-        chunk.fileName === "client.js" ||
-        chunk.fileName === "client.mjs" ||
-        ((chunk.fileName.includes("hook") ||
-          chunk.fileName.includes("use-upload-route")) &&
-          !chunk.fileName.includes("server"))
+        (chunk.fileName === "client.js" ||
+          chunk.fileName === "client.mjs" ||
+          ((chunk.fileName.includes("hook") ||
+            chunk.fileName.includes("use-upload-route")) &&
+            !chunk.fileName.includes("server"))) &&
+        !chunk.fileName.includes("react-native")
       ) {
         return '"use client";';
       }

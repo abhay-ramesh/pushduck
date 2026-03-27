@@ -58,6 +58,7 @@ import type {
   S3RouteUploadResult,
   S3Router,
   S3UploadedFile,
+  UploadInput,
   UploadRouteConfig,
 } from "../types";
 
@@ -112,9 +113,43 @@ function formatUploadSpeed(bytesPerSecond: number): string {
 }
 
 /**
+ * Normalizes any UploadInput into the three fields the server needs.
+ *
+ * Field resolution order:
+ * - name:  `name` (expo-document-picker) → `fileName` (expo-image-picker, rn-image-picker) → 'upload'
+ * - type:  `mimeType` (expo pickers) → `type` (rn-image-picker) → 'application/octet-stream'
+ *          Note: expo-image-picker's `type` is 'image'|'video', not a MIME — so `mimeType` takes priority.
+ * - size:  `size` (expo-document-picker) → `fileSize` (expo-image-picker, rn-image-picker) → 0
+ *
+ * @internal
+ */
+function getInputMeta(input: UploadInput): { name: string; size: number; type: string } {
+  if (input instanceof File) {
+    return { name: input.name, size: input.size, type: input.type };
+  }
+  return {
+    name: input.name ?? input.fileName ?? 'upload',
+    type: input.mimeType ?? input.type ?? 'application/octet-stream',
+    size: input.size ?? input.fileSize ?? 0,
+  };
+}
+
+/**
+ * Resolves an UploadInput to a Blob for XHR transmission.
+ * For File objects the value is returned as-is (File extends Blob).
+ * For React Native URI assets, the local URI is fetched and converted.
+ * @internal
+ */
+async function toBlob(input: UploadInput): Promise<Blob> {
+  if (input instanceof File) return input;
+  const response = await fetch(input.uri);
+  return response.blob();
+}
+
+/**
  * Uploads a file to S3 using a presigned URL with progress tracking.
  *
- * @param file - The file to upload
+ * @param input - The file or React Native asset to upload
  * @param presignedUrl - Presigned URL for the upload
  * @param onProgress - Optional progress callback
  * @returns Promise that resolves when upload completes
@@ -130,10 +165,13 @@ function formatUploadSpeed(bytesPerSecond: number): string {
  * ```
  */
 async function uploadToS3(
-  file: File,
+  input: UploadInput,
   presignedUrl: string,
   onProgress?: (progress: number, uploadSpeed?: number, eta?: number) => void
 ): Promise<void> {
+  const blob = await toBlob(input);
+  const contentType = getInputMeta(input).type;
+
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const startTime = Date.now();
@@ -162,8 +200,8 @@ async function uploadToS3(
     xhr.onabort = () => reject(new Error("Upload aborted"));
 
     xhr.open("PUT", presignedUrl);
-    xhr.setRequestHeader("Content-Type", file.type);
-    xhr.send(file);
+    xhr.setRequestHeader("Content-Type", contentType);
+    xhr.send(blob);
   });
 }
 
@@ -468,7 +506,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
    * ```
    */
   const startUpload = useCallback(
-    async (uploadFiles: File[], metadata?: any) => {
+    async (uploadFiles: UploadInput[], metadata?: any) => {
       if (!uploadFiles.length) {
         setIsUploading(false);
         return;
@@ -478,22 +516,21 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
         setIsUploading(true);
         setErrors([]);
 
-        const fileMetadata: S3FileMetadata[] = uploadFiles.map((file) => ({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-        }));
+        const fileMetadata: S3FileMetadata[] = uploadFiles.map((input) => getInputMeta(input));
 
         const initialFiles: S3UploadedFile[] = uploadFiles.map(
-          (file, index) => ({
-            id: `${Date.now()}-${index}`,
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            status: "pending" as const,
-            progress: 0,
-            file,
-          })
+          (input, index) => {
+            const meta = getInputMeta(input);
+            return {
+              id: `${Date.now()}-${index}`,
+              name: meta.name,
+              size: meta.size,
+              type: meta.type,
+              status: "pending" as const,
+              progress: 0,
+              file: input instanceof File ? input : undefined,
+            };
+          }
         );
 
         setFiles(initialFiles);
@@ -591,12 +628,13 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                 key: result.key,
               });
 
+              const fileMeta = getInputMeta(file);
               return {
                 key: result.key,
                 file: {
-                  name: file.name,
-                  size: file.size,
-                  type: file.type,
+                  name: fileMeta.name,
+                  size: fileMeta.size,
+                  type: fileMeta.type,
                 },
                 metadata: result.metadata,
               };
