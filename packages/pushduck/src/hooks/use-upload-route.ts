@@ -123,8 +123,13 @@ function formatUploadSpeed(bytesPerSecond: number): string {
  *
  * @internal
  */
+/** Platform-safe File check — guards against environments where File is undefined. @internal */
+function isFile(input: unknown): input is File {
+  return typeof File !== 'undefined' && input instanceof File;
+}
+
 function getInputMeta(input: UploadInput): { name: string; size: number; type: string } {
-  if (input instanceof File) {
+  if (isFile(input)) {
     return { name: input.name, size: input.size, type: input.type };
   }
   return {
@@ -141,7 +146,7 @@ function getInputMeta(input: UploadInput): { name: string; size: number; type: s
  * @internal
  */
 async function toBlob(input: UploadInput): Promise<Blob> {
-  if (input instanceof File) return input;
+  if (isFile(input)) return input;
   const response = await fetch(input.uri);
   return response.blob();
 }
@@ -165,12 +170,11 @@ async function toBlob(input: UploadInput): Promise<Blob> {
  * ```
  */
 async function uploadToS3(
-  input: UploadInput,
+  blob: Blob,
+  contentType: string,
   presignedUrl: string,
   onProgress?: (progress: number, uploadSpeed?: number, eta?: number) => void
 ): Promise<void> {
-  const blob = await toBlob(input);
-  const contentType = getInputMeta(input).type;
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -528,7 +532,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
               type: meta.type,
               status: "pending" as const,
               progress: 0,
-              file: input instanceof File ? input : undefined,
+              file: isFile(input) ? input : undefined,
             };
           }
         );
@@ -616,8 +620,19 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                 uploadStartTime: Date.now(),
               });
 
+              const blob = await toBlob(file);
+
+              // Backfill size from blob when picker didn't provide it (RN edge case),
+              // so calculateOverallMetrics has a real denominator for aggregate progress.
+              const fileMeta = getInputMeta(file);
+              const knownSize = fileMeta.size || blob.size;
+              if (knownSize && fileState.size === 0) {
+                updateFileStatus(fileState.id, "uploading", { size: knownSize } as any);
+              }
+
               await uploadToS3(
-                file,
+                blob,
+                fileMeta.type,
                 result.presignedUrl,
                 (progress, uploadSpeed, eta) =>
                   updateFileProgress(fileState.id, progress, uploadSpeed, eta)
@@ -628,12 +643,12 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                 key: result.key,
               });
 
-              const fileMeta = getInputMeta(file);
               return {
                 key: result.key,
+                clientFileId: fileState.id,
                 file: {
                   name: fileMeta.name,
-                  size: fileMeta.size,
+                  size: knownSize,
                   type: fileMeta.type,
                 },
                 metadata: result.metadata,

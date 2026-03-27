@@ -162,8 +162,6 @@ export { formatETA, formatUploadSpeed };
 
 export type {
   UploadInput,
-  RNRouteUploadResult,
-  RNTypedRouteHook,
   ClientConfig,
   RouterRouteNames,
   S3FileMetadata,
