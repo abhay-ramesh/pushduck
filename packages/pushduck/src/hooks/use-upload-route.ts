@@ -693,9 +693,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                     );
                     if (matchingUpload) {
                       const fileToUpdate = initialFiles.find(
-                        (f) =>
-                          f.name === matchingUpload.file.name &&
-                          f.size === matchingUpload.file.size
+                        (f) => f.id === matchingUpload.clientFileId
                       );
                       if (fileToUpdate) {
                         updateFileStatus(fileToUpdate.id, "success", {
