@@ -18,7 +18,10 @@
  * import { useUploadRoute } from 'pushduck/react-native';
  * import * as ImagePicker from 'expo-image-picker';
  *
- * const { uploadFiles, isUploading, progress } = useUploadRoute('avatarUpload');
+ * // endpoint must be an absolute URL — relative URLs do not work in React Native
+ * const { uploadFiles, isUploading, progress } = useUploadRoute('avatarUpload', {
+ *   endpoint: 'https://your-api.com/api/s3-upload',
+ * });
  *
  * const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] });
  * if (!result.canceled) await uploadFiles(result.assets);
@@ -29,7 +32,9 @@
  * import { useUploadRoute } from 'pushduck/react-native';
  * import * as DocumentPicker from 'expo-document-picker';
  *
- * const { uploadFiles } = useUploadRoute('documentUpload');
+ * const { uploadFiles } = useUploadRoute('documentUpload', {
+ *   endpoint: 'https://your-api.com/api/s3-upload',
+ * });
  *
  * const result = await DocumentPicker.getDocumentAsync({ type: '*\/*' });
  * if (result.assets) await uploadFiles(result.assets);
@@ -40,7 +45,9 @@
  * import { useUploadRoute } from 'pushduck/react-native';
  * import { launchImageLibrary } from 'react-native-image-picker';
  *
- * const { uploadFiles } = useUploadRoute('photoUpload');
+ * const { uploadFiles } = useUploadRoute('photoUpload', {
+ *   endpoint: 'https://your-api.com/api/s3-upload',
+ * });
  *
  * const result = await launchImageLibrary({ mediaType: 'photo' });
  * const assets = result.assets?.filter((a): a is typeof a & { uri: string } => !!a.uri);
@@ -64,6 +71,10 @@
  * }
  * ```
  */
+
+// React Native exposes __DEV__ as a global boolean (true in dev builds, false in production).
+// Declare it so TypeScript doesn't error; falls back to false in non-RN environments.
+declare const __DEV__: boolean | undefined;
 
 import {
   useUploadRoute as _useUploadRoute,
@@ -139,8 +150,12 @@ export function useUploadRoute(
   routeName: string,
   config?: UploadRouteConfig
 ): RNRouteUploadResult {
-  // The runtime implementation already accepts UploadInput[] internally.
-  // This wrapper only changes the TypeScript signature visible to RN consumers.
+  if (__DEV__ && (!config?.endpoint || config.endpoint.startsWith("/"))) {
+    console.warn(
+      "[pushduck/react-native] `endpoint` must be an absolute URL (e.g. \"https://api.example.com/api/s3-upload\"). " +
+      "Relative URLs do not work in React Native and will cause a network error."
+    );
+  }
   return _useUploadRoute(routeName, config) as unknown as RNRouteUploadResult;
 }
 
