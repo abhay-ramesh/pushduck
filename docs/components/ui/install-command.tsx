@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Copy } from "lucide-react";
+import posthog from "posthog-js";
 import { useState } from "react";
 
 const packageManagers = [
@@ -22,6 +23,10 @@ export function InstallCommand() {
       await navigator.clipboard.writeText(command);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      posthog.capture("install_command_copied", {
+        package_manager: activeManager,
+        command,
+      });
     }
   };
 

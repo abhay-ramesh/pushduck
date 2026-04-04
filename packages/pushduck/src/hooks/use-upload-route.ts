@@ -58,6 +58,7 @@ import type {
   S3RouteUploadResult,
   S3Router,
   S3UploadedFile,
+  UploadInput,
   UploadRouteConfig,
 } from "../types";
 
@@ -111,10 +112,73 @@ function formatUploadSpeed(bytesPerSecond: number): string {
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
+/** Platform-safe File check — guards against environments where File is undefined. @internal */
+function isFile(input: unknown): input is File {
+  return typeof File !== 'undefined' && input instanceof File;
+}
+
+/**
+ * Returns true only for strings that look like a valid MIME type (contain a slash).
+ * expo-image-picker's `type` field returns 'image'|'video' (no slash) — not a MIME type.
+ * react-native-image-picker's `type` field returns 'image/jpeg' (has slash) — valid MIME.
+ * @internal
+ */
+function isMimeType(value: string | null | undefined): value is string {
+  return !!value && value.includes('/');
+}
+
+/**
+ * Normalizes any UploadInput into the three fields the server needs.
+ *
+ * Field resolution order:
+ * - name:  `name` (expo-document-picker) → `fileName` (expo-image-picker, rn-image-picker) → 'upload'
+ * - type:  first of `mimeType` or `type` that contains a '/' (valid MIME) → 'application/octet-stream'
+ *          expo-image-picker's `type` field holds 'image'|'video' (not a MIME), so it is skipped.
+ *          react-native-image-picker's `type` holds 'image/jpeg' etc. and is accepted.
+ * - size:  `size` (expo-document-picker) → `fileSize` (expo-image-picker, rn-image-picker) → 0
+ *
+ * @internal
+ */
+function getInputMeta(input: UploadInput): { name: string; size: number; type: string } {
+  if (isFile(input)) {
+    return { name: input.name, size: input.size, type: input.type };
+  }
+  const type = isMimeType(input.mimeType) ? input.mimeType
+             : isMimeType(input.type)     ? input.type
+             : 'application/octet-stream';
+  return {
+    name: input.name ?? input.fileName ?? 'upload',
+    type,
+    size: input.size ?? input.fileSize ?? 0,
+  };
+}
+
+/**
+ * Resolves an UploadInput to a Blob for XHR transmission.
+ * For File objects the value is returned as-is (File extends Blob).
+ * For React Native URI assets, the local URI is fetched and converted.
+ *
+ * Only `file://` URIs are supported. `content://` URIs (Android) are not
+ * readable via `fetch` in React Native — use `copyToCacheDirectory: true`
+ * (the default) in expo-document-picker to get a `file://` URI instead.
+ * @internal
+ */
+async function toBlob(input: UploadInput): Promise<Blob> {
+  if (isFile(input)) return input;
+  if (input.uri.startsWith('content://')) {
+    throw new Error(
+      '[pushduck] Cannot read content:// URIs. Pass copyToCacheDirectory: true (the default) ' +
+      'to expo-document-picker so it returns a file:// URI instead.'
+    );
+  }
+  const response = await fetch(input.uri);
+  return response.blob();
+}
+
 /**
  * Uploads a file to S3 using a presigned URL with progress tracking.
  *
- * @param file - The file to upload
+ * @param input - The file or React Native asset to upload
  * @param presignedUrl - Presigned URL for the upload
  * @param onProgress - Optional progress callback
  * @returns Promise that resolves when upload completes
@@ -130,11 +194,13 @@ function formatUploadSpeed(bytesPerSecond: number): string {
  * ```
  */
 async function uploadToS3(
-  file: File,
+  blob: Blob,
+  contentType: string,
   presignedUrl: string,
   fields?: Record<string, string>,
   onProgress?: (progress: number, uploadSpeed?: number, eta?: number) => void
 ): Promise<void> {
+
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const startTime = Date.now();
@@ -171,10 +237,10 @@ async function uploadToS3(
       });
     } else {
       // Fallback for backward compatibility
-      xhr.setRequestHeader("Content-Type", file.type);
+      xhr.setRequestHeader("Content-Type", contentType);
     }
 
-    xhr.send(file);
+    xhr.send(blob);
   });
 }
 
@@ -479,7 +545,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
    * ```
    */
   const startUpload = useCallback(
-    async (uploadFiles: File[], metadata?: any) => {
+    async (uploadFiles: UploadInput[], metadata?: any) => {
       if (!uploadFiles.length) {
         setIsUploading(false);
         return;
@@ -489,23 +555,40 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
         setIsUploading(true);
         setErrors([]);
 
-        const fileMetadata: S3FileMetadata[] = uploadFiles.map((file) => ({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-        }));
-
-        const initialFiles: S3UploadedFile[] = uploadFiles.map(
-          (file, index) => ({
-            id: `${Date.now()}-${index}`,
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            status: "pending" as const,
-            progress: 0,
-            file,
+        // Pre-resolve blobs for inputs where size is unknown (size 0 from picker).
+        // This ensures the server receives accurate file sizes in the presign request
+        // and that aggregate progress metrics have a real denominator from the start.
+        // For inputs that already have a known size, blob resolution is deferred to
+        // the upload step so we don't pay the cost upfront.
+        const resolvedInputs = await Promise.all(
+          uploadFiles.map(async (input, index) => {
+            const meta = getInputMeta(input);
+            const earlyBlob = meta.size > 0 ? null : await toBlob(input);
+            const size = meta.size > 0 ? meta.size : (earlyBlob?.size ?? 0);
+            return {
+              input,
+              earlyBlob,
+              id: `${Date.now()}-${index}`,
+              meta: { ...meta, size },
+            };
           })
         );
+
+        const fileMetadata: S3FileMetadata[] = resolvedInputs.map(({ meta }) => ({
+          name: meta.name,
+          size: meta.size,
+          type: meta.type,
+        }));
+
+        const initialFiles: S3UploadedFile[] = resolvedInputs.map(({ id, meta, input }) => ({
+          id,
+          name: meta.name,
+          size: meta.size,
+          type: meta.type,
+          status: "pending" as const,
+          progress: 0,
+          file: isFile(input) ? input : undefined,
+        }));
 
         setFiles(initialFiles);
 
@@ -569,7 +652,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
         const uploadPromises = presignData.results.map(
           async (result: any, index: number) => {
-            const file = uploadFiles[index];
+            const { input: file, earlyBlob, meta: fileMeta } = resolvedInputs[index];
             const fileState = initialFiles[index];
 
             if (!result.success) {
@@ -590,8 +673,13 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                 uploadStartTime: Date.now(),
               });
 
+              // Reuse the blob fetched during pre-resolution (size-unknown inputs),
+              // or fetch now for inputs that had a known size and deferred blob creation.
+              const blob = earlyBlob ?? await toBlob(file);
+
               await uploadToS3(
-                file,
+                blob,
+                fileMeta.type,
                 result.presignedUrl,
                 result.fields,
                 (progress, uploadSpeed, eta) =>
@@ -605,10 +693,11 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
               return {
                 key: result.key,
+                clientFileId: fileState.id,
                 file: {
-                  name: file.name,
-                  size: file.size,
-                  type: file.type,
+                  name: fileMeta.name,
+                  size: fileMeta.size,
+                  type: fileMeta.type,
                 },
                 metadata: result.metadata,
               };
@@ -652,9 +741,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                     );
                     if (matchingUpload) {
                       const fileToUpdate = initialFiles.find(
-                        (f) =>
-                          f.name === matchingUpload.file.name &&
-                          f.size === matchingUpload.file.size
+                        (f) => f.id === matchingUpload.clientFileId
                       );
                       if (fileToUpdate) {
                         updateFileStatus(fileToUpdate.id, "success", {

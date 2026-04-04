@@ -57,6 +57,7 @@ import type { UploadConfig } from "../config";
 import type { ProviderConfig } from "../providers/providers";
 import { createConfigError, createS3Error } from "../types/errors";
 import { logger } from "../utils/logger";
+import { md5Base64 } from "../utils/md5";
 
 // ========================================
 // Configuration Helper
@@ -743,7 +744,7 @@ export async function generatePresignedUploadUrl(
 ): Promise<PresignedUrlResult> {
   const awsClient = createS3Client(uploadConfig);
   const config = getS3CompatibleConfig(uploadConfig.provider);
-  const expiresIn = options.expiresIn || 3600; // 1 hour default
+  const expiresIn = options.expiresIn ?? 3600; // 1 hour default
 
   try {
     // Presigned UPLOAD (PUT) must use the S3 API endpoint (buildS3Url), not the custom domain.
@@ -2015,7 +2016,7 @@ async function deleteBatch(
     method: "POST",
     headers: {
       "Content-Type": "application/xml",
-      "Content-MD5": await calculateMD5(deleteXml),
+      "Content-MD5": md5Base64(deleteXml),
     },
     body: deleteXml,
   });
@@ -2063,24 +2064,6 @@ function parseBatchDeleteResponse(xmlText: string): DeleteFilesResult {
   }
 
   return { deleted, errors };
-}
-
-/**
- * Calculate MD5 hash for S3 batch delete request
- */
-async function calculateMD5(content: string): Promise<string> {
-  if (typeof crypto !== "undefined" && crypto.subtle) {
-    // Browser environment
-    const encoder = new TextEncoder();
-    const data = encoder.encode(content);
-    const hashBuffer = await crypto.subtle.digest("MD5", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return btoa(String.fromCharCode.apply(null, hashArray));
-  } else {
-    // Node.js environment - dynamic import to avoid bundling issues
-    const { createHash } = await import("crypto");
-    return createHash("md5").update(content).digest("base64");
-  }
 }
 
 /**

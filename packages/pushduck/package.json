@@ -1,6 +1,6 @@
 {
   "name": "pushduck",
-  "version": "0.3.1",
+  "version": "0.5.0",
   "type": "module",
   "author": "Abhay Ramesh",
   "license": "MIT",
@@ -35,6 +35,11 @@
       "types": "./dist/client.d.ts",
       "import": "./dist/client.mjs",
       "require": "./dist/client.js"
+    },
+    "./react-native": {
+      "types": "./dist/react-native.d.ts",
+      "import": "./dist/react-native.mjs",
+      "require": "./dist/react-native.js"
     },
     "./adapters": {
       "types": "./dist/adapters/index.d.ts",

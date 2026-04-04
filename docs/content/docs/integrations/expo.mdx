@@ -1,6 +1,6 @@
 ---
-title: Expo Router
-description: Full-stack React Native file uploads with Expo Router API routes - no adapter needed!
+title: Expo & React Native
+description: Add S3 file uploads to any React Native or Expo app — pass picker assets directly, no field mapping needed.
 icon: expo
 ---
 
@@ -10,92 +10,97 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { Steps, Step } from "fumadocs-ui/components/steps";
 import { File, Folder, Files } from "fumadocs-ui/components/files";
 
-## Using pushduck with Expo Router
+## Overview
 
-Expo Router is a file-based router for React Native and web applications that enables full-stack development with API routes. Since Expo Router uses Web Standards APIs, pushduck handlers work directly without any adapters!
+`pushduck/react-native` is a drop-in replacement for `pushduck/client` that works in React Native and Expo apps. The API is identical — `useUploadRoute` and `createUploadClient` work exactly the same way. The only difference is that `uploadFiles` accepts picker asset objects directly, so you never need to map field names.
 
-<Callout type="info">
-  **Web Standards Native**: Expo Router API routes use standard `Request`/`Response` objects, making pushduck integration straightforward with zero overhead. Perfect for universal React Native apps!
+**Supported pickers out of the box:**
+- `expo-image-picker` — pass `result.assets` directly
+- `expo-document-picker` — pass `result.assets` directly
+- `react-native-image-picker` — filter for `uri` then pass directly
+
+The server side is unchanged — your existing upload route works without any modification.
+
+<Callout type="warn">
+**`endpoint` must be an absolute URL.** React Native has no concept of a base URL, so relative paths like `/api/s3-upload` will throw a network error. Always pass the full URL: `https://your-api.com/api/s3-upload`.
 </Callout>
 
-## Quick Setup
+---
+
+## Setup
 
 <Steps>
   <Step>
-    **Install dependencies**
-    
+    **Install pushduck**
+
     <Tabs items={["npm", "yarn", "pnpm", "bun"]}>
       <Tab value="npm">
         ```bash
-        npx expo install expo-router pushduck
-        # For file uploads on mobile
-        npx expo install expo-document-picker expo-image-picker
-        # For file system operations
-        npx expo install expo-file-system
+        npm install pushduck
         ```
       </Tab>
       <Tab value="yarn">
         ```bash
-        yarn expo install expo-router pushduck
-        # For file uploads on mobile
-        yarn expo install expo-document-picker expo-image-picker
-        # For file system operations
-        yarn expo install expo-file-system
+        yarn add pushduck
         ```
       </Tab>
       <Tab value="pnpm">
         ```bash
-        pnpm expo install expo-router pushduck
-        # For file uploads on mobile
-        pnpm expo install expo-document-picker expo-image-picker
-        # For file system operations
-        pnpm expo install expo-file-system
+        pnpm add pushduck
         ```
       </Tab>
       <Tab value="bun">
         ```bash
-        bun expo install expo-router pushduck
-        # For file uploads on mobile
-        bun expo install expo-document-picker expo-image-picker
-        # For file system operations
-        bun expo install expo-file-system
+        bun add pushduck
         ```
       </Tab>
     </Tabs>
-  </Step>
 
-  <Step>
-    **Configure server output**
-    
-    Enable server-side rendering in your `app.json`:
-    
-    ```json title="app.json"
-    {
-      "expo": {
-        "web": {
-          "output": "server"
-        },
-        "plugins": [
-          [
-            "expo-router",
-            {
-              "origin": "https://your-domain.com"
-            }
-          ]
-        ]
-      }
-    }
+    Install whichever picker(s) you need:
+
+    ```bash
+    npx expo install expo-image-picker
+    npx expo install expo-document-picker
+    # react-native-image-picker is installed via npm/yarn directly
     ```
   </Step>
 
   <Step>
-    **Configure upload router**
-    
+    **Create the upload client**
+
+    Import from `pushduck/react-native` and provide an absolute `endpoint`:
+
     ```typescript title="lib/upload.ts"
+    import { createUploadClient } from 'pushduck/react-native';
+    import type { AppRouter } from './upload-server'; // your server router type
+
+    export const upload = createUploadClient<AppRouter>({
+      endpoint: process.env.EXPO_PUBLIC_API_URL + '/api/s3-upload',
+      // e.g. 'https://your-api.com/api/s3-upload'
+    });
+    ```
+
+    Or use `useUploadRoute` directly in a component:
+
+    ```typescript
+    import { useUploadRoute } from 'pushduck/react-native';
+
+    const { uploadFiles, files, isUploading, progress } = useUploadRoute('imageUpload', {
+      endpoint: 'https://your-api.com/api/s3-upload',
+    });
+    ```
+  </Step>
+
+  <Step>
+    **Configure the server**
+
+    The server route is identical to any other pushduck integration. See [Quick Start](/docs/quick-start) or the [Next.js](/docs/integrations/nextjs) / [Express](/docs/integrations/express) guide depending on your backend.
+
+    ```typescript title="(your backend) lib/upload.ts"
     import { createUploadConfig } from 'pushduck/server';
 
     const { s3 } = createUploadConfig()
-      .provider("cloudflareR2",{
+      .provider('cloudflareR2', {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
         region: 'auto',
@@ -106,734 +111,381 @@ Expo Router is a file-based router for React Native and web applications that en
       .build();
 
     export const uploadRouter = s3.createRouter({
-      imageUpload: s3.image().maxFileSize("5MB"),
-      documentUpload: s3.file().maxFileSize("10MB")
+      imageUpload: s3.image().maxFileSize('10MB'),
+      documentUpload: s3.file().maxFileSize('25MB'),
     });
 
-    export type AppUploadRouter = typeof uploadRouter;
-    ```
-  </Step>
-
-  <Step>
-    **Create API route**
-    
-    ```typescript title="app/api/upload/[...slug]+api.ts"
-    import { uploadRouter } from '../../../lib/upload';
-
-    // Direct usage - no adapter needed!
-    export async function GET(request: Request) {
-      return uploadRouter.handlers(request);
-    }
-
-    export async function POST(request: Request) {
-      return uploadRouter.handlers(request);
-    }
+    export type AppRouter = typeof uploadRouter;
     ```
   </Step>
 </Steps>
 
-## Basic Integration
+---
 
-### Simple Upload Route
+## Usage by Picker
 
-```typescript title="app/api/upload/[...slug]+api.ts"
-import { uploadRouter } from '../../../lib/upload';
-
-// Method 1: Combined handler (recommended)
-export async function GET(request: Request) {
-  return uploadRouter.handlers(request);
-}
-
-export async function POST(request: Request) {
-  return uploadRouter.handlers(request);
-}
-
-// Method 2: Individual methods (if you need method-specific logic)
-export async function PUT(request: Request) {
-  return uploadRouter.handlers(request);
-}
-
-export async function DELETE(request: Request) {
-  return uploadRouter.handlers(request);
-}
-```
-
-### With CORS Headers
-
-```typescript title="app/api/upload/[...slug]+api.ts"
-import { uploadRouter } from '../../../lib/upload';
-
-function addCorsHeaders(response: Response) {
-  response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  return response;
-}
-
-export async function OPTIONS() {
-  return addCorsHeaders(new Response(null, { status: 200 }));
-}
-
-export async function GET(request: Request) {
-  const response = await uploadRouter.handlers(request);
-  return addCorsHeaders(response);
-}
-
-export async function POST(request: Request) {
-  const response = await uploadRouter.handlers(request);
-  return addCorsHeaders(response);
-}
-```
-
-## Advanced Configuration
-
-### Authentication with Expo Auth
-
-```typescript title="lib/upload.ts"
-import { createUploadConfig } from 'pushduck/server';
-import { jwtVerify } from 'jose';
-
-const { s3 } = createUploadConfig()
-  .provider("cloudflareR2",{
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    region: 'auto',
-    endpoint: process.env.AWS_ENDPOINT_URL!,
-    bucket: process.env.S3_BUCKET_NAME!,
-    accountId: process.env.R2_ACCOUNT_ID!,
-  })
-  .paths({
-    prefix: 'uploads',
-    generateKey: (file, metadata) => {
-      return `${metadata.userId}/${Date.now()}/${file.name}`;
-    }
-  })
-  .build();
-
-export const uploadRouter = s3.createRouter({
-  // Private uploads with JWT authentication
-  privateUpload: s3
-    .image()
-    .maxFileSize("5MB")
-    .formats(['jpeg', 'jpg', 'png', 'webp'])
-    .middleware(async ({ req }) => {
-      const authHeader = req.headers.get('authorization');
-      if (!authHeader?.startsWith('Bearer ')) {
-        throw new Error('Authorization required');
-      }
-
-      const token = authHeader.substring(7);
-      
-      try {
-        const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
-        const { payload } = await jwtVerify(token, secret);
-        
-        return {
-          userId: payload.sub as string,
-          platform: 'mobile'
-        };
-      } catch (error) {
-        throw new Error('Invalid token');
-      }
-    }),
-
-  // User profile pictures
-  profilePicture: s3
-    .image()
-    .maxFileSize("2MB")
-    .maxFiles(1)
-    .formats(['jpeg', 'jpg', 'png', 'webp'])
-    .middleware(async ({ req }) => {
-      const userId = await authenticateUser(req);
-      return { userId, category: 'profile' };
-    })
-    .paths({
-      generateKey: ({ metadata, file }) => {
-        return `profiles/${metadata.userId}/avatar.${file.name.split('.').pop()}`;
-      }
-    }),
-
-  // Document uploads
-  documents: s3
-    .file()
-    .maxFileSize("10MB")
-    .types(['application/pdf', 'text/plain'])
-    .maxFiles(5)
-    .middleware(async ({ req }) => {
-      const userId = await authenticateUser(req);
-      return { userId, category: 'documents' };
-    }),
-
-  // Public uploads (no auth)
-  publicUpload: s3
-    .image()
-    .maxFileSize("2MB")
-    // No middleware = public access
-});
-
-async function authenticateUser(req: Request): Promise<string> {
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new Error('Authorization required');
-  }
-
-  const token = authHeader.substring(7);
-  const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
-  const { payload } = await jwtVerify(token, secret);
-  
-  return payload.sub as string;
-}
-
-export type AppUploadRouter = typeof uploadRouter;
-```
-
-## Client-Side Usage (React Native)
-
-### Upload Hook
-
-```typescript title="hooks/useUpload.ts"
-import { createUploadClient } from 'pushduck/client';
-import type { AppUploadRouter } from '../lib/upload';
-
-export const upload = createUploadClient<AppUploadRouter>({
-  endpoint: '/api/upload'
-});
-```
-
-### Image Upload Component
+### expo-image-picker
 
 ```typescript title="components/ImageUploader.tsx"
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity, Image, Alert, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { upload } from '../hooks/useUpload';
+import { upload } from '../lib/upload';
 
 export default function ImageUploader() {
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const { uploadFiles, files, isUploading, error } = upload.imageUpload();
+  const { uploadFiles, files, isUploading, errors } = upload.imageUpload();
 
-  const pickImage = async () => {
-    // Request permission
+  const pickAndUpload = async () => {
     if (Platform.OS !== 'web') {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Camera roll permission is required');
+        Alert.alert('Permission needed', 'Camera roll permission is required.');
         return;
       }
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
     });
 
     if (!result.canceled) {
-      const asset = result.assets[0];
-      setSelectedImage(asset.uri);
-      
-      // Create File object for upload
-      const file = {
-        uri: asset.uri,
-        name: asset.fileName || 'image.jpg',
-        type: asset.type || 'image/jpeg',
-      } as any;
-
-      uploadFiles([file]);
+      // Pass result.assets directly — no mapping needed
+      await uploadFiles(result.assets);
     }
   };
 
   return (
     <View style={{ padding: 20 }}>
       <TouchableOpacity
-        onPress={pickImage}
+        onPress={pickAndUpload}
         disabled={isUploading}
-        style={{
-          backgroundColor: isUploading ? '#ccc' : '#007AFF',
-          padding: 15,
-          borderRadius: 8,
-          alignItems: 'center',
-        }}
+        style={{ backgroundColor: isUploading ? '#ccc' : '#007AFF', padding: 15, borderRadius: 8 }}
       >
-        <Text style={{ color: 'white', fontSize: 16 }}>
-          {isUploading ? 'Uploading...' : 'Pick Image'}
+        <Text style={{ color: 'white', textAlign: 'center' }}>
+          {isUploading ? 'Uploading...' : 'Pick Images'}
         </Text>
       </TouchableOpacity>
 
-      {error && (
-        <View style={{ padding: 10, backgroundColor: '#ffebee', marginTop: 10, borderRadius: 8 }}>
-          <Text style={{ color: '#c62828' }}>Error: {error.message}</Text>
-        </View>
+      {errors.length > 0 && (
+        <Text style={{ color: 'red', marginTop: 10 }}>{errors[0]}</Text>
       )}
 
-      {selectedImage && (
-        <Image
-          source={{ uri: selectedImage }}
-          style={{ width: 200, height: 200, marginTop: 20, borderRadius: 8 }}
-        />
-      )}
-
-      {files.length > 0 && (
-        <View style={{ marginTop: 20 }}>
-          {files.map((file) => (
-            <View key={file.id} style={{ 
-              flexDirection: 'row', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              padding: 10,
-              backgroundColor: '#f5f5f5',
-              marginBottom: 10,
-              borderRadius: 8
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: 'bold' }}>{file.name}</Text>
-                <Text style={{ fontSize: 12, color: '#666' }}>
-                  {file.status === 'success' ? 'Complete' : `${file.progress}%`}
-                </Text>
-              </View>
-              {file.status === 'success' && file.url && (
-                <Text style={{ color: '#007AFF', fontSize: 12 }}>✓ Uploaded</Text>
-              )}
-            </View>
-          ))}
+      {files.map((file) => (
+        <View key={file.id} style={{ marginTop: 10 }}>
+          <Text>{file.name} — {file.status} ({file.progress}%)</Text>
+          {file.status === 'success' && file.url && (
+            <Image source={{ uri: file.url }} style={{ width: 200, height: 200, marginTop: 8, borderRadius: 8 }} />
+          )}
         </View>
-      )}
+      ))}
     </View>
   );
 }
 ```
 
-### Document Upload Component
+### expo-document-picker
 
 ```typescript title="components/DocumentUploader.tsx"
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, FlatList } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import { upload } from '../hooks/useUpload';
-
-interface UploadedFile {
-  name: string;
-  size: number;
-  url: string;
-}
+import { upload } from '../lib/upload';
 
 export default function DocumentUploader() {
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const { uploadFiles, isUploading, error } = upload.documents();
+  const { uploadFiles, files, isUploading, errors } = upload.documentUpload();
 
-  const pickDocument = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'text/plain'],
-        multiple: true,
-      });
+  const pickAndUpload = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'text/plain'],
+      multiple: true,
+    });
 
-      if (!result.canceled) {
-        const files = result.assets.map(asset => ({
-          uri: asset.uri,
-          name: asset.name,
-          type: asset.mimeType || 'application/octet-stream',
-        })) as any[];
-
-        const uploadResult = await uploadFiles(files);
-        
-        if (uploadResult.success) {
-          const newFiles = uploadResult.results.map(file => ({
-            name: file.name,
-            size: file.size,
-            url: file.url,                    // Permanent URL
-            downloadUrl: file.presignedUrl,   // Temporary download URL (1 hour)
-          }));
-          
-          setUploadedFiles(prev => [...prev, ...newFiles]);
-          Alert.alert('Success', `${files.length} file(s) uploaded successfully!`);
-        }
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to pick document');
+    if (!result.canceled) {
+      // Pass result.assets directly — no mapping needed
+      await uploadFiles(result.assets);
     }
   };
 
   return (
     <View style={{ padding: 20 }}>
       <TouchableOpacity
-        onPress={pickDocument}
+        onPress={pickAndUpload}
         disabled={isUploading}
-        style={{
-          backgroundColor: isUploading ? '#ccc' : '#34C759',
-          padding: 15,
-          borderRadius: 8,
-          alignItems: 'center',
-          marginBottom: 20,
-        }}
+        style={{ backgroundColor: isUploading ? '#ccc' : '#34C759', padding: 15, borderRadius: 8 }}
       >
-        <Text style={{ color: 'white', fontSize: 16 }}>
+        <Text style={{ color: 'white', textAlign: 'center' }}>
           {isUploading ? 'Uploading...' : 'Pick Documents'}
         </Text>
       </TouchableOpacity>
 
-      {error && (
-        <View style={{ padding: 10, backgroundColor: '#ffebee', marginBottom: 10, borderRadius: 8 }}>
-          <Text style={{ color: '#c62828' }}>Error: {error.message}</Text>
-        </View>
+      {errors.length > 0 && (
+        <Text style={{ color: 'red', marginTop: 10 }}>{errors[0]}</Text>
       )}
 
-      <FlatList
-        data={uploadedFiles}
-        keyExtractor={(item, index) => index.toString()}
-        renderItem={({ item }) => (
-          <View style={{
-            padding: 10,
-            backgroundColor: '#f5f5f5',
-            marginBottom: 10,
-            borderRadius: 8,
-          }}>
-            <Text style={{ fontWeight: 'bold' }}>{item.name}</Text>
-            <Text style={{ color: '#666', fontSize: 12 }}>
-              {(item.size / 1024).toFixed(1)} KB
-            </Text>
-          </View>
-        )}
-      />
+      {files.map((file) => (
+        <View key={file.id} style={{ marginTop: 10, padding: 10, backgroundColor: '#f5f5f5', borderRadius: 8 }}>
+          <Text style={{ fontWeight: 'bold' }}>{file.name}</Text>
+          <Text style={{ color: '#666' }}>
+            {file.status === 'success' ? 'Uploaded' : `${file.progress}%`}
+          </Text>
+        </View>
+      ))}
     </View>
   );
 }
 ```
 
-## Project Structure
+### react-native-image-picker
 
-Here's a recommended project structure for Expo Router with pushduck:
+`react-native-image-picker` types `uri` as optional on its `Asset` type. Filter for `uri` before passing:
 
-<Files>
-  <Folder name="your-expo-app" defaultOpen>
-    <Folder name="app" defaultOpen>
-      <Folder name="api">
-        <Folder name="upload" defaultOpen>
-          <File name="[...slug]+api.ts" />
-        </Folder>
-      </Folder>
-      <Folder name="(tabs)">
-        <File name="upload.tsx" />
-        <File name="_layout.tsx" />
-      </Folder>
-      <File name="_layout.tsx" />
-    </Folder>
-    <Folder name="components">
-      <File name="ImageUploader.tsx" />
-      <File name="DocumentUploader.tsx" />
-    </Folder>
-    <Folder name="hooks">
-      <File name="useUpload.ts" />
-    </Folder>
-    <Folder name="lib" defaultOpen>
-      <File name="upload.ts" />
-    </Folder>
-    <File name="app.json" />
-    <File name=".env" />
-  </Folder>
-</Files>
+```typescript
+import { launchImageLibrary } from 'react-native-image-picker';
+import { useUploadRoute } from 'pushduck/react-native';
 
-## Complete Example
+const { uploadFiles, isUploading } = useUploadRoute('imageUpload', {
+  endpoint: 'https://your-api.com/api/s3-upload',
+});
 
-### Main Upload Screen
+const pickAndUpload = async () => {
+  const result = await launchImageLibrary({ mediaType: 'photo', selectionLimit: 0 });
 
-```typescript title="app/(tabs)/upload.tsx"
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
-import ImageUploader from '../../components/ImageUploader';
-import DocumentUploader from '../../components/DocumentUploader';
-
-export default function UploadScreen() {
-  return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>File Upload Demo</Text>
-      
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Image Upload</Text>
-        <ImageUploader />
-      </View>
-      
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Document Upload</Text>
-        <DocumentUploader />
-      </View>
-    </ScrollView>
+  // uri is typed as optional — filter to narrow the type before passing
+  const assets = result.assets?.filter(
+    (a): a is typeof a & { uri: string } => !!a.uri
   );
-}
+  if (assets?.length) await uploadFiles(assets);
+};
+```
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginVertical: 20,
-  },
-  section: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 15,
+---
+
+## Progress Tracking
+
+All the same progress state is available in React Native:
+
+```typescript
+import { useUploadRoute, formatETA, formatUploadSpeed } from 'pushduck/react-native';
+
+const {
+  uploadFiles,
+  files,        // per-file state: name, status, progress, url, error
+  isUploading,  // true while any upload is in progress
+  progress,     // 0–100 overall across all files
+  uploadSpeed,  // bytes/second overall
+  eta,          // seconds remaining overall
+  errors,       // string[] of error messages
+  reset,        // clears all state
+} = useUploadRoute('imageUpload', {
+  endpoint: 'https://your-api.com/api/s3-upload',
+  onProgress: (pct) => console.log(`${pct}%`),
+  onSuccess: (files) => console.log('Done:', files.map(f => f.url)),
+  onError: (err) => console.error(err.message),
+});
+
+// In your render:
+// {isUploading && <Text>Speed: {formatUploadSpeed(uploadSpeed ?? 0)} — ETA: {formatETA(eta ?? 0)}</Text>}
+```
+
+---
+
+## Authentication
+
+Pass a token via the `fetcher` option to attach headers to every request:
+
+```typescript
+import { createUploadClient } from 'pushduck/react-native';
+import type { AppRouter } from './upload-server';
+import { getAuthToken } from './auth'; // your token source
+
+export const upload = createUploadClient<AppRouter>({
+  endpoint: 'https://your-api.com/api/s3-upload',
+  fetcher: async (url, init) => {
+    const token = await getAuthToken();
+    return fetch(url, {
+      ...init,
+      headers: { ...init?.headers, Authorization: `Bearer ${token}` },
+    });
   },
 });
 ```
 
-### Tab Layout
+On the server, read the token from the request header in your middleware:
 
-```typescript title="app/(tabs)/_layout.tsx"
-import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+```typescript
+imageUpload: s3
+  .image()
+  .maxFileSize('10MB')
+  .middleware(async ({ req }) => {
+    const token = req.headers.get('authorization')?.replace('Bearer ', '');
+    if (!token) throw new Error('Unauthorized');
+    const userId = await verifyToken(token);
+    return { userId };
+  }),
+```
 
-export default function TabLayout() {
-  return (
-    <Tabs>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="upload"
-        options={{
-          title: 'Upload',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cloud-upload" size={size} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
-  );
+---
+
+## Expo Router (Full-Stack)
+
+If you're using Expo Router with API routes, the server runs inside your Expo app. Expo Router API routes use standard `Request`/`Response`, so no adapter is needed.
+
+### API Route
+
+```typescript title="app/api/s3-upload/[...slug]+api.ts"
+import { uploadRouter } from '../../../lib/upload';
+
+export async function GET(request: Request) {
+  return uploadRouter.handlers(request);
+}
+
+export async function POST(request: Request) {
+  return uploadRouter.handlers(request);
 }
 ```
 
-## Deployment Options
+### Enable Server Output
 
-<Tabs items={["EAS Build", "Expo Development Build", "Local Development"]}>
-  <Tab value="EAS Build">
-    ### EAS Build Configuration
-    
-    Configure automatic server deployment in your `eas.json`:
-    
-    ```json title="eas.json"
-    {
-      "cli": {
-        "version": ">= 5.0.0"
-      },
-      "build": {
-        "development": {
-          "developmentClient": true,
-          "distribution": "internal",
-          "env": {
-            "EXPO_UNSTABLE_DEPLOY_SERVER": "1"
-          }
-        },
-        "preview": {
-          "distribution": "internal",
-          "env": {
-            "EXPO_UNSTABLE_DEPLOY_SERVER": "1"
-          }
-        },
-        "production": {
-          "env": {
-            "EXPO_UNSTABLE_DEPLOY_SERVER": "1"
-          }
-        }
-      }
-    }
-    ```
-    
-    Deploy with automatic server:
-    
-    ```bash
-    # Build for all platforms
-    eas build --platform all
-    
-    # Deploy server only
-    npx expo export --platform web
-    eas deploy
-    ```
-  </Tab>
-  
-  <Tab value="Expo Development Build">
-    ### Development Build Setup
-    
-    ```bash
-    # Install dev client
-    npx expo install expo-dev-client
-    
-    # Create development build
-    eas build --profile development
-    
-    # Or run locally
-    npx expo run:ios --configuration Release
-    npx expo run:android --variant release
-    ```
-    
-    Configure local server origin:
-    
-    ```json title="app.json"
-    {
-      "expo": {
-        "plugins": [
-          [
-            "expo-router",
-            {
-              "origin": "http://localhost:8081"
-            }
-          ]
-        ]
-      }
-    }
-    ```
-  </Tab>
-  
-  <Tab value="Local Development">
-    ### Local Development Server
-    
-    ```bash
-    # Start Expo development server
-    npx expo start
-    
-    # Test API routes
-    curl http://localhost:8081/api/upload/presigned-url
-    
-    # Clear cache if needed
-    npx expo start --clear
-    ```
-    
-    For production testing:
-    
-    ```bash
-    # Export for production
-    npx expo export
-    
-    # Serve locally
-    npx expo serve
-    ```
-  </Tab>
-</Tabs>
+```json title="app.json"
+{
+  "expo": {
+    "web": { "output": "server" },
+    "plugins": [["expo-router", { "origin": "https://your-domain.com" }]]
+  }
+}
+```
+
+### Client Setup for Expo Router
+
+When the server is inside the Expo app itself, the endpoint is still an absolute URL — use `EXPO_PUBLIC_API_URL` to configure it:
+
+```typescript title="lib/upload.ts"
+import { createUploadClient } from 'pushduck/react-native';
+import type { AppRouter } from './upload-server';
+
+export const upload = createUploadClient<AppRouter>({
+  endpoint: `${process.env.EXPO_PUBLIC_API_URL}/api/s3-upload`,
+});
+```
+
+```bash title=".env"
+EXPO_PUBLIC_API_URL=https://your-domain.com
+# Simulator/emulator local dev: http://localhost:8081
+# Physical device local dev: use your machine's LAN IP (e.g. http://192.168.1.42:8081)
+# or run `npx expo start --tunnel` and use the tunnel URL
+```
+
+---
 
 ## Environment Variables
 
 ```bash title=".env"
-# AWS/Cloudflare R2 Configuration
+# Server-side (API routes / backend) — no EXPO_PUBLIC_ prefix needed
 AWS_ACCESS_KEY_ID=your_access_key
 AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_REGION=auto
 AWS_ENDPOINT_URL=https://your-account.r2.cloudflarestorage.com
-S3_BUCKET_NAME=your-bucket-name
+S3_BUCKET_NAME=your-bucket
 R2_ACCOUNT_ID=your-cloudflare-account-id
 
-# JWT Authentication
-JWT_SECRET=your-jwt-secret
-
-# Expo Configuration (for client-side, use EXPO_PUBLIC_ prefix)
+# Client-side — must use EXPO_PUBLIC_ prefix so Metro bundles them
 EXPO_PUBLIC_API_URL=https://your-domain.com
 ```
 
-<Callout type="warn">
-**Important**: Server environment variables (without `EXPO_PUBLIC_` prefix) are only available in API routes, not in client code. Client-side variables must use the `EXPO_PUBLIC_` prefix.
+<Callout type="info">
+Server-only variables (without `EXPO_PUBLIC_`) are available in Expo Router API routes but **not** in the React Native client bundle. Use `EXPO_PUBLIC_API_URL` to pass the API base URL to the client.
 </Callout>
 
-## Performance Benefits
+---
 
-<Cards>
-  <Card title="Universal Code" href="#client-side-usage-react-native">
-    Share upload logic between web and native platforms with a single codebase.
-  </Card>
-  
-  <Card title="Native Performance" href="#image-upload-component">
-    Direct access to native file system APIs for optimal performance on mobile.
-  </Card>
-  
-  <Card title="Real-time Updates" href="#document-upload-component">
-    Built-in support for upload progress tracking and real-time status updates.
-  </Card>
-  
-  <Card title="🌐 Cross-Platform" href="#deployment-options">
-    Deploy to iOS, Android, and web with the same upload infrastructure.
-  </Card>
-</Cards>
+## Requirements & Known Limitations
+
+<Callout type="info">
+**Minimum supported versions:**
+- Expo SDK 50+ / React Native 0.73+ recommended
+- expo-image-picker 15+ (SDK 50) for reliable `mimeType` field
+- React Native 0.72+ for the `File` global
+
+Older versions work for upload delivery but may store incorrect MIME types in S3 (e.g., `'image'` instead of `'image/jpeg'`) because `mimeType` was absent from expo-image-picker before SDK 50.
+</Callout>
+
+<Callout type="warn">
+**Known upstream bugs (not fixable in pushduck):**
+
+**Upload progress may be missing in Expo Go (SDK 49–51).** XHR upload progress events do not fire reliably in Expo Go on those SDK versions due to [a network debugging regression](https://github.com/expo/expo/issues/28269). Production builds (EAS Build) and development builds (expo-dev-client) are not affected. Uploads complete correctly — only progress tracking is missing.
+
+**`fetch('file://')` on Android is broken in React Native 0.82.0.** If you're on Expo SDK 53 with RN 0.82, uploads will fail on Android with a scheme error. This was fixed in RN 0.83.1 / Expo SDK 53.x patch. Update your Expo SDK to resolve it.
+</Callout>
+
+---
 
 ## Troubleshooting
 
-<Callout type="info">
-**File Permissions**: Always request proper permissions for camera and photo library access on mobile devices before file operations.
-</Callout>
+**Network request failed with a relative URL**
 
-<Callout type="warn">
-**Server Bundle**: Expo Router API routes require server output to be enabled in your `app.json` configuration.
-</Callout>
+You passed a relative endpoint. Fix it:
+```typescript
+// ❌ fails in React Native
+useUploadRoute('imageUpload')
 
-### Common Issues
-
-**Metro bundler errors:**
-```bash
-# Clear Metro cache
-npx expo start --clear
-
-# Reset Expo cache
-npx expo r -c
+// ✅ correct
+useUploadRoute('imageUpload', { endpoint: 'https://your-api.com/api/s3-upload' })
 ```
 
-**Permission denied errors:**
-```typescript
-// Always check permissions before file operations
-import * as ImagePicker from 'expo-image-picker';
+**`Cannot read content:// URIs` error**
 
+You passed `copyToCacheDirectory: false` to `expo-document-picker`. Remove that option (or set it to `true`) so the picker copies the file to cache and returns a `file://` URI:
+```typescript
+// ❌ returns content:// on Android — not supported
+const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: false });
+
+// ✅ default behaviour — returns file:// URIs
+const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
+```
+
+**Files uploaded with wrong MIME type / stored as `application/octet-stream`**
+
+This happens when your version of `expo-image-picker` doesn't populate the `mimeType` field (SDK < 50). Upgrade to Expo SDK 50+ to resolve it. In the meantime the file is still uploaded and stored correctly — only the `Content-Type` metadata on the S3 object is wrong.
+
+**Upload never starts / no progress**
+
+Check that your picker returned actual assets — `result.canceled` might be `true`. If you're in Expo Go on SDK 49–51, progress won't show (see limitations above), but the upload is still happening.
+
+**Permission denied**
+
+Request media library permissions before calling the picker:
+```typescript
 const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-if (status !== 'granted') {
-  Alert.alert('Permission needed', 'Camera roll permission is required');
-  return;
+if (status !== 'granted') return;
+```
+
+**CORS errors (Expo Router or separate backend)**
+
+React Native's native HTTP stack doesn't enforce browser CORS, so CORS errors only appear when running on **web** via Expo Router. Add CORS headers to your API route:
+```typescript
+// Use a specific origin in production, not a wildcard.
+const allowedOrigin = process.env.APP_ORIGIN ?? 'https://your-domain.com';
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': allowedOrigin,
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
+}
+
+export async function POST(request: Request) {
+  const response = await uploadRouter.handlers(request);
+  response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
+  return response;
 }
 ```
 
-**Network errors in development:**
-```typescript
-// Make sure your development server is accessible
-const { upload } = useUpload('/api/upload', {
-  endpoint: __DEV__ ? 'http://localhost:8081' : 'https://your-domain.com',
-});
+**Metro cache issues**
+
+```bash
+npx expo start --clear
 ```
-
-**File upload timeout:**
-```typescript
-const { upload } = useUpload('/api/upload', {
-  timeout: 60000, // 60 seconds
-});
-```
-
-### Debug Mode
-
-Enable debug logging for development:
-
-```typescript title="lib/upload.ts"
-const { s3 } = createUploadConfig()
-  .provider("cloudflareR2",{ /* config */ })
-  .defaults({
-    debug: __DEV__, // Only in development
-  })
-  .build();
-```
-
-This will log detailed information about upload requests, file processing, and S3 operations to help diagnose issues during development.
-
-## Framework-Specific Notes
-
-1. **File System Access**: Use `expo-file-system` for advanced file operations
-2. **Permissions**: Always request permissions before accessing camera or photo library
-3. **Web Compatibility**: Components work on web out of the box with Expo Router
-4. **Platform Detection**: Use `Platform.OS` to handle platform-specific logic
-5. **Environment Variables**: Server variables don't need `EXPO_PUBLIC_` prefix in API routes 

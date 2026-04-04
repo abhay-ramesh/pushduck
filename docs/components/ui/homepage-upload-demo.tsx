@@ -2,8 +2,8 @@
 
 import { upload } from "@/lib/upload-client";
 import { Check, Upload, X } from "lucide-react";
+import posthog from "posthog-js";
 import { formatETA, formatUploadSpeed } from "pushduck";
-import { useCallback } from "react";
 
 /**
  * Simplified upload demo for homepage
@@ -13,21 +13,38 @@ export function HomepageUploadDemo() {
   const { uploadFiles, files, isUploading, progress, uploadSpeed, eta, reset } =
     upload.imageUpload();
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent<HTMLLabelElement>) => {
-      e.preventDefault();
-      const droppedFiles = Array.from(e.dataTransfer.files);
-      if (droppedFiles.length > 0) {
-        uploadFiles(droppedFiles);
-      }
-    },
-    [uploadFiles]
-  );
+  const startUpload = (filesToUpload: File[]) => {
+    posthog.capture("homepage_upload_started", {
+      file_count: filesToUpload.length,
+      file_types: filesToUpload.map((f) => f.type),
+      total_size_bytes: filesToUpload.reduce((sum, f) => sum + f.size, 0),
+    });
+    uploadFiles(filesToUpload).then(() => {
+      const succeeded = filesToUpload.length;
+      posthog.capture("homepage_upload_completed", {
+        file_count: succeeded,
+      });
+    }).catch((error) => {
+      posthog.capture("homepage_upload_failed", {
+        file_count: filesToUpload.length,
+        error_message: error instanceof Error ? error.message : String(error),
+      });
+      posthog.captureException(error);
+    });
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    if (droppedFiles.length > 0) {
+      startUpload(droppedFiles);
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     if (selectedFiles.length > 0) {
-      uploadFiles(selectedFiles);
+      startUpload(selectedFiles);
     }
   };
 
