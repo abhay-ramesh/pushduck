@@ -1,3 +1,4 @@
+import { getPostHogClient } from "@/lib/posthog-server";
 import { s3 } from "@/lib/upload";
 
 // Define upload routes with proper validation and lifecycle hooks
@@ -18,6 +19,18 @@ const uploadRouter = s3.createRouter({
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
       console.log(`Image upload complete: ${file.name} -> ${url}`, metadata);
+      const posthog = getPostHogClient();
+      posthog.capture({
+        distinctId: metadata.userId ?? "anonymous",
+        event: "upload_completed_server",
+        properties: {
+          file_name: file.name,
+          file_size_bytes: file.size,
+          file_type: file.type,
+          category: metadata.category,
+          route: "imageUpload",
+        },
+      });
     }),
 
   // File upload route
@@ -42,6 +55,18 @@ const uploadRouter = s3.createRouter({
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
       console.log(`File upload complete: ${file.name} -> ${url}`, metadata);
+      const posthog = getPostHogClient();
+      posthog.capture({
+        distinctId: metadata.userId ?? "anonymous",
+        event: "upload_completed_server",
+        properties: {
+          file_name: file.name,
+          file_size_bytes: file.size,
+          file_type: file.type,
+          category: metadata.category,
+          route: "fileUpload",
+        },
+      });
     }),
 });
 

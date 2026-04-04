@@ -9,6 +9,67 @@
 // Core Upload Types
 // ========================================
 
+/**
+ * Universal file input accepted by upload hooks.
+ *
+ * Accepts native browser `File` objects on web, and the asset shapes
+ * returned directly by all major React Native pickers — no mapping needed.
+ *
+ * Supported out of the box (pass the picker result directly):
+ * - **expo-image-picker** `ImagePickerAsset` → uses `fileName` + `mimeType` + `fileSize`
+ * - **expo-document-picker** `DocumentPickerAsset` → uses `name` + `mimeType` + `size`
+ * - **react-native-image-picker** `Asset` → uses `fileName` + `type` + `fileSize`
+ *
+ * @example Web
+ * ```typescript
+ * await uploadFiles(Array.from(e.target.files || []));
+ * ```
+ *
+ * @example expo-image-picker (pass assets directly, no mapping)
+ * ```typescript
+ * const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] });
+ * if (!result.canceled) await uploadFiles(result.assets);
+ * ```
+ *
+ * @example expo-document-picker (pass assets directly, no mapping)
+ * ```typescript
+ * const result = await DocumentPicker.getDocumentAsync({ type: '*\/*' });
+ * if (result.assets) await uploadFiles(result.assets);
+ * ```
+ *
+ * @example react-native-image-picker (filter for uri first, then pass directly)
+ * ```typescript
+ * const result = await launchImageLibrary({ mediaType: 'photo' });
+ * const assets = result.assets?.filter((a): a is typeof a & { uri: string } => !!a.uri);
+ * if (assets?.length) await uploadFiles(assets);
+ * ```
+ */
+export type UploadInput =
+  | File
+  | {
+      /** Local file URI — required for all React Native uploads */
+      uri: string;
+      /** File name. expo-document-picker uses `name`; expo-image-picker and react-native-image-picker use `fileName` */
+      name?: string | null;
+      /** File name (alternative field). Used by expo-image-picker and react-native-image-picker */
+      fileName?: string | null;
+      /**
+       * MIME type. expo-image-picker and expo-document-picker use `mimeType`.
+       * Takes priority over `type` to avoid expo-image-picker's `type` field
+       * which holds a media category ('image' | 'video'), not a MIME type.
+       */
+      mimeType?: string | null;
+      /**
+       * MIME type (alternative field). Used by react-native-image-picker.
+       * Only used when `mimeType` is not present.
+       */
+      type?: string | null;
+      /** File size in bytes. expo-document-picker uses `size` */
+      size?: number | null;
+      /** File size in bytes (alternative field). expo-image-picker and react-native-image-picker use `fileSize` */
+      fileSize?: number | null;
+    };
+
 export interface S3UploadedFile {
   id: string;
   name: string;

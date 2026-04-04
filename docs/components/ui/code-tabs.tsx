@@ -1,5 +1,6 @@
 "use client";
 
+import posthog from "posthog-js";
 import { useState } from "react";
 
 interface CodeTabProps {
@@ -71,19 +72,19 @@ export function CodeTabsSection({
         <div className="flex gap-1 flex-1 overflow-x-auto overflow-y-hidden">
           <CodeTab
             active={activeTab === "server"}
-            onClick={() => setActiveTab("server")}
+            onClick={() => { setActiveTab("server"); posthog.capture("code_tab_switched", { tab: "server", file: "route.ts" }); }}
           >
             route.ts
           </CodeTab>
           <CodeTab
             active={activeTab === "upload-client"}
-            onClick={() => setActiveTab("upload-client")}
+            onClick={() => { setActiveTab("upload-client"); posthog.capture("code_tab_switched", { tab: "upload-client", file: "upload-client.ts" }); }}
           >
             upload-client.ts
           </CodeTab>
           <CodeTab
             active={activeTab === "client"}
-            onClick={() => setActiveTab("client")}
+            onClick={() => { setActiveTab("client"); posthog.capture("code_tab_switched", { tab: "client", file: "uploader.tsx" }); }}
           >
             uploader.tsx
           </CodeTab>

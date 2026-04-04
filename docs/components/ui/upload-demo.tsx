@@ -1,6 +1,7 @@
 "use client";
 
 import { upload } from "@/lib/upload-client";
+import posthog from "posthog-js";
 import { formatETA, formatUploadSpeed } from "pushduck";
 import { useState } from "react";
 import { UploadZone } from "./upload-zone";
@@ -29,10 +30,21 @@ export function UploadDemo({
   const currentUpload = activeTab === "images" ? imageUpload : fileUpload;
 
   const handleUpload = async (files: File[]) => {
+    posthog.capture("demo_upload_started", {
+      file_count: files.length,
+      file_types: files.map((f) => f.type),
+      tab: activeTab,
+      total_size_bytes: files.reduce((sum, f) => sum + f.size, 0),
+    });
     try {
       await currentUpload.uploadFiles(files);
+      posthog.capture("demo_upload_completed", {
+        file_count: files.length,
+        tab: activeTab,
+      });
     } catch (error) {
       console.error("Upload failed:", error);
+      posthog.captureException(error);
     }
   };
 
