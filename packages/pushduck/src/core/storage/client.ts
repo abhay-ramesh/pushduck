@@ -600,7 +600,7 @@ export interface PresignedUrlResult {
   url: string;
   /** The S3 object key where the file will be stored */
   key: string;
-  /** Additional form fields required for the upload (for POST uploads) */
+  /** Signed headers that must be sent with the PUT upload request (e.g. x-amz-acl, Content-Type, x-amz-meta-*) */
   fields?: Record<string, string>;
 }
 
@@ -700,6 +700,44 @@ export async function generatePresignedDownloadUrl(
  * ```
  *
  */
+/** Providers that do not support standard S3 ACLs (x-amz-acl) */
+const ACL_UNSUPPORTED_PROVIDERS = new Set(["cloudflare-r2", "minio"]);
+
+/**
+ * Internal helper to prepare S3 upload headers (ACL, Content-Type, Metadata).
+ * Ensures consistency between presigned URL generation and direct server-side uploads.
+ *
+ * @internal
+ */
+function prepareS3UploadHeaders(
+  uploadConfig: UploadConfig,
+  options: {
+    contentType?: string;
+    metadata?: Record<string, string>;
+  }
+): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const { provider, acl: providerAcl } = uploadConfig.provider;
+
+  if (options.contentType) {
+    headers["Content-Type"] = options.contentType;
+  }
+
+  const acl = uploadConfig.defaults?.acl || providerAcl;
+  // Cloudflare R2 and MinIO do not support x-amz-acl headers and will return 400/501 errors
+  if (acl && !ACL_UNSUPPORTED_PROVIDERS.has(provider)) {
+    headers["x-amz-acl"] = acl;
+  }
+
+  if (options.metadata) {
+    Object.entries(options.metadata).forEach(([key, value]) => {
+      headers[`x-amz-meta-${key}`] = value;
+    });
+  }
+
+  return headers;
+}
+
 export async function generatePresignedUploadUrl(
   uploadConfig: UploadConfig,
   options: PresignedUrlOptions
@@ -717,23 +755,29 @@ export async function generatePresignedUploadUrl(
     const s3Url = buildS3Url(options.key, config);
     const url = new URL(s3Url);
 
-    // Add expiration as query parameter (this is the Cloudflare R2 pattern)
+    // Add expiration as query parameter
     url.searchParams.set("X-Amz-Expires", expiresIn.toString());
 
-    // Create a signed request for PUT operation - minimal headers approach
+    // Prepare headers for signing. These MUST be sent by the client in the actual PUT request.
+    const headers = prepareS3UploadHeaders(uploadConfig, options);
+
+    // Create a signed request for PUT operation
+    // Passing headers to sign() ensures they are included in the signature (SigV4)
     const signedRequest = await awsClient.sign(
       new Request(url.toString(), {
         method: "PUT",
+        headers: headers,
       }),
       {
         aws: { signQuery: true },
-      }
+      },
     );
 
     if (config.debug) {
       logger.presignedUrl(options.key, {
         originalUrl: s3Url,
         signedUrl: signedRequest.url,
+        headers,
         config: {
           region: config.region,
           endpoint: config.endpoint,
@@ -746,6 +790,7 @@ export async function generatePresignedUploadUrl(
     return {
       url: signedRequest.url,
       key: options.key,
+      fields: Object.keys(headers).length > 0 ? headers : undefined,
     };
   } catch (error) {
     logger.error("Failed to generate presigned URL", error, {
@@ -939,22 +984,7 @@ export async function uploadFileToS3(
     const s3Url = buildS3Url(key, config);
 
     // Prepare headers
-    const headers: Record<string, string> = {};
-
-    if (options.contentType) {
-      headers["Content-Type"] = options.contentType;
-    }
-
-    if (config.acl) {
-      headers["x-amz-acl"] = config.acl;
-    }
-
-    // Add metadata as x-amz-meta-* headers
-    if (options.metadata) {
-      Object.entries(options.metadata).forEach(([metaKey, value]) => {
-        headers[`x-amz-meta-${metaKey}`] = value;
-      });
-    }
+    const headers = prepareS3UploadHeaders(uploadConfig, options);
 
     // Convert File or Buffer to ArrayBuffer for fetch API
     // ArrayBuffer is part of BufferSource which is accepted by BodyInit

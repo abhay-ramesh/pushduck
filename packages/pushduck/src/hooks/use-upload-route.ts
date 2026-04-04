@@ -197,6 +197,7 @@ async function uploadToS3(
   blob: Blob,
   contentType: string,
   presignedUrl: string,
+  fields?: Record<string, string>,
   onProgress?: (progress: number, uploadSpeed?: number, eta?: number) => void
 ): Promise<void> {
 
@@ -228,7 +229,17 @@ async function uploadToS3(
     xhr.onabort = () => reject(new Error("Upload aborted"));
 
     xhr.open("PUT", presignedUrl);
-    xhr.setRequestHeader("Content-Type", contentType);
+
+    // Set signed headers (includes x-amz-acl, Content-Type, metadata, etc.)
+    if (fields) {
+      Object.entries(fields).forEach(([key, value]) => {
+        xhr.setRequestHeader(key, value);
+      });
+    } else {
+      // Fallback for backward compatibility
+      xhr.setRequestHeader("Content-Type", contentType);
+    }
+
     xhr.send(blob);
   });
 }
@@ -670,6 +681,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                 blob,
                 fileMeta.type,
                 result.presignedUrl,
+                result.fields,
                 (progress, uploadSpeed, eta) =>
                   updateFileProgress(fileState.id, progress, uploadSpeed, eta)
               );
