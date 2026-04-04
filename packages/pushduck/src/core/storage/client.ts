@@ -778,16 +778,13 @@ function preparePresignHeaders(
     signed["x-amz-acl"] = acl;
   }
 
-  // Content-Type and metadata go unsigned — S3 stores them, does not verify against signature.
-  // Keeping them out of SignedHeaders means existing bucket CORS configs need no changes
-  // (no requirement to add x-amz-meta-* to AllowedHeaders).
+  // Content-Type goes unsigned — S3 stores it without signature verification.
+  // Metadata (x-amz-meta-*) is intentionally excluded here. Returning metadata
+  // to the browser client would expose server-side values (userId, routeName, etc.)
+  // set by middleware. Storing metadata on S3 objects requires a server-side
+  // completion step (see issue #189). This matches pre-#164 behavior.
   if (options.contentType) {
     unsigned["Content-Type"] = options.contentType;
-  }
-  if (options.metadata) {
-    for (const [key, value] of Object.entries(options.metadata)) {
-      unsigned[`x-amz-meta-${key}`] = value;
-    }
   }
 
   return { signed, unsigned };

@@ -33,7 +33,7 @@ describe("Presigned URL Signing", () => {
         secretAccessKey: "test-secret",
     };
 
-    it("should sign only x-amz-acl, not Content-Type or metadata", async () => {
+    it("should sign only x-amz-acl; Content-Type is unsigned; metadata is excluded", async () => {
         const { config } = createUploadConfig()
             .provider("aws", baseProvider)
             .defaults({ acl: "public-read" })
@@ -45,14 +45,14 @@ describe("Presigned URL Signing", () => {
             metadata: { userId: "123" },
         });
 
-        // requiredHeaders contains all three — client sends all of them
+        // requiredHeaders has ACL and Content-Type only — metadata is NOT returned to client
         expect(result.requiredHeaders).toEqual({
             "x-amz-acl": "public-read",
             "Content-Type": "text/plain",
-            "x-amz-meta-userId": "123",
         });
+        expect(result.requiredHeaders?.["x-amz-meta-userId"]).toBeUndefined();
 
-        // sign() receives ONLY the ACL — Content-Type and metadata are NOT signed
+        // sign() receives ONLY the ACL
         const request = signMock.mock.calls[0][0] as Request;
         expect(request.headers.get("x-amz-acl")).toBe("public-read");
         expect(request.headers.get("Content-Type")).toBeNull();
@@ -82,7 +82,7 @@ describe("Presigned URL Signing", () => {
         expect(request.headers.get("x-amz-acl")).toBe("public-read");
     });
 
-    it("should include metadata in requiredHeaders but not in the signed request", async () => {
+    it("should never include metadata in requiredHeaders or the signed request", async () => {
         const { config } = createUploadConfig()
             .provider("aws", baseProvider)
             .defaults({ acl: "public-read" })
@@ -97,12 +97,12 @@ describe("Presigned URL Signing", () => {
             },
         });
 
-        // All metadata headers are in requiredHeaders for the client to send
-        expect(result.requiredHeaders?.["x-amz-meta-user-id"]).toBe("123");
-        expect(result.requiredHeaders?.["x-amz-meta-project-id"]).toBe("456");
-        expect(result.requiredHeaders?.["x-amz-meta-is-public"]).toBe("true");
+        // Metadata is excluded from requiredHeaders — server-side values never reach the browser
+        expect(result.requiredHeaders?.["x-amz-meta-user-id"]).toBeUndefined();
+        expect(result.requiredHeaders?.["x-amz-meta-project-id"]).toBeUndefined();
+        expect(result.requiredHeaders?.["x-amz-meta-is-public"]).toBeUndefined();
 
-        // Metadata is NOT in the signed request — no CORS AllowedHeaders change needed
+        // Metadata is also not in the signed request
         const request = signMock.mock.calls[0][0] as Request;
         expect(request.headers.get("x-amz-meta-user-id")).toBeNull();
         expect(request.headers.get("x-amz-meta-project-id")).toBeNull();
@@ -143,11 +143,15 @@ describe("Presigned URL Signing", () => {
 
         expect(results[0].success).toBe(true);
         expect(results[0].requiredHeaders).toBeDefined();
+        // ACL is signed and in requiredHeaders
         expect(results[0].requiredHeaders?.["x-amz-acl"]).toBe("private");
-        // Content-Type is in requiredHeaders but was NOT signed
+        // Content-Type is unsigned but in requiredHeaders
         expect(results[0].requiredHeaders?.["Content-Type"]).toBe("image/jpeg");
+        // Metadata (originalName, routeName) is NOT in requiredHeaders
+        expect(results[0].requiredHeaders?.["x-amz-meta-originalName"]).toBeUndefined();
+        expect(results[0].requiredHeaders?.["x-amz-meta-routeName"]).toBeUndefined();
 
-        // sign() only received the ACL
+        // sign() only received the ACL — not Content-Type, not metadata
         const request = signMock.mock.calls[0][0] as Request;
         expect(request.headers.get("x-amz-acl")).toBe("private");
         expect(request.headers.get("Content-Type")).toBeNull();
