@@ -73,6 +73,20 @@
 // ========================================
 
 /**
+ * Valid S3 ACL values for controlling object access.
+ * Note: Cloudflare R2 and MinIO do not support per-object ACLs — use bucket-level
+ * access settings instead. Setting `acl` has no effect on those providers.
+ */
+export type S3AclValue =
+  | "private"
+  | "public-read"
+  | "public-read-write"
+  | "authenticated-read"
+  | "bucket-owner-read"
+  | "bucket-owner-full-control"
+  | "log-delivery-write";
+
+/**
  * Base configuration interface for all cloud storage providers.
  * Contains common properties shared across all provider implementations.
  *
@@ -85,8 +99,11 @@ export interface BaseProviderConfig {
   region?: string;
   /** Name of the storage bucket/container */
   bucket: string;
-  /** Access Control List permissions (e.g., 'public-read', 'private') */
-  acl?: string;
+  /**
+   * S3 ACL for uploaded objects.
+   * Not supported on Cloudflare R2 or MinIO — ignored on those providers.
+   */
+  acl?: S3AclValue;
   /** Custom domain for file URLs (e.g., 'cdn.example.com') */
   customDomain?: string;
   /** Force path-style URLs instead of virtual-hosted style */

@@ -578,19 +578,14 @@ export interface PresignedUrlOptions {
  *
  * @example
  * ```typescript
- * const result: PresignedUrlResult = {
- *   url: 'https://bucket.s3.amazonaws.com/uploads/file.jpg?AWSAccessKeyId=...',
- *   key: 'uploads/file.jpg',
- *   fields: {
- *     'Content-Type': 'image/jpeg',
- *     'x-amz-meta-user-id': '123',
- *   },
- * };
+ * const result = await generatePresignedUploadUrl(config, {
+ *   key: 'uploads/photo.jpg',
+ *   contentType: 'image/jpeg',
+ * });
  *
- * // Use the URL for direct upload
  * await fetch(result.url, {
  *   method: 'PUT',
- *   headers: result.fields,
+ *   headers: result.requiredHeaders,
  *   body: file,
  * });
  * ```
@@ -600,8 +595,23 @@ export interface PresignedUrlResult {
   url: string;
   /** The S3 object key where the file will be stored */
   key: string;
-  /** Signed headers that must be sent with the PUT upload request (e.g. x-amz-acl, Content-Type, x-amz-meta-*) */
-  fields?: Record<string, string>;
+  /**
+   * Headers the client must include in the PUT request.
+   *
+   * Signed headers (e.g. `x-amz-acl`) are part of the AWS signature and must
+   * be sent with exact values. Unsigned headers (`Content-Type`, `x-amz-meta-*`)
+   * are passed through by S3 without signature verification.
+   *
+   * @example
+   * ```typescript
+   * await fetch(result.url, {
+   *   method: 'PUT',
+   *   headers: result.requiredHeaders,
+   *   body: file,
+   * });
+   * ```
+   */
+  requiredHeaders?: Record<string, string>;
 }
 
 /**
@@ -700,12 +710,12 @@ export async function generatePresignedDownloadUrl(
  * ```
  *
  */
-/** Providers that do not support standard S3 ACLs (x-amz-acl) */
+/** Providers where x-amz-acl causes a 400/501 error — use bucket-level access settings instead */
 const ACL_UNSUPPORTED_PROVIDERS = new Set(["cloudflare-r2", "minio"]);
 
 /**
- * Internal helper to prepare S3 upload headers (ACL, Content-Type, Metadata).
- * Ensures consistency between presigned URL generation and direct server-side uploads.
+ * Prepares headers for a direct server-side S3 upload (PUT via aws4fetch).
+ * All headers are set directly on the request — no signature split needed.
  *
  * @internal
  */
@@ -723,19 +733,64 @@ function prepareS3UploadHeaders(
     headers["Content-Type"] = options.contentType;
   }
 
-  const acl = uploadConfig.defaults?.acl || providerAcl;
-  // Cloudflare R2 and MinIO do not support x-amz-acl headers and will return 400/501 errors
+  const acl = uploadConfig.defaults?.acl ?? providerAcl;
   if (acl && !ACL_UNSUPPORTED_PROVIDERS.has(provider)) {
     headers["x-amz-acl"] = acl;
   }
 
   if (options.metadata) {
-    Object.entries(options.metadata).forEach(([key, value]) => {
+    for (const [key, value] of Object.entries(options.metadata)) {
       headers[`x-amz-meta-${key}`] = value;
-    });
+    }
   }
 
   return headers;
+}
+
+/**
+ * Prepares headers for a presigned PUT upload, split into two groups:
+ *
+ * - `signed`: included in the AWS Signature V4 (`X-Amz-SignedHeaders`).
+ *   The client MUST send these with exact values or S3 rejects the request.
+ *   Only `x-amz-acl` goes here — it cannot be applied unless it is signed.
+ *
+ * - `unsigned`: the client should send these, but AWS does not verify them
+ *   against the signature. `Content-Type` and `x-amz-meta-*` go here.
+ *   S3 stores them as-is without signature verification, which avoids
+ *   requiring CORS changes for metadata headers on existing deployments.
+ *
+ * @internal
+ */
+function preparePresignHeaders(
+  uploadConfig: UploadConfig,
+  options: {
+    contentType?: string;
+    metadata?: Record<string, string>;
+  }
+): { signed: Record<string, string>; unsigned: Record<string, string> } {
+  const { provider, acl: providerAcl } = uploadConfig.provider;
+  const signed: Record<string, string> = {};
+  const unsigned: Record<string, string> = {};
+
+  // ACL must be signed — AWS SigV4 will not apply it unless it is in SignedHeaders
+  const acl = uploadConfig.defaults?.acl ?? providerAcl;
+  if (acl && !ACL_UNSUPPORTED_PROVIDERS.has(provider)) {
+    signed["x-amz-acl"] = acl;
+  }
+
+  // Content-Type and metadata go unsigned — S3 stores them, does not verify against signature.
+  // Keeping them out of SignedHeaders means existing bucket CORS configs need no changes
+  // (no requirement to add x-amz-meta-* to AllowedHeaders).
+  if (options.contentType) {
+    unsigned["Content-Type"] = options.contentType;
+  }
+  if (options.metadata) {
+    for (const [key, value] of Object.entries(options.metadata)) {
+      unsigned[`x-amz-meta-${key}`] = value;
+    }
+  }
+
+  return { signed, unsigned };
 }
 
 export async function generatePresignedUploadUrl(
@@ -758,26 +813,30 @@ export async function generatePresignedUploadUrl(
     // Add expiration as query parameter
     url.searchParams.set("X-Amz-Expires", expiresIn.toString());
 
-    // Prepare headers for signing. These MUST be sent by the client in the actual PUT request.
-    const headers = prepareS3UploadHeaders(uploadConfig, options);
+    // Split headers into signed (ACL only) and unsigned (Content-Type, metadata).
+    // Only signed headers appear in X-Amz-SignedHeaders — unsigned headers are sent
+    // by the client but not verified against the signature.
+    const { signed, unsigned } = preparePresignHeaders(uploadConfig, options);
 
-    // Create a signed request for PUT operation
-    // Passing headers to sign() ensures they are included in the signature (SigV4)
     const signedRequest = await awsClient.sign(
       new Request(url.toString(), {
         method: "PUT",
-        headers: headers,
+        headers: signed,
       }),
       {
         aws: { signQuery: true },
       },
     );
 
+    // Merge signed + unsigned so the client has a single flat map to apply.
+    const requiredHeaders = { ...signed, ...unsigned };
+
     if (config.debug) {
       logger.presignedUrl(options.key, {
         originalUrl: s3Url,
         signedUrl: signedRequest.url,
-        headers,
+        signedHeaders: signed,
+        unsignedHeaders: unsigned,
         config: {
           region: config.region,
           endpoint: config.endpoint,
@@ -790,7 +849,7 @@ export async function generatePresignedUploadUrl(
     return {
       url: signedRequest.url,
       key: options.key,
-      fields: Object.keys(headers).length > 0 ? headers : undefined,
+      requiredHeaders: Object.keys(requiredHeaders).length > 0 ? requiredHeaders : undefined,
     };
   } catch (error) {
     logger.error("Failed to generate presigned URL", error, {

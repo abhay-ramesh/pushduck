@@ -939,7 +939,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           file,
           presignedUrl: presignedResult.url,
           key: presignedResult.key,
-          fields: presignedResult.fields,
+          requiredHeaders: presignedResult.requiredHeaders,
           metadata: fileMetadata,
         });
       } catch (error) {
@@ -1047,7 +1047,8 @@ export interface PresignedUrlResponse {
   file: S3FileMetadata;
   presignedUrl?: string;
   key?: string;
-  fields?: Record<string, string>;
+  /** Headers the client must send with the PUT request. See {@link PresignedUrlResult.requiredHeaders}. */
+  requiredHeaders?: Record<string, string>;
   metadata?: any;
   error?: string;
 }
