@@ -371,7 +371,9 @@ export const upload = createUploadClient<AppRouter>({
 
 ```bash title=".env"
 EXPO_PUBLIC_API_URL=https://your-domain.com
-# For local development: http://localhost:8081
+# Simulator/emulator local dev: http://localhost:8081
+# Physical device local dev: use your machine's LAN IP (e.g. http://192.168.1.42:8081)
+# or run `npx expo start --tunnel` and use the tunnel URL
 ```
 
 ---
@@ -461,11 +463,14 @@ if (status !== 'granted') return;
 
 React Native's native HTTP stack doesn't enforce browser CORS, so CORS errors only appear when running on **web** via Expo Router. Add CORS headers to your API route:
 ```typescript
+// Use a specific origin in production, not a wildcard.
+const allowedOrigin = process.env.APP_ORIGIN ?? 'https://your-domain.com';
+
 export async function OPTIONS() {
   return new Response(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': allowedOrigin,
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
@@ -474,7 +479,7 @@ export async function OPTIONS() {
 
 export async function POST(request: Request) {
   const response = await uploadRouter.handlers(request);
-  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
   return response;
 }
 ```

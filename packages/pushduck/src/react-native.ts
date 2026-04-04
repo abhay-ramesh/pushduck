@@ -150,7 +150,7 @@ export function useUploadRoute(
   routeName: string,
   config?: UploadRouteConfig
 ): RNRouteUploadResult {
-  if (__DEV__ && (!config?.endpoint || config.endpoint.startsWith("/"))) {
+  if (typeof __DEV__ !== 'undefined' && __DEV__ && (!config?.endpoint || config.endpoint.startsWith("/"))) {
     console.warn(
       "[pushduck/react-native] `endpoint` must be an absolute URL (e.g. \"https://api.example.com/api/s3-upload\"). " +
       "Relative URLs do not work in React Native and will cause a network error."

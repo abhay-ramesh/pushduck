@@ -544,22 +544,40 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
         setIsUploading(true);
         setErrors([]);
 
-        const fileMetadata: S3FileMetadata[] = uploadFiles.map((input) => getInputMeta(input));
-
-        const initialFiles: S3UploadedFile[] = uploadFiles.map(
-          (input, index) => {
+        // Pre-resolve blobs for inputs where size is unknown (size 0 from picker).
+        // This ensures the server receives accurate file sizes in the presign request
+        // and that aggregate progress metrics have a real denominator from the start.
+        // For inputs that already have a known size, blob resolution is deferred to
+        // the upload step so we don't pay the cost upfront.
+        const resolvedInputs = await Promise.all(
+          uploadFiles.map(async (input, index) => {
             const meta = getInputMeta(input);
+            const earlyBlob = meta.size > 0 ? null : await toBlob(input);
+            const size = meta.size > 0 ? meta.size : (earlyBlob?.size ?? 0);
             return {
+              input,
+              earlyBlob,
               id: `${Date.now()}-${index}`,
-              name: meta.name,
-              size: meta.size,
-              type: meta.type,
-              status: "pending" as const,
-              progress: 0,
-              file: isFile(input) ? input : undefined,
+              meta: { ...meta, size },
             };
-          }
+          })
         );
+
+        const fileMetadata: S3FileMetadata[] = resolvedInputs.map(({ meta }) => ({
+          name: meta.name,
+          size: meta.size,
+          type: meta.type,
+        }));
+
+        const initialFiles: S3UploadedFile[] = resolvedInputs.map(({ id, meta, input }) => ({
+          id,
+          name: meta.name,
+          size: meta.size,
+          type: meta.type,
+          status: "pending" as const,
+          progress: 0,
+          file: isFile(input) ? input : undefined,
+        }));
 
         setFiles(initialFiles);
 
@@ -623,7 +641,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
 
         const uploadPromises = presignData.results.map(
           async (result: any, index: number) => {
-            const file = uploadFiles[index];
+            const { input: file, earlyBlob, meta: fileMeta } = resolvedInputs[index];
             const fileState = initialFiles[index];
 
             if (!result.success) {
@@ -644,15 +662,9 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                 uploadStartTime: Date.now(),
               });
 
-              const blob = await toBlob(file);
-
-              // Backfill size from blob when picker didn't provide it (RN edge case),
-              // so calculateOverallMetrics has a real denominator for aggregate progress.
-              const fileMeta = getInputMeta(file);
-              const knownSize = fileMeta.size || blob.size;
-              if (knownSize && fileState.size === 0) {
-                updateFileStatus(fileState.id, "uploading", { size: knownSize } as any);
-              }
+              // Reuse the blob fetched during pre-resolution (size-unknown inputs),
+              // or fetch now for inputs that had a known size and deferred blob creation.
+              const blob = earlyBlob ?? await toBlob(file);
 
               await uploadToS3(
                 blob,
@@ -672,7 +684,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                 clientFileId: fileState.id,
                 file: {
                   name: fileMeta.name,
-                  size: knownSize,
+                  size: fileMeta.size,
                   type: fileMeta.type,
                 },
                 metadata: result.metadata,
