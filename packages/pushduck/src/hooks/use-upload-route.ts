@@ -112,29 +112,43 @@ function formatUploadSpeed(bytesPerSecond: number): string {
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
-/**
- * Normalizes any UploadInput into the three fields the server needs.
- *
- * Field resolution order:
- * - name:  `name` (expo-document-picker) → `fileName` (expo-image-picker, rn-image-picker) → 'upload'
- * - type:  `mimeType` (expo pickers) → `type` (rn-image-picker) → 'application/octet-stream'
- *          Note: expo-image-picker's `type` is 'image'|'video', not a MIME — so `mimeType` takes priority.
- * - size:  `size` (expo-document-picker) → `fileSize` (expo-image-picker, rn-image-picker) → 0
- *
- * @internal
- */
 /** Platform-safe File check — guards against environments where File is undefined. @internal */
 function isFile(input: unknown): input is File {
   return typeof File !== 'undefined' && input instanceof File;
 }
 
+/**
+ * Returns true only for strings that look like a valid MIME type (contain a slash).
+ * expo-image-picker's `type` field returns 'image'|'video' (no slash) — not a MIME type.
+ * react-native-image-picker's `type` field returns 'image/jpeg' (has slash) — valid MIME.
+ * @internal
+ */
+function isMimeType(value: string | null | undefined): value is string {
+  return !!value && value.includes('/');
+}
+
+/**
+ * Normalizes any UploadInput into the three fields the server needs.
+ *
+ * Field resolution order:
+ * - name:  `name` (expo-document-picker) → `fileName` (expo-image-picker, rn-image-picker) → 'upload'
+ * - type:  first of `mimeType` or `type` that contains a '/' (valid MIME) → 'application/octet-stream'
+ *          expo-image-picker's `type` field holds 'image'|'video' (not a MIME), so it is skipped.
+ *          react-native-image-picker's `type` holds 'image/jpeg' etc. and is accepted.
+ * - size:  `size` (expo-document-picker) → `fileSize` (expo-image-picker, rn-image-picker) → 0
+ *
+ * @internal
+ */
 function getInputMeta(input: UploadInput): { name: string; size: number; type: string } {
   if (isFile(input)) {
     return { name: input.name, size: input.size, type: input.type };
   }
+  const type = isMimeType(input.mimeType) ? input.mimeType
+             : isMimeType(input.type)     ? input.type
+             : 'application/octet-stream';
   return {
     name: input.name ?? input.fileName ?? 'upload',
-    type: input.mimeType ?? input.type ?? 'application/octet-stream',
+    type,
     size: input.size ?? input.fileSize ?? 0,
   };
 }
@@ -143,10 +157,20 @@ function getInputMeta(input: UploadInput): { name: string; size: number; type: s
  * Resolves an UploadInput to a Blob for XHR transmission.
  * For File objects the value is returned as-is (File extends Blob).
  * For React Native URI assets, the local URI is fetched and converted.
+ *
+ * Only `file://` URIs are supported. `content://` URIs (Android) are not
+ * readable via `fetch` in React Native — use `copyToCacheDirectory: true`
+ * (the default) in expo-document-picker to get a `file://` URI instead.
  * @internal
  */
 async function toBlob(input: UploadInput): Promise<Blob> {
   if (isFile(input)) return input;
+  if (input.uri.startsWith('content://')) {
+    throw new Error(
+      '[pushduck] Cannot read content:// URIs. Pass copyToCacheDirectory: true (the default) ' +
+      'to expo-document-picker so it returns a file:// URI instead.'
+    );
+  }
   const response = await fetch(input.uri);
   return response.blob();
 }

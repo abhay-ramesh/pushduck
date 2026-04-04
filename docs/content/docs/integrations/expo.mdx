@@ -396,6 +396,27 @@ Server-only variables (without `EXPO_PUBLIC_`) are available in Expo Router API 
 
 ---
 
+## Requirements & Known Limitations
+
+<Callout type="info">
+**Minimum supported versions:**
+- Expo SDK 50+ / React Native 0.73+ recommended
+- expo-image-picker 15+ (SDK 50) for reliable `mimeType` field
+- React Native 0.72+ for the `File` global
+
+Older versions work for upload delivery but may store incorrect MIME types in S3 (e.g., `'image'` instead of `'image/jpeg'`) because `mimeType` was absent from expo-image-picker before SDK 50.
+</Callout>
+
+<Callout type="warn">
+**Known upstream bugs (not fixable in pushduck):**
+
+**Upload progress may be missing in Expo Go (SDK 49–51).** XHR upload progress events do not fire reliably in Expo Go on those SDK versions due to [a network debugging regression](https://github.com/expo/expo/issues/28269). Production builds (EAS Build) and development builds (expo-dev-client) are not affected. Uploads complete correctly — only progress tracking is missing.
+
+**`fetch('file://')` on Android is broken in React Native 0.82.0.** If you're on Expo SDK 53 with RN 0.82, uploads will fail on Android with a scheme error. This was fixed in RN 0.83.1 / Expo SDK 53.x patch. Update your Expo SDK to resolve it.
+</Callout>
+
+---
+
 ## Troubleshooting
 
 **Network request failed with a relative URL**
@@ -409,9 +430,24 @@ useUploadRoute('imageUpload')
 useUploadRoute('imageUpload', { endpoint: 'https://your-api.com/api/s3-upload' })
 ```
 
+**`Cannot read content:// URIs` error**
+
+You passed `copyToCacheDirectory: false` to `expo-document-picker`. Remove that option (or set it to `true`) so the picker copies the file to cache and returns a `file://` URI:
+```typescript
+// ❌ returns content:// on Android — not supported
+const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: false });
+
+// ✅ default behaviour — returns file:// URIs
+const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
+```
+
+**Files uploaded with wrong MIME type / stored as `application/octet-stream`**
+
+This happens when your version of `expo-image-picker` doesn't populate the `mimeType` field (SDK < 50). Upgrade to Expo SDK 50+ to resolve it. In the meantime the file is still uploaded and stored correctly — only the `Content-Type` metadata on the S3 object is wrong.
+
 **Upload never starts / no progress**
 
-Check that `expo-image-picker` returned actual assets — `result.canceled` might be `true`.
+Check that your picker returned actual assets — `result.canceled` might be `true`. If you're in Expo Go on SDK 49–51, progress won't show (see limitations above), but the upload is still happening.
 
 **Permission denied**
 
@@ -423,7 +459,7 @@ if (status !== 'granted') return;
 
 **CORS errors (Expo Router or separate backend)**
 
-Add CORS headers to your API route to allow requests from the app:
+React Native's native HTTP stack doesn't enforce browser CORS, so CORS errors only appear when running on **web** via Expo Router. Add CORS headers to your API route:
 ```typescript
 export async function OPTIONS() {
   return new Response(null, {
