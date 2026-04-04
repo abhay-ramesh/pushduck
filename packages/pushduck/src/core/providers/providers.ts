@@ -84,7 +84,8 @@ export type S3AclValue =
   | "authenticated-read"
   | "bucket-owner-read"
   | "bucket-owner-full-control"
-  | "log-delivery-write";
+  | "log-delivery-write"
+  | (string & {});
 
 /**
  * Base configuration interface for all cloud storage providers.
