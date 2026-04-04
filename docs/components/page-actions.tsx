@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useCopyButton } from 'fumadocs-ui/utils/use-copy-button';
+import posthog from 'posthog-js';
 import { buttonVariants } from './ui/button';
 import {
   Popover,
@@ -30,7 +31,10 @@ export function LLMCopyButton({
   const [isLoading, setLoading] = useState(false);
   const [checked, onClick] = useCopyButton(async () => {
     const cached = cache.get(markdownUrl);
-    if (cached) return navigator.clipboard.writeText(cached);
+    if (cached) {
+      posthog.capture('llm_content_copied', { markdown_url: markdownUrl });
+      return navigator.clipboard.writeText(cached);
+    }
 
     setLoading(true);
 
@@ -45,6 +49,7 @@ export function LLMCopyButton({
           }),
         }),
       ]);
+      posthog.capture('llm_content_copied', { markdown_url: markdownUrl });
     } finally {
       setLoading(false);
     }
