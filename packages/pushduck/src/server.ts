@@ -583,4 +583,30 @@ export type { HealthCheck, HealthCheckResult } from "./core/utils/health-check";
 
 export type { LogLevel } from "./core/utils/logger";
 
-// Legacy config types removed - use modern provider config types instead
+// ========================================
+// PROVIDER-NEUTRAL TYPE ALIASES
+// ========================================
+
+// These aliases drop the "S3" prefix so they read naturally when using R2, MinIO, or any provider.
+// The S3-prefixed originals remain fully supported.
+
+export type {
+  UploadRouter,
+  UploadedFile,
+  UploadResult,
+  RouteNames,
+} from "./types";
+
+// Schema aliases
+export type { S3FileConstraints as FileConstraints } from "./core/schema";
+export type { InferS3Input as InferFileInput, InferS3Output as InferFileOutput } from "./core/schema";
+
+// Router/lifecycle aliases
+export type {
+  S3LifecycleContext as LifecycleContext,
+  S3LifecycleHook as LifecycleHook,
+  S3Middleware as Middleware,
+  S3MiddlewareContext as MiddlewareContext,
+  S3RouteContext as RouteContext,
+  S3RouterDefinition as RouterDefinition,
+} from "./core/router/router-v2";
