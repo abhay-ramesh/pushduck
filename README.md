@@ -432,7 +432,7 @@ Built using:
 ---
 
 <div align="center">
-  <strong>Built by the Pushduck team</strong>
+  <strong>Built by <a href="https://github.com/abhay-ramesh">Abhay Ramesh</a></strong>
   <br>
   <a href="https://github.com/abhay-ramesh/pushduck">GitHub</a> •
   <a href="https://pushduck.dev">Documentation</a> •
