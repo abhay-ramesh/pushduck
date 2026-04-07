@@ -147,6 +147,8 @@ export interface S3FileConstraints {
   allowedExtensions?: string[];
   /** Whether the file is required (default: true) */
   required?: boolean;
+  /** Maximum number of files allowed for this route */
+  maxFiles?: number;
 }
 
 /**
@@ -817,11 +819,10 @@ export class S3FileSchema extends S3Schema<File, File> {
   }
 
   /**
-   * Creates an array schema that validates multiple files of this type with a maximum count.
-   * This is a convenience method for creating arrays with a maximum file limit.
+   * Sets the maximum number of files allowed for this upload route.
    *
    * @param maxCount - Maximum number of files allowed
-   * @returns New array schema instance with maximum constraint
+   * @returns New schema instance with maxFiles constraint
    *
    * @example
    * ```typescript
@@ -834,8 +835,8 @@ export class S3FileSchema extends S3Schema<File, File> {
    *   .maxFiles(5); // Maximum 5 PDF files
    * ```
    */
-  maxFiles(maxCount: number): S3ArraySchema<this> {
-    return new S3ArraySchema(this, { max: maxCount });
+  maxFiles(maxCount: number): S3FileSchema {
+    return new S3FileSchema({ ...this.constraints, maxFiles: maxCount });
   }
 
   protected _clone(): this {
@@ -1163,11 +1164,10 @@ export class S3ImageSchema extends S3FileSchema {
   }
 
   /**
-   * Creates an array schema that validates multiple images with a maximum count.
-   * This is a convenience method for creating image arrays with a maximum file limit.
+   * Sets the maximum number of files allowed for this upload route.
    *
    * @param maxCount - Maximum number of images allowed
-   * @returns New array schema instance with maximum constraint
+   * @returns New schema instance with maxFiles constraint
    *
    * @example
    * ```typescript
@@ -1177,8 +1177,8 @@ export class S3ImageSchema extends S3FileSchema {
    *   .maxFiles(6); // Maximum 6 images, each max 2MB
    * ```
    */
-  maxFiles(maxCount: number): S3ArraySchema<this> {
-    return new S3ArraySchema(this, { max: maxCount });
+  maxFiles(maxCount: number): S3ImageSchema {
+    return new S3ImageSchema({ ...this.constraints, maxFiles: maxCount });
   }
 
   protected _clone(): this {
