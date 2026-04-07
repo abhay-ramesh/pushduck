@@ -879,7 +879,7 @@ export class S3FileSchema extends S3Schema<File, File> {
    */
   middleware<TMetadata>(
     middleware: (ctx: {
-      req: any;
+      req: Request;
       file: { name: string; size: number; type: string };
       metadata: any;
     }) => Promise<TMetadata> | TMetadata
