@@ -349,7 +349,7 @@ const s3Router = s3.createRouter({
   productImages: s3
     .image()
     .maxFileSize("8MB")
-    .formats(["jpeg", "png", "webp"])
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ req }) => {
       const { productId, category } = await getProductContext(req);
       return { productId, category, userId: await getUserId(req) };
@@ -367,7 +367,7 @@ const s3Router = s3.createRouter({
   userAvatar: s3
     .image()
     .maxFileSize("2MB")
-    .formats(["jpeg", "png", "webp"])
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ req }) => {
       // Your metadata structure - could be userId, accountId, memberId, etc.
       const userId = await getUserId(req);
@@ -385,7 +385,7 @@ const s3Router = s3.createRouter({
   orderDocuments: s3
     .file()
     .maxFileSize("10MB")
-    .types(["application/pdf", "image/*"])
+    .accept(["application/pdf", "image/*"])
     .middleware(async ({ req }) => {
       const { orderId } = await getOrderContext(req);
       return { orderId, uploadedAt: new Date().toISOString() };

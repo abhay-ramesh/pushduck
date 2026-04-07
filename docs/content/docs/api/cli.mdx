@@ -257,7 +257,7 @@ const s3Router = s3.createRouter({
   imageUpload: s3.image()
     .maxFileSize("5MB")
     .maxFiles(1)
-    .formats(["jpeg", "png", "webp"])
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ req, metadata }) => {
       const session = await getServerSession(authOptions)
       
@@ -276,7 +276,7 @@ const s3Router = s3.createRouter({
   documentUpload: s3.file()
     .maxFileSize("10MB")
     .maxFiles(5)
-    .types(["application/pdf", "text/plain", "application/msword"])
+    .accept(["application/pdf", "text/plain", "application/msword"])
     .middleware(async ({ req, metadata }) => {
       const session = await getServerSession(authOptions)
       

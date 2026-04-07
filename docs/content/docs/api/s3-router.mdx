@@ -17,7 +17,7 @@ const s3Router = s3.createRouter({
   imageUpload: s3
     .image()
     .maxFileSize('5MB')
-    .formats(['jpeg', 'jpg', 'png', 'webp'])
+    .accept(['image/jpeg', 'image/png', 'image/webp'])
     .middleware(async ({ file, metadata }) => { // [!code highlight]
       // Add authentication and user context
       return {
@@ -30,7 +30,7 @@ const s3Router = s3.createRouter({
   documentUpload: s3
     .file()
     .maxFileSize('10MB')
-    .types(['application/pdf', 'text/plain'])
+    .accept(['application/pdf', 'text/plain'])
     .paths({
       prefix: 'documents',
     }),
@@ -47,7 +47,7 @@ export const { GET, POST } = s3Router.handlers; // [!code highlight]
 ```typescript title="Image Schema Configuration"
 s3.image()
   .maxFileSize('5MB') // [!code highlight]
-  .formats(['jpeg', 'jpg', 'png', 'webp', 'gif'])
+  .accept(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
   .dimensions({ minWidth: 100, maxWidth: 2000 })
   .quality(0.8) // JPEG quality
 ```
@@ -57,8 +57,7 @@ s3.image()
 ```typescript title="File Schema Configuration"
 s3.file()
   .maxFileSize('10MB') // [!code highlight]
-  .types(['application/pdf', 'text/plain', 'application/json'])
-  .extensions(['pdf', 'txt', 'json'])
+  .accept(['application/pdf', 'text/plain', 'application/json'])
 ```
 
 ### Object Schema (Multiple Files)
@@ -259,7 +258,7 @@ const productRouter = s3.createRouter({
   productImages: s3
     .image()
     .maxFileSize('5MB')
-    .formats(['jpeg', 'jpg', 'png', 'webp'])
+    .accept(['image/jpeg', 'image/png', 'image/webp'])
     .dimensions({ minWidth: 800, maxWidth: 2000 })
     .middleware(async ({ metadata, req }) => {
       const user = await authenticateUser(req)
@@ -302,7 +301,7 @@ const productRouter = s3.createRouter({
   productDocuments: s3
     .file()
     .maxFileSize('10MB')
-    .types(['application/pdf'])
+    .accept(['application/pdf'])
     .paths({
       prefix: 'product-docs',
     })
@@ -323,7 +322,7 @@ const profileRouter = s3.createRouter({
   avatar: s3
     .image()
     .maxFileSize('2MB')
-    .formats(['jpeg', 'jpg', 'png'])
+    .accept(['image/jpeg', 'image/png'])
     .dimensions({ minWidth: 100, maxWidth: 500 })
     .middleware(async ({ req }) => {
       const user = await authenticateUser(req)
@@ -347,7 +346,7 @@ const profileRouter = s3.createRouter({
 
   documents: s3
     .object({
-      resume: s3.file().maxFileSize('5MB').types(['application/pdf']).maxFiles(1),
+      resume: s3.file().maxFileSize('5MB').accept(['application/pdf']).maxFiles(1),
       portfolio: s3.file().maxFileSize('10MB').maxFiles(3),
     })
     .middleware(async ({ req }) => {
