@@ -16,22 +16,278 @@
 
 Upload files directly to S3-compatible storage with just 3 lines of code. No heavy AWS SDK dependencies - works with Next.js, React, Express, Fastify, and more. Built by [Abhay Ramesh](https://github.com/abhay-ramesh).
 
-## Sponsors ❤️
+## Stop writing S3 boilerplate
 
-<p align="">
-<!-- CURRENT_SPONSORS_START -->
-<!-- CURRENT_SPONSORS_END -->
-</p>
+<table>
+<tr>
+<td width="50%" valign="top">
 
-<p align="">
-<!-- PAST_SPONSORS_START -->
-<a href="https://github.com/cschmatzler">
-  <img src="https://github.com/cschmatzler.png?s=48" width="48" height="48" style="border-radius:50%;" />
-</a>
-<!-- PAST_SPONSORS_END -->
-</p>
+**❌ Without Pushduck**
 
-> Thank you to all our sponsors for supporting the project 💙
+```tsx
+// app/api/upload/route.ts
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+// (~500KB added to your bundle)
+
+const s3 = new S3Client({
+  region: process.env.AWS_REGION!,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
+
+export async function POST(req: Request) {
+  const { filename, contentType } = await req.json();
+  if (!["image/jpeg", "image/png"].includes(contentType))
+    return Response.json({ error: "Invalid type" }, { status: 400 });
+
+  const url = await getSignedUrl(s3,
+    new PutObjectCommand({
+      Bucket: process.env.AWS_BUCKET_NAME!,
+      Key: `uploads/${Date.now()}-${filename}`,
+      ContentType: contentType,
+    }),
+    { expiresIn: 3600 }
+  );
+  return Response.json({ url });
+}
+
+// app/upload.tsx
+"use client";
+import { useState } from "react";
+
+type FileState = {
+  file: File;
+  progress: number;
+  status: "idle" | "uploading" | "success" | "error";
+  url?: string;
+  error?: string;
+};
+
+export default function Upload() {
+  const [files, setFiles] = useState<FileState[]>([]);
+
+  async function handleChange(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const selected = Array.from(e.target.files || []);
+    for (const file of selected) {
+      setFiles(p => [...p, { file, progress: 0, status: "uploading" }]);
+      try {
+        const { url } = await fetch("/api/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename: file.name,
+            contentType: file.type,
+          }),
+        }).then(r => r.json());
+
+        // fetch() has no progress — must use XHR
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.upload.onprogress = (e) => {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            setFiles(p => p.map(f =>
+              f.file === file ? { ...f, progress: pct } : f
+            ));
+          };
+          xhr.onload = () => {
+            setFiles(p => p.map(f =>
+              f.file === file
+                ? { ...f, status: "success", url: url.split("?")[0] }
+                : f
+            ));
+            resolve();
+          };
+          xhr.onerror = () => {
+            setFiles(p => p.map(f =>
+              f.file === file
+                ? { ...f, status: "error", error: "Upload failed" }
+                : f
+            ));
+            reject();
+          };
+          xhr.open("PUT", url);
+          xhr.setRequestHeader("Content-Type", file.type);
+          xhr.send(file);
+        });
+      } catch {
+        setFiles(p => p.map(f =>
+          f.file === file
+            ? { ...f, status: "error", error: "Request failed" }
+            : f
+        ));
+      }
+    }
+  }
+
+  return (
+    <div>
+      <input type="file" multiple onChange={handleChange} />
+      {files.map((f, i) => (
+        <div key={i}>
+          <span>{f.file.name}</span>
+          {f.status === "uploading" && <span>{f.progress}%</span>}
+          {f.status === "success" && <img src={f.url} />}
+          {f.status === "error" && <span>{f.error}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+</td>
+<td width="50%" valign="top">
+
+**✅ With Pushduck**
+
+```tsx
+// app/api/upload/route.ts
+import { createUploadConfig } from "pushduck/server";
+// (~5KB, no AWS SDK)
+
+const { s3 } = createUploadConfig()
+  .provider("aws", {
+    bucket: process.env.AWS_BUCKET_NAME!,
+    region: process.env.AWS_REGION!,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  })
+  .build();
+
+const router = s3.createRouter({
+  imageUpload: s3.image().maxFileSize("5MB"),
+});
+
+export const { GET, POST } = router.handlers;
+export type AppRouter = typeof router;
+
+// app/upload.tsx
+"use client";
+import { upload } from "@/lib/upload-client";
+
+export default function Upload() {
+  const { uploadFiles, files } = upload.imageUpload();
+
+  return (
+    <div>
+      <input
+        type="file"
+        multiple
+        onChange={e =>
+          uploadFiles(Array.from(e.target.files!))
+        }
+      />
+      {files.map(file => (
+        <div key={file.id}>
+          <span>{file.name}</span>
+          {file.status === "uploading" && (
+            <span>{file.progress}%</span>
+          )}
+          {file.status === "success" && (
+            <img src={file.url} />
+          )}
+          {file.status === "error" && (
+            <span>{file.error}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+</td>
+</tr>
+</table>
+
+### Storage operations too
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**❌ Without Pushduck**
+
+```typescript
+import {
+  S3Client,
+  ListObjectsV2Command,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+const s3 = new S3Client({
+  region: process.env.AWS_REGION!,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
+
+// List files
+const { Contents } = await s3.send(
+  new ListObjectsV2Command({
+    Bucket: process.env.AWS_BUCKET_NAME!,
+    Prefix: "uploads/",
+    MaxKeys: 50,
+  })
+);
+const files = Contents?.map(item => ({
+  key: item.Key,
+  size: item.Size,
+  lastModified: item.LastModified,
+})) ?? [];
+
+// Delete a file
+await s3.send(new DeleteObjectCommand({
+  Bucket: process.env.AWS_BUCKET_NAME!,
+  Key: "uploads/old-file.jpg",
+}));
+
+// Get a download URL
+const url = await getSignedUrl(
+  s3,
+  new GetObjectCommand({
+    Bucket: process.env.AWS_BUCKET_NAME!,
+    Key: "uploads/document.pdf",
+  }),
+  { expiresIn: 3600 }
+);
+```
+
+</td>
+<td width="50%" valign="top">
+
+**✅ With Pushduck**
+
+```typescript
+import { storage } from "pushduck/storage";
+
+// List files
+const { files } = await storage.list.files({
+  prefix: "uploads/",
+  maxResults: 50,
+});
+
+// Delete a file
+await storage.delete.file("uploads/old-file.jpg");
+
+// Get a download URL
+const url = await storage.download.presignedUrl(
+  "uploads/document.pdf",
+  3600
+);
+```
+
+</td>
+</tr>
+</table>
 
 ## Features
 
@@ -46,7 +302,6 @@ Upload files directly to S3-compatible storage with just 3 lines of code. No hea
 - **Progress Tracking** - Real-time progress, upload speed, and ETA estimation
 - **Lifecycle Callbacks** - Complete upload control with `onStart`, `onProgress`, `onSuccess`, and `onError`
 - **Storage Operations** - Complete file management API (list, delete, metadata)
-- **CLI Tools** - Interactive setup and project scaffolding
 - **Production Ready** - Used in production by many applications
 
 ## Quick Start
@@ -54,32 +309,14 @@ Upload files directly to S3-compatible storage with just 3 lines of code. No hea
 ### Installation
 
 ```bash
-# Install the core package
 npm install pushduck
 # or
 pnpm add pushduck
 # or
 yarn add pushduck
-
-# Optional: Install CLI for easy setup
-npm install -g @pushduck/cli
-pnpm add -g @pushduck/cli
 ```
 
-### Quick Setup with CLI
-
-```bash
-# Interactive setup (recommended)
-npx @pushduck/cli@latest init
-
-# Add upload route to existing project
-npx @pushduck/cli add-route
-
-# Test your S3 connection
-npx @pushduck/cli test
-```
-
-### Manual Setup (3 Steps)
+### Setup (3 Steps)
 
 **Step 1: Create API Route** (`app/api/upload/route.ts`)
 
@@ -146,74 +383,15 @@ export default function Upload() {
 
 **Done!** 3 files, ~50 lines of code, production-ready uploads.
 
-## Advanced Features
-
-### Storage Operations API
-
-```typescript
-import { storage } from "pushduck/storage";
-
-// List files with filtering
-const files = await storage.list.files({
-  prefix: "uploads/",
-  maxResults: 50,
-  sortBy: "lastModified"
-});
-
-// Get file metadata
-const fileInfo = await storage.metadata.getInfo("uploads/image.jpg");
-console.log(fileInfo.size, fileInfo.lastModified, fileInfo.contentType);
-
-// Delete operations
-await storage.delete.file("uploads/old-file.jpg");
-await storage.delete.byPrefix("temp/"); // Delete all files with prefix
-await storage.delete.files(["file1.jpg", "file2.pdf"]); // Batch delete
-
-// Generate download URLs
-const downloadUrl = await storage.download.presignedUrl("uploads/document.pdf", 3600);
-
-// Advanced listing with pagination
-for await (const batch of storage.list.paginatedGenerator({ maxResults: 100 })) {
-  console.log(`Processing ${batch.files.length} files`);
-  // Process large datasets efficiently
-}
-
-// Filter by file properties
-const images = await storage.list.byExtension("jpg", "photos/");
-const largeFiles = await storage.list.bySize(1024 * 1024); // Files > 1MB
-const recentFiles = await storage.list.byDate(new Date("2024-01-01"));
-```
-
 ## Documentation
 
 - **[Getting Started](https://pushduck.dev/docs/quick-start)** - Complete setup guide
 - **[Philosophy & Scope](https://pushduck.dev/docs/philosophy)** - What we do (and don't do)
 - **[API Reference](https://pushduck.dev/docs/api)** - Full API documentation
 - **[Examples](https://pushduck.dev/docs/examples)** - Real-world examples
-- **[Providers](https://pushduck.dev/docs/providers)** - S3, R2, Spaces, MinIO
+- **[Providers](https://pushduck.dev/docs/providers)** - S3, R2, Spaces, MinIO setup
 - **[Security](https://pushduck.dev/docs/guides/security)** - Security best practices
-- **[CLI Guide](https://pushduck.dev/docs/api/cli)** - CLI commands and usage
-
-## Why Pushduck?
-
-### Before Pushduck
-
-```typescript
-// 200+ lines of boilerplate code
-// Heavy AWS SDK dependencies (2MB+ bundle size)
-// Manual presigned URL generation
-// CORS configuration headaches  
-// Security vulnerabilities
-// Framework-specific implementations
-```
-
-### After Pushduck
-
-```typescript
-// 3 lines of code + lightweight (no heavy AWS SDK)
-const { uploadFiles } = upload.imageUpload();
-await uploadFiles(selectedFiles);
-```
+- **[Advanced Usage](https://pushduck.dev/docs/guides/advanced)** - Custom config, storage ops, middleware, multiple providers
 
 ## Lightweight Architecture
 
@@ -240,129 +418,20 @@ Pushduck follows a **secure-by-default** architecture:
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Your Client   │    │   Your Server   │    │   S3 Storage    │
 │                 │    │                 │    │                 │
-│ 1. Select File  │───▶│ 2. Generate     │───▶│ 3. Direct       │
-│                 │    │    Presigned    │    │    Upload       │
-│ 4. Upload to S3 │◀───│    URL          │    │                 │
+│ 1. Request URL  │───▶│ 2. Validate &   │    │                 │
+│                 │    │    sign request │    │                 │
+│ 3. Receive URL  │◀───│                 │    │                 │
 │                 │    │                 │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+│                 │    └─────────────────┘    │                 │
+│ 4. Upload file  │──────────────────────────▶│                 │
+│    directly     │      (server bypassed)    │                 │
+└─────────────────┘                           └─────────────────┘
 ```
 
 - **Client** never sees your AWS credentials
-- **Server** generates secure, time-limited upload URLs
-- **Files** upload directly to S3 (no server bandwidth used)
+- **Server** validates, then generates a secure time-limited URL
+- **Files** upload directly from client to S3 — no server bandwidth used
 - **Edge Compatible** - runs anywhere modern JavaScript runs
-
-## Advanced Usage
-
-### Custom Configuration
-
-```typescript
-import { createUploadConfig } from "pushduck/server";
-
-const { s3 } = createUploadConfig()
-  .provider("aws", {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    region: process.env.AWS_REGION!,
-    bucket: process.env.AWS_S3_BUCKET_NAME!,
-  })
-  .defaults({
-    maxFileSize: "10MB",
-    acl: "public-read",
-  })
-  .paths({
-    prefix: "uploads",
-    generateKey: (file, metadata) => {
-      const userId = metadata.userId || "anonymous";
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 8);
-      return `${userId}/${timestamp}/${randomId}/${file.name}`;
-    },
-  })
-  .security({
-    allowedOrigins: ["https://yourdomain.com"],
-    rateLimiting: {
-      maxUploads: 10,
-      windowMs: 60000, // 1 minute
-    },
-  })
-  .hooks({
-    onUploadComplete: async ({ file, url, metadata }) => {
-      // Save to database, send notifications, etc.
-      console.log(`Upload complete: ${file.name} -> ${url}`);
-    },
-  })
-  .build();
-
-const router = s3.createRouter({
-  imageUpload: s3
-    .image()
-    .maxFileSize("5MB")
-    .formats(["jpeg", "jpg", "png", "webp"])
-    .middleware(async ({ file, metadata }) => {
-      // Add authentication and user context
-      const user = await authenticateUser(req);
-      return {
-        ...metadata,
-        userId: user.id,
-        uploadedAt: new Date().toISOString(),
-      };
-    }),
-});
-```
-
-### Framework Adapters
-
-```typescript
-// Next.js App Router (default)
-import { createUploadConfig } from "pushduck/server";
-```
-
-### Multiple Providers
-
-```typescript
-// AWS S3
-const { s3: awsS3 } = createUploadConfig()
-  .provider("aws", {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    region: process.env.AWS_REGION!,
-    bucket: process.env.AWS_S3_BUCKET_NAME!,
-  })
-  .build();
-
-// Cloudflare R2 (S3-compatible)
-const { s3: r2S3 } = createUploadConfig()
-  .provider("cloudflareR2", {
-    accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
-    accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY!,
-    bucket: process.env.CLOUDFLARE_BUCKET_NAME!,
-    region: "auto",
-  })
-  .build();
-
-// DigitalOcean Spaces (S3-compatible)
-const { s3: spacesS3 } = createUploadConfig()
-  .provider("digitalOceanSpaces", {
-    accessKeyId: process.env.DO_SPACES_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.DO_SPACES_SECRET_ACCESS_KEY!,
-    region: process.env.DO_SPACES_REGION!,
-    bucket: process.env.DO_SPACES_BUCKET_NAME!,
-  })
-  .build();
-
-// MinIO (S3-compatible)
-const { s3: minioS3 } = createUploadConfig()
-  .provider("minio", {
-    endpoint: process.env.MINIO_ENDPOINT!,
-    accessKeyId: process.env.MINIO_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.MINIO_SECRET_ACCESS_KEY!,
-    bucket: process.env.MINIO_BUCKET_NAME!,
-    useSSL: false,
-  })
-  .build();
-```
 
 ## Framework Support
 
@@ -376,13 +445,14 @@ Pushduck works with all major frameworks:
 - **Nuxt** - Vue applications
 - **Astro** - Static site generation
 - **Hono** - Edge runtime APIs
+- **React Native** - Mobile applications
+- **Expo** - Cross-platform mobile apps
 
 ## Packages
 
 | Package | Description | Version |
 |---------|-------------|---------|
 | `pushduck` | Core library | ![NPM Version](https://img.shields.io/npm/v/pushduck) |
-| `@pushduck/cli` | CLI tools | ![NPM Version](https://img.shields.io/npm/v/@pushduck/cli) |
 | `@pushduck/ui` | React components | ![NPM Version](https://img.shields.io/npm/v/@pushduck/ui) |
 
 ## Contributing
@@ -430,7 +500,7 @@ Built using:
 ---
 
 <div align="center">
-  <strong>Built by the Pushduck team</strong>
+  <strong>Built by <a href="https://github.com/abhay-ramesh">Abhay Ramesh</a></strong>
   <br>
   <a href="https://github.com/abhay-ramesh/pushduck">GitHub</a> •
   <a href="https://pushduck.dev">Documentation</a> •
