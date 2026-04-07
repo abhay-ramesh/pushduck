@@ -1,21 +1,9 @@
-blank_issues_enabled: false
+blank_issues_enabled: true
 contact_links:
-  - name: 💬 GitHub Discussions
-    url: https://github.com/pushduck/pushduck/discussions
-    about: Ask questions, share ideas, and discuss pushduck with the community
-
-  - name: 🚀 Quick Start Guide
-    url: https://pushduck.dev/docs/quick-start
-    about: Get started with pushduck in under 5 minutes
-
-  - name: 📖 Documentation
+  - name: Documentation
     url: https://pushduck.dev/docs
-    about: Comprehensive guides, API reference, and examples
+    about: Check the docs before filing — your answer might already be there
 
-  - name: 💼 Enterprise Support
-    url: https://pushduck.dev/contact
-    about: Enterprise support and custom integration assistance
-
-  - name: 🔒 Security Issues
-    url: https://pushduck.dev/security
-    about: Report security vulnerabilities privately
+  - name: Discussions
+    url: https://github.com/abhay-ramesh/pushduck/discussions
+    about: Ask questions or share ideas

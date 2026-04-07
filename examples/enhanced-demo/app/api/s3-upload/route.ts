@@ -13,7 +13,7 @@ const s3Router = s3.createRouter({
   imageUpload: s3
     .image()
     .maxFileSize("1MB")
-    .formats(["jpeg", "jpg", "png", "webp"])
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ file, metadata }) => {
       console.log("Processing image upload:", file.name);
       // Add user context (in real app, get from auth)
@@ -50,7 +50,7 @@ const s3Router = s3.createRouter({
   documentUpload: s3
     .file()
     .maxFileSize("10MB")
-    .types([
+    .accept([
       "application/pdf",
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -78,7 +78,7 @@ const s3Router = s3.createRouter({
   galleryUpload: s3
     .image()
     .maxFileSize("5MB")
-    .formats(["jpeg", "jpg", "png", "webp"])
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ file, metadata }) => {
       return {
         ...metadata,

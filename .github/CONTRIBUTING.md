@@ -194,9 +194,7 @@ Choose the appropriate change type:
 
 ### Review Timeline
 
-- **Initial response**: Within 2 business days
-- **Full review**: Within 1 week for most PRs
-- **Urgent fixes**: Same day for critical issues
+We review PRs as soon as we can. Critical bug fixes get priority.
 
 ## 🚨 Security
 
@@ -303,10 +301,7 @@ pnpm release               # Publish (maintainers only)
 
 ### Response Times
 
-- **Critical bugs**: Same day
-- **General issues**: 2-3 business days
-- **Feature requests**: Weekly review
-- **Questions**: 1-2 business days
+We do our best to respond promptly. Bug reports and PRs are prioritized over feature requests.
 
 ## 📄 License
 

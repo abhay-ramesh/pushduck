@@ -224,7 +224,7 @@ export const uploadRouter = createS3Router({
     .image()
     .maxFileSize("2MB")
     .maxFiles(1)
-    .formats(["jpeg", "png", "webp"])
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ req }) => {
       const authHeader = req.headers.get('authorization');
       if (!authHeader?.startsWith('Bearer ')) {
@@ -246,7 +246,7 @@ export const uploadRouter = createS3Router({
     .file()
     .maxFileSize("10MB")
     .maxFiles(5)
-    .types([
+    .accept([
       "application/pdf",
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -272,7 +272,7 @@ export const uploadRouter = createS3Router({
     .image()
     .maxFileSize("1MB")
     .maxFiles(1)
-    .formats(["jpeg", "png"])
+    .accept(["image/jpeg", "image/png"])
     // No middleware = public access
 });
 
