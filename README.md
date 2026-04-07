@@ -46,7 +46,6 @@ Upload files directly to S3-compatible storage with just 3 lines of code. No hea
 - **Progress Tracking** - Real-time progress, upload speed, and ETA estimation
 - **Lifecycle Callbacks** - Complete upload control with `onStart`, `onProgress`, `onSuccess`, and `onError`
 - **Storage Operations** - Complete file management API (list, delete, metadata)
-- **CLI Tools** - Interactive setup and project scaffolding
 - **Production Ready** - Used in production by many applications
 
 ## Quick Start
@@ -54,32 +53,14 @@ Upload files directly to S3-compatible storage with just 3 lines of code. No hea
 ### Installation
 
 ```bash
-# Install the core package
 npm install pushduck
 # or
 pnpm add pushduck
 # or
 yarn add pushduck
-
-# Optional: Install CLI for easy setup
-npm install -g @pushduck/cli
-pnpm add -g @pushduck/cli
 ```
 
-### Quick Setup with CLI
-
-```bash
-# Interactive setup (recommended)
-npx @pushduck/cli@latest init
-
-# Add upload route to existing project
-npx @pushduck/cli add-route
-
-# Test your S3 connection
-npx @pushduck/cli test
-```
-
-### Manual Setup (3 Steps)
+### Setup (3 Steps)
 
 **Step 1: Create API Route** (`app/api/upload/route.ts`)
 
@@ -192,7 +173,6 @@ const recentFiles = await storage.list.byDate(new Date("2024-01-01"));
 - **[Examples](https://pushduck.dev/docs/examples)** - Real-world examples
 - **[Providers](https://pushduck.dev/docs/providers)** - S3, R2, Spaces, MinIO
 - **[Security](https://pushduck.dev/docs/guides/security)** - Security best practices
-- **[CLI Guide](https://pushduck.dev/docs/api/cli)** - CLI commands and usage
 
 ## Why Pushduck?
 
@@ -237,14 +217,15 @@ import { S3Client } from "@aws-sdk/client-s3"; // ~500KB+
 Pushduck follows a **secure-by-default** architecture:
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Your Client   │    │   Your Server   │    │   S3 Storage    │
-│                 │    │                 │    │                 │
-│ 1. Select File  │───▶│ 2. Generate     │───▶│ 3. Direct       │
-│                 │    │    Presigned    │    │    Upload       │
-│ 4. Upload to S3 │◀───│    URL          │    │                 │
-│                 │    │                 │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│  Your Client │     │ Your Server  │     │  S3 Storage  │
+│              │     │              │     │              │
+│ 1. Select    │────▶│ 2. Validate  │     │              │
+│    file      │◀────│    & sign URL│     │              │
+│              │     └──────────────┘     │              │
+│ 3. PUT file  │─────────────────────────▶│ 4. Stored    │
+│    directly  │     (bypasses server)    │              │
+└──────────────┘                          └──────────────┘
 ```
 
 - **Client** never sees your AWS credentials
@@ -382,7 +363,6 @@ Pushduck works with all major frameworks:
 | Package | Description | Version |
 |---------|-------------|---------|
 | `pushduck` | Core library | ![NPM Version](https://img.shields.io/npm/v/pushduck) |
-| `@pushduck/cli` | CLI tools | ![NPM Version](https://img.shields.io/npm/v/@pushduck/cli) |
 | `@pushduck/ui` | React components | ![NPM Version](https://img.shields.io/npm/v/@pushduck/ui) |
 
 ## Contributing
@@ -430,7 +410,7 @@ Built using:
 ---
 
 <div align="center">
-  <strong>Built by the Pushduck team</strong>
+  <strong>Built by <a href="https://github.com/abhay-ramesh">Abhay Ramesh</a></strong>
   <br>
   <a href="https://github.com/abhay-ramesh/pushduck">GitHub</a> •
   <a href="https://pushduck.dev">Documentation</a> •
