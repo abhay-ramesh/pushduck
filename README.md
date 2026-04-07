@@ -302,7 +302,6 @@ const url = await storage.download.presignedUrl(
 - **Progress Tracking** - Real-time progress, upload speed, and ETA estimation
 - **Lifecycle Callbacks** - Complete upload control with `onStart`, `onProgress`, `onSuccess`, and `onError`
 - **Storage Operations** - Complete file management API (list, delete, metadata)
-- **CLI Tools** - Interactive setup and project scaffolding
 - **Production Ready** - Used in production by many applications
 
 ## Quick Start
@@ -310,32 +309,14 @@ const url = await storage.download.presignedUrl(
 ### Installation
 
 ```bash
-# Install the core package
 npm install pushduck
 # or
 pnpm add pushduck
 # or
 yarn add pushduck
-
-# Optional: Install CLI for easy setup
-npm install -g @pushduck/cli
-pnpm add -g @pushduck/cli
 ```
 
-### Quick Setup with CLI
-
-```bash
-# Interactive setup (recommended)
-npx @pushduck/cli@latest init
-
-# Add upload route to existing project
-npx @pushduck/cli add-route
-
-# Test your S3 connection
-npx @pushduck/cli test
-```
-
-### Manual Setup (3 Steps)
+### Setup (3 Steps)
 
 **Step 1: Create API Route** (`app/api/upload/route.ts`)
 
@@ -410,7 +391,6 @@ export default function Upload() {
 - **[Examples](https://pushduck.dev/docs/examples)** - Real-world examples
 - **[Providers](https://pushduck.dev/docs/providers)** - S3, R2, Spaces, MinIO setup
 - **[Security](https://pushduck.dev/docs/guides/security)** - Security best practices
-- **[CLI Guide](https://pushduck.dev/docs/api/cli)** - CLI commands and usage
 - **[Advanced Usage](https://pushduck.dev/docs/guides/advanced)** - Custom config, storage ops, middleware, multiple providers
 
 ## Lightweight Architecture
@@ -468,7 +448,6 @@ Pushduck works with all major frameworks:
 | Package | Description | Version |
 |---------|-------------|---------|
 | `pushduck` | Core library | ![NPM Version](https://img.shields.io/npm/v/pushduck) |
-| `@pushduck/cli` | CLI tools | ![NPM Version](https://img.shields.io/npm/v/@pushduck/cli) |
 | `@pushduck/ui` | React components | ![NPM Version](https://img.shields.io/npm/v/@pushduck/ui) |
 
 ## Contributing
