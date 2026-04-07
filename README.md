@@ -418,16 +418,18 @@ Pushduck follows a **secure-by-default** architecture:
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Your Client   │    │   Your Server   │    │   S3 Storage    │
 │                 │    │                 │    │                 │
-│ 1. Select File  │───▶│ 2. Generate     │───▶│ 3. Direct       │
-│                 │    │    Presigned    │    │    Upload       │
-│ 4. Upload to S3 │◀───│    URL          │    │                 │
+│ 1. Request URL  │───▶│ 2. Validate &   │    │                 │
+│                 │    │    sign request │    │                 │
+│ 3. Receive URL  │◀───│                 │    │                 │
 │                 │    │                 │    │                 │
+│ 4. Upload file  │────────────────────────────────────────────▶│
+│    directly     │    │                 │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 - **Client** never sees your AWS credentials
-- **Server** generates secure, time-limited upload URLs
-- **Files** upload directly to S3 (no server bandwidth used)
+- **Server** validates, then generates a secure time-limited URL
+- **Files** upload directly from client to S3 — no server bandwidth used
 - **Edge Compatible** - runs anywhere modern JavaScript runs
 
 ## Framework Support
