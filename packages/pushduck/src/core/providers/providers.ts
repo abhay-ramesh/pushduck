@@ -438,9 +438,10 @@ function createProviderBuilder<T extends ProviderConfig>(
   return (config: Partial<T> = {}): T => {
     const result: any = { provider: spec.provider };
 
-    // Only use explicit config and defaults (no env vars)
+    // Only use explicit config and defaults (no env vars).
+    // Use ?? (nullish coalescing) so that false, 0, and "" are preserved.
     for (const [key] of Object.entries(spec.configKeys)) {
-      result[key] = config[key as keyof T] || spec.defaults[key] || "";
+      result[key] = config[key as keyof T] ?? spec.defaults[key] ?? "";
     }
 
     // Apply custom logic if provided
