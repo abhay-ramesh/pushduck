@@ -205,6 +205,90 @@ export default function Upload() {
 </tr>
 </table>
 
+### Storage operations too
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**❌ Without Pushduck**
+
+```typescript
+import {
+  S3Client,
+  ListObjectsV2Command,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+const s3 = new S3Client({
+  region: process.env.AWS_REGION!,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
+
+// List files
+const { Contents } = await s3.send(
+  new ListObjectsV2Command({
+    Bucket: process.env.AWS_BUCKET_NAME!,
+    Prefix: "uploads/",
+    MaxKeys: 50,
+  })
+);
+const files = Contents?.map(item => ({
+  key: item.Key,
+  size: item.Size,
+  lastModified: item.LastModified,
+})) ?? [];
+
+// Delete a file
+await s3.send(new DeleteObjectCommand({
+  Bucket: process.env.AWS_BUCKET_NAME!,
+  Key: "uploads/old-file.jpg",
+}));
+
+// Get a download URL
+const url = await getSignedUrl(
+  s3,
+  new GetObjectCommand({
+    Bucket: process.env.AWS_BUCKET_NAME!,
+    Key: "uploads/document.pdf",
+  }),
+  { expiresIn: 3600 }
+);
+```
+
+</td>
+<td width="50%" valign="top">
+
+**✅ With Pushduck**
+
+```typescript
+import { storage } from "pushduck/storage";
+
+// List files
+const { files } = await storage.list.files({
+  prefix: "uploads/",
+  maxResults: 50,
+});
+
+// Delete a file
+await storage.delete.file("uploads/old-file.jpg");
+
+// Get a download URL
+const url = await storage.download.presignedUrl(
+  "uploads/document.pdf",
+  3600
+);
+```
+
+</td>
+</tr>
+</table>
+
 ## Features
 
 - **Fast** - Optimized bundles with tree-shaking support
