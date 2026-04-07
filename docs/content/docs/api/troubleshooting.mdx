@@ -109,7 +109,7 @@ const uploadRouter = s3.createRouter({
   imageUpload: s3
     .image()
     .maxFileSize("10MB") // Increase as needed
-    .formats(["jpeg", "png", "webp"]),
+    .accept(["image/jpeg", "image/png", "image/webp"]),
 });
 ```
 

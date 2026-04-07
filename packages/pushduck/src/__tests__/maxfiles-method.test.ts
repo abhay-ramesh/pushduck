@@ -61,7 +61,7 @@ describe("maxFiles Method", () => {
 
     const router = s3.createRouter({
       gallery: s3.image().maxFileSize("2MB").maxFiles(6),
-      documents: s3.file().types(["application/pdf"]).maxFiles(5),
+      documents: s3.file().accept(["application/pdf"]).maxFiles(5),
     });
 
     expect(router).toBeDefined();

@@ -56,14 +56,14 @@ These 8 items are critical for safe production deployment:
   <Step>
     **3. File Validation**
     
-    - [ ] File type restrictions (`.formats()`)
+    - [ ] File type restrictions (`.accept()`)
     - [ ] File size limits (`.maxFileSize()`)
     
     ```typescript
     userPhotos: s3.image()
       .maxFileSize("10MB")
       .maxFiles(5)
-      .formats(["jpeg", "png", "webp"])
+      .accept(["image/jpeg", "image/png", "image/webp"])
     ```
   </Step>
 

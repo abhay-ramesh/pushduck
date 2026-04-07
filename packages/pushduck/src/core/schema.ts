@@ -19,7 +19,6 @@
  * const documentSchema = new S3FileSchema({
  *   maxSize: '10MB',
  *   allowedTypes: ['application/pdf', 'application/msword'],
- *   allowedExtensions: ['.pdf', '.doc', '.docx'],
  * });
  *
  * // Use in router
@@ -32,7 +31,7 @@
  * ```typescript
  * const imageSchema = s3.image()
  *   .maxFileSize('5MB')
- *   .types(['image/jpeg', 'image/png'])
+ *   .accept(['image/jpeg', 'image/png'])
  *   .refine(
  *     async ({ file }) => file.name.includes('avatar'),
  *     'File name must contain "avatar"'
@@ -48,7 +47,7 @@
  * ```typescript
  * const formSchema = s3.object({
  *   avatar: s3.image().maxFileSize('1MB'),
- *   documents: s3.file().types(['application/pdf']).maxFiles(5),
+ *   documents: s3.file().accept(['application/pdf']).maxFiles(5),
  *   metadata: s3.object({
  *     title: s3.string(),
  *     description: s3.string().optional(),
@@ -59,6 +58,62 @@
  */
 
 import { S3Route } from "./router/router-v2";
+
+// ========================================
+// MIME Type Union
+// ========================================
+
+/** Common MIME types with autocomplete support. Accepts any valid MIME type string. */
+export type MimeType =
+  // Images
+  | "image/jpeg"
+  | "image/png"
+  | "image/gif"
+  | "image/webp"
+  | "image/avif"
+  | "image/svg+xml"
+  | "image/bmp"
+  | "image/tiff"
+  | "image/*"
+  // Documents
+  | "application/pdf"
+  | "application/msword"
+  | "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  | "application/vnd.ms-excel"
+  | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  | "application/vnd.ms-powerpoint"
+  | "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+  // Text
+  | "text/plain"
+  | "text/csv"
+  | "text/html"
+  | "text/css"
+  | "text/markdown"
+  | "application/json"
+  | "application/xml"
+  | "application/javascript"
+  // Video
+  | "video/mp4"
+  | "video/webm"
+  | "video/quicktime"
+  | "video/x-msvideo"
+  | "video/x-matroska"
+  | "video/*"
+  // Audio
+  | "audio/mpeg"
+  | "audio/wav"
+  | "audio/ogg"
+  | "audio/flac"
+  | "audio/aac"
+  | "audio/*"
+  // Archives
+  | "application/zip"
+  | "application/gzip"
+  | "application/x-tar"
+  | "application/vnd.rar"
+  | "application/x-7z-compressed"
+  // Catch-all for any valid MIME type
+  | (string & {});
 
 // ========================================
 // Core Types
@@ -77,7 +132,6 @@ import { S3Route } from "./router/router-v2";
  *   maxSize: '10MB',        // or 10485760 (bytes)
  *   minSize: '1KB',         // or 1024 (bytes)
  *   allowedTypes: ['image/jpeg', 'image/png', 'application/pdf'],
- *   allowedExtensions: ['.jpg', '.jpeg', '.png', '.pdf'],
  *   required: true,
  * };
  * ```
@@ -532,7 +586,6 @@ export abstract class S3Schema<TInput = any, TOutput = TInput> {
  * const documentSchema = new S3FileSchema({
  *   maxSize: '10MB',
  *   allowedTypes: ['application/pdf', 'application/msword'],
- *   allowedExtensions: ['.pdf', '.doc', '.docx'],
  * });
  *
  * // Use in router
@@ -545,8 +598,7 @@ export abstract class S3Schema<TInput = any, TOutput = TInput> {
  * ```typescript
  * const imageSchema = s3.file()
  *   .maxFileSize('5MB')
- *   .types(['image/jpeg', 'image/png', 'image/webp'])
- *   .extensions(['.jpg', '.jpeg', '.png', '.webp'])
+ *   .accept(['image/jpeg', 'image/png', 'image/webp'])
  *   .refine(
  *     async ({ file }) => file.name.length <= 100,
  *     'Filename must be 100 characters or less'
@@ -638,9 +690,13 @@ export class S3FileSchema extends S3Schema<File, File> {
     // Type validation
     if (this.constraints.allowedTypes?.length) {
       const isAllowed = this.constraints.allowedTypes.some((type) => {
+        // */* or * matches everything
+        if (type === "*/*" || type === "*") return true;
+        // image/*, video/*, etc. — match the category
         if (type.endsWith("/*")) {
           return input.type.startsWith(type.slice(0, -1));
         }
+        // Exact MIME match
         return input.type === type;
       });
 
@@ -730,43 +786,35 @@ export class S3FileSchema extends S3Schema<File, File> {
   }
 
   /**
-   * Sets the allowed MIME types constraint.
+   * Sets the accepted file types for this upload route.
    *
-   * @param allowedTypes - Array of allowed MIME types
-   * @returns New schema instance with MIME type constraint
+   * @param mimeTypes - Array of MIME types (e.g., `'image/jpeg'`, `'application/pdf'`, `'video/*'`)
+   * @returns New schema instance with type constraint
    *
    * @example
    * ```typescript
-   * const imageSchema = s3.file().types([
-   *   'image/jpeg',
-   *   'image/png',
-   *   'image/webp'
-   * ]);
-   *
-   * const documentSchema = s3.file().types([
-   *   'application/pdf',
-   *   'application/msword',
-   *   'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-   * ]);
+   * s3.file().accept(['image/jpeg', 'image/png', 'image/webp'])
+   * s3.file().accept(['application/pdf', 'application/msword'])
+   * s3.file().accept(['video/*'])  // wildcard
    * ```
    */
-  types(allowedTypes: string[]): S3FileSchema {
-    return new S3FileSchema({ ...this.constraints, allowedTypes });
+  accept(mimeTypes: MimeType[]): S3FileSchema {
+    return new S3FileSchema({ ...this.constraints, allowedTypes: mimeTypes });
   }
 
   /**
-   * Sets the allowed file extensions constraint.
-   *
-   * @param allowedExtensions - Array of allowed file extensions (with or without dots)
-   * @returns New schema instance with extension constraint
-   *
-   * @example
-   * ```typescript
-   * const imageSchema = s3.file().extensions(['.jpg', '.jpeg', '.png']);
-   * const docSchema = s3.file().extensions(['pdf', 'doc', 'docx']); // dots optional
-   * ```
+   * @deprecated Use `accept()` instead (e.g., `accept(['image/jpeg', 'image/png'])`).
+   */
+  types(allowedTypes: MimeType[]): S3FileSchema {
+    console.warn("⚠️  The `types()` method is deprecated. Use `accept()` instead.");
+    return this.accept(allowedTypes);
+  }
+
+  /**
+   * @deprecated Use `accept()` instead with MIME types (e.g., `accept(['.jpg', '.pdf'])`).
    */
   extensions(allowedExtensions: string[]): S3FileSchema {
+    console.warn("⚠️  The `extensions()` method is deprecated. Use `accept()` with MIME types instead.");
     return new S3FileSchema({ ...this.constraints, allowedExtensions });
   }
 
@@ -783,7 +831,7 @@ export class S3FileSchema extends S3Schema<File, File> {
    *   .maxFiles(6); // Maximum 6 images, each max 2MB
    *
    * const documentsSchema = s3.file()
-   *   .types(['application/pdf'])
+   *   .accept(['application/pdf'])
    *   .maxFiles(5); // Maximum 5 PDF files
    * ```
    */
@@ -1046,21 +1094,21 @@ export class S3ImageSchema extends S3FileSchema {
     super(imageConstraints);
   }
 
-  // Image-specific constraints
+  /**
+   * @deprecated Use `accept()` instead with MIME types (e.g., `accept(['image/jpeg', 'image/png', 'image/webp'])`).
+   */
   formats(formats: string[]): S3ImageSchema {
-    const mimeTypes = formats.map((format) => {
-      const mimeMap: Record<string, string> = {
-        jpg: "image/jpeg",
-        jpeg: "image/jpeg",
-        png: "image/png",
-        gif: "image/gif",
-        webp: "image/webp",
-        avif: "image/avif",
-        svg: "image/svg+xml",
-      };
-      return mimeMap[format.toLowerCase()] || `image/${format}`;
-    });
-
+    console.warn("⚠️  The `formats()` method is deprecated. Use `accept()` with MIME types instead.");
+    const mimeMap: Record<string, string> = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      gif: "image/gif",
+      webp: "image/webp",
+      avif: "image/avif",
+      svg: "image/svg+xml",
+    };
+    const mimeTypes = formats.map((f) => mimeMap[f.toLowerCase()] || `image/${f}`);
     return new S3ImageSchema({ ...this.constraints, allowedTypes: mimeTypes });
   }
 
@@ -1095,11 +1143,23 @@ export class S3ImageSchema extends S3FileSchema {
     return new S3ImageSchema({ ...this.constraints, minSize: size });
   }
 
-  override types(allowedTypes: string[]): S3ImageSchema {
-    return new S3ImageSchema({ ...this.constraints, allowedTypes });
+  override accept(mimeTypes: MimeType[]): S3ImageSchema {
+    return new S3ImageSchema({ ...this.constraints, allowedTypes: mimeTypes });
   }
 
+  /**
+   * @deprecated Use `accept()` instead (e.g., `accept(['image/jpeg', 'image/png'])`).
+   */
+  override types(allowedTypes: MimeType[]): S3ImageSchema {
+    console.warn("⚠️  The `types()` method is deprecated. Use `accept()` instead.");
+    return this.accept(allowedTypes);
+  }
+
+  /**
+   * @deprecated Use `accept()` instead with MIME types (e.g., `accept(['image/jpeg', 'image/png'])`).
+   */
   override extensions(allowedExtensions: string[]): S3ImageSchema {
+    console.warn("⚠️  The `extensions()` method is deprecated. Use `accept()` with MIME types instead.");
     return new S3ImageSchema({ ...this.constraints, allowedExtensions });
   }
 
@@ -1113,7 +1173,7 @@ export class S3ImageSchema extends S3FileSchema {
    * ```typescript
    * const gallerySchema = s3.image()
    *   .maxFileSize('2MB')
-   *   .types(['image/jpeg', 'image/png'])
+   *   .accept(['image/jpeg', 'image/png'])
    *   .maxFiles(6); // Maximum 6 images, each max 2MB
    * ```
    */

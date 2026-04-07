@@ -32,13 +32,13 @@ const s3Router = s3.createRouter({
   profilePicture: s3.image()
     .maxFileSize('5MB')
     .maxFiles(1)
-    .formats(['jpeg', 'png', 'webp']),
+    .accept(['image/jpeg', 'image/png', 'image/webp']),
 
   // Multiple images with optimization
   galleryImages: s3.image()
     .maxFileSize('10MB')
     .maxFiles(10)
-    .formats(['jpeg', 'png', 'webp', 'gif']),
+    .accept(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
 });
 
 export type AppS3Router = typeof s3Router;
@@ -216,7 +216,7 @@ const s3Router = s3.createRouter({
   productImages: s3.image()
     .maxFileSize('8MB')
     .maxFiles(5)
-    .formats(['jpeg', 'png', 'webp'])
+    .accept(['image/jpeg', 'image/png', 'image/webp'])
     .dimensions({
       minWidth: 800,
       maxWidth: 4000,
@@ -284,7 +284,7 @@ const s3Router = s3.createRouter({
   optimizedImages: s3.image()
     .maxFileSize('15MB')
     .maxFiles(10)
-    .formats(['jpeg', 'png', 'webp'])
+    .accept(['image/jpeg', 'image/png', 'image/webp'])
     .dimensions({ maxWidth: 1920, maxHeight: 1080 })
     .onUploadComplete(async ({ file, url, metadata }) => {
       // ⚠️ This downloads the file from S3 (inbound bandwidth)
@@ -426,7 +426,7 @@ const s3Router = s3.createRouter({
   responsiveImages: s3.image()
     .maxFileSize('20MB')
     .maxFiles(5)
-    .formats(['jpeg', 'png', 'webp'])
+    .accept(['image/jpeg', 'image/png', 'image/webp'])
     .onUploadComplete(async ({ file, url, metadata }) => {
       // Generate responsive variants
       const variants = await Promise.all(
@@ -646,7 +646,7 @@ export function ResponsiveImage({
       profilePicture: s3.image()
         .maxFileSize('10MB')
         .maxFiles(1)
-        .formats(['jpeg', 'png', 'webp'])
+        .accept(['image/jpeg', 'image/png', 'image/webp'])
         .onUploadComplete(async ({ file, url, metadata }) => {
           // Generate avatar sizes
           await Promise.all([
@@ -796,7 +796,7 @@ const s3Router = s3.createRouter({
   portfolioImages: s3.image()
     .maxFileSize('15MB')
     .maxFiles(20)
-    .formats(['jpeg', 'png', 'webp'])
+    .accept(['image/jpeg', 'image/png', 'image/webp'])
     .middleware(async ({ req, file, metadata }) => {
       const { userId } = await authenticateUser(req);
 

@@ -95,9 +95,9 @@ const s3Router = s3.createRouter({
   imageUpload: s3
     .image()
     .maxFileSize("10MB")
-    .formats(["jpg", "jpeg", "png", "webp"]),
+    .accept(["image/jpeg", "image/png", "image/webp"]),
 
-  documentUpload: s3.file().maxFileSize("50MB").types(["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]),
+  documentUpload: s3.file().maxFileSize("50MB").accept(["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]),
 });
 
 export const { GET, POST } = s3Router.handlers;

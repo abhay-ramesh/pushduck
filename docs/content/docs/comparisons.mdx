@@ -476,7 +476,7 @@ Choosing the right file upload solution depends on your project's requirements. 
     const router = s3.createRouter({
       profilePic: s3.image()
         .maxFileSize('2MB')
-        .types(['image/jpeg', 'image/png'])
+        .accept(['image/jpeg', 'image/png'])
         .middleware(auth)
         .onUploadComplete(updateDatabase),
     });
