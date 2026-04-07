@@ -118,7 +118,7 @@ const s3Router = s3.createRouter({
   apiKeyUploads: s3.file()
     .maxFileSize("25MB")
     .maxFiles(1)
-    .types(['application/pdf', 'application/msword'])
+    .accept(['application/pdf', 'application/msword'])
     .middleware(async ({ req, metadata }) => {
       const apiKey = req.headers.get("x-api-key");
 

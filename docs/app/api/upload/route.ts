@@ -7,7 +7,7 @@ const uploadRouter = s3.createRouter({
   imageUpload: s3
     .image()
     .maxFileSize("5MB")
-    .formats(["jpeg", "jpg", "png", "webp"])
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ file, metadata }) => {
       console.log("Processing image upload:", file.name);
       return {
@@ -37,7 +37,7 @@ const uploadRouter = s3.createRouter({
   fileUpload: s3
     .file()
     .maxFileSize("10MB")
-    .types([
+    .accept([
       "application/pdf",
       "application/msword",
       "text/plain",

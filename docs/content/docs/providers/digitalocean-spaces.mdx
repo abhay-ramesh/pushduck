@@ -164,7 +164,7 @@ const imageUpload = s3
 
 const documentUpload = s3
   .file()
-  .types(["pdf", "docx"])
+  .accept(["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"])
   .onUploadComplete(async ({ file, key }) => {
     // Shorter cache for documents
     await setObjectMetadata(key, {

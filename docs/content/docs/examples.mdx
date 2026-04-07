@@ -197,7 +197,7 @@ await imageUpload.uploadFiles(selectedFiles);
       imageUpload: s3
         .image()
         .maxFileSize("5MB")
-        .formats(["jpeg", "png", "webp"])
+        .accept(["image/jpeg", "image/png", "image/webp"])
         .middleware(async ({ file, metadata }) => {
           // Custom authentication and metadata
           const session = await getServerSession();

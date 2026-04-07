@@ -298,7 +298,7 @@ const router = s3.createRouter({
   imageUpload: s3
     .image()
     .maxFileSize("5MB")
-    .formats(["jpeg", "jpg", "png", "webp"])
+    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ file, metadata }) => {
       // Add authentication and user context
       const user = await authenticateUser(req);
