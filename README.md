@@ -445,6 +445,8 @@ Pushduck works with all major frameworks:
 - **Nuxt** - Vue applications
 - **Astro** - Static site generation
 - **Hono** - Edge runtime APIs
+- **React Native** - Mobile applications
+- **Expo** - Cross-platform mobile apps
 
 ## Packages
 
