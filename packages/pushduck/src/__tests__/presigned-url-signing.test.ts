@@ -33,38 +33,33 @@ describe("Presigned URL Signing", () => {
         secretAccessKey: "test-secret",
     };
 
-    it("should include Content-Type and x-amz-acl from defaults in the signed request", async () => {
+    it("should sign only x-amz-acl; Content-Type is unsigned; metadata is excluded", async () => {
         const { config } = createUploadConfig()
             .provider("aws", baseProvider)
             .defaults({ acl: "public-read" })
             .build();
 
-        const options = {
+        const result = await generatePresignedUploadUrl(config, {
             key: "test.txt",
             contentType: "text/plain",
-            metadata: {
-                userId: "123",
-            },
-        };
-
-        const result = await generatePresignedUploadUrl(config, options);
-
-        // Verify result fields
-        expect(result.fields).toEqual({
-            "Content-Type": "text/plain",
-            "x-amz-acl": "public-read",
-            "x-amz-meta-userId": "123",
+            metadata: { userId: "123" },
         });
 
-        // Verify sign() was called with correct headers
-        expect(signMock).toHaveBeenCalled();
+        // requiredHeaders has ACL and Content-Type only — metadata is NOT returned to client
+        expect(result.requiredHeaders).toEqual({
+            "x-amz-acl": "public-read",
+            "Content-Type": "text/plain",
+        });
+        expect(result.requiredHeaders?.["x-amz-meta-userId"]).toBeUndefined();
+
+        // sign() receives ONLY the ACL
         const request = signMock.mock.calls[0][0] as Request;
-        expect(request.headers.get("Content-Type")).toBe("text/plain");
         expect(request.headers.get("x-amz-acl")).toBe("public-read");
-        expect(request.headers.get("x-amz-meta-userId")).toBe("123");
+        expect(request.headers.get("Content-Type")).toBeNull();
+        expect(request.headers.get("x-amz-meta-userId")).toBeNull();
     });
 
-    it("should fallback to provider.acl if defaults.acl is missing", async () => {
+    it("should fall back to provider.acl when defaults.acl is not set", async () => {
         const { config } = createUploadConfig()
             .provider("aws", { ...baseProvider, acl: "authenticated-read" })
             .build();
@@ -75,7 +70,7 @@ describe("Presigned URL Signing", () => {
         expect(request.headers.get("x-amz-acl")).toBe("authenticated-read");
     });
 
-    it("should prioritize defaults.acl over provider.acl", async () => {
+    it("should prefer defaults.acl over provider.acl", async () => {
         const { config } = createUploadConfig()
             .provider("aws", { ...baseProvider, acl: "private" })
             .defaults({ acl: "public-read" })
@@ -87,46 +82,50 @@ describe("Presigned URL Signing", () => {
         expect(request.headers.get("x-amz-acl")).toBe("public-read");
     });
 
-    it("should handle multiple metadata fields", async () => {
+    it("should never include metadata in requiredHeaders or the signed request", async () => {
         const { config } = createUploadConfig()
             .provider("aws", baseProvider)
+            .defaults({ acl: "public-read" })
             .build();
 
-        const options = {
+        const result = await generatePresignedUploadUrl(config, {
             key: "test.txt",
             metadata: {
                 "user-id": "123",
                 "project-id": "456",
                 "is-public": "true",
             },
-        };
+        });
 
-        await generatePresignedUploadUrl(config, options);
+        // Metadata is excluded from requiredHeaders — server-side values never reach the browser
+        expect(result.requiredHeaders?.["x-amz-meta-user-id"]).toBeUndefined();
+        expect(result.requiredHeaders?.["x-amz-meta-project-id"]).toBeUndefined();
+        expect(result.requiredHeaders?.["x-amz-meta-is-public"]).toBeUndefined();
 
+        // Metadata is also not in the signed request
         const request = signMock.mock.calls[0][0] as Request;
-        expect(request.headers.get("x-amz-acl")).toBe("private");
-        expect(request.headers.get("x-amz-meta-user-id")).toBe("123");
-        expect(request.headers.get("x-amz-meta-project-id")).toBe("456");
-        expect(request.headers.get("x-amz-meta-is-public")).toBe("true");
+        expect(request.headers.get("x-amz-meta-user-id")).toBeNull();
+        expect(request.headers.get("x-amz-meta-project-id")).toBeNull();
     });
 
-    it("should include only provided options in fields or default ACL", async () => {
+    it("should sign only ACL with no Content-Type or metadata provided", async () => {
+        // AWS provider defaults to acl: "private" when none is explicitly set
         const { config } = createUploadConfig()
             .provider("aws", baseProvider)
             .build();
 
-        const options = {
-            key: "test-minimal.txt",
-        };
+        const result = await generatePresignedUploadUrl(config, { key: "test-minimal.txt" });
 
-        await generatePresignedUploadUrl(config, options);
+        // Only the default ACL — no Content-Type or metadata
+        expect(result.requiredHeaders).toEqual({ "x-amz-acl": "private" });
 
+        // sign() receives only the ACL
         const request = signMock.mock.calls[0][0] as Request;
         expect(request.headers.get("x-amz-acl")).toBe("private");
         expect(request.headers.get("Content-Type")).toBeNull();
     });
 
-    it("router should include fields in generatePresignedUrls response", async () => {
+    it("router should include requiredHeaders in generatePresignedUrls response", async () => {
         const { s3, config } = createUploadConfig()
             .provider("aws", baseProvider)
             .defaults({ acl: "private" })
@@ -143,15 +142,22 @@ describe("Presigned URL Signing", () => {
         );
 
         expect(results[0].success).toBe(true);
-        expect(results[0].fields).toBeDefined();
+        expect(results[0].requiredHeaders).toBeDefined();
+        // ACL is signed and in requiredHeaders
+        expect(results[0].requiredHeaders?.["x-amz-acl"]).toBe("private");
+        // Content-Type is unsigned but in requiredHeaders
+        expect(results[0].requiredHeaders?.["Content-Type"]).toBe("image/jpeg");
+        // Metadata (originalName, routeName) is NOT in requiredHeaders
+        expect(results[0].requiredHeaders?.["x-amz-meta-originalName"]).toBeUndefined();
+        expect(results[0].requiredHeaders?.["x-amz-meta-routeName"]).toBeUndefined();
 
-        // Verify sign() was called via router
+        // sign() only received the ACL — not Content-Type, not metadata
         const request = signMock.mock.calls[0][0] as Request;
         expect(request.headers.get("x-amz-acl")).toBe("private");
-        expect(request.headers.get("Content-Type")).toBe("image/jpeg");
+        expect(request.headers.get("Content-Type")).toBeNull();
     });
 
-    it("should skip x-amz-acl for Cloudflare R2", async () => {
+    it("should skip x-amz-acl entirely for Cloudflare R2", async () => {
         const { config } = createUploadConfig()
             .provider("cloudflareR2", {
                 ...baseProvider,
@@ -161,7 +167,28 @@ describe("Presigned URL Signing", () => {
             .defaults({ acl: "public-read" })
             .build();
 
-        await generatePresignedUploadUrl(config, { key: "test.txt" });
+        const result = await generatePresignedUploadUrl(config, { key: "test.txt" });
+
+        // No ACL in requiredHeaders for R2
+        expect(result.requiredHeaders?.["x-amz-acl"]).toBeUndefined();
+
+        // sign() received no ACL header
+        const request = signMock.mock.calls[0][0] as Request;
+        expect(request.headers.get("x-amz-acl")).toBeNull();
+    });
+
+    it("should skip x-amz-acl entirely for MinIO", async () => {
+        const { config } = createUploadConfig()
+            .provider("minio", {
+                ...baseProvider,
+                endpoint: "http://localhost:9000",
+            })
+            .defaults({ acl: "public-read" })
+            .build();
+
+        const result = await generatePresignedUploadUrl(config, { key: "test.txt" });
+
+        expect(result.requiredHeaders?.["x-amz-acl"]).toBeUndefined();
 
         const request = signMock.mock.calls[0][0] as Request;
         expect(request.headers.get("x-amz-acl")).toBeNull();

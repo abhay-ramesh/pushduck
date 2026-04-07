@@ -197,7 +197,7 @@ async function uploadToS3(
   blob: Blob,
   contentType: string,
   presignedUrl: string,
-  fields?: Record<string, string>,
+  requiredHeaders?: Record<string, string>,
   onProgress?: (progress: number, uploadSpeed?: number, eta?: number) => void
 ): Promise<void> {
 
@@ -230,13 +230,12 @@ async function uploadToS3(
 
     xhr.open("PUT", presignedUrl);
 
-    // Set signed headers (includes x-amz-acl, Content-Type, metadata, etc.)
-    if (fields) {
-      Object.entries(fields).forEach(([key, value]) => {
+    if (requiredHeaders) {
+      for (const [key, value] of Object.entries(requiredHeaders)) {
         xhr.setRequestHeader(key, value);
-      });
+      }
     } else {
-      // Fallback for backward compatibility
+      // Older server version — no requiredHeaders returned, set Content-Type directly
       xhr.setRequestHeader("Content-Type", contentType);
     }
 
@@ -681,7 +680,7 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
                 blob,
                 fileMeta.type,
                 result.presignedUrl,
-                result.fields,
+                result.requiredHeaders,
                 (progress, uploadSpeed, eta) =>
                   updateFileProgress(fileState.id, progress, uploadSpeed, eta)
               );

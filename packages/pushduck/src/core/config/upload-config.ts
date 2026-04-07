@@ -261,8 +261,11 @@ export interface UploadConfig {
     maxFileSize?: string | number;
     /** Allowed MIME types (e.g., ['image/*', 'application/pdf']) */
     allowedFileTypes?: string[];
-    /** S3 ACL setting ('public-read', 'private', etc.) */
-    acl?: string;
+    /**
+     * S3 ACL for uploaded objects.
+     * Not supported on Cloudflare R2 or MinIO — ignored on those providers.
+     */
+    acl?: import("../providers/providers").S3AclValue;
     /** Default metadata attached to all uploads */
     metadata?: Record<string, any>;
   };
