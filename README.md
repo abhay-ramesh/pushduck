@@ -422,9 +422,10 @@ Pushduck follows a **secure-by-default** architecture:
 │                 │    │    sign request │    │                 │
 │ 3. Receive URL  │◀───│                 │    │                 │
 │                 │    │                 │    │                 │
-│ 4. Upload file  │────────────────────────────────────────────▶│
-│    directly     │    │                 │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+│                 │    └─────────────────┘    │                 │
+│ 4. Upload file  │──────────────────────────▶│                 │
+│    directly     │      (server bypassed)    │                 │
+└─────────────────┘                           └─────────────────┘
 ```
 
 - **Client** never sees your AWS credentials
