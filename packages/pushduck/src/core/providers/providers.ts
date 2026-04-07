@@ -91,6 +91,24 @@ export interface BaseProviderConfig {
   customDomain?: string;
   /** Force path-style URLs instead of virtual-hosted style */
   forcePathStyle?: boolean;
+  /**
+   * Controls what kind of download URL the library returns after a file is uploaded.
+   *
+   * - `'private'` (default) — generates a presigned GET URL signed against the
+   *   provider's S3 API endpoint. Works for private buckets. The URL expires
+   *   after `expiresIn` seconds (default 3600).
+   * - `'public'` — returns the plain public URL (custom domain if configured,
+   *   otherwise the provider's public URL). No signing. Use this when your
+   *   bucket/objects are already publicly accessible.
+   *
+   * **Important:** This setting must match your actual bucket configuration.
+   * Setting `visibility: 'public'` on a private bucket will result in 403 errors
+   * when clients try to access the returned URLs. pushduck does not verify or
+   * enforce your bucket's access settings.
+   *
+   * @default 'private'
+   */
+  visibility?: "public" | "private";
 }
 
 // ========================================
@@ -141,36 +159,10 @@ export interface AWSProviderConfig extends BaseProviderConfig {
 }
 
 /**
- * Configuration for Cloudflare R2 object storage.
- * S3-compatible storage with zero egress fees and global distribution.
- *
- * @interface CloudflareR2Config
- * @extends BaseProviderConfig
- *
- * @example Basic Configuration
- * ```typescript
- * const r2Config: CloudflareR2Config = {
- *   provider: 'cloudflare-r2',
- *   bucket: 'my-r2-bucket',
- *   accountId: 'your-cloudflare-account-id',
- *   accessKeyId: 'your-r2-access-key',
- *   secretAccessKey: 'your-r2-secret-key',
- * };
- * ```
- *
- * @example With Custom Domain
- * ```typescript
- * const r2WithDomain: CloudflareR2Config = {
- *   provider: 'cloudflare-r2',
- *   bucket: 'assets',
- *   accountId: 'abc123',
- *   accessKeyId: 'key123',
- *   secretAccessKey: 'secret123',
- *   customDomain: 'assets.myapp.com',
- * };
- * ```
+ * Base fields for Cloudflare R2 object storage (without visibility/customDomain).
+ * Use the exported `CloudflareR2Config` type for the full discriminated union.
  */
-export interface CloudflareR2Config extends BaseProviderConfig {
+export interface CloudflareR2BaseConfig extends Omit<BaseProviderConfig, "customDomain" | "visibility"> {
   provider: "cloudflare-r2";
   /** Cloudflare Account ID */
   accountId: string;
@@ -183,6 +175,45 @@ export interface CloudflareR2Config extends BaseProviderConfig {
   /** Custom endpoint (auto-generated from accountId if not provided) */
   endpoint?: string;
 }
+
+/**
+ * Configuration for Cloudflare R2 object storage.
+ * S3-compatible storage with zero egress fees and global distribution.
+ *
+ * R2 presigned URLs only work with the R2 S3 API endpoint — they cannot be
+ * used with custom domains. Therefore `visibility: 'public'` requires a
+ * `customDomain` to be set (R2 public access requires a custom domain or
+ * the r2.dev subdomain; the API endpoint does not serve public content).
+ *
+ * @example Basic Configuration (private bucket)
+ * ```typescript
+ * const r2Config: CloudflareR2Config = {
+ *   provider: 'cloudflare-r2',
+ *   bucket: 'my-r2-bucket',
+ *   accountId: 'your-cloudflare-account-id',
+ *   accessKeyId: 'your-r2-access-key',
+ *   secretAccessKey: 'your-r2-secret-key',
+ * };
+ * ```
+ *
+ * @example Public bucket with custom domain
+ * ```typescript
+ * const r2WithDomain: CloudflareR2Config = {
+ *   provider: 'cloudflare-r2',
+ *   bucket: 'assets',
+ *   accountId: 'abc123',
+ *   accessKeyId: 'key123',
+ *   secretAccessKey: 'secret123',
+ *   customDomain: 'https://assets.myapp.com', // required when visibility is 'public'
+ *   visibility: 'public',
+ * };
+ * ```
+ */
+export type CloudflareR2Config = CloudflareR2BaseConfig &
+  (
+    | { visibility: "public"; customDomain: string }
+    | { visibility?: "private"; customDomain?: string }
+  );
 
 /**
  * Configuration for DigitalOcean Spaces object storage.
@@ -399,46 +430,67 @@ export type ProviderConfig =
 // DRY Provider Factory System
 // ========================================
 
-interface ConfigKeyMapping {
-  readonly [key: string]: readonly string[];
-}
-
 interface ProviderSpec {
   readonly provider: string;
-  readonly configKeys: ConfigKeyMapping;
-  readonly defaults: Record<string, any>;
-  readonly customLogic?: (config: any, computed: any) => any;
+  readonly configKeys: { readonly [key: string]: readonly string[] };
+  readonly defaults: { readonly [key: string]: unknown };
+  readonly customLogic?: (
+    config: Record<string, unknown>,
+    computed: Record<string, unknown>
+  ) => Record<string, unknown>;
 }
 
 /**
- * Generic provider configuration builder
- * Validates required configuration fields
+ * Generic provider configuration builder.
+ *
+ * The function signature is fully typed — `T` flows from the provider config
+ * type so callers retain type information. Internally, we widen `config` to
+ * `Record<string, unknown>` only for dynamic key-based access (the spec keys
+ * are runtime strings, not statically known). The single `as unknown as T`
+ * cast at the return boundary is the only escape hatch; it is justified
+ * because `validateProviderConfig` runs immediately before, ensuring the
+ * object has all required fields for T.
  */
 function createProviderBuilder<T extends ProviderConfig>(
   spec: ProviderSpec
-): (config?: Partial<T>) => T {
-  return (config: Partial<T> = {}): T => {
-    const result: any = { provider: spec.provider };
+): (config?: Partial<Omit<T, "provider">>) => T {
+  return (config: Partial<Omit<T, "provider">> = {} as Partial<Omit<T, "provider">>): T => {
+    // Widen to Record for dynamic key access — widening only, no data loss
+    const configRecord = config as Record<string, unknown>;
+    const result: Record<string, unknown> = { provider: spec.provider };
 
-    // Only use explicit config and defaults (no env vars)
-    for (const [key] of Object.entries(spec.configKeys)) {
-      result[key] = config[key as keyof T] || spec.defaults[key] || "";
+    // Apply spec-declared keys with config values or fallback defaults
+    for (const key of Object.keys(spec.configKeys)) {
+      result[key] = configRecord[key] ?? spec.defaults[key] ?? "";
     }
 
-    // Apply custom logic if provided
+    // Pass through any config keys not covered by spec.configKeys
+    // (e.g. visibility, forcePathStyle, future BaseProviderConfig fields)
+    for (const [key, value] of Object.entries(configRecord)) {
+      if (!(key in result) && value !== undefined) {
+        result[key] = value;
+      }
+    }
+
+    // Apply provider-specific derived fields (e.g. auto-compute endpoint)
     if (spec.customLogic) {
-      Object.assign(result, spec.customLogic(config, result));
+      Object.assign(result, spec.customLogic(configRecord, result));
     }
 
-    // Validate the final configuration
-    const validation = validateProviderConfig(result);
+    // Single boundary cast: dynamic Record → typed T.
+    // unknown intermediate required because Record<string,unknown> and the
+    // ProviderConfig union don't share enough structure for a direct assertion.
+    const built = result as unknown as T;
+
+    // Validate before returning — throws if required fields are missing
+    const validation = validateProviderConfig(built);
     if (!validation.valid) {
       throw new Error(
         `Provider validation failed: ${validation.errors.join(", ")}`
       );
     }
 
-    return result as T;
+    return built;
   };
 }
 
@@ -483,7 +535,7 @@ const PROVIDER_SPECS = {
       region: "auto",
       acl: "private",
     },
-    customLogic: (config: any, computed: any) => ({
+    customLogic: (config, computed) => ({
       endpoint:
         computed.endpoint ||
         (computed.accountId
@@ -513,7 +565,7 @@ const PROVIDER_SPECS = {
       region: "nyc3",
       acl: "private",
     },
-    customLogic: (config: any, computed: any) => ({
+    customLogic: (config, computed) => ({
       endpoint:
         computed.endpoint ||
         `https://${computed.region}.digitaloceanspaces.com`,
@@ -536,7 +588,7 @@ const PROVIDER_SPECS = {
       region: "us-east-1",
       acl: "private",
     },
-    customLogic: (config: any, computed: any) => ({
+    customLogic: (config, computed) => ({
       useSSL: config.useSSL ?? false,
       port: config.port ? Number(config.port) : undefined,
     }),
@@ -556,7 +608,7 @@ const PROVIDER_SPECS = {
       region: "us-central1",
       acl: "private",
     },
-    customLogic: (config: any) => ({
+    customLogic: (config, _computed) => ({
       credentials: config.credentials,
     }),
   },
@@ -578,7 +630,7 @@ const PROVIDER_SPECS = {
       forcePathStyle: true, // Most S3-compatible providers need path-style access
     },
   },
-} as const;
+} as const satisfies Record<string, ProviderSpec>;
 
 // ========================================
 // Generic Provider Creator (New API)
@@ -593,12 +645,33 @@ export type ProviderType = keyof ProviderSpecsType;
 // ========================================
 
 /**
- * Maps each provider type to its corresponding configuration interface
- * This enables type-safe provider configuration in createUploadConfig().provider()
+ * Maps each provider key to its fully-resolved output config type.
+ * Used to constrain createProviderBuilder<T> so the generic T is the
+ * concrete ProviderConfig subtype, not the loose ProviderConfig union.
+ */
+export type ProviderOutputMap = {
+  aws: AWSProviderConfig;
+  cloudflareR2: CloudflareR2Config;
+  digitalOceanSpaces: DigitalOceanSpacesConfig;
+  minio: MinIOConfig;
+  gcs: GoogleCloudStorageConfig;
+  s3Compatible: S3CompatibleConfig;
+};
+
+/**
+ * Maps each provider type to its user-facing input configuration.
+ * Partial so callers only supply the fields they know; missing values are
+ * filled from environment variables or defaults inside createProviderBuilder.
+ * R2 carries its discriminated union so TypeScript enforces the
+ * visibility: 'public' → customDomain required constraint at the call site.
  */
 export type ProviderConfigMap = {
   aws: Partial<Omit<AWSProviderConfig, "provider">>;
-  cloudflareR2: Partial<Omit<CloudflareR2Config, "provider">>;
+  cloudflareR2: Partial<Omit<CloudflareR2BaseConfig, "provider">> &
+    (
+      | { visibility: "public"; customDomain: string }
+      | { visibility?: "private"; customDomain?: string }
+    );
   digitalOceanSpaces: Partial<Omit<DigitalOceanSpacesConfig, "provider">>;
   minio: Partial<Omit<MinIOConfig, "provider">>;
   gcs: Partial<Omit<GoogleCloudStorageConfig, "provider">>;
@@ -661,14 +734,20 @@ export type ProviderConfigMap = {
  */
 export function createProvider<T extends ProviderType>(
   type: T,
-  config: ProviderConfigMap[T] = {} as ProviderConfigMap[T]
-): ProviderConfig {
+  config?: ProviderConfigMap[T]
+): ProviderOutputMap[T] {
   const spec = PROVIDER_SPECS[type];
   if (!spec) {
     throw new Error(`Unknown provider type: ${type}`);
   }
 
-  return createProviderBuilder(spec)(config as any);
+  // ProviderConfigMap[T] is always a structural subtype of
+  // Partial<Omit<ProviderOutputMap[T], "provider">> for each concrete T —
+  // the only difference is the Partial wrapping and R2's discriminated union.
+  // The cast narrows from the user-facing input shape to the builder's param.
+  return createProviderBuilder<ProviderOutputMap[T]>(spec)(
+    config as Partial<Omit<ProviderOutputMap[T], "provider">>
+  );
 }
 
 // ========================================
@@ -758,6 +837,10 @@ export function validateProviderConfig(config: ProviderConfig): {
       if (!config.accessKeyId) errors.push("R2 Access Key ID is required");
       if (!config.secretAccessKey)
         errors.push("R2 Secret Access Key is required");
+      if (config.visibility === "public" && !config.customDomain)
+        errors.push(
+          "R2 requires customDomain when visibility is 'public' — R2 presigned URLs cannot be used with custom domains"
+        );
       break;
 
     case "digitalocean-spaces":

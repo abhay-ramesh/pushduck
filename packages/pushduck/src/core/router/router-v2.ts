@@ -61,7 +61,7 @@ import { createUniversalHandler } from "../handler/universal-handler";
 import { InferS3Input, InferS3Output, S3Schema } from "../schema";
 import {
   generateFileKey,
-  generatePresignedDownloadUrl,
+  generateDownloadUrl,
   generatePresignedUploadUrl,
   getFileUrl,
 } from "../storage/client";
@@ -987,8 +987,10 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         // Get file URL
         const url = getFileUrl(this.config, completion.key);
 
-        // Generate presigned download URL (expires in 1 hour by default)
-        const presignedUrl = await generatePresignedDownloadUrl(
+        // Generate download URL — respects provider visibility setting.
+        // Returns a presigned GET URL for private buckets, or a plain/CDN URL
+        // for public buckets (visibility: 'public').
+        const downloadUrl = await generateDownloadUrl(
           this.config,
           completion.key,
           3600
@@ -1008,7 +1010,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           success: true,
           key: completion.key,
           url,
-          presignedUrl,
+          presignedUrl: downloadUrl,
           file: completion.file,
         });
       } catch (error) {
@@ -1062,7 +1064,7 @@ export interface CompletionResponse {
   success: boolean;
   key: string;
   url?: string;
-  presignedUrl?: string; // Temporary download URL (expires in 1 hour)
+  presignedUrl?: string; // Download URL — presigned for private buckets, plain/CDN URL for public buckets
   file?: S3FileMetadata;
   error?: string;
 }

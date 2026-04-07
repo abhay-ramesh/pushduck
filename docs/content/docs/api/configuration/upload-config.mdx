@@ -55,6 +55,18 @@ createUploadConfig().provider("cloudflareR2",{ // [!code highlight]
 })
 ```
 
+**Public R2 bucket with custom domain:**
+
+```typescript title="R2 Public Bucket"
+createUploadConfig().provider("cloudflareR2", {
+  // ...credentials
+  customDomain: 'https://cdn.yourdomain.com', // [!code highlight]
+  visibility: 'public', // [!code highlight]
+})
+```
+
+When `visibility: 'public'` is set, pushduck returns the custom domain URL directly after upload instead of a presigned URL. For R2, `customDomain` is **required** when `visibility: 'public'` — R2 presigned URLs cannot be used with custom domains (TypeScript will enforce this).
+
 ### AWS S3
 
 ```typescript title="AWS S3 Configuration"
@@ -111,6 +123,35 @@ createUploadConfig().provider("s3Compatible",{
   customDomain: process.env.S3_CUSTOM_DOMAIN,
 })
 ```
+
+## Bucket Visibility
+
+The `visibility` option controls what kind of download URL pushduck returns after a file is uploaded.
+
+```typescript
+createUploadConfig().provider("aws", {
+  // ...
+  visibility: 'private', // default
+})
+```
+
+| Value | Download URL returned | When to use |
+|-------|----------------------|-------------|
+| `'private'` (default) | Presigned GET URL (time-limited, signed against S3 API endpoint) | Private buckets — most setups |
+| `'public'` | Plain URL (`customDomain/key` or S3 URL) | Publicly accessible buckets |
+
+**Important:** `visibility` must match your actual bucket configuration. Setting `visibility: 'public'` on a private bucket will return URLs that result in 403 errors. pushduck does not verify your bucket's access settings.
+
+| Bucket type | `customDomain` | `visibility` | URL returned |
+|------------|---------------|-------------|-------------|
+| Private | — | `'private'` | Presigned GET (S3 API endpoint) |
+| Private | CDN | `'private'` | Presigned GET (S3 API endpoint — CDN bypassed) |
+| Public | — | `'public'` | Plain S3 URL |
+| Public | CDN | `'public'` | `https://cdn.yourdomain.com/key` |
+
+> **R2 note:** `visibility: 'public'` requires `customDomain` to be set. R2 presigned URLs cannot be used with custom domains — TypeScript will show an error if you omit `customDomain` when setting `visibility: 'public'` on an R2 provider.
+
+`storage.download.presignedUrl(key, expiresIn?)` always generates a presigned URL regardless of `visibility` — useful when you explicitly need a time-limited signed URL for a specific file.
 
 ## Configuration Methods
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createUploadConfig } from "../core/config/upload-config";
 import {
-  generatePresignedDownloadUrl,
+  generateDownloadUrl,
   generatePresignedUploadUrl,
   getFileUrl,
 } from "../core/storage/client";
@@ -66,7 +66,7 @@ describe("S3 Fallback Behavior", () => {
       })
       .build();
 
-    const presignedUrl = await generatePresignedDownloadUrl(
+    const presignedUrl = await generateDownloadUrl(
       config,
       "uploads/test-image.jpg",
       3600
