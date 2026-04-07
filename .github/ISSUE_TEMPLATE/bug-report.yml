@@ -1,244 +1,57 @@
-name: 🐛 Bug Report
-description: Report a bug or unexpected behavior in pushduck
+name: Bug Report
+description: Something isn't working as expected
 title: "bug: "
-labels: ["type: bug", "status: needs review"]
+labels: ["bug"]
 
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Thanks for taking the time to report a bug! Please fill out the information below to help us investigate and fix the issue.
-
-  - type: checkboxes
-    id: prerequisites
-    attributes:
-      label: Pre-flight checklist
-      description: Please confirm before submitting
-      options:
-        - label: I have searched existing issues to ensure this bug hasn't been reported
-          required: true
-        - label: I have checked the [documentation](https://pushduck.dev/docs)
-          required: true
-        - label: I am using the latest version of pushduck
-          required: true
-
   - type: textarea
     id: description
     attributes:
-      label: 🐛 Bug Description
-      description: A clear and concise description of what the bug is
-      placeholder: Describe the bug...
+      label: What happened?
+      description: A clear description of the bug, including what you expected vs what actually happened.
+      placeholder: |
+        When I upload a file with acl: "public-read", the file is stored as private instead.
+
+        Expected: File should be publicly readable.
+        Actual: File requires authentication to access.
     validations:
       required: true
 
   - type: textarea
     id: reproduction
     attributes:
-      label: 🔄 Steps to Reproduce
-      description: Steps to reproduce the behavior
+      label: Steps to reproduce
+      description: Minimal code or steps to reproduce the issue.
       placeholder: |
-        1. Configure pushduck with...
-        2. Try to upload a file...
-        3. See error...
-    validations:
-      required: true
-
-  - type: textarea
-    id: expected
-    attributes:
-      label: ✅ Expected Behavior
-      description: What you expected to happen
-      placeholder: Describe what should have happened...
-    validations:
-      required: true
-
-  - type: textarea
-    id: actual
-    attributes:
-      label: ❌ Actual Behavior
-      description: What actually happened
-      placeholder: Describe what actually happened...
-    validations:
-      required: true
-
-  - type: textarea
-    id: code-sample
-    attributes:
-      label: 📝 Code Sample
-      description: Minimal code that reproduces the issue
-      placeholder: |
-        // Your code here
-        import { createUploadConfig } from 'pushduck/server';
-
-        export const { uploadRouter } = createUploadConfig()
-          .provider("cloudflareR2", {
-            // your config
-          })
+        ```typescript
+        const { s3 } = createUploadConfig()
+          .provider("aws", { ... })
+          .defaults({ acl: "public-read" })
           .build();
+        ```
       render: typescript
-    validations:
-      required: false
-
-  - type: dropdown
-    id: framework
-    attributes:
-      label: 🎯 Framework
-      description: Which framework are you using?
-      options:
-        - Next.js
-        - Remix
-        - SvelteKit
-        - Nuxt.js
-        - TanStack Start
-        - SolidJS Start
-        - Qwik
-        - Astro
-        - Fresh
-        - Hono
-        - Elysia
-        - Express
-        - Fastify
-        - Expo
-        - Other (specify in additional context)
-    validations:
-      required: true
-
-  - type: dropdown
-    id: provider
-    attributes:
-      label: ☁️ Storage Provider
-      description: Which storage provider are you using?
-      options:
-        - AWS S3
-        - Cloudflare R2
-        - DigitalOcean Spaces
-        - Google Cloud Storage
-        - MinIO
-        - Wasabi
-        - Backblaze B2
-        - Linode Object Storage
-        - Other S3-compatible (specify in additional context)
     validations:
       required: true
 
   - type: input
     id: version
     attributes:
-      label: 📦 Pushduck Version
-      description: What version of pushduck are you using?
-      placeholder: "e.g., 0.1.7"
+      label: Version
+      description: "Output of: npm list pushduck"
+      placeholder: "0.5.0"
     validations:
       required: true
 
-  - type: input
-    id: node-version
-    attributes:
-      label: 📟 Node.js Version
-      description: What version of Node.js are you using?
-      placeholder: "e.g., 18.17.0"
-    validations:
-      required: true
-
-  - type: dropdown
-    id: package-manager
-    attributes:
-      label: 📦 Package Manager
-      description: Which package manager are you using?
-      options:
-        - pnpm
-        - npm
-        - yarn
-        - bun
-    validations:
-      required: true
-
-  - type: dropdown
+  - type: textarea
     id: environment
     attributes:
-      label: 🌍 Environment
-      description: Where does this bug occur?
-      options:
-        - Development
-        - Production
-        - Both
-    validations:
-      required: true
-
-  - type: dropdown
-    id: os
-    attributes:
-      label: 💻 Operating System
-      description: What operating system are you using?
-      options:
-        - macOS
-        - Windows
-        - Linux
-        - Other (specify in additional context)
-    validations:
-      required: true
-
-  - type: dropdown
-    id: browser
-    attributes:
-      label: 🌐 Browser (if applicable)
-      description: Which browser are you using?
-      options:
-        - Chrome
-        - Firefox
-        - Safari
-        - Edge
-        - Other (specify in additional context)
-        - Not applicable
-    validations:
-      required: false
+      label: Environment
+      description: Framework, provider, Node version, or anything else relevant.
+      placeholder: "Next.js 15, AWS S3, Node 22"
 
   - type: textarea
-    id: error-logs
+    id: logs
     attributes:
-      label: 📋 Error Logs
-      description: Any error messages or logs
-      placeholder: |
-        Paste error logs here...
+      label: Error logs
+      description: Paste any relevant error output.
       render: shell
-    validations:
-      required: false
-
-  - type: textarea
-    id: configuration
-    attributes:
-      label: ⚙️ Configuration
-      description: Your pushduck configuration (remove any sensitive information)
-      placeholder: |
-        ```typescript
-        // Your pushduck configuration
-        export const { uploadRouter } = createUploadConfig()
-          .provider("cloudflareR2", {
-            // your config (without secrets)
-          })
-          .build();
-        ```
-      render: typescript
-    validations:
-      required: false
-
-  - type: textarea
-    id: additional-context
-    attributes:
-      label: 📎 Additional Context
-      description: Add any other context about the problem here
-      placeholder: |
-        - Related issues
-        - Workarounds you've tried
-        - Screenshots
-        - Additional information
-    validations:
-      required: false
-
-  - type: checkboxes
-    id: help
-    attributes:
-      label: 🤝 Would you like to help fix this?
-      description: Optional - would you be interested in contributing a fix?
-      options:
-        - label: I'm willing to submit a PR to fix this issue
-          required: false
