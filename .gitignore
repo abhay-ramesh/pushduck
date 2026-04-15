@@ -17,3 +17,6 @@ public/dist
 
 # Test projects for CLI testing
 test-projects/
+
+.claude
+notes/

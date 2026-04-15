@@ -1,0 +1,176 @@
+---
+title: Limitations
+description: Real architectural boundaries — read this before adopting to scope your project correctly.
+icon: Ruler
+---
+
+Pushduck aims to be universal, but there are real architectural boundaries. This page is honest about what it **does not** do, so you can scope your project correctly before adopting it.
+
+## Type sharing requires a shared TypeScript codebase
+
+Pushduck's typesafe router (`InferClientRouter<typeof router>`) works by importing the router's type from your server file directly into your client. This requires:
+
+- Backend and frontend in the **same TypeScript project or monorepo**, or
+- A **shared package** both sides can import types from, or
+- Manually exporting and versioning the router type alongside your API
+
+**What works:**
+
+- Fullstack Next.js / Remix / SvelteKit / Nuxt — backend route and frontend hook live in the same TS project. `InferClientRouter` works out of the box.
+- Monorepos where `packages/api` and `apps/web` share a TS boundary.
+- Any setup where you can `import type { AppRouter } from "../server/router"`.
+
+**What doesn't work automatically:**
+
+- **Separate frontend and backend repositories.** You have two choices:
+  1. Publish a tiny types-only package from your backend repo and consume it from the frontend.
+  2. Use the REST contract directly (Pushduck still works end-to-end — you just lose route-name autocomplete and inferred metadata types).
+- **Git-submodule setups** without a TS path alias between them.
+
+## Non-TypeScript backends are not supported for typesafe routes
+
+If your backend is in **Python, Go, Rust, Ruby, PHP, Java, Elixir, or anything else**, Pushduck's server-side API (`createUploadConfig`, `s3.createRouter`, adapters) is not usable. You cannot define routes with a non-TS server.
+
+**What you can still do:**
+
+- Implement the presigned URL endpoints yourself in your backend language. Pushduck's client is pure fetch/XHR against a documented REST contract, so you can point the client at any server that returns the expected JSON shape.
+- Use the `createUploadClient` on the frontend with `endpoint: "/api/upload"` pointing to your non-TS backend, and handle the `presign` / `complete` actions manually on the server side.
+
+You lose:
+- Typesafe route names
+- Automatic metadata inference
+- The file schema validation built into `s3.image()` / `s3.file()` chains
+
+You keep:
+- XHR-based progress tracking
+- Multi-file uploads
+- The presigned URL flow
+
+Think of Pushduck as a **TypeScript-first library** in this sense — cross-language support is a REST contract, not a code contract.
+
+## Non-React frontends have no shipped hook
+
+`useUploadRoute` and `createUploadClient` currently target React. There is no shipped hook for:
+
+- Vue
+- Svelte
+- Solid
+- Angular
+- Vanilla JS / Web Components
+
+**What you can still do:**
+
+The underlying logic is in `packages/pushduck/src/client/upload-client.ts` — a small set of functions that presign, upload via XHR, and complete. You can wrap it yourself in any framework's reactive primitive. A Vue composable or a Svelte store would be ~50 lines. Contributions welcome.
+
+## Node server-side streaming uploads are out of scope
+
+Pushduck's core upload flow is **client → presigned URL → S3 directly**. The library is not a Node streaming upload helper.
+
+If you need to:
+
+- Accept a multipart upload in a Node server handler and stream it to S3, or
+- Upload a file *from* your Node server *to* S3 (e.g. image processing pipelines)
+
+you want the native `@aws-sdk/client-s3` `Upload` helper or `aws4fetch` directly. Pushduck's storage API (`s3.put`, `s3.delete`, `s3.list`) supports server-side one-shot operations, but it is not optimized for streaming large files through your Node process.
+
+## No pause, resume, or automatic retry on network interruption
+
+Pushduck uses a **single PUT request per file** to a presigned URL. This is the simplest flow S3 offers and it works everywhere, but it has hard limits:
+
+- **No pause button.** Once an upload starts, there is no API to suspend it and continue later. The only way to stop is to abort the XHR entirely, which discards all bytes already sent.
+- **No resume after a dropped connection.** If the network drops mid-upload — Wi-Fi disconnects, the user walks into an elevator, a mobile connection flips to airplane mode — the XHR errors out and the already-uploaded bytes are lost on the server side. The next attempt starts over from byte 0.
+- **No automatic retry.** Pushduck does not retry failed uploads. If an upload errors, `onError` fires and the file is marked failed. Retry logic is yours to build on top (call `uploadFiles` again with the same file).
+- **No progress persistence across page reloads.** Refresh the tab mid-upload and the upload state is gone — there is no IndexedDB queue, no background sync worker, no service worker fallback.
+
+**Why this is deliberate:** S3 multipart uploads *do* support resumable transfer, but they require orchestrating ~5MB chunks, tracking part numbers, committing/aborting the multipart session, and handling partial-state cleanup when a browser tab dies. That's a different library shape from what Pushduck is — it would roughly double the surface area and complicate the auth/middleware story.
+
+**What you can still do:**
+
+- For small-to-medium files (under ~100 MB on a decent connection), the single-PUT flow is fine in practice. A dropped upload is a rare event and "try again" is an acceptable UX.
+- Wrap `uploadFiles` in your own retry logic: catch the error in `onError`, wait with backoff, call `uploadFiles` again.
+- Show a "your upload was interrupted — tap to retry" UI, since reliable retry requires user intent anyway.
+
+**When to look elsewhere:**
+
+- If you need true resumable uploads for very large files (larger than 500 MB) on flaky connections — e.g. mobile users uploading video — use `tus-js-client` (resumable protocol with server-side state) or S3 multipart uploads directly via the AWS SDK.
+- If you need background uploads that survive tab closure — service workers with Background Sync API, or a native app wrapper.
+
+## No multipart uploads — effective file size ceiling
+
+Pushduck uploads each file as a **single HTTP PUT to a presigned URL**. S3's multipart upload API (which splits a file into chunks uploaded independently and then committed as one object) is **not implemented**.
+
+This puts a practical ceiling on how large a file Pushduck can upload reliably:
+
+- **S3 hard limit for a single PUT:** 5 GB. Anything larger is rejected by S3 itself with `EntityTooLarge`.
+- **Practical limit on mobile / flaky networks:** much lower, often 100–500 MB. Larger single PUTs become increasingly unlikely to complete in one uninterrupted attempt.
+- **Memory pressure on the client:** on React Native, `fetch(uri).blob()` reads the entire file into memory before uploading. Very large files can OOM the app. Web `File` is streamed by the browser, so desktop is less affected, but still bounded by tab memory.
+
+**What multipart uploads would unlock (and what you lose without them):**
+
+- Uploading files larger than 5 GB (up to 5 TB, S3's hard ceiling)
+- Parallel chunk uploads for faster throughput on fast links
+- Resume-from-last-committed-chunk after a network failure
+- Lower peak memory because each chunk is uploaded and released independently
+
+**What to do right now if you need to upload very large files:**
+
+- For files up to a few hundred MB: Pushduck works, but set an explicit `maxFileSize` on your route (`s3.file().maxFileSize("500MB")`) and communicate the limit to users in the UI.
+- For files larger than that: you'll need to implement S3 multipart yourself using `@aws-sdk/client-s3`'s `Upload` helper on the server, or use a resumable protocol like tus. Pushduck is not the right tool for terabyte-class uploads.
+
+Multipart support is on the roadmap but not yet shipped. If this is a blocker for your use case, open an issue — it helps prioritize.
+
+## Service-worker / tab-close uploads are not supported
+
+Uploads run in the same JS context that called `uploadFiles`. Closing the tab, navigating away, losing a mobile app to the background (iOS/Android suspend JS execution on app switch or screen lock), or force-quitting the app will cancel the in-flight XHR. Pushduck does not:
+
+- Register a service worker to continue uploads in the background
+- Persist upload queues in IndexedDB across page reloads
+- Use the Background Fetch or Background Sync APIs
+
+If you need uploads that survive tab closure, Pushduck is not the right tool — look at a service-worker-based upload queue or a native app.
+
+## Upload progress requires XHR, not fetch
+
+Progress tracking uses `XMLHttpRequest.upload.onprogress`. This means:
+
+- Upload progress works in all browsers and React Native (XHR is polyfilled in RN 0.68+)
+- Upload progress does **not** work in environments without XHR (some edge runtimes, Deno server-side, Node without a polyfill)
+- You cannot swap the transport to `fetch` without losing progress — `fetch` has no upload progress API on any runtime today
+
+This is a deliberate tradeoff. Progress is more valuable than transport flexibility for this library's use case.
+
+## Storage providers are S3-compatible only
+
+Pushduck supports **AWS S3, Cloudflare R2, DigitalOcean Spaces, and MinIO** — all of which speak the S3 API. It does **not** support:
+
+- Google Cloud Storage (different API surface)
+- Azure Blob Storage (different API surface)
+- Backblaze B2 native API (use their S3-compatible endpoint instead)
+- Local filesystem / on-disk storage
+
+If your provider speaks the S3 API, it will probably work with the generic S3 provider config. If it doesn't, Pushduck is not the right tool.
+
+## No built-in authentication or authorization
+
+Pushduck ships `middleware` hooks on the router, but the **auth logic itself is yours to write**. It does not:
+
+- Ship integrations with Clerk, Auth.js, BetterAuth, Lucia, or any auth library
+- Verify tokens or sessions on your behalf
+- Enforce per-user quotas or rate limits
+
+Every example in the docs shows `middleware: async ({ req }) => { const user = await yourAuth(req); if (!user) throw new Error("Unauthorized"); return { userId: user.id }; }` — that's the entire auth story. You wire it, Pushduck trusts you.
+
+## No admin dashboard, no hosted service, no managed anything
+
+Pushduck is a library, not a product. There is no:
+
+- Web dashboard to view uploaded files
+- Hosted bucket / managed storage
+- Analytics on upload activity
+- Billing / quotas / multi-tenant management
+
+You bring the bucket, you bring the server, you bring the auth. Pushduck handles the presign dance and the client upload loop. That is the entire product.
+
+---
+
+If any of these limitations are blockers for you, please [open an issue](https://github.com/abhay-ramesh/pushduck/issues) — some of them (Vue/Svelte hooks, a non-TS client contract spec, a GCS adapter) are on the roadmap and community input helps prioritize.

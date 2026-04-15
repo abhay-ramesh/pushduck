@@ -45,6 +45,7 @@ Upload files directly to S3-compatible storage with just 3 lines of code. No hea
 - **Edge Runtime** - Runs on Vercel Edge, Cloudflare Workers, and more
 - **Progress Tracking** - Real-time progress, upload speed, and ETA estimation
 - **Lifecycle Callbacks** - Complete upload control with `onStart`, `onProgress`, `onSuccess`, and `onError`
+- **Unopinionated** - You control auth, processing, and storage lifecycle
 - **Storage Operations** - Complete file management API (list, delete, metadata)
 - **Production Ready** - Used in production by many applications
 
