@@ -1,416 +1,237 @@
 ---
 title: Roadmap
-description: Discover pushduck's development roadmap for 2025-2026. See upcoming features including enterprise tools, mobile SDKs, AI integration, and advanced upload controls like resumable uploads.
+description: What Pushduck has shipped, what's actively being worked on, and what's next. Structured by intent, not by quarter.
 icon: Map
 ---
 
 import { Callout } from "fumadocs-ui/components/callout";
-import { Card, Cards } from "fumadocs-ui/components/card";
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
-import { File, Folder, Files } from "fumadocs-ui/components/files";
-import { TypeTable } from "fumadocs-ui/components/type-table";
 
-## Development Roadmap
+## How to read this roadmap
 
-Our mission is to make file uploads **simple**, **secure**, and **scalable** for every developer and every use case.
+Pushduck's roadmap is structured by **intent**, not by quarter. Dates rot; intent doesn't.
 
-## Completed
+- **Shipped** — in the current version, works today
+- **In progress** — actively being touched right now
+- **Next** — committed, near-term, not yet started
+- **Later** — aspirational, meaningful work, no commitment to dates
+- **Under consideration** — not committed, driven by demand
+- **Not doing** — explicit out-of-scope, belongs in your code or in a recipe
 
-### Core Foundation
-✅ **Universal Compatibility** - Works with 16+ frameworks and edge runtimes  
-✅ **Type-Safe APIs** - Full TypeScript inference from server to client  
-✅ **Multi-Provider Support** - AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO  
-✅ **Production Security** - Presigned URLs, file validation, CORS handling  
-✅ **Developer Experience** - Property-based client, comprehensive error handling  
-✅ **Overall Progress Tracking** - Now provides real-time aggregate progress metrics
-- `progress` - 0-100% completion across all files
-- `uploadSpeed` - Combined transfer rate in bytes/second  
-- `eta` - Overall time remaining in seconds
-
-### Setup & Tooling
-✅ **Interactive CLI** - Guided setup with smart defaults and auto-detection  
-✅ **Code Generation** - Type-safe API routes and client components  
-✅ **Framework Detection** - Automatic Next.js App Router/Pages Router detection  
-✅ **Environment Setup** - Automated credential configuration  
-
-### Documentation & Examples
-✅ **Comprehensive Docs** - Complete API reference and integration guides  
-✅ **Live Examples** - Working demos for all supported frameworks  
-✅ **Migration Guides** - Step-by-step migration from other solutions  
-✅ **Best Practices** - Security, performance, and architecture guidance  
-
-## Current Limitations
-
-### Progress Tracking Constraints
-✅ **Overall Progress Tracking** - Now provides real-time aggregate progress metrics
-- `progress` - 0-100% completion across all files
-- `uploadSpeed` - Combined transfer rate in bytes/second  
-- `eta` - Overall time remaining in seconds
-
-### Upload Control Limitations
-Current upload management has constraints for handling real-world scenarios.
-
-**The following features are NOT yet implemented but are planned for Q3 2025:**
-
-❌ **No Resumable Uploads** - Cannot resume interrupted uploads from where they left off  
-❌ **No Pausable Uploads** - Cannot pause ongoing uploads and resume later  
-❌ **No Cancel Support** - Cannot cancel individual uploads in progress  
-❌ **Limited Network Resilience** - No automatic retry on network failures or connection switching  
-
-These features are actively being designed and will be released based on community feedback and use case requirements.
-
-## 🚧 In Progress
-
-### Developer Experience
-🚧 **Enhanced Error Messages** - Contextual help and troubleshooting suggestions  
-🚧 **Testing Utilities** - Mock S3 providers and testing helpers for CI/CD  
-🚧 **Performance Profiling** - Debugging hooks for upload performance analysis  
-
-## 📋 Planned
-
-### Q3 2025 - Core Upload Features
-- ✅ **Enhanced Hook APIs** - onProgress callbacks and advanced upload state management (with `onStart` lifecycle)
-- **Advanced Upload Control** - Resumable, pausable uploads with cancel support and network resilience
-- **Upload Queue Management** - Concurrent upload limits, prioritization, and bandwidth throttling
-- **Chunk Upload Optimization** - Configurable chunk sizes and parallel chunk uploads for large files
-- **Better Error Recovery** - Automatic retry with exponential backoff and network change detection
-
-### Q4 2025 - Framework Support
-- ✅ **Mobile SDKs** - React Native and Expo support via `pushduck/react-native`
-- **Additional Framework Adapters** - Astro, Qwik, Solid.js, and Fresh
-- **Testing Framework** - Built-in test utilities and mock providers
-- **Migration Tools** - Automated migration from uploadthing, uppy, and other libraries
-
-### Q1 2026 - Developer Experience
-- **Enhanced TypeScript** - Better type inference and IDE support
-- **Plugin System** - Hooks-based extension system for custom upload logic
-- **Debug Mode** - Detailed logging and upload lifecycle visualization
-- **Performance Monitoring Hooks** - Metrics collection for custom analytics integration
-
-### Q2 2026 - Integration Ecosystem
-- **Integration Guides** - Documented patterns for Sharp, FFmpeg, Cloudflare Images, etc.
-- **Example Applications** - Production-ready examples for common use cases
-- **Community Adapters** - Framework adapters maintained by the community
-- **Best Practices Library** - Shared configurations and patterns
-
-## Long-term Vision
-
-### Stay Focused, Stay Lightweight
-
-Pushduck will remain a **focused upload library**, not a platform. Our mission:
-
-> "The fastest, most lightweight way to add S3 file uploads to any web application"
-
-**What we'll always prioritize:**
-- 🪶 **Minimal bundle size** - Keep dependencies light
-- 🎯 **Core upload features** - Do one thing exceptionally well  
-- 🔧 **Extensibility** - Provide hooks, not built-in features for everything
-- 📚 **Integration guides** - Document how to integrate with other tools
-- 🌍 **Universal compatibility** - Work everywhere JavaScript runs
-
-**What we won't build:**
-- ❌ File processing (use Sharp, FFmpeg, etc.)
-- ❌ Content moderation (use Cloudflare, AWS services)
-- ❌ Analytics dashboards (provide hooks for your analytics)
-- ❌ Team management (that's your app's concern)
-- ❌ Platform features (we're a library, not a SaaS)
-
-<Callout type="info">
-  📖 **Read our full philosophy** - For detailed scope boundaries, integration patterns, and decision framework, see [Philosophy & Scope](/docs/philosophy)
-</Callout>
-
-## Ideas & Suggestions
-
-Have ideas for pushduck? We'd love to hear them!
-
-- [Feature Requests](https://github.com/abhay-ramesh/pushduck/discussions/categories/ideas)
-- [Community Discord](https://pushduck.dev/discord)
-- [GitHub Issues](https://github.com/abhay-ramesh/pushduck/issues)
-
-## Contributing
-
-Want to help build the future of file uploads? Check out our [Contributing Guide](https://github.com/abhay-ramesh/pushduck/blob/main/CONTRIBUTING.md) to get started.
-
-### Current Priorities
-We're actively looking for contributors in these areas:
-
-- **Core Upload Features** - Resumable uploads, better error recovery
-- **Framework Adapters** - Help us support more frameworks and platforms
-- **Documentation** - Improve guides, examples, and API documentation  
-- **Testing** - Expand test coverage and add integration tests
-- **Performance** - Optimize bundle size and runtime performance
-- **Integration Guides** - Document patterns for common tools (Sharp, FFmpeg, etc.)
+See [Philosophy](/docs/philosophy) for why the scope is what it is. See [Limitations](/docs/limitations) for the honest list of what the current version doesn't do.
 
 ---
 
-*Last updated: June 2025*
+## Shipped
 
-<Callout type="info">
-  This roadmap is community-driven. **Your feedback shapes our priorities.**
-  Join our [Discord](https://pushduck.dev/discord) or open an issue on
-  [GitHub](https://github.com/abhay-ramesh/pushduck) to influence what we
-  build next.
-</Callout>
+### Core
 
-## Current Status
+- **Web-standard `Request`/`Response` handler** — works on any runtime that speaks WinterCG. Next.js, Hono, Elysia, Bun, Deno, SvelteKit, Nuxt, Remix, Astro, Cloudflare Workers, Vercel edge, Netlify functions, etc., work without a dedicated adapter.
+- **Typesafe router** with `InferClientRouter<typeof router>` — server and client share types in a TS monorepo.
+- **Middleware chain** with typed metadata flowing through.
+- **Lifecycle hooks**: `onStart`, `onProgress`, `onSuccess`, `onError`, `onUploadComplete`.
+- **Schema chain**: `s3.image()`, `s3.file()`, `.accept()`, `.maxFileSize()`, `.maxFiles()`, `.middleware()`, `.paths()`, `.onUploadComplete()`.
+- **Per-file and aggregate progress tracking** — progress %, upload speed, ETA.
+- **Client-side file metadata passthrough** — attach app-specific metadata on `uploadFiles(files, metadata)` and receive it in server middleware and lifecycle hooks.
 
-We've already solved the core problems that have frustrated developers for years:
+### Providers
 
-✅ **Interactive CLI** - Guided setup with smart defaults and auto-detection  
-**Type Safety** - Full TypeScript inference for upload schemas  
-**Multiple Providers** - Cloudflare R2, AWS S3, Google Cloud, and more  
-**Production Ready** - Used by teams processing millions of uploads  
-**Developer Experience** - Property-based client access with enhanced IntelliSense
+- **AWS S3**
+- **Cloudflare R2**
+- **DigitalOcean Spaces**
+- **MinIO** (self-hosted, dev, testing)
+- Any other S3-compatible provider via the generic AWS config with a custom endpoint (Backblaze B2, Wasabi, Scaleway, Linode, Storj, Tebi, etc.)
 
-## What's Next
+### Framework adapters
 
-### Q3 2025: Core Upload Features
+- **Next.js** (App Router + Pages Router)
+- **Express** (via `toExpressHandler()`)
+- **Fastify** (via `toFastifyHandler()`)
+- Any framework that speaks Web-standard `Request`/`Response` works out of the box without a shim.
 
-<Cards>
-  <Card
-    title="Advanced Upload Control"
-    description="Resumable, pausable, and cancellable uploads"
-  >
-    **Planned for Q3 2025** - Complete control over upload lifecycle with automatic recovery from network issues:
+### Clients
 
-    ```typescript
-    // PLANNED API - Not yet implemented
-    const { files, uploadFiles, pauseUpload, resumeUpload, cancelUpload } = upload.images
-
-    // Pause individual uploads
-    await pauseUpload(fileId)
-    
-    // Resume from where it left off
-    await resumeUpload(fileId)
-    
-    // Cancel with cleanup
-    await cancelUpload(fileId)
-    
-    // Automatic network resilience
-    const config = {
-      retryAttempts: 3,
-      networkSwitchTolerance: true,
-      resumeOnReconnect: true
-    }
-    ```
-
-  </Card>
-
-  <Card
-    title="Upload Queue Management"
-    description="Control concurrent uploads and bandwidth"
-  >
-    Manage upload queues with prioritization and bandwidth throttling:
-
-    ```typescript
-    // PLANNED API
-    const { uploadFiles } = upload.images({
-      queue: {
-        maxConcurrent: 3,
-        maxBandwidth: '5MB/s',
-        priority: 'high'
-      }
-    })
-    ```
-
-  </Card>
-
-  <Card
-    title="Chunk Upload Optimization"
-    description="Configurable chunking for large files"
-  >
-    Optimize large file uploads with configurable chunk sizes and parallel processing:
-
-    ```typescript
-    // PLANNED API
-    const { uploadFiles } = upload.videos({
-      chunking: {
-        chunkSize: '10MB',
-        parallelChunks: 3,
-        retryChunks: true
-      }
-    })
-    ```
-
-  </Card>
-
-  <Card
-    title="Better Error Recovery"
-    description="Automatic retry with exponential backoff"
-  >
-    Robust error handling with automatic retry and network change detection:
-
-    ```typescript
-    // PLANNED API
-    const { uploadFiles } = upload.files({
-      retry: {
-        attempts: 3,
-        exponentialBackoff: true,
-        detectNetworkChange: true
-      }
-    })
-    ```
-
-  </Card>
-</Cards>
-
-### Q4 2025: Framework Support
-
-<Cards>
-  <Card
-    title="Framework Agnostic"
-    description="Support for Vue, Svelte, and vanilla JavaScript"
-  >
-    Complete framework support with the same developer experience:
-
-    <Tabs items={["Vue 3", "Svelte", "Vanilla JS"]} groupId="framework" persist>
-      <Tab value="Vue 3">
-        ```typescript
-        // Vue 3 Composition API
-        import { createUploadClient } from '@pushduck/vue'
-
-        const upload = createUploadClient<AppRouter>({
-          endpoint: '/api/upload'
-        })
-
-        const { files, uploadFiles, isUploading } = upload.imageUpload
-        ```
-      </Tab>
-
-      <Tab value="Svelte">
-        ```typescript
-        // Svelte stores
-        import { uploadStore } from '@pushduck/svelte'
-
-        const upload = uploadStore<AppRouter>('/api/upload')
-
-        // Reactive stores for upload state
-        $: ({ files, isUploading } = $upload.imageUpload)
-        ```
-      </Tab>
-
-      <Tab value="Vanilla JS">
-        ```typescript
-        // Pure JavaScript
-        import { UploadClient } from '@pushduck/core'
-
-        const client = new UploadClient('/api/upload')
-
-        client.upload('imageUpload', files)
-          .on('progress', (progress) => console.log(progress))
-          .on('complete', (urls) => console.log(urls))
-        ```
-      </Tab>
-    </Tabs>
-
-  </Card>
-
-{" "}
-
-<Card title="Mobile Support" description="React Native and Expo compatibility">
-  ✅ Shipped — `pushduck/react-native` provides the same type-safe API for React Native and Expo apps. Pass picker assets from expo-image-picker, expo-document-picker, or react-native-image-picker directly with no field mapping.
-</Card>
-
-  <Card
-    title="Testing Utilities"
-    description="Mock providers and testing helpers"
-  >
-    Built-in mock S3 providers, upload simulation utilities, and testing helpers for comprehensive test coverage in your CI/CD pipeline.
-  </Card>
-</Cards>
-
-## Community Feedback
-
-### What We're Hearing From You
-
-Based on community feedback, GitHub issues, and Discord discussions, here are the most requested **in-scope** features:
-
-**🔥 High Priority:**
-- ✅ **Upload Resume & Retry** - Automatic retry and resume for failed uploads (Q3 2025)
-- **Better Error Messages** - More helpful error descriptions with suggested fixes
-- **Queue Management** - Control concurrent uploads and bandwidth throttling
-- **Progress Customization** - More granular progress tracking hooks
-- **Example Library** - More real-world examples and integration patterns
-
-**💭 Under Discussion:**
-- **GraphQL Integration** - Native GraphQL subscription support for upload progress
-- **Webhook Support** - Custom webhook configuration for upload lifecycle events
-- **Component Library** - Headless UI components for common upload patterns
-- **Performance Profiling** - Built-in profiling tools for debugging upload issues
-
-**Out of Scope:**
-We won't build features like file processing (use Sharp/FFmpeg), content moderation (use specialized services), or platform features (team management, dashboards). We're staying focused as a lightweight upload library.
-
-## How We Prioritize
-
-Our roadmap is driven by three key factors:
-
-1. **Community Impact** - Features that solve real problems for the most developers
-2. **Technical Excellence** - Maintaining our high standards for type safety and DX
-3. **Ecosystem Health** - Building a sustainable, long-term solution
-
-### Voting on Features
-
-Have an idea or want to prioritize something? Here's how to influence our roadmap:
-
-<Cards>
-  <Card title="GitHub Issues" description="Submit detailed feature requests">
-    Use our feature request template with use cases and expected API design. Include code examples and real-world scenarios.
-  </Card>
-
-{" "}
-
-<Card title="Discord Polls" description="Vote on monthly feature priorities">
-  Join our Discord server where we run monthly polls on upcoming features. Your
-  vote directly influences our development priorities.
-</Card>
-
-  <Card title="Community Calls" description="Monthly roadmap discussion">
-    First Friday of every month at 10 AM PT - open to all developers. Share your use cases and help shape the future.
-  </Card>
-</Cards>
-
-## Development Principles
-
-As we build new features, we never compromise on:
-
-- **🪶 Lightweight First** - Bundle size is a feature, not an afterthought
-- **🎯 Focused Scope** - Do one thing (uploads) exceptionally well
-- **📘 Type Safety** - Every feature must have full TypeScript support
-- **🔄 Zero Breaking Changes** - Backward compatibility is non-negotiable
-- **⚡ Performance** - New features can't slow down existing workflows
-- **🔌 Extensibility** - Provide hooks, not built-in everything
-
-<Callout type="info">
-  Follow our [GitHub project board](https://github.com/abhay-ramesh/pushduck/projects) for real-time updates on development progress.
-</Callout>
-
-## Get Involved
-
-This roadmap exists because of developers like you. Here's how to shape the future:
-
-### For Users
-
-- **Share your use case** - Tell us what you're building
-- **Report pain points** - What's still too complicated?
-- **Request integrations** - Which providers or tools do you need?
-
-### For Contributors
-
-- **Code contributions** - Check our [contributing guide](https://github.com/abhay-ramesh/pushduck/blob/main/CONTRIBUTING.md)
-- **Documentation** - Help improve examples and guides
-- **Community support** - Answer questions in Discord and GitHub
-
-### For Organizations
-
-- **Sponsorship** - Support full-time development
-- **Enterprise feedback** - Share your scale challenges
-- **Partnership** - Integrate pushduck with your platform
+- **`pushduck/client`** — React hook (`useUploadRoute`) with property-based client (`createUploadClient`).
+- **`pushduck/react-native`** — React Native / Expo with direct picker-asset support. Pass assets from `expo-image-picker`, `expo-document-picker`, or `react-native-image-picker` directly; no field mapping.
 
 ---
 
-<Callout type="success">
-  **Ready to build the future of file uploads?** Join our [Discord
-  community](https://pushduck.dev/discord) and help us make file
-  uploads delightful for every Next.js developer.
+## In progress
+
+- **Documentation and scope alignment** — cleaning up the docs site, adding the [Limitations](/docs/limitations) page, aligning the roadmap with what's actually shipped and planned.
+- **v1.0 API stabilization** — locking down the public API surface for semver stability ahead of v1.0.
+
+---
+
+## Next
+
+These items are committed. They will ship, and they're the focus after the current in-progress work lands.
+
+### Security and correctness
+
+Before anything else. These are small, high-value fixes surfaced by code review.
+
+- **Verify `Content-Length` is signed** in presigned PUT URLs. If not, enforce server-side size limits via header signing so client-declared sizes can't be spoofed.
+- **Error-to-status-code mapping** in the universal handler. Thrown middleware errors should return `401`/`403`/`400` with the right shape, not always `500`.
+- **Body-size limit on `/presign`** — closes a DoS vector where a hostile client POSTs a huge JSON metadata blob.
+- **Replace `console.error` with the structured logger** in the universal handler.
+- **Integration tests against MinIO in CI** — end-to-end presign → PUT → complete against a real S3-compatible server in Docker. Catches signing regressions unit tests miss.
+
+### Recipes library
+
+A first-party collection of copy-paste snippets for common integrations. Lives at `docs/content/docs/recipes/` and renders as its own section in the sidebar.
+
+Planned first set:
+
+- `recipes/nextjs-starter` — minimal App Router setup with typed route + client hook
+- `recipes/clerk-middleware` — auth middleware using Clerk
+- `recipes/authjs-middleware` — auth middleware using Auth.js
+- `recipes/betterauth-middleware` — auth middleware using BetterAuth
+- `recipes/sharp-thumbnails` — thumbnail generation in `onUploadComplete`
+- `recipes/exif-stripping` — strip GPS/metadata from photos before storing
+- `recipes/clamav-scan` — virus scanning via ClamAV
+- `recipes/rate-limiting` — per-user upload quota in middleware
+- `recipes/db-record` — write an upload row to Postgres / SQLite / Drizzle
+- `recipes/retry-on-failure` — wrap `uploadFiles` with exponential backoff
+
+Recipes are standalone, framework-agnostic, and work without any CLI.
+
+### ShadCN-style CLI
+
+`pushduck add <recipe>` — a thin command that downloads a recipe from the repo and writes it into the user's codebase. The CLI does almost nothing; the recipes do the work.
+
+```bash
+npx pushduck add nextjs-starter
+npx pushduck add clerk-middleware
+npx pushduck add sharp-thumbnails
+```
+
+**Design principles for the CLI:**
+
+- No framework detection magic — the user picks the recipe, the CLI copies the file
+- No installing extra packages — each recipe is self-contained TypeScript that drops into the codebase
+- No rewriting existing files — the CLI only creates new files and prompts the user to wire them up
+- Tiny: ~100 lines, no detection logic, no AST manipulation
+
+This is the ShadCN CLI pattern applied to upload recipes. The previous CLI attempt was fragile because it tried to auto-detect the user's framework and edit their config files. This version doesn't do any of that.
+
+### Framework-agnostic core
+
+Extract a pure-JS upload state store (~100-200 lines, no React, no dependencies) from the current React hook. Once extracted, each framework binding becomes a thin (~50 line) wrapper subscribing to the same store.
+
+This is a prerequisite for Vue and Svelte support.
+
+### Vue support
+
+**`pushduck/vue`** — Composition API composable (`useUploadRoute`) with the same typesafe router and progress semantics as the React hook. Targets Vue 3 Composition API and pairs naturally with Nuxt.
+
+### Svelte support
+
+**`pushduck/svelte`** — Svelte store wrapping the same core. Works with SvelteKit out of the box; compatible with Svelte 4 stores and Svelte 5 runes.
+
+---
+
+## Later
+
+Meaningful work, aspirational timeline, no hard commitment.
+
+### Multipart uploads
+
+Support for files larger than 5 GB (S3's single-PUT limit). Uses the S3 multipart upload API — client-side chunking, parallel part uploads, server-side session tracking, commit/abort logic.
+
+This is a substantial feature. It roughly doubles the library's surface area — part orchestration, session state, client-side resume tokens, partial-state cleanup when a browser tab dies. It's a major-version effort, not a weekend add.
+
+### Resumable uploads
+
+Once multipart lands, resumable uploads come naturally as a follow-up. The client tracks which parts have committed and can resume from the last committed part after a network failure. May adopt the tus protocol or build on top of S3 multipart directly.
+
+Together with multipart, this is the biggest gap the library has compared to heavier alternatives.
+
+### Solid support
+
+**`pushduck/solid`** — signal-based primitives. Drops out of the framework-agnostic core once that's extracted, so the work is ~a day once the core is ready.
+
+### Vanilla JS / Web Components
+
+Raw subscribe-based API without any framework runtime. Targets embedding in any page without React/Vue/Svelte — smallest surface area once the core is extracted.
+
+### GCS (native)
+
+Google Cloud Storage via GCS's native REST API, not the S3 interop layer. The S3 interop already works for basic operations, but a native adapter unlocks GCS-specific features (object holds, retention policies, resumable session URIs) that interop doesn't expose.
+
+### Vercel Blob
+
+Vercel's storage service — new, growing in the Vercel ecosystem, fits the edge-first narrative. Thin adapter over the Vercel Blob API.
+
+### Service-worker background uploads
+
+Survive tab close and mobile backgrounding. Separate service worker with IndexedDB-backed queue. Significant work and a different mental model from the main upload flow; shipped only if enough users hit the "my upload died when I switched apps" problem.
+
+### Path-based action routing
+
+Replace `?action=presign` / `?action=complete` query-param routing with `/api/upload/{route}/presign` path segments. Better for CDN caching, observability, and CORS. Breaking change — held for v1.0 or v2.0.
+
+---
+
+## Under consideration
+
+Not committed. Prioritized based on user demand.
+
+- **Azure Blob Storage** — different API surface from S3 (SAS tokens, different signing). Large enterprise market. Ships if demand is real.
+- **Supabase Storage** — S3 under the hood with a REST wrapper. May already work via the MinIO/S3 generic config depending on endpoint — needs verification. If not, a thin Supabase adapter.
+- **Filesystem / "dev-local" provider** — "upload straight to a folder on my server" breaks the client → presigned URL → storage architecture entirely. **The current answer is: run MinIO in Docker** — it's an S3-compatible server that stores to disk, works with Pushduck today, and takes 30 seconds to start (`docker run minio/minio server /data`). A native filesystem provider would ship only if the MinIO path genuinely doesn't fit real use cases.
+- **Angular support** — different paradigm, non-trivial effort. Not currently planned unless demand materializes.
+- **Backblaze B2 native** — B2's S3-compatible endpoint already works today. Only add value if the S3 endpoint lacks something users need.
+- **iCloud / cross-provider mirroring** — out of scope for the library, but could be a recipe if users build it.
+
+---
+
+## Not doing
+
+These belong in **your code** (or in a [recipe](#recipes-library)), not in the library. The same scope discipline that keeps Pushduck a thin library also keeps it from turning into a platform.
+
+- **File processing** — thumbnail generation, EXIF stripping, format conversion, resizing. Use Sharp, FFmpeg, Jimp, or ImageMagick in your `onUploadComplete` handler. Recipes provided.
+- **Virus / malware scanning** — use ClamAV, VirusTotal, or a hosted scanner in `onUploadComplete`. Recipe provided.
+- **Authentication integrations** — `middleware` hook accepts any async function. Recipes provided for Clerk, Auth.js, BetterAuth, Lucia.
+- **Admin dashboard** — Pushduck is a library, not a platform.
+- **Hosted service / managed storage** — you bring the bucket.
+- **Team management, billing, multi-tenant quotas** — application concerns.
+- **GraphQL integration** — out of scope. Upload mechanics are REST; use GraphQL above the upload layer for metadata.
+- **Webhooks** — write them in your `onUploadComplete` handler. Recipe provided.
+- **Built-in analytics** — surface lifecycle events; you wire Plausible, PostHog, Segment, or whatever.
+- **Built-in upload UI components** — headless state, yes. Styled components, no. Recipes provide examples you can copy and restyle.
+
+---
+
+## What's changed since the previous roadmap
+
+- **React Native support shipped** (v0.5.0) — `pushduck/react-native` with direct picker-asset support from `expo-image-picker`, `expo-document-picker`, and `react-native-image-picker`.
+- **Schema unification** (v0.6.0) — `accept()` replaces the older separate `types`, `formats`, and `extensions` methods into a single call.
+- **Chain order flexibility** — `maxFileSize`, `maxFiles`, `accept` can be chained in any order on schemas.
+- **ACL header signing fix** — presigned URLs now sign only the ACL header as required, not the full header set.
+- **Middleware request type** — `middleware({ req: Request })` is properly typed with the Web-standard `Request`, not `any`.
+- **Nullish coalescing** for provider config defaults — prevents `0` and empty strings from being silently overridden.
+
+---
+
+## How to influence the roadmap
+
+The "Under consideration" and "Later" sections change based on what users actually need. If your use case is blocked by something in those lists:
+
+- [Propose it in Ideas](https://github.com/abhay-ramesh/pushduck/discussions/categories/ideas) — or upvote an existing post if someone already asked. Upvotes are how I decide what to promote from "Later" to "Next".
+- [Ask in Q&A](https://github.com/abhay-ramesh/pushduck/discussions/categories/q-a) if you need help with something that already exists but isn't working for you.
+- [Open an issue](https://github.com/abhay-ramesh/pushduck/issues) for bugs or for feature work that's already been committed to.
+
+<Callout type="info">
+  Priority goes to concrete use cases, not speculative requests. "I'm shipping a video upload feature and need multipart for files larger than 5 GB" is more actionable than "it would be nice to have multipart someday."
 </Callout>
+
+## Principles
+
+As features land, these don't get compromised:
+
+- **Small bundle** — every KB added to the client bundle is justified
+- **Focused scope** — do one thing (S3 uploads) exceptionally well; hooks for everything else
+- **Type safety** — every new feature has full TypeScript inference
+- **Backward compatibility** — no gratuitous breaking changes; when they're necessary, they come with a migration guide
+- **Universal by default** — features work on Workers, Bun, Deno, and Node without special cases
+- **Unopinionated** — you control auth, processing, persistence, and UX; Pushduck owns the transport and signing
