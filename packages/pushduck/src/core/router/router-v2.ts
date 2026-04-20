@@ -991,7 +991,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         const presignedUrl = await generatePresignedDownloadUrl(
           this.config,
           completion.key,
-          3600
+          routeConfig.expiresIn
         );
 
         // Call onUploadComplete hook
