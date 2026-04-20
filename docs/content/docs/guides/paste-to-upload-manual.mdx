@@ -1,0 +1,588 @@
+---
+title: Manual Paste to Upload Implementation
+description: Learn how to implement paste-to-upload functionality manually using useUploadRoute hook
+icon: Code
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { TypeTable } from "fumadocs-ui/components/type-table";
+
+## Manual Implementation Guide
+
+If you want to implement paste-to-upload yourself using the existing `useUploadRoute` hook, this guide shows you how. This gives you full control over the implementation and allows for custom behavior.
+
+<Callout type="info">
+  For most use cases, we recommend using the `usePasteUpload` hook. This guide is for developers who want custom behavior or to understand how it works under the hood.
+</Callout>
+
+## Basic Implementation
+
+Here's a minimal example of paste-to-upload using `useUploadRoute`:
+
+```typescript
+"use client";
+
+import { useUploadRoute } from "pushduck/client";
+import { useEffect } from "react";
+
+export function ManualPasteUpload() {
+  const { uploadFiles, files, isUploading } = useUploadRoute("imageUpload", {
+    endpoint: "/api/upload",
+  });
+
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      // Check if clipboard has files
+      if (!event.clipboardData) return;
+
+      const items = Array.from(event.clipboardData.items);
+      const fileItems = items.filter((item) => item.kind === "file");
+
+      if (fileItems.length === 0) return;
+
+      // Extract files
+      const files: File[] = [];
+      for (const item of fileItems) {
+        const file = item.getAsFile();
+        if (file) {
+          files.push(file);
+        }
+      }
+
+      if (files.length > 0) {
+        // Upload files
+        uploadFiles(files);
+      }
+    };
+
+    // Attach paste listener
+    document.addEventListener("paste", handlePaste);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener("paste", handlePaste);
+    };
+  }, [uploadFiles]);
+
+  return (
+    <div>
+      {isUploading && <div>Uploading...</div>}
+      {files.map((file) => (
+        <img key={file.id} src={file.url} alt={file.name} />
+      ))}
+    </div>
+  );
+}
+```
+
+## Complete Implementation with Preview
+
+Here's a full implementation with image previews:
+
+<Tabs items={["Full Example", "With Input Field Support", "Container Scope"]}>
+  <Tab value="Full Example">
+```typescript
+"use client";
+
+import { useUploadRoute } from "pushduck/client";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+interface PreviewFile {
+  id: string;
+  file: File;
+  preview: string; // blob URL
+}
+
+export function ManualPasteWithPreview() {
+  const [previewFiles, setPreviewFiles] = useState<PreviewFile[]>([]);
+  const previewUrlsRef = useRef<Set<string>>(new Set());
+
+  const { uploadFiles, files, isUploading } = useUploadRoute("imageUpload", {
+    endpoint: "/api/upload",
+    onSuccess: () => {
+      // Clear previews after upload
+      clearPreviews();
+    },
+  });
+
+  // Clean up preview URLs
+  const clearPreviews = useCallback(() => {
+    previewUrlsRef.current.forEach((url) => {
+      URL.revokeObjectURL(url);
+    });
+    previewUrlsRef.current.clear();
+    setPreviewFiles([]);
+  }, []);
+
+  // Create preview for a file
+  const createPreview = useCallback((file: File): PreviewFile => {
+    const previewUrl = URL.createObjectURL(file);
+    previewUrlsRef.current.add(previewUrl);
+
+    return {
+      id: `${Date.now()}-${Math.random()}`,
+      file,
+      preview: previewUrl,
+    };
+  }, []);
+
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      if (!event.clipboardData) return;
+
+      const items = Array.from(event.clipboardData.items);
+      const fileItems = items.filter((item) => item.kind === "file");
+
+      if (fileItems.length === 0) return;
+
+      // Extract files
+      const files: File[] = [];
+      for (const item of fileItems) {
+        const file = item.getAsFile();
+        if (file && file.type.startsWith("image/")) {
+          files.push(file);
+        }
+      }
+
+      if (files.length > 0) {
+        // Create previews
+        const previews = files.map(createPreview);
+        setPreviewFiles((prev) => [...prev, ...previews]);
+      }
+    };
+
+    document.addEventListener("paste", handlePaste);
+
+    return () => {
+      document.removeEventListener("paste", handlePaste);
+      clearPreviews();
+    };
+  }, [createPreview, clearPreviews]);
+
+  const handleUpload = () => {
+    const filesToUpload = previewFiles.map((p) => p.file);
+    uploadFiles(filesToUpload);
+  };
+
+  return (
+    <div>
+      {previewFiles.length > 0 && (
+        <div>
+          <div className="preview-grid">
+            {previewFiles.map((preview) => (
+              <div key={preview.id}>
+                <img src={preview.preview} alt={preview.file.name} />
+              </div>
+            ))}
+          </div>
+          <button onClick={handleUpload} disabled={isUploading}>
+            Upload {previewFiles.length} Image{previewFiles.length !== 1 ? "s" : ""}
+          </button>
+          <button onClick={clearPreviews}>Clear</button>
+        </div>
+      )}
+      {isUploading && <div>Uploading...</div>}
+    </div>
+  );
+}
+```
+  </Tab>
+  <Tab value="With Input Field Support">
+```typescript
+"use client";
+
+import { useUploadRoute } from "pushduck/client";
+import { useEffect } from "react";
+
+export function ManualPasteWithInputSupport() {
+  const { uploadFiles, files, isUploading } = useUploadRoute("imageUpload", {
+    endpoint: "/api/upload",
+  });
+
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      if (!event.clipboardData) return;
+
+      // Check if clipboard has files
+      const items = Array.from(event.clipboardData.items);
+      const hasFiles = items.some((item) => item.kind === "file");
+
+      if (!hasFiles) {
+        // No files, allow normal paste behavior
+        return;
+      }
+
+      // Check if paste is from input/textarea
+      const target = event.target;
+      const isInput =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement;
+
+      if (isInput) {
+        // Extract files
+        const fileItems = items.filter((item) => item.kind === "file");
+        const files: File[] = [];
+
+        for (const item of fileItems) {
+          const file = item.getAsFile();
+          if (file) {
+            files.push(file);
+          }
+        }
+
+        if (files.length > 0) {
+          // Prevent default text paste
+          event.preventDefault();
+          // Upload files
+          uploadFiles(files);
+        }
+      } else {
+        // Not in input, process normally
+        const fileItems = items.filter((item) => item.kind === "file");
+        const files: File[] = [];
+
+        for (const item of fileItems) {
+          const file = item.getAsFile();
+          if (file) {
+            files.push(file);
+          }
+        }
+
+        if (files.length > 0) {
+          uploadFiles(files);
+        }
+      }
+    };
+
+    document.addEventListener("paste", handlePaste);
+
+    return () => {
+      document.removeEventListener("paste", handlePaste);
+    };
+  }, [uploadFiles]);
+
+  return (
+    <div>
+      <input type="text" placeholder="Type and paste images here..." />
+      {isUploading && <div>Uploading...</div>}
+      {files.map((file) => (
+        <img key={file.id} src={file.url} alt={file.name} />
+      ))}
+    </div>
+  );
+}
+```
+  </Tab>
+  <Tab value="Container Scope">
+```typescript
+"use client";
+
+import { useUploadRoute } from "pushduck/client";
+import { useEffect, useRef } from "react";
+
+export function ManualPasteContainerScope() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { uploadFiles, files, isUploading } = useUploadRoute("imageUpload", {
+    endpoint: "/api/upload",
+  });
+
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      if (!event.clipboardData || !containerRef.current) return;
+
+      // Check if paste target is within container
+      const target = event.target as Node;
+      if (!containerRef.current.contains(target)) {
+        return; // Paste outside container, ignore
+      }
+
+      // Extract files
+      const items = Array.from(event.clipboardData.items);
+      const fileItems = items.filter((item) => item.kind === "file");
+
+      if (fileItems.length === 0) return;
+
+      const files: File[] = [];
+      for (const item of fileItems) {
+        const file = item.getAsFile();
+        if (file) {
+          files.push(file);
+        }
+      }
+
+      if (files.length > 0) {
+        uploadFiles(files);
+      }
+    };
+
+    // Attach to container instead of document
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener("paste", handlePaste);
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener("paste", handlePaste);
+      }
+    };
+  }, [uploadFiles]);
+
+  return (
+    <div>
+      <div
+        ref={containerRef}
+        className="border-2 border-dashed p-8 min-h-[200px]"
+      >
+        <p>Paste images only in this area</p>
+      </div>
+      {isUploading && <div>Uploading...</div>}
+      {files.map((file) => (
+        <img key={file.id} src={file.url} alt={file.name} />
+      ))}
+    </div>
+  );
+}
+```
+  </Tab>
+</Tabs>
+
+## Key Implementation Details
+
+### 1. Clipboard API Access
+
+```typescript
+const handlePaste = (event: ClipboardEvent) => {
+  if (!event.clipboardData) return;
+
+  // Get clipboard items
+  const items = Array.from(event.clipboardData.items);
+
+  // Filter for files
+  const fileItems = items.filter((item) => item.kind === "file");
+
+  // Extract File objects
+  const files: File[] = [];
+  for (const item of fileItems) {
+    const file = item.getAsFile();
+    if (file) {
+      files.push(file);
+    }
+  }
+
+  if (files.length > 0) {
+    uploadFiles(files);
+  }
+};
+```
+
+### 2. Event Listener Setup
+
+```typescript
+useEffect(() => {
+  // Document scope (paste anywhere)
+  document.addEventListener("paste", handlePaste);
+
+  // OR container scope (paste in specific area)
+  const container = containerRef.current;
+  if (container) {
+    container.addEventListener("paste", handlePaste);
+  }
+
+  // Cleanup
+  return () => {
+    document.removeEventListener("paste", handlePaste);
+    // OR
+    if (container) {
+      container.removeEventListener("paste", handlePaste);
+    }
+  };
+}, [handlePaste]);
+```
+
+### 3. Input Field Detection
+
+```typescript
+const handlePaste = (event: ClipboardEvent) => {
+  const target = event.target;
+  const isInput =
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement;
+
+  if (isInput) {
+    // Check if clipboard has files
+    const hasFiles = /* ... */;
+    if (hasFiles) {
+      event.preventDefault(); // Prevent text paste
+      uploadFiles(files);
+    }
+    // If no files, allow normal text paste
+  }
+};
+```
+
+### 4. Preview URL Management
+
+```typescript
+const [previewFiles, setPreviewFiles] = useState<PreviewFile[]>([]);
+const previewUrlsRef = useRef<Set<string>>(new Set());
+
+// Create preview
+const previewUrl = URL.createObjectURL(file);
+previewUrlsRef.current.add(previewUrl);
+
+// Cleanup (important!)
+useEffect(() => {
+  return () => {
+    previewUrlsRef.current.forEach((url) => {
+      URL.revokeObjectURL(url); // Free memory
+    });
+  };
+}, []);
+```
+
+### 5. File Validation
+
+```typescript
+const handlePaste = (event: ClipboardEvent) => {
+  // ... extract files ...
+
+  // Validate file type
+  const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+
+  // Validate file size
+  const validFiles = imageFiles.filter((file) => file.size <= 5 * 1024 * 1024); // 5MB
+
+  // Validate file count
+  if (validFiles.length > 5) {
+    alert("Maximum 5 files allowed");
+    return;
+  }
+
+  if (validFiles.length > 0) {
+    uploadFiles(validFiles);
+  }
+};
+```
+
+## Comparison: Manual vs Hook
+
+| Feature | Manual Implementation | usePasteUpload Hook |
+|---------|----------------------|---------------------|
+| **Setup Complexity** | More code required | Simple configuration |
+| **Flexibility** | Full control | Pre-configured options |
+| **Memory Management** | Manual cleanup needed | Automatic cleanup |
+| **Input Field Support** | Manual implementation | Built-in with `allowInputPaste` |
+| **Scope Management** | Manual event handling | Built-in with `scope` prop |
+| **Preview Management** | Manual state management | Built-in with `previewFiles` |
+| **Validation** | Manual validation logic | Built-in with props |
+
+## When to Use Manual Implementation
+
+Use manual implementation when:
+
+- 🎨 **Custom behavior** - You need behavior not supported by the hook
+- 🔧 **Fine-grained control** - You want to customize every aspect
+- 📚 **Learning** - You want to understand how it works
+- 🧩 **Integration** - You're integrating with a complex existing system
+- ⚡ **Performance** - You need to optimize for specific use cases
+
+## Best Practices
+
+1. **Always clean up event listeners** - Prevent memory leaks
+2. **Revoke object URLs** - Free memory from preview URLs
+3. **Validate files** - Check type, size, and count before uploading
+4. **Handle errors gracefully** - Show user-friendly error messages
+5. **Check clipboard API support** - Gracefully degrade if unavailable
+
+## Complete Example: Chat Interface
+
+```typescript
+"use client";
+
+import { useUploadRoute } from "pushduck/client";
+import { useEffect, useState } from "react";
+
+export function ChatWithPasteUpload() {
+  const [message, setMessage] = useState("");
+  const { uploadFiles, files, isUploading } = useUploadRoute("imageUpload", {
+    endpoint: "/api/upload",
+    onSuccess: (results) => {
+      // Add uploaded images to chat
+      console.log("Images uploaded:", results);
+    },
+  });
+
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      if (!event.clipboardData) return;
+
+      const items = Array.from(event.clipboardData.items);
+      const hasFiles = items.some((item) => item.kind === "file");
+
+      if (!hasFiles) return; // Allow normal text paste
+
+      // Check if user is in input
+      const target = event.target;
+      const isInput =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement;
+
+      if (isInput) {
+        // Extract and upload files
+        const fileItems = items.filter((item) => item.kind === "file");
+        const files: File[] = [];
+
+        for (const item of fileItems) {
+          const file = item.getAsFile();
+          if (file && file.type.startsWith("image/")) {
+            files.push(file);
+          }
+        }
+
+        if (files.length > 0) {
+          event.preventDefault(); // Prevent text paste
+          uploadFiles(files);
+        }
+      }
+    };
+
+    document.addEventListener("paste", handlePaste);
+
+    return () => {
+      document.removeEventListener("paste", handlePaste);
+    };
+  }, [uploadFiles]);
+
+  return (
+    <div>
+      <div className="messages">
+        {/* Chat messages */}
+        {files
+          .filter((f) => f.status === "success" && f.url)
+          .map((file) => (
+            <img key={file.id} src={file.url} alt={file.name} />
+          ))}
+      </div>
+      <div className="input-area">
+        <input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Type a message and paste images..."
+        />
+        {isUploading && <span>Uploading image...</span>}
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+<Callout type="success">
+  **Ready to implement:** Use this guide to build custom paste-to-upload functionality with full control over the implementation.
+</Callout>
+
+
