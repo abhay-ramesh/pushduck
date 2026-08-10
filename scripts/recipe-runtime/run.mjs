@@ -83,6 +83,102 @@ await check("Readable.fromWeb bridges a fetch body to a Node stream (regression)
   } finally { server.close(); }
 });
 
+// --- video-transcoding: the real ffmpeg invocation -----------------------
+// Skipped rather than failed when ffmpeg is absent — the recipe is honest that
+// it needs a binary on PATH, so a machine without one is not a recipe bug.
+const { spawnSync, spawn } = await import("node:child_process");
+const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
+
+if (!hasFfmpeg) {
+  results.push([true, "ffmpeg checks SKIPPED (no ffmpeg on PATH)"]);
+} else {
+  await check("ffmpeg transcodes a real video to the documented height", async () => {
+    const { mkdtemp, readFile, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const http = await import("node:http");
+
+    const dir = await mkdtemp(join(tmpdir(), "recipe-ffmpeg-"));
+    try {
+      // Generate a real 1920x1080 source.
+      const src = join(dir, "src.mp4");
+      await new Promise((res, rej) => {
+        const ff = spawn("ffmpeg", ["-f", "lavfi", "-i", "testsrc=size=1920x1080:rate=30:duration=1",
+          "-c:v", "libx264", "-preset", "veryfast", "-y", src], { stdio: "ignore" });
+        ff.on("close", (c) => (c === 0 ? res() : rej(new Error("source generation failed"))));
+      });
+
+      // Serve it the way a presigned URL would, so we exercise HTTP input.
+      const data = await readFile(src);
+      const server = http.createServer((_, res) => {
+        res.writeHead(200, { "Content-Type": "video/mp4", "Content-Length": data.length });
+        res.end(data);
+      });
+      await new Promise((r) => server.listen(0, r));
+      const url = `http://127.0.0.1:${server.address().port}/v.mp4`;
+
+      try {
+        // The exact argument list from the recipe.
+        const out = join(dir, "out.mp4");
+        await new Promise((res, rej) => {
+          const ff = spawn("ffmpeg", ["-i", url, "-vf", "scale=-2:720",
+            "-c:v", "libx264", "-crf", "23", "-preset", "veryfast",
+            "-c:a", "aac", "-movflags", "+faststart", "-y", out],
+            { stdio: ["ignore", "ignore", "pipe"] });
+          let err = "";
+          ff.stderr.on("data", (d) => (err += d));
+          ff.on("close", (c) => (c === 0 ? res() : rej(new Error(`ffmpeg exited ${c}: ${err.slice(-300)}`))));
+        });
+
+        const probe = await new Promise((res) => {
+          let s = "";
+          const p = spawn("ffprobe", ["-v", "error", "-select_streams", "v:0",
+            "-show_entries", "stream=width,height,codec_name", "-of", "json", out]);
+          p.stdout.on("data", (d) => (s += d));
+          p.on("close", () => res(JSON.parse(s).streams[0]));
+        });
+
+        assert.equal(probe.height, 720, `expected 720p, got ${probe.height}`);
+        assert.equal(probe.width, 1280, `expected width 1280 from -2 scaling, got ${probe.width}`);
+        assert.equal(probe.codec_name, "h264");
+      } finally { server.close(); }
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+
+  await check("renditionKey swaps extension and preserves dotfiles", () => {
+    const renditionKey = (key, height) => {
+      const dot = key.lastIndexOf(".");
+      const slash = key.lastIndexOf("/");
+      const base = dot > slash + 1 ? key.slice(0, dot) : key;
+      return `${base}-${height}p.mp4`;
+    };
+    assert.equal(renditionKey("uploads/clip.mov", 720), "uploads/clip-720p.mp4");
+    assert.equal(renditionKey("uploads/.hidden", 720), "uploads/.hidden-720p.mp4");
+  });
+}
+
+// --- virus-scanning: the clamscan API the recipe calls -------------------
+// A full scan needs a running clamd plus a signature database, which this
+// harness does not provision. What can be checked without one: that the
+// methods the recipe calls exist, and that the documented config shape is
+// accepted and actually attempts a connection.
+await check("clamscan exposes init/scanStream and accepts the documented config", async () => {
+  const { default: NodeClam } = await import("clamscan");
+  const inst = new NodeClam();
+  const proto = Object.getOwnPropertyNames(Object.getPrototypeOf(inst));
+  for (const m of ["init", "scanStream", "scanFile", "isInfected"]) {
+    assert.ok(proto.includes(m), `clamscan is missing ${m}`);
+  }
+
+  // Reaching a connection error proves the config keys were accepted rather
+  // than rejected as unknown options.
+  await assert.rejects(
+    () => inst.init({ clamdscan: { host: "127.0.0.1", port: 3310 } }),
+    (e) => /ECONNREFUSED|connect|socket/i.test(e.message),
+    "expected a connection failure without a running clamd"
+  );
+});
+
 // --- the recipe wiring: middleware -> metadata -> onUploadComplete -------
 await check("onUploadComplete fires with key/url/metadata and can enqueue", async () => {
   const { createUploadConfig } = await import("pushduck/server");

@@ -85,20 +85,76 @@ writing derivatives back:
 
 ```typescript
 // worker/transcode.ts — runs wherever your jobs run
+import { spawn } from "node:child_process";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 export async function transcodeJob({ key }: { key: string }) {
+  // ffmpeg reads the presigned URL directly over HTTP — no download step.
   const source = await storage.download.presignedUrl(key, 3600);
+  const output = await transcode(source, 720);
 
-  // ffmpeg -i <source> -vf scale=-2:720 -c:v h264 out.mp4
-  const output = await runFfmpeg(source, { height: 720, codec: "h264" });
-
-  await storage.upload.file(output, key.replace(/\.[^.]+$/, "-720p.mp4"));
+  await storage.upload.file(output, renditionKey(key, 720));
   await db.videos.update({ key, status: "ready" });
 }
+
+async function transcode(source: string, height: number): Promise<Buffer> {
+  const dir = await mkdtemp(join(tmpdir(), "transcode-"));
+  const out = join(dir, "out.mp4");
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const ff = spawn("ffmpeg", [
+        "-i", source,
+        "-vf", `scale=-2:${height}`, // -2 keeps the aspect ratio, even width
+        "-c:v", "libx264", "-crf", "23", "-preset", "veryfast",
+        "-c:a", "aac",
+        "-movflags", "+faststart", // moov atom first, so it streams
+        "-y", out,
+      ], { stdio: ["ignore", "ignore", "pipe"] });
+
+      let stderr = "";
+      ff.stderr.on("data", (d) => (stderr += d));
+      ff.on("error", reject); // ffmpeg not on PATH
+      ff.on("close", (code) =>
+        code === 0
+          ? resolve()
+          : reject(new Error(`ffmpeg exited ${code}: ${stderr.slice(-500)}`))
+      );
+    });
+
+    return await readFile(out);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+// Swap the extension, leaving directories and dotfiles alone.
+function renditionKey(key: string, height: number) {
+  const dot = key.lastIndexOf(".");
+  const slash = key.lastIndexOf("/");
+  const base = dot > slash + 1 ? key.slice(0, dot) : key;
+  return `${base}-${height}p.mp4`;
+}
 ```
+
+<Callout type="info">
+  `scale=-2:720` derives the width from the source aspect ratio and rounds to an
+  even number, which h264 requires — `-1` can produce an odd width and fail.
+  `+faststart` moves the moov atom to the front so the result can be played
+  before it fully downloads.
+</Callout>
 
 Note the worker mints its own download URL with the TTL *it* needs, rather than
 relying on the one returned at completion. That is the pattern to copy: persist
 the `key`, mint URLs on demand.
+
+<Callout type="warn">
+  Everything above assumes an `ffmpeg` binary on `PATH` in whatever runs your
+  jobs. That rules out most serverless runtimes — use a container, a VM, or
+  Option 3 below.
+</Callout>
 
 ## Option 3 — Hand off to a service
 

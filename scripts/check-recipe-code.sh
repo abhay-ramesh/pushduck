@@ -46,7 +46,7 @@ TARBALL="$(ls "$WORK"/pushduck-*.tgz | head -1)"
 echo "==> Installing harness dependencies (this takes a minute)"
 cd "$WORK"
 echo '{"name":"recipe-check","version":"1.0.0","private":true}' > package.json
-npm i "$TARBALL" typescript react @types/react @types/node @types/clamscan sharp \
+npm i "$TARBALL" typescript react @types/react @types/node @types/clamscan clamscan sharp \
   >/dev/null 2>&1 || { echo "dependency install failed"; exit 1; }
 
 cat > tsconfig.json <<'JSON'
