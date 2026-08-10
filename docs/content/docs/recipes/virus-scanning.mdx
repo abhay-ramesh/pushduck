@@ -1,0 +1,141 @@
+---
+title: Virus scanning
+description: Scan uploads after they land and quarantine anything infected.
+icon: ShieldAlert
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+Presigned uploads go **straight from the browser to your bucket**. Your server
+never sees the bytes, so there is no point in the flow where it could scan them
+on the way past. Anything accepting user uploads has to scan after the fact.
+
+<Callout type="warn">
+  Treat an object as untrusted until it has been scanned. The window between
+  "uploaded" and "scanned" is real — do not serve the file, and do not hand its
+  key to another user, during that window.
+</Callout>
+
+## Quarantine by default
+
+The simplest correct design is a status field that starts out unsafe.
+
+```typescript
+// app/api/upload/route.ts
+const router = s3.createRouter({
+  attachmentUpload: s3
+    .file()
+    .maxFileSize("25MB")
+    .middleware(async ({ req }) => {
+      const user = await authenticate(req);
+      return { userId: user.id };
+    })
+    .onUploadComplete(async ({ key, file, metadata }) => {
+      await db.attachments.create({
+        key,
+        name: file.name,
+        ownerId: metadata.userId,
+        status: "pending-scan", // nothing serves this yet
+      });
+
+      await queue.enqueue("scan", { key });
+    }),
+});
+```
+
+Your read path filters on status, so an unscanned object is invisible by
+construction rather than by remembering to check.
+
+```typescript
+const files = await db.attachments.findMany({
+  where: { ownerId: userId, status: "clean" },
+});
+```
+
+<Callout type="warn">
+  One filtered query is not enough. Any other route, admin view or background
+  job that lists objects can still serve a `pending-scan` file, and a public
+  bucket bypasses your database entirely. Keep the bucket **private**, and make
+  the status check a precondition of *minting a URL* rather than of one listing:
+
+  ```typescript
+  export async function downloadUrl(key: string, userId: string) {
+    const row = await db.attachments.findUnique({ where: { key } });
+    if (!row || row.ownerId !== userId) throw new Error("Not found");
+    if (row.status !== "clean") throw new Error("File is still being scanned");
+    return storage.download.presignedUrl(key, 300);
+  }
+  ```
+
+  With that as the only way to obtain a URL, "unscanned" and "unreachable" are
+  the same thing.
+</Callout>
+
+## The scanner
+
+[ClamAV](https://www.clamav.net/) is the usual open-source choice, typically run
+as a long-lived service rather than spawned per file — loading its signature
+database takes seconds.
+
+```typescript
+// worker/scan.ts
+import NodeClam from "clamscan";
+import { Readable } from "node:stream";
+
+const clam = await new NodeClam().init({
+  clamdscan: { host: process.env.CLAMD_HOST, port: 3310 },
+});
+
+export async function scanJob({ key }: { key: string }) {
+  const url = await storage.download.presignedUrl(key, 600);
+  const response = await fetch(url);
+
+  // clamscan wants a Node stream; fetch gives a web ReadableStream.
+  const stream = Readable.fromWeb(response.body as never);
+  const { isInfected, viruses } = await clam.scanStream(stream);
+
+  if (isInfected) {
+    await storage.delete.file(key);
+    await db.attachments.update({ key, status: "infected", viruses });
+    return;
+  }
+
+  await db.attachments.update({ key, status: "clean" });
+}
+```
+
+Streaming the object into the scanner avoids buffering a 25MB file in memory.
+
+<Callout type="info">
+  `Readable.fromWeb` is the bridge between `fetch`'s web stream and the Node
+  stream `clamscan` expects. Passing `response.body` straight in fails at
+  runtime — the two stream types are not interchangeable.
+</Callout>
+
+## Hosted alternatives
+
+Running ClamAV means running a service and keeping signatures current. Hosted
+options take a URL or bytes and hand back a verdict:
+
+- [VirusTotal](https://www.virustotal.com/) — many engines, rate-limited, public
+  submissions on the free tier
+- [Cloudmersive](https://cloudmersive.com/virus-api) — straightforward API
+- [AWS GuardDuty Malware Protection for S3](https://aws.amazon.com/guardduty/) —
+  scans on `PutObject` with no queue of your own; tags the object with the result
+
+The GuardDuty route is worth a look precisely because it needs no recipe: it
+hooks the bucket rather than your application.
+
+## Deleting versus keeping
+
+Deleting on detection is simplest and is what the code above does. If you need
+an audit trail, move the object to a quarantine bucket no application role can
+read, and record why. Do not leave an infected object in the same bucket with
+only a database flag protecting it — one missing `WHERE` clause and it is live.
+
+## What this recipe doesn't cover
+
+Archive bombs and deeply nested archives (cap decompression depth in ClamAV),
+scanner downtime and the resulting backlog, re-scanning stored files when
+signatures update, and the false-positive path — someone has to be able to
+appeal, and that is a product decision.

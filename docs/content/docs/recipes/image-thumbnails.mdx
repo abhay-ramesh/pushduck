@@ -1,0 +1,137 @@
+---
+title: Image thumbnails
+description: Generate responsive derivatives with Sharp after upload.
+icon: Image
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+Pushduck stores the original. Generating a thumbnail set is one hook away, using
+[Sharp](https://sharp.pixelplumbing.com/) — which is faster and better tested
+than anything a first-party feature would ship.
+
+## The route
+
+```typescript
+// app/api/upload/route.ts
+import { createUploadConfig } from "pushduck/server";
+
+const { s3 } = createUploadConfig()
+  .provider("aws", {
+    bucket: process.env.AWS_BUCKET_NAME!,
+    region: process.env.AWS_REGION!,
+  })
+  .build();
+
+const router = s3.createRouter({
+  imageUpload: s3
+    .image()
+    .maxFileSize("10MB")
+    .onUploadComplete(async ({ key }) => {
+      await queue.enqueue("thumbnail", { key, widths: [320, 768, 1600] });
+    }),
+});
+
+export const { GET, POST } = router.handlers;
+```
+
+<Callout type="warn">
+  Enqueue rather than resizing inline. Sharp on a 10MB source takes hundreds of
+  milliseconds to seconds, and `onUploadComplete` runs inside the client's
+  completion request.
+</Callout>
+
+## The worker
+
+```typescript
+// worker/thumbnail.ts
+import sharp from "sharp";
+
+export async function thumbnailJob({ key, widths }: { key: string; widths: number[] }) {
+  const source = await storage.download.presignedUrl(key, 3600);
+  const original = Buffer.from(await (await fetch(source)).arrayBuffer());
+
+  await Promise.all(
+    widths.map(async (width) => {
+      const resized = await sharp(original)
+        .resize({ width, withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toBuffer();
+
+      await storage.upload.file(resized, derivedKey(key, width));
+    })
+  );
+}
+
+// Swap the extension for the derivative's, leaving directories alone.
+const derivedKey = (key: string, width: number) => {
+  const dot = key.lastIndexOf(".");
+  const slash = key.lastIndexOf("/");
+  // `dot > slash + 1` keeps dotfiles intact — ".env" has no extension to swap.
+  const base = dot > slash + 1 ? key.slice(0, dot) : key;
+  return `${base}-${width}w.webp`;
+};
+```
+
+## Deriving keys predictably
+
+If derivative keys are a pure function of the original key, you never need to
+store them — the client can construct the URL it wants.
+
+<Callout type="warn">
+  This only works if the derivatives are **publicly readable**. On a private
+  bucket a constructed URL returns 403 — the client cannot sign it. Either write
+  derivatives to a public bucket or prefix, or mint the URL server-side with
+  `storage.download.presignedUrl(thumbnailKey(key, 768), 300)` after checking
+  the caller may read it.
+</Callout>
+
+```typescript
+// shared between server and client
+export const thumbnailKey = (key: string, width: number) => {
+  const dot = key.lastIndexOf(".");
+  const slash = key.lastIndexOf("/");
+  const base = dot > slash + 1 ? key.slice(0, dot) : key;
+  return `${base}-${width}w.webp`;
+};
+```
+
+```tsx
+<img
+  src={publicUrl(thumbnailKey(file.key, 768))}
+  srcSet={[320, 768, 1600]
+    .map((w) => `${publicUrl(thumbnailKey(file.key, w))} ${w}w`)
+    .join(", ")}
+  sizes="(max-width: 768px) 100vw, 768px"
+/>
+```
+
+## Showing something immediately
+
+Thumbnails are seconds behind the upload. Rather than blocking on them, render
+the local file the browser already has:
+
+```tsx
+const preview = URL.createObjectURL(file);
+// ...and URL.revokeObjectURL(preview) when the component unmounts
+```
+
+That's instant, works before the upload finishes, and needs no signed URL — even
+for a private bucket.
+
+## Consider not doing this at all
+
+If your images are served through a CDN that resizes on the fly —
+[Cloudflare Images](https://developers.cloudflare.com/images/),
+[imgix](https://imgix.com), Vercel's image optimisation — you don't need a
+pipeline. You store one original and append query parameters. Fewer moving
+parts, no worker, no derivative storage to reconcile.
+
+Reach for this recipe when you need derivatives at rest: predictable keys,
+offline access, or a CDN that doesn't transform.
+
+## What this recipe doesn't cover
+
+EXIF/GPS stripping (`sharp().rotate().withMetadata({})` is a starting point),
+animated GIF and SVG handling, deleting derivatives when the original is
+deleted, and reprocessing when you change your width set.
