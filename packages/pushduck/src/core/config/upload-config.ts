@@ -591,7 +591,7 @@ export class UploadConfigBuilder {
    *   .build();
    *
    * // Use the storage instance
-   * const files = await storage.listFiles();
+   * const files = await storage.list.files();
    *
    * // Create routes with the s3 builder
    * const router = s3.createRouter({
@@ -658,8 +658,8 @@ export class UploadConfigBuilder {
  * console.log(config.provider.bucket); // "my-bucket"
  *
  * // Use storage operations
- * const files = await storage.listFiles();
- * const fileInfo = await storage.getFileInfo('path/to/file.jpg');
+ * const files = await storage.list.files();
+ * const fileInfo = await storage.metadata.getInfo('path/to/file.jpg');
  *
  * // Create typed routers
  * const router = s3.createRouter({

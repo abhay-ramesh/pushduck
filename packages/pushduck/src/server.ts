@@ -66,17 +66,18 @@
  *
  * @example Storage API Usage
  * ```typescript
- * import { createStorage, createProvider } from 'pushduck/server';
+ * import { createStorage, createUploadConfig } from 'pushduck/server';
  *
- * const storage = createStorage(createProvider('aws', {
- *   bucket: 'my-bucket',
- *   region: 'us-east-1',
- * }));
+ * const { config } = createUploadConfig()
+ *   .provider('aws', { bucket: 'my-bucket', region: 'us-east-1' })
+ *   .build();
  *
- * // High-level operations
- * const files = await storage.listFiles({ prefix: 'uploads/' });
- * const info = await storage.getFileInfo('uploads/document.pdf');
- * await storage.deleteFile('uploads/old-file.jpg');
+ * const storage = createStorage(config);
+ *
+ * // High-level operations, grouped by namespace
+ * const files = await storage.list.files({ prefix: 'uploads/' });
+ * const info = await storage.metadata.getInfo('uploads/document.pdf');
+ * await storage.delete.file('uploads/old-file.jpg');
  * ```
  *
  * @example Health Monitoring
