@@ -146,13 +146,25 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "==> Type-checking"
-if npx tsc; then
-  echo
-  echo "All recipe code blocks compile."
-  exit 0
-else
+if ! npx tsc; then
   echo
   echo "Recipe code failed to compile — see errors above."
   echo "Blocks are in $WORK/blocks (filename maps to <recipe>__<block index>)."
   exit 1
 fi
+echo "    all blocks compile"
+
+# Type-checking proves a block compiles; it does not prove Sharp produces the
+# widths the prose claims, or that a web stream can be passed to a Node stream
+# API. Both of those have already been wrong once, so run them for real.
+echo "==> Runtime checks"
+cp "$REPO_ROOT/scripts/recipe-runtime/run.mjs" "$WORK/runtime.mjs"
+if ! node "$WORK/runtime.mjs"; then
+  echo
+  echo "Recipe runtime checks failed — see above."
+  exit 1
+fi
+
+echo
+echo "Recipes verified: all blocks compile and runtime checks pass."
+exit 0

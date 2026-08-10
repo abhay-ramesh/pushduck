@@ -63,8 +63,14 @@ export async function thumbnailJob({ key, widths }: { key: string; widths: numbe
   );
 }
 
-const derivedKey = (key: string, width: number) =>
-  key.replace(/(\.[^.]+)?$/, `-${width}w.webp`);
+// Swap the extension for the derivative's, leaving directories alone.
+const derivedKey = (key: string, width: number) => {
+  const dot = key.lastIndexOf(".");
+  const slash = key.lastIndexOf("/");
+  // `dot > slash + 1` keeps dotfiles intact — ".env" has no extension to swap.
+  const base = dot > slash + 1 ? key.slice(0, dot) : key;
+  return `${base}-${width}w.webp`;
+};
 ```
 
 ## Deriving keys predictably
@@ -74,8 +80,12 @@ store them — the client can construct the URL it wants.
 
 ```typescript
 // shared between server and client
-export const thumbnailKey = (key: string, width: number) =>
-  key.replace(/(\.[^.]+)?$/, `-${width}w.webp`);
+export const thumbnailKey = (key: string, width: number) => {
+  const dot = key.lastIndexOf(".");
+  const slash = key.lastIndexOf("/");
+  const base = dot > slash + 1 ? key.slice(0, dot) : key;
+  return `${base}-${width}w.webp`;
+};
 ```
 
 ```tsx
