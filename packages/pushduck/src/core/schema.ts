@@ -1019,30 +1019,44 @@ export class S3FileSchema extends S3Schema<File, File> {
   }
 
   /**
-   * Sets the expiration time for presigned upload URLs.
+   * Sets presigned URL expiry for this route.
    *
-   * Controls how long the generated presigned URL remains valid for the client
-   * to perform the upload. Defaults to 3600 seconds (1 hour) if not set.
+   * Uploads and downloads have independent lifetimes. An upload window is
+   * usually minutes; a download link is usually hours. Passing a number sets
+   * the **upload** window only — the download URL returned on completion is
+   * unaffected and stays at its 1 hour default. Pass an object to set either
+   * or both.
    *
-   * @param seconds - Expiration in seconds. Must be between 1 and 604800 (7 days).
-   * @returns S3Route instance with expiresIn set
+   * Both values must be between 1 and 604800 seconds (7 days).
    *
-   * @example Short-lived upload window
+   * @param secondsOrConfig - Upload expiry in seconds, or `{ upload, download }`
+   * @returns S3Route instance with the expiry set
+   *
+   * @example Short-lived upload window (download stays at 1 hour)
    * ```typescript
    * const secureUpload = s3.file()
    *   .maxFileSize('10MB')
-   *   .expiresIn(300) // URL expires in 5 minutes
+   *   .expiresIn(300) // upload URL expires in 5 minutes
    * ```
    *
-   * @example Extended window for large files
+   * @example Independent upload and download lifetimes
    * ```typescript
-   * const largeFileUpload = s3.file()
-   *   .maxFileSize('500MB')
-   *   .expiresIn(7200) // URL expires in 2 hours
+   * const sharedAsset = s3.file()
+   *   .expiresIn({ upload: 300, download: 86400 })
+   * ```
+   *
+   * @example Only lengthen the download link
+   * ```typescript
+   * const report = s3.file()
+   *   .expiresIn({ download: 604800 })
    * ```
    */
-  expiresIn(seconds: number) {
-    return new S3Route(this).expiresIn(seconds);
+  expiresIn(seconds: number): S3Route<any, any>;
+  expiresIn(config: { upload?: number; download?: number }): S3Route<any, any>;
+  expiresIn(secondsOrConfig: number | { upload?: number; download?: number }) {
+    // The overload signatures above are what callers see; this implementation
+    // just forwards to S3Route, which owns validation.
+    return new S3Route(this).expiresIn(secondsOrConfig as never);
   }
 
   // Helper methods

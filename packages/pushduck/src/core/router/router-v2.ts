@@ -403,35 +403,73 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
   /**
    * Sets the expiration time for presigned upload URLs.
    *
-   * Controls how long the generated presigned URL remains valid for the client
-   * to perform the upload. Defaults to 3600 seconds (1 hour) if not set.
+   * Uploads and downloads have independent lifetimes. An upload window is
+   * usually minutes; a download link is usually hours. Passing a number sets
+   * the **upload** window only — the download URL returned on completion is
+   * unaffected and stays at its 1 hour default. Pass an object to set either
+   * or both.
    *
-   * @param seconds - Expiration time in seconds
+   * Both values must be between 1 and 604800 seconds (7 days).
+   *
+   * @param secondsOrConfig - Upload expiry in seconds, or `{ upload, download }`
    * @returns This route instance for chaining
    *
-   * @param seconds - Expiration in seconds. Must be between 1 and 604800 (7 days).
-   *
-   * @example Short-lived upload window
+   * @example Short-lived upload window (download stays at 1 hour)
    * ```typescript
    * const secureUpload = s3.file()
    *   .maxFileSize('10MB')
-   *   .expiresIn(300) // URL expires in 5 minutes
+   *   .expiresIn(300) // upload URL expires in 5 minutes
    * ```
    *
-   * @example Extended window for large files
+   * @example Independent upload and download lifetimes
    * ```typescript
-   * const largeFileUpload = s3.file()
-   *   .maxFileSize('500MB')
-   *   .expiresIn(7200) // URL expires in 2 hours
+   * const sharedAsset = s3.file()
+   *   .expiresIn({ upload: 300, download: 86400 })
    * ```
+   *
+   * @example Only lengthen the download link
+   * ```typescript
+   * const report = s3.file()
+   *   .expiresIn({ download: 604800 })
+   * ```
+   *
+   * @remarks
+   * The download URL on {@link CompletionResponse.presignedUrl} is meant for
+   * immediate use. Persist the object **key**, not the URL, and mint a fresh
+   * one with `storage.download.presignedUrl(key, ttl)` when you need it —
+   * otherwise a stored URL expires while the record still points at it.
    */
-  expiresIn(seconds: number): this {
-    if (seconds <= 0 || seconds > 604800) {
-      throw new Error(
-        `expiresIn must be between 1 and 604800 seconds (7 days), got ${seconds}`
-      );
+  expiresIn(seconds: number): this;
+  expiresIn(config: { upload?: number; download?: number }): this;
+  expiresIn(
+    secondsOrConfig: number | { upload?: number; download?: number }
+  ): this {
+    const assertRange = (label: string, value: number) => {
+      if (!Number.isFinite(value) || value <= 0 || value > 604800) {
+        throw new Error(
+          `${label} must be between 1 and 604800 seconds (7 days), got ${value}`
+        );
+      }
+    };
+
+    if (typeof secondsOrConfig === "number") {
+      assertRange("expiresIn", secondsOrConfig);
+      this.config.expiresIn = secondsOrConfig;
+      return this;
     }
-    this.config.expiresIn = seconds;
+
+    const { upload, download } = secondsOrConfig;
+
+    if (upload !== undefined) {
+      assertRange("expiresIn.upload", upload);
+      this.config.expiresIn = upload;
+    }
+
+    if (download !== undefined) {
+      assertRange("expiresIn.download", download);
+      this.config.downloadExpiresIn = download;
+    }
+
     return this;
   }
 
@@ -633,8 +671,17 @@ interface S3RouteConfig<TMetadata = any> {
   middleware?: S3Middleware<any, any>[];
   /** Path configuration for file organization */
   paths?: S3RoutePathConfig<TMetadata>;
-  /** Presigned upload URL expiration time in seconds (default: 3600 = 1 hour) */
+  /**
+   * Presigned **upload** URL expiry in seconds (default: 3600 = 1 hour).
+   * Set via `.expiresIn(seconds)` or `.expiresIn({ upload })`.
+   */
   expiresIn?: number;
+  /**
+   * Presigned **download** URL expiry in seconds for the URL returned on
+   * completion (default: 3600 = 1 hour). Set via `.expiresIn({ download })`.
+   * Independent of the upload window.
+   */
+  downloadExpiresIn?: number;
   /** Hook for upload start events */
   onUploadStart?: S3LifecycleHook<TMetadata>;
   /** Hook for upload progress events */
@@ -987,13 +1034,15 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         // Get file URL
         const url = getFileUrl(this.config, completion.key);
 
-        // Generate presigned download URL. Honours the route's .expiresIn(),
-        // falling back to 1 hour, so a route that shortens its upload window
-        // does not hand back a long-lived download URL.
+        // Download expiry is independent of the upload window: an upload
+        // window is typically minutes, a download link hours. Reusing
+        // `expiresIn` here would silently shorten download URLs for any route
+        // that tightened its upload window, and `expiresIn` is documented as
+        // the upload expiry. Set this with `.expiresIn({ download })`.
         const presignedUrl = await generatePresignedDownloadUrl(
           this.config,
           completion.key,
-          routeConfig.expiresIn ?? 3600
+          routeConfig.downloadExpiresIn ?? 3600
         );
 
         // Call onUploadComplete hook
@@ -1075,10 +1124,15 @@ export interface CompletionResponse {
   /**
    * A temporary signed URL for reading the object, for **private** buckets.
    *
-   * Expires after the route's `.expiresIn()`, defaulting to one hour. Always
-   * addressed to the provider's S3 API endpoint, never to `customDomain` — a
-   * custom domain is a read-only CDN front and cannot serve a presigned
-   * request. Cloudflare documents this for R2 explicitly.
+   * Expires after the route's `.expiresIn({ download })`, defaulting to one
+   * hour. Independent of the upload window. Always addressed to the provider's
+   * S3 API endpoint, never to `customDomain` — a custom domain is a read-only
+   * CDN front and cannot serve a presigned request. Cloudflare documents this
+   * for R2 explicitly.
+   *
+   * Intended for immediate use. **Persist the `key`, not this URL** — a stored
+   * URL expires while the record still points at it. Mint a fresh one on
+   * demand with `storage.download.presignedUrl(key, ttl)`.
    *
    * If your bucket is public, prefer {@link CompletionResponse.url}.
    */

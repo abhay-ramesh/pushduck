@@ -224,10 +224,13 @@ React to upload events:
 
 ### Presigned URL Expiry
 
-Control how long the generated presigned upload URL remains valid. Defaults to `3600` seconds (1 hour).
+Uploads and downloads have **independent lifetimes**. An upload window is usually
+minutes; a download link is usually hours. Both default to `3600` seconds (1 hour).
+
+Passing a number sets the **upload** window only:
 
 ```typescript
-// Short-lived window — 5 minutes
+// Short-lived upload window — 5 minutes. The download URL stays at 1 hour.
 secureUpload: s3
   .file()
   .maxFileSize('10MB')
@@ -239,6 +242,27 @@ largeFileUpload: s3
   .maxFileSize('500MB')
   .expiresIn(7200) // [!code highlight]
 ```
+
+Pass an object to set either side explicitly:
+
+```typescript
+// Tight upload window, long-lived download link
+sharedAsset: s3
+  .file()
+  .expiresIn({ upload: 300, download: 86400 }) // [!code highlight]
+
+// Only lengthen the download link
+report: s3
+  .file()
+  .expiresIn({ download: 604800 }) // [!code highlight]
+```
+
+<Callout type="warn">
+  The `presignedUrl` returned on completion is meant for **immediate use**.
+  Persist the object `key`, not the URL — a stored URL expires while your record
+  still points at it. Mint a fresh one on demand with
+  `storage.download.presignedUrl(key, ttl)`.
+</Callout>
 
 | Value | Duration |
 |-------|----------|
