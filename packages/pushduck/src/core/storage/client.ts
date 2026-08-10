@@ -470,13 +470,16 @@ export function resetS3Client(): void {
 // ========================================
 
 /**
- * Builds the S3 endpoint URL for a given key
+ * Builds the URL of the provider's S3 **API** endpoint for a key.
+ *
+ * Every request that talks to the storage provider — signed or not, GET,
+ * HEAD, PUT or DELETE — must be addressed here. This function never returns
+ * a `customDomain`: a custom domain is a read-only CDN front and does not
+ * serve the S3 API.
+ *
+ * Use {@link buildCdnUrl} for URLs handed to end users.
  */
-/**
- * Builds S3 URL for internal operations (HEAD, PUT, DELETE, etc.)
- * These operations need to communicate directly with S3, not through custom domain.
- */
-function buildS3Url(key: string, config: S3CompatibleConfig): string {
+function buildApiUrl(key: string, config: S3CompatibleConfig): string {
   if (config.endpoint) {
     // Custom endpoint (MinIO, R2, etc.)
     const baseUrl = config.endpoint.replace(/\/$/, "");
@@ -501,10 +504,56 @@ function buildS3Url(key: string, config: S3CompatibleConfig): string {
 }
 
 /**
- * Builds public URL for presigned URLs and public access.
- * Uses custom domain when configured, otherwise falls back to S3 URLs.
+ * Presigns a request against the provider's S3 API endpoint.
+ *
+ * This is the only way the codebase produces a presigned URL. Callers pass a
+ * key, never a URL, so there is no opportunity to sign the wrong host — the
+ * mistake that caused #168, where the download URL was built from the custom
+ * domain and every signature was rejected.
+ *
+ * @internal
  */
-function buildPublicUrl(key: string, config: S3CompatibleConfig): string {
+async function presignApiRequest(
+  uploadConfig: UploadConfig,
+  options: {
+    key: string;
+    method: "GET" | "PUT";
+    expiresIn: number;
+    headers?: Record<string, string>;
+  }
+): Promise<string> {
+  const awsClient = createS3Client(uploadConfig);
+  const config = getS3CompatibleConfig(uploadConfig.provider);
+
+  // Always the API endpoint. A custom domain cannot serve the S3 API, and
+  // `host` is part of the SigV4 canonical request so it cannot be swapped
+  // after signing.
+  const url = new URL(buildApiUrl(options.key, config));
+  url.searchParams.set("X-Amz-Expires", options.expiresIn.toString());
+
+  const signedRequest = await awsClient.sign(
+    new Request(url.toString(), {
+      method: options.method,
+      headers: options.headers,
+    }),
+    { aws: { signQuery: true } }
+  );
+
+  return signedRequest.url;
+}
+
+/**
+ * Builds the public, end-user-facing URL for a key — the custom domain / CDN
+ * URL when one is configured, otherwise the plain provider URL.
+ *
+ * This URL is **never** signed. It is what you hand to a browser for a
+ * publicly readable object. Signing anything built here produces a signature
+ * over a host that does not serve the S3 API, which the provider rejects;
+ * that was #168.
+ *
+ * Use {@link buildApiUrl} for anything that talks to the provider.
+ */
+function buildCdnUrl(key: string, config: S3CompatibleConfig): string {
   // If custom domain is configured, use it for public URLs
   if (config.customDomain) {
     const baseUrl = config.customDomain.replace(/\/$/, "");
@@ -638,34 +687,23 @@ export async function generatePresignedDownloadUrl(
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
-  const awsClient = createS3Client(uploadConfig);
   const config = getS3CompatibleConfig(uploadConfig.provider);
 
   try {
-    const s3Url = buildS3Url(key, config);
-    const url = new URL(s3Url);
-
-    // Add expiration as query parameter
-    url.searchParams.set("X-Amz-Expires", expiresIn.toString());
-
-    // Create a signed request for GET operation (download/view)
-    const signedRequest = await awsClient.sign(
-      new Request(url.toString(), {
-        method: "GET",
-      }),
-      {
-        aws: { signQuery: true },
-      }
-    );
+    const signedUrl = await presignApiRequest(uploadConfig, {
+      key,
+      method: "GET",
+      expiresIn,
+    });
 
     if (config.debug) {
       logger.presignedUrl(key, {
-        signedUrl: signedRequest.url,
+        signedUrl,
         expiresIn,
       });
     }
 
-    return signedRequest.url;
+    return signedUrl;
   } catch (error) {
     logger.error("Failed to generate presigned download URL", error, {
       operation: "generate-presigned-download-url",
@@ -810,44 +848,28 @@ export async function generatePresignedUploadUrl(
   uploadConfig: UploadConfig,
   options: PresignedUrlOptions
 ): Promise<PresignedUrlResult> {
-  const awsClient = createS3Client(uploadConfig);
   const config = getS3CompatibleConfig(uploadConfig.provider);
   const expiresIn = options.expiresIn ?? 3600; // 1 hour default
 
   try {
-    // Presigned UPLOAD (PUT) must use the S3 API endpoint (buildS3Url), not the custom domain.
-    // This applies to all S3-compatible providers: the "custom domain" is typically a read-only
-    // public/CDN URL (R2, CloudFront, Spaces CDN, etc.) and does not accept S3 API operations
-    // like PUT. Only the provider's native API host (e.g. r2.cloudflarestorage.com,
-    // s3.region.amazonaws.com, region.digitaloceanspaces.com) accepts signed PUT.
-    const s3Url = buildS3Url(options.key, config);
-    const url = new URL(s3Url);
-
-    // Add expiration as query parameter
-    url.searchParams.set("X-Amz-Expires", expiresIn.toString());
-
     // Split headers into signed (ACL only) and unsigned (Content-Type, metadata).
     // Only signed headers appear in X-Amz-SignedHeaders — unsigned headers are sent
     // by the client but not verified against the signature.
     const { signed, unsigned } = preparePresignHeaders(uploadConfig, options);
 
-    const signedRequest = await awsClient.sign(
-      new Request(url.toString(), {
-        method: "PUT",
-        headers: signed,
-      }),
-      {
-        aws: { signQuery: true },
-      },
-    );
+    const signedUrl = await presignApiRequest(uploadConfig, {
+      key: options.key,
+      method: "PUT",
+      expiresIn,
+      headers: signed,
+    });
 
     // Merge signed + unsigned so the client has a single flat map to apply.
     const requiredHeaders = { ...signed, ...unsigned };
 
     if (config.debug) {
       logger.presignedUrl(options.key, {
-        originalUrl: s3Url,
-        signedUrl: signedRequest.url,
+        signedUrl,
         signedHeaders: signed,
         unsignedHeaders: unsigned,
         config: {
@@ -860,7 +882,7 @@ export async function generatePresignedUploadUrl(
     }
 
     return {
-      url: signedRequest.url,
+      url: signedUrl,
       key: options.key,
       requiredHeaders: Object.keys(requiredHeaders).length > 0 ? requiredHeaders : undefined,
     };
@@ -928,7 +950,7 @@ export async function checkFileExists(
   const config = getS3CompatibleConfig(uploadConfig.provider);
 
   try {
-    const s3Url = buildS3Url(key, config);
+    const s3Url = buildApiUrl(key, config);
     const response = await awsClient.fetch(s3Url, {
       method: "HEAD",
     });
@@ -947,7 +969,7 @@ export async function checkFileExists(
  */
 export function getFileUrl(uploadConfig: UploadConfig, key: string): string {
   const config = getS3CompatibleConfig(uploadConfig.provider);
-  return buildPublicUrl(key, config);
+  return buildCdnUrl(key, config);
 }
 
 // ========================================
@@ -1053,7 +1075,7 @@ export async function uploadFileToS3(
   const config = getS3CompatibleConfig(uploadConfig.provider);
 
   try {
-    const s3Url = buildS3Url(key, config);
+    const s3Url = buildApiUrl(key, config);
 
     // Prepare headers
     const headers = prepareS3UploadHeaders(uploadConfig, options);
@@ -1475,7 +1497,7 @@ export async function getFileInfo(
   const config = getS3CompatibleConfig(uploadConfig.provider);
 
   try {
-    const s3Url = buildS3Url(key, config);
+    const s3Url = buildApiUrl(key, config);
     const response = await awsClient.fetch(s3Url, {
       method: "HEAD",
     });
@@ -1616,7 +1638,7 @@ export async function setFileMetadata(
 
     // Copy the file to itself with new metadata
     const sourceUrl = `${config.bucket}/${key}`;
-    const s3Url = buildS3Url(key, config);
+    const s3Url = buildApiUrl(key, config);
 
     const headers: Record<string, string> = {
       "x-amz-copy-source": sourceUrl,
@@ -1900,7 +1922,7 @@ export async function deleteFile(
 
   try {
     const s3Config = getS3CompatibleConfig(config);
-    const url = buildS3Url(key, s3Config);
+    const url = buildApiUrl(key, s3Config);
 
     const response = await awsClient.fetch(url, {
       method: "DELETE",

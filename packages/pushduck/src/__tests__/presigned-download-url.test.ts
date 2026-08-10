@@ -11,6 +11,7 @@ import { createUploadConfig } from "../core/config/upload-config";
 import { createS3RouterWithConfig } from "../core/router/router-v2";
 import {
   generatePresignedDownloadUrl,
+  generatePresignedUploadUrl,
   resetS3Client,
 } from "../core/storage/client";
 
@@ -156,5 +157,88 @@ describe("presigned download URLs (#168)", () => {
     );
 
     expect(new URL(result.presignedUrl!).searchParams.get("X-Amz-Expires")).toBe("3600");
+  });
+});
+
+/**
+ * The invariant behind #168, asserted across every provider rather than for
+ * one case: no presigned URL, upload or download, may ever be addressed to a
+ * custom domain. A custom domain is a read-only CDN front and does not serve
+ * the S3 API.
+ */
+describe("no signing path ever uses a custom domain", () => {
+  beforeEach(() => {
+    resetS3Client();
+  });
+
+  const CUSTOM_DOMAIN = "https://cdn.example.com";
+  const providers = [
+    {
+      name: "aws",
+      build: () =>
+        createUploadConfig()
+          .provider("aws", { ...baseProvider, customDomain: CUSTOM_DOMAIN })
+          .build(),
+    },
+    {
+      name: "cloudflareR2",
+      build: () =>
+        createUploadConfig()
+          .provider("cloudflareR2", {
+            ...baseProvider,
+            accountId: "abc123",
+            region: "auto",
+            customDomain: CUSTOM_DOMAIN,
+          })
+          .build(),
+    },
+    {
+      name: "digitalOceanSpaces",
+      build: () =>
+        createUploadConfig()
+          .provider("digitalOceanSpaces", {
+            ...baseProvider,
+            region: "nyc3",
+            customDomain: CUSTOM_DOMAIN,
+          })
+          .build(),
+    },
+    {
+      name: "minio",
+      build: () =>
+        createUploadConfig()
+          .provider("minio", {
+            ...baseProvider,
+            endpoint: "http://localhost:9000",
+            customDomain: CUSTOM_DOMAIN,
+          })
+          .build(),
+    },
+  ] as const;
+
+  for (const provider of providers) {
+    it(`${provider.name}: download URL is not on the custom domain`, async () => {
+      const { config } = provider.build();
+      const url = new URL(await generatePresignedDownloadUrl(config, "a.jpg", 900));
+      expect(url.host).not.toBe("cdn.example.com");
+      expect(url.searchParams.get("X-Amz-Signature")).toBeTruthy();
+    });
+
+    it(`${provider.name}: upload URL is not on the custom domain`, async () => {
+      const { config } = provider.build();
+      const result = await generatePresignedUploadUrl(config, { key: "a.jpg" });
+      expect(new URL(result.url).host).not.toBe("cdn.example.com");
+    });
+  }
+
+  it("getFileUrl is the accessor that does use the custom domain", async () => {
+    const { getFileUrl } = await import("../core/storage/client");
+    const { config } = createUploadConfig()
+      .provider("aws", { ...baseProvider, customDomain: CUSTOM_DOMAIN })
+      .build();
+
+    // The public/CDN URL is a separate, unsigned accessor — this is what a
+    // public bucket should hand to a browser.
+    expect(getFileUrl(config, "a.jpg")).toBe("https://cdn.example.com/a.jpg");
   });
 });
