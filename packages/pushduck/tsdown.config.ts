@@ -24,9 +24,12 @@ export default defineConfig({
   treeshake: true,
   sourcemap: false,
   external: ["react", "next", "crypto"],
-  // Use outExtensions instead of outExtension for tsdown
+  // The package is "type": "module", so a .js file is parsed as ESM by Node.
+  // Emitting the CommonJS build as .js therefore produced files Node could not
+  // load via require() at all. CJS must carry the .cjs extension.
   outExtensions: ({ format }) => ({
-    js: format === "cjs" ? ".js" : ".mjs",
+    js: format === "cjs" ? ".cjs" : ".mjs",
+    dts: format === "cjs" ? ".d.cts" : ".d.mts",
   }),
   platform: "neutral",
   target: "es2020",

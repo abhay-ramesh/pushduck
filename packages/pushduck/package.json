@@ -17,54 +17,111 @@
     "type": "github",
     "url": "https://github.com/sponsors/abhay-ramesh"
   },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.cts",
   "module": "./dist/index.mjs",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./server": {
-      "types": "./dist/server.d.ts",
-      "import": "./dist/server.mjs",
-      "require": "./dist/server.js"
+      "import": {
+        "types": "./dist/server.d.mts",
+        "default": "./dist/server.mjs"
+      },
+      "require": {
+        "types": "./dist/server.d.cts",
+        "default": "./dist/server.cjs"
+      }
     },
     "./client": {
-      "types": "./dist/client.d.ts",
-      "import": "./dist/client.mjs",
-      "require": "./dist/client.js"
+      "import": {
+        "types": "./dist/client.d.mts",
+        "default": "./dist/client.mjs"
+      },
+      "require": {
+        "types": "./dist/client.d.cts",
+        "default": "./dist/client.cjs"
+      }
     },
     "./react-native": {
-      "types": "./dist/react-native.d.ts",
-      "import": "./dist/react-native.mjs",
-      "require": "./dist/react-native.js"
+      "import": {
+        "types": "./dist/react-native.d.mts",
+        "default": "./dist/react-native.mjs"
+      },
+      "require": {
+        "types": "./dist/react-native.d.cts",
+        "default": "./dist/react-native.cjs"
+      }
     },
     "./adapters": {
-      "types": "./dist/adapters/index.d.ts",
-      "import": "./dist/adapters/index.mjs",
-      "require": "./dist/adapters/index.js"
+      "import": {
+        "types": "./dist/adapters/index.d.mts",
+        "default": "./dist/adapters/index.mjs"
+      },
+      "require": {
+        "types": "./dist/adapters/index.d.cts",
+        "default": "./dist/adapters/index.cjs"
+      }
     },
     "./adapters/nextjs": {
-      "types": "./dist/adapters/nextjs.d.ts",
-      "import": "./dist/adapters/nextjs.mjs",
-      "require": "./dist/adapters/nextjs.js"
+      "import": {
+        "types": "./dist/adapters/nextjs.d.mts",
+        "default": "./dist/adapters/nextjs.mjs"
+      },
+      "require": {
+        "types": "./dist/adapters/nextjs.d.cts",
+        "default": "./dist/adapters/nextjs.cjs"
+      }
     },
     "./adapters/nextjs-pages": {
-      "types": "./dist/adapters/nextjs-pages.d.ts",
-      "import": "./dist/adapters/nextjs-pages.mjs",
-      "require": "./dist/adapters/nextjs-pages.js"
+      "import": {
+        "types": "./dist/adapters/nextjs-pages.d.mts",
+        "default": "./dist/adapters/nextjs-pages.mjs"
+      },
+      "require": {
+        "types": "./dist/adapters/nextjs-pages.d.cts",
+        "default": "./dist/adapters/nextjs-pages.cjs"
+      }
     },
     "./adapters/express": {
-      "types": "./dist/adapters/express.d.ts",
-      "import": "./dist/adapters/express.mjs",
-      "require": "./dist/adapters/express.js"
+      "import": {
+        "types": "./dist/adapters/express.d.mts",
+        "default": "./dist/adapters/express.mjs"
+      },
+      "require": {
+        "types": "./dist/adapters/express.d.cts",
+        "default": "./dist/adapters/express.cjs"
+      }
     },
     "./adapters/fastify": {
-      "types": "./dist/adapters/fastify.d.ts",
-      "import": "./dist/adapters/fastify.mjs",
-      "require": "./dist/adapters/fastify.js"
+      "import": {
+        "types": "./dist/adapters/fastify.d.mts",
+        "default": "./dist/adapters/fastify.mjs"
+      },
+      "require": {
+        "types": "./dist/adapters/fastify.d.cts",
+        "default": "./dist/adapters/fastify.cjs"
+      }
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "server": ["./dist/server.d.cts"],
+      "client": ["./dist/client.d.cts"],
+      "react-native": ["./dist/react-native.d.cts"],
+      "adapters": ["./dist/adapters/index.d.cts"],
+      "adapters/nextjs": ["./dist/adapters/nextjs.d.cts"],
+      "adapters/nextjs-pages": ["./dist/adapters/nextjs-pages.d.cts"],
+      "adapters/express": ["./dist/adapters/express.d.cts"],
+      "adapters/fastify": ["./dist/adapters/fastify.d.cts"]
     }
   },
   "files": [
@@ -77,7 +134,7 @@
     "build": "tsdown",
     "build:analyze": "pnpm build && pnpm bundle:analyze",
     "bundle:analyze": "pnpm size-check && echo '\nFile Details:' && ls -la dist/",
-    "bundle:visualize": "npx esbuild-visualizer dist/index.js --open",
+    "bundle:visualize": "npx esbuild-visualizer dist/index.mjs --open",
     "size-check": "node scripts/size-check.js",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
