@@ -78,6 +78,14 @@ const derivedKey = (key: string, width: number) => {
 If derivative keys are a pure function of the original key, you never need to
 store them — the client can construct the URL it wants.
 
+<Callout type="warn">
+  This only works if the derivatives are **publicly readable**. On a private
+  bucket a constructed URL returns 403 — the client cannot sign it. Either write
+  derivatives to a public bucket or prefix, or mint the URL server-side with
+  `storage.download.presignedUrl(thumbnailKey(key, 768), 300)` after checking
+  the caller may read it.
+</Callout>
+
 ```typescript
 // shared between server and client
 export const thumbnailKey = (key: string, width: number) => {

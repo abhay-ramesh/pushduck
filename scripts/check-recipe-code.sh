@@ -39,12 +39,20 @@ echo "==> Building and packing pushduck"
 ( cd "$REPO_ROOT/packages/pushduck" && pnpm build >/dev/null 2>&1 ) || {
   echo "package build failed"; exit 1;
 }
-rm -rf "$WORK" && mkdir -p "$WORK/blocks" "$WORK/app-stubs/lib"
-( cd "$REPO_ROOT/packages/pushduck" && npm pack --pack-destination "$WORK" >/dev/null 2>&1 )
-TARBALL="$(ls "$WORK"/pushduck-*.tgz | head -1)"
+
+# Every step here must be checked. Without `set -e`, a failure of rm/mkdir/cd
+# would let the script keep going and write package.json into whatever
+# directory it happened to be in — the repo root, if run from there.
+rm -rf "$WORK" || { echo "could not clear $WORK"; exit 1; }
+mkdir -p "$WORK/blocks" "$WORK/app-stubs/lib" || { echo "could not create $WORK"; exit 1; }
+( cd "$REPO_ROOT/packages/pushduck" && npm pack --pack-destination "$WORK" >/dev/null 2>&1 ) || {
+  echo "npm pack failed"; exit 1;
+}
+TARBALL="$(ls "$WORK"/pushduck-*.tgz 2>/dev/null | head -1)"
+[ -n "$TARBALL" ] || { echo "no tarball produced"; exit 1; }
 
 echo "==> Installing harness dependencies (this takes a minute)"
-cd "$WORK"
+cd "$WORK" || { echo "could not enter $WORK"; exit 1; }
 echo '{"name":"recipe-check","version":"1.0.0","private":true}' > package.json
 npm i "$TARBALL" typescript react @types/react @types/node @types/clamscan clamscan sharp \
   >/dev/null 2>&1 || { echo "dependency install failed"; exit 1; }
@@ -82,16 +90,22 @@ declare global {
   const storage: StorageInstance;
 
   const queue: { enqueue(job: string, payload: Record<string, unknown>): Promise<void> };
-  const redis: { incr(k: string): Promise<number>; expire(k: string, s: number): Promise<void> };
+  const redis: {
+    incr(k: string): Promise<number>;
+    expire(k: string, s: number): Promise<void>;
+    eval(script: string, numKeys: number, ...args: string[]): Promise<number>;
+  };
   const db: {
     uploads: {
       create(row: Record<string, unknown>): Promise<{ id: string }>;
       update(row: Record<string, unknown>): Promise<void>;
+      upsert(q: Record<string, unknown>): Promise<void>;
     };
     attachments: {
       create(row: Record<string, unknown>): Promise<void>;
       update(row: Record<string, unknown>): Promise<void>;
       findMany(q: Record<string, unknown>): Promise<unknown[]>;
+      findUnique(q: Record<string, unknown>): Promise<{ ownerId: string; status: string } | null>;
     };
     videos: { update(row: Record<string, unknown>): Promise<void> };
     usage: { bytesFor(userId: string): Promise<number> };
@@ -102,7 +116,9 @@ declare global {
   function transcode(file: File): Promise<File>;
   function runFfmpeg(src: string, opts: { height: number; codec: string }): Promise<Buffer>;
   function publicUrl(key: string): string;
+  // Defined earlier on the same page; blocks compile independently.
   function thumbnailKey(key: string, width: number): string;
+  const INCR_WITH_TTL: string;
   function endOfDay(): string;
 
   const row: { key: string };

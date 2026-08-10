@@ -195,8 +195,8 @@ Not committed. Prioritized based on user demand.
 
 These belong in **your code** (or in a [recipe](#recipes-library)), not in the library. The same scope discipline that keeps Pushduck a thin library also keeps it from turning into a platform.
 
-- **File processing** — thumbnail generation, EXIF stripping, format conversion, resizing, **video transcoding**. Use Sharp, FFmpeg, Jimp, or ImageMagick in your `onUploadComplete` handler. Recipes: [image thumbnails](/docs/recipes/image-thumbnails), [video transcoding](/docs/recipes/video-transcoding).
-- **Virus / malware scanning** — use ClamAV, VirusTotal, or a hosted scanner in `onUploadComplete`. Recipe: [virus scanning](/docs/recipes/virus-scanning).
+- **File processing** — thumbnail generation, EXIF stripping, format conversion, resizing, **video transcoding**. Enqueue the work from `onUploadComplete` and run Sharp, FFmpeg, Jimp or ImageMagick in a worker — processing inline holds the completion request open and fails on serverless timeouts. Recipes: [image thumbnails](/docs/recipes/image-thumbnails), [video transcoding](/docs/recipes/video-transcoding).
+- **Virus / malware scanning** — enqueue a scan from `onUploadComplete` using ClamAV, VirusTotal, or a hosted scanner. Recipe: [virus scanning](/docs/recipes/virus-scanning).
 - **Authentication integrations** — `middleware` hook accepts any async function. Recipes for Clerk, Auth.js, BetterAuth and Lucia are planned; contributions welcome.
 - **Admin dashboard** — Pushduck is a library, not a platform.
 - **Hosted service / managed storage** — you bring the bucket.

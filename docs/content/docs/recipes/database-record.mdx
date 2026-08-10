@@ -27,16 +27,28 @@ const router = s3.createRouter({
       return { userId: user.id };
     })
     .onUploadComplete(async ({ key, file, metadata }) => {
-      await db.uploads.create({
-        key, // the durable identifier
-        name: file.name,
-        size: file.size,
-        contentType: file.type,
-        ownerId: metadata.userId,
+      // Upsert, not create — see the idempotency note below.
+      await db.uploads.upsert({
+        where: { key },
+        create: {
+          key, // the durable identifier
+          name: file.name,
+          size: file.size,
+          contentType: file.type,
+          ownerId: metadata.userId,
+        },
+        update: {},
       });
     }),
 });
 ```
+
+<Callout type="warn">
+  Make this write **idempotent**. The client drives completion, so the request
+  can be retried — on a flaky network, or by anything that replays it. A plain
+  `create` then produces duplicate rows for one object. Upsert on `key`, or put
+  a unique constraint on `uploads.key` and handle the duplicate-key path.
+</Callout>
 
 ## Reading it back
 

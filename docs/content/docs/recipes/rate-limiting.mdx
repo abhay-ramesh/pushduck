@@ -13,6 +13,15 @@ your bucket** — your server is not in the path and cannot stop it.
 ## Daily quota
 
 ```typescript
+// Increment and set the TTL in one round trip. Doing them as two commands
+// risks a crash in between, which leaves a counter with no expiry — and a user
+// locked out permanently rather than until midnight.
+const INCR_WITH_TTL = `
+  local n = redis.call('INCR', KEYS[1])
+  if n == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+  return n
+`;
+
 const router = s3.createRouter({
   upload: s3
     .file()
@@ -21,8 +30,7 @@ const router = s3.createRouter({
       const user = await authenticate(req);
 
       const key = `uploads:${user.id}:${new Date().toISOString().slice(0, 10)}`;
-      const count = await redis.incr(key);
-      if (count === 1) await redis.expire(key, 86_400);
+      const count = await redis.eval(INCR_WITH_TTL, 1, key, "86400");
 
       const limit = user.plan === "pro" ? 1000 : 20;
       if (count > limit) {
@@ -35,6 +43,13 @@ const router = s3.createRouter({
 ```
 
 Throwing in middleware means no URL is issued and nothing reaches your bucket.
+
+<Callout type="warn">
+  Redis evaluates a Lua script atomically, so the counter can never outlive its
+  window. `INCR` followed by a separate `EXPIRE` is the common shorthand, but a
+  process dying between the two leaves a key with no TTL — and that user stays
+  blocked forever.
+</Callout>
 
 <Callout type="warn">
   Middleware runs **per file**, not per request. A client asking for ten
@@ -74,9 +89,8 @@ Daily quotas don't stop a burst. A short sliding window does, and composes with
 the quota above:
 
 ```typescript
-const burst = `burst:${user.id}`;
-const hits = await redis.incr(burst);
-if (hits === 1) await redis.expire(burst, 10);
+// Reuses INCR_WITH_TTL from above — same atomicity requirement applies.
+const hits = await redis.eval(INCR_WITH_TTL, 1, `burst:${user.id}`, "10");
 if (hits > 20) throw new Error("Slow down");
 ```
 

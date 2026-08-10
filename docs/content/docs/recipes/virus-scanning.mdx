@@ -52,6 +52,25 @@ const files = await db.attachments.findMany({
 });
 ```
 
+<Callout type="warn">
+  One filtered query is not enough. Any other route, admin view or background
+  job that lists objects can still serve a `pending-scan` file, and a public
+  bucket bypasses your database entirely. Keep the bucket **private**, and make
+  the status check a precondition of *minting a URL* rather than of one listing:
+
+  ```typescript
+  export async function downloadUrl(key: string, userId: string) {
+    const row = await db.attachments.findUnique({ where: { key } });
+    if (!row || row.ownerId !== userId) throw new Error("Not found");
+    if (row.status !== "clean") throw new Error("File is still being scanned");
+    return storage.download.presignedUrl(key, 300);
+  }
+  ```
+
+  With that as the only way to obtain a URL, "unscanned" and "unreachable" are
+  the same thing.
+</Callout>
+
 ## The scanner
 
 [ClamAV](https://www.clamav.net/) is the usual open-source choice, typically run
