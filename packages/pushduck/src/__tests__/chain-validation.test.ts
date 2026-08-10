@@ -12,13 +12,13 @@ describe("Schema chaining — actual validation", () => {
       })
       .build().s3;
 
-  // Helper: create a File with a specific size
-  const makeFile = (name: string, type: string, sizeBytes: number) => {
-    const f = new File([new ArrayBuffer(sizeBytes)], name, { type });
-    // File constructor may not respect exact size, so override
-    Object.defineProperty(f, "size", { value: sizeBytes });
-    return f;
-  };
+  // Helper: create a File with a specific size.
+  // The real File constructor reports byte length accurately, so no override
+  // is needed. The previous `Object.defineProperty(f, "size", ...)` worked
+  // around the old MockFile, which summed `parts.length` and so produced NaN
+  // for an ArrayBuffer part.
+  const makeFile = (name: string, type: string, sizeBytes: number) =>
+    new File([new ArrayBuffer(sizeBytes)], name, { type });
 
   it("maxFileSize rejects files that are too large", async () => {
     const s3 = buildS3();
