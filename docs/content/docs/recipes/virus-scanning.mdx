@@ -61,6 +61,7 @@ database takes seconds.
 ```typescript
 // worker/scan.ts
 import NodeClam from "clamscan";
+import { Readable } from "node:stream";
 
 const clam = await new NodeClam().init({
   clamdscan: { host: process.env.CLAMD_HOST, port: 3310 },
@@ -68,9 +69,11 @@ const clam = await new NodeClam().init({
 
 export async function scanJob({ key }: { key: string }) {
   const url = await storage.download.presignedUrl(key, 600);
-  const body = await fetch(url);
+  const response = await fetch(url);
 
-  const { isInfected, viruses } = await clam.scanStream(body.body!);
+  // clamscan wants a Node stream; fetch gives a web ReadableStream.
+  const stream = Readable.fromWeb(response.body as never);
+  const { isInfected, viruses } = await clam.scanStream(stream);
 
   if (isInfected) {
     await storage.delete.file(key);
@@ -83,6 +86,12 @@ export async function scanJob({ key }: { key: string }) {
 ```
 
 Streaming the object into the scanner avoids buffering a 25MB file in memory.
+
+<Callout type="info">
+  `Readable.fromWeb` is the bridge between `fetch`'s web stream and the Node
+  stream `clamscan` expects. Passing `response.body` straight in fails at
+  runtime — the two stream types are not interchangeable.
+</Callout>
 
 ## Hosted alternatives
 
