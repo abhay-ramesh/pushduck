@@ -106,36 +106,6 @@ describe("presigned download URLs (#168)", () => {
     expect(url.searchParams.get("X-Amz-Signature")).toBeTruthy();
   });
 
-  it("honours the route's .expiresIn() on the completion path", async () => {
-    const { s3, config } = createUploadConfig().provider("aws", baseProvider).build();
-
-    const router = createS3RouterWithConfig(
-      {
-        shortLived: s3
-          .image()
-          .maxFileSize("1MB")
-          .expiresIn(60)
-          .middleware(async () => ({})),
-      },
-      config
-    );
-
-    const [result] = await router.handleUploadComplete(
-      "shortLived",
-      new Request("http://localhost"),
-      [
-        {
-          key: "uploads/a.jpg",
-          file: { name: "a.jpg", size: 1024, type: "image/jpeg" },
-          metadata: {},
-        } as never,
-      ]
-    );
-
-    expect(result.success).toBe(true);
-    expect(new URL(result.presignedUrl!).searchParams.get("X-Amz-Expires")).toBe("60");
-  });
-
   it("falls back to one hour when the route sets no expiry", async () => {
     const { s3, config } = createUploadConfig().provider("aws", baseProvider).build();
 
@@ -157,6 +127,105 @@ describe("presigned download URLs (#168)", () => {
     );
 
     expect(new URL(result.presignedUrl!).searchParams.get("X-Amz-Expires")).toBe("3600");
+  });
+});
+
+/**
+ * Upload and download lifetimes are independent. `.expiresIn(number)` sets the
+ * upload window only — the meaning its JSDoc has always documented — and the
+ * object form addresses either side explicitly.
+ */
+describe("expiresIn: upload and download lifetimes", () => {
+  beforeEach(() => {
+    resetS3Client();
+  });
+
+  const completionFor = async (route: unknown, name: string) => {
+    const { config } = createUploadConfig().provider("aws", baseProvider).build();
+    const router = createS3RouterWithConfig({ [name]: route } as never, config);
+    const [result] = await router.handleUploadComplete(
+      name as never,
+      new Request("http://localhost"),
+      [
+        {
+          key: "uploads/a.jpg",
+          file: { name: "a.jpg", size: 1024, type: "image/jpeg" },
+          metadata: {},
+        } as never,
+      ]
+    );
+    return result;
+  };
+
+  const presignFor = async (route: unknown, name: string) => {
+    const { config } = createUploadConfig().provider("aws", baseProvider).build();
+    const router = createS3RouterWithConfig({ [name]: route } as never, config);
+    const [result] = await router.generatePresignedUrls(
+      name as never,
+      new Request("http://localhost"),
+      [{ name: "a.jpg", size: 1024, type: "image/jpeg" }]
+    );
+    return result;
+  };
+
+  const s3For = () => createUploadConfig().provider("aws", baseProvider).build().s3;
+
+  it("a number sets the upload window and leaves download at the default", async () => {
+    const s3 = s3For();
+    const route = s3.image().maxFileSize("1MB").expiresIn(60).middleware(async () => ({}));
+
+    const upload = await presignFor(route, "numberForm");
+    expect(new URL(upload.presignedUrl!).searchParams.get("X-Amz-Expires")).toBe("60");
+
+    // The behaviour CodeRabbit flagged on #182: a tight upload window must not
+    // silently shorten a download link that callers may hand to a browser.
+    const completion = await completionFor(route, "numberForm");
+    expect(new URL(completion.presignedUrl!).searchParams.get("X-Amz-Expires")).toBe("3600");
+  });
+
+  it("the object form sets both independently", async () => {
+    const s3 = s3For();
+    const route = s3
+      .image()
+      .maxFileSize("1MB")
+      .expiresIn({ upload: 60, download: 86400 })
+      .middleware(async () => ({}));
+
+    const upload = await presignFor(route, "bothForm");
+    expect(new URL(upload.presignedUrl!).searchParams.get("X-Amz-Expires")).toBe("60");
+
+    const completion = await completionFor(route, "bothForm");
+    expect(new URL(completion.presignedUrl!).searchParams.get("X-Amz-Expires")).toBe("86400");
+  });
+
+  it("download alone can be set without touching the upload window", async () => {
+    const s3 = s3For();
+    const route = s3
+      .image()
+      .maxFileSize("1MB")
+      .expiresIn({ download: 604800 })
+      .middleware(async () => ({}));
+
+    const upload = await presignFor(route, "downloadOnly");
+    expect(new URL(upload.presignedUrl!).searchParams.get("X-Amz-Expires")).toBe("3600");
+
+    const completion = await completionFor(route, "downloadOnly");
+    expect(new URL(completion.presignedUrl!).searchParams.get("X-Amz-Expires")).toBe("604800");
+  });
+
+  it("validates both forms against the 1..604800 range", () => {
+    const s3 = s3For();
+
+    expect(() => s3.image().expiresIn(0)).toThrow(/expiresIn must be between/);
+    expect(() => s3.image().expiresIn(604801)).toThrow(/expiresIn must be between/);
+    expect(() => s3.image().expiresIn({ upload: 0 })).toThrow(
+      /expiresIn.upload must be between/
+    );
+    expect(() => s3.image().expiresIn({ download: 604801 })).toThrow(
+      /expiresIn.download must be between/
+    );
+    // NaN previously slipped through: NaN <= 0 and NaN > 604800 are both false.
+    expect(() => s3.image().expiresIn(Number.NaN)).toThrow(/expiresIn must be between/);
   });
 });
 
@@ -227,7 +296,11 @@ describe("no signing path ever uses a custom domain", () => {
     it(`${provider.name}: upload URL is not on the custom domain`, async () => {
       const { config } = provider.build();
       const result = await generatePresignedUploadUrl(config, { key: "a.jpg" });
-      expect(new URL(result.url).host).not.toBe("cdn.example.com");
+      const url = new URL(result.url);
+      expect(url.host).not.toBe("cdn.example.com");
+      // Assert it is actually signed — an unsigned provider URL would
+      // otherwise satisfy the host check alone.
+      expect(url.searchParams.get("X-Amz-Signature")).toBeTruthy();
     });
   }
 
