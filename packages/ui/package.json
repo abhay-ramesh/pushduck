@@ -10,7 +10,7 @@
         "url": "https://github.com/abhay-ramesh/pushduck.git",
         "directory": "packages/ui"
     },
-    "homepage": "https://pushduck.dev",
+    "homepage": "https://pushduck.org",
     "keywords": [
         "react",
         "components",

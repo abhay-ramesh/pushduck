@@ -30,11 +30,11 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Abhay Ramesh" }],
   creator: "Abhay Ramesh",
-  metadataBase: new URL("https://pushduck.dev"),
+  metadataBase: new URL("https://pushduck.org"),
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://pushduck.dev",
+    url: "https://pushduck.org",
     title: "Pushduck - Simple S3 Uploads for Next.js",
     description: "Simple, type-safe S3 uploads for Next.js with guided setup",
     siteName: "Pushduck",

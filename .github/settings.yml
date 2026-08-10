@@ -6,7 +6,7 @@ repository:
   # Repository basic settings
   name: pushduck
   description: "🦆 Simple, type-safe S3 uploads for Next.js with guided setup"
-  homepage: https://pushduck.dev
+  homepage: https://pushduck.org
   topics:
     - nextjs
     - s3

@@ -26,7 +26,7 @@ function getCORSLinks(provider: ProviderType): {
   corsSetup: string;
   providerDocs: string;
 } {
-  const baseUrl = "https://pushduck.dev";
+  const baseUrl = "https://pushduck.org";
 
   switch (provider) {
     case "aws":
@@ -104,22 +104,22 @@ export async function initCommand(options: InitOptions = {}) {
       );
 
       console.log(chalk.cyan("Manual Setup Documentation:"));
-      console.log("  https://pushduck.dev/docs/getting-started/manual-setup");
+      console.log("  https://pushduck.org/docs/getting-started/manual-setup");
 
       console.log(chalk.cyan("\nIntegration Guides:"));
 
       // Show specific framework integration if detected
       if (projectInfo.framework === "react") {
-        console.log("  React: https://pushduck.dev/docs/integrations/overview");
+        console.log("  React: https://pushduck.org/docs/integrations/overview");
       } else if (projectInfo.framework === "vue") {
-        console.log("  Vue: https://pushduck.dev/docs/integrations/overview");
+        console.log("  Vue: https://pushduck.org/docs/integrations/overview");
       } else if (projectInfo.framework === "svelte") {
         console.log(
-          "  Svelte: https://pushduck.dev/docs/integrations/overview"
+          "  Svelte: https://pushduck.org/docs/integrations/overview"
         );
       } else {
         console.log(
-          "  General: https://pushduck.dev/docs/integrations/overview"
+          "  General: https://pushduck.org/docs/integrations/overview"
         );
       }
 
@@ -365,7 +365,7 @@ export async function initCommand(options: InitOptions = {}) {
       console.log("  3. Build your upload interface!");
     }
 
-    console.log(chalk.cyan("\n📚 Documentation: https://pushduck.dev/docs"));
+    console.log(chalk.cyan("\n📚 Documentation: https://pushduck.org/docs"));
 
     // Step 10: Test configuration
     if (credentials.accessKeyId && credentials.secretAccessKey) {
@@ -439,7 +439,7 @@ export async function initCommand(options: InitOptions = {}) {
 
     console.log(
       chalk.gray(
-        "\nFor help, visit: https://pushduck.dev/docs/api/troubleshooting"
+        "\nFor help, visit: https://pushduck.org/docs/api/troubleshooting"
       )
     );
     process.exit(1);

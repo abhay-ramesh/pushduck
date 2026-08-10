@@ -205,8 +205,8 @@ function useTypedRoute<TRouter extends S3Router<any>>(
  * });
  * ```
  *
- * @see {@link https://pushduck.dev/docs/api/client/create-upload-client} for complete documentation
- * @see {@link https://pushduck.dev/docs/guides/advanced/client-metadata} for metadata guide
+ * @see {@link https://pushduck.org/docs/api/client/create-upload-client} for complete documentation
+ * @see {@link https://pushduck.org/docs/guides/advanced/client-metadata} for metadata guide
  */
 export function createUploadClient<TRouter extends S3Router<any>>(
   config: ClientConfig

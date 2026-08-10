@@ -3,7 +3,7 @@ import { ImageResponse } from "next/og";
 export async function GET() {
   // Fetch the mascot image
   const mascotImage = await fetch(
-    new URL("/pushduck-mascot.png", "https://pushduck.dev")
+    new URL("/pushduck-mascot.png", "https://pushduck.org")
   ).then((res) => res.arrayBuffer());
 
   return new ImageResponse(
@@ -154,7 +154,7 @@ export async function GET() {
               display: "flex",
             }}
           >
-            pushduck.dev
+            pushduck.org
           </div>
         </div>
       </div>

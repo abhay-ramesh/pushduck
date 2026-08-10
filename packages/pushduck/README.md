@@ -9,7 +9,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-7289DA?style=flat&colorA=18181B&colorB=7289DA)](https://discord.gg/pushduck)
 [![Twitter](https://img.shields.io/badge/Twitter-Share%20on%20Twitter-1DA1F2?style=flat&colorA=18181B&colorB=1DA1F2)](https://twitter.com/intent/tweet?text=Just%20discovered%20%40pushduck%20-%20the%20fastest%20way%20to%20add%20file%20uploads%20to%20any%20web%20app!%20🦆%20https%3A//github.com/abhay-ramesh/pushduck)
 
-![](https://pushduck.dev/banner.png)
+![](https://pushduck.org/banner.png)
 
 **Pushduck** is a type-safe file upload library for Next.js applications with S3-compatible storage providers. Built with modern React patterns and comprehensive TypeScript support.
 
@@ -515,7 +515,7 @@ MINIO_SECRET_ACCESS_KEY=your_secret_key
 
 ## Migration Guide
 
-If you're upgrading from an older version, see our [Migration Guide](https://pushduck.dev/docs/guides/migration) for step-by-step instructions.
+If you're upgrading from an older version, see our [Migration Guide](https://pushduck.org/docs/guides/migration) for step-by-step instructions.
 
 ## Contributing
 
@@ -527,6 +527,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- **Documentation**: [pushduck.dev](https://pushduck.dev)
+- **Documentation**: [pushduck.org](https://pushduck.org)
 - **Issues**: [GitHub Issues](https://github.com/abhay-ramesh/pushduck/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/abhay-ramesh/pushduck/discussions)
