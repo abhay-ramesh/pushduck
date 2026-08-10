@@ -126,7 +126,7 @@ echo "---------------------------------"
 
 if command -v gzip-size-cli &> /dev/null; then
     echo "Bundle sizes (gzipped):"
-    gzip-size-cli dist/*.js dist/*.mjs 2>/dev/null || print_warning "Could not analyze some bundles"
+    gzip-size-cli dist/*.cjs dist/*.mjs 2>/dev/null || print_warning "Could not analyze some bundles"
 else
     print_warning "gzip-size-cli not found, install with: npm i -g gzip-size-cli"
 fi
@@ -136,7 +136,7 @@ echo ""
 echo "📁 Verifying package files..."
 echo "-----------------------------"
 
-required_files=("dist/index.js" "dist/index.mjs" "dist/index.d.ts" "dist/client.js" "dist/server.js")
+required_files=("dist/index.cjs" "dist/index.mjs" "dist/index.d.cts" "dist/index.d.mts" "dist/client.cjs" "dist/client.mjs" "dist/server.cjs" "dist/server.mjs")
 
 for file in "${required_files[@]}"; do
     if [ -f "$file" ]; then
