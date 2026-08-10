@@ -9,7 +9,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat&colorA=18181B&colorB=3178C6)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat&colorA=18181B&colorB=F59E0B)](https://opensource.org/licenses/MIT)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/abhay-ramesh/pushduck/ci.yml?style=flat&colorA=18181B&colorB=374151)](https://github.com/abhay-ramesh/pushduck/actions)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Community-7289DA?style=flat&colorA=18181B&colorB=7289DA)](https://pushduck.dev/discord)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-7289DA?style=flat&colorA=18181B&colorB=7289DA)](https://pushduck.org/discord)
 [![Twitter](https://img.shields.io/badge/Twitter-Share%20on%20Twitter-1DA1F2?style=flat&colorA=18181B&colorB=1DA1F2)](https://twitter.com/intent/tweet?text=Just%20discovered%20%40pushduck%20-%20the%20fastest%20way%20to%20add%20file%20uploads%20to%20any%20web%20app!%20🦆%20https%3A//github.com/abhay-ramesh/pushduck)
 
 **Add file uploads to any web application. Secure, edge-ready.**
@@ -168,12 +168,12 @@ const recentFiles = await storage.list.byDate(new Date("2024-01-01"));
 
 ## Documentation
 
-- **[Getting Started](https://pushduck.dev/docs/quick-start)** - Complete setup guide
-- **[Philosophy & Scope](https://pushduck.dev/docs/philosophy)** - What we do (and don't do)
-- **[API Reference](https://pushduck.dev/docs/api)** - Full API documentation
-- **[Examples](https://pushduck.dev/docs/examples)** - Real-world examples
-- **[Providers](https://pushduck.dev/docs/providers)** - S3, R2, Spaces, MinIO
-- **[Security](https://pushduck.dev/docs/guides/security)** - Security best practices
+- **[Getting Started](https://pushduck.org/docs/quick-start)** - Complete setup guide
+- **[Philosophy & Scope](https://pushduck.org/docs/philosophy)** - What we do (and don't do)
+- **[API Reference](https://pushduck.org/docs/api)** - Full API documentation
+- **[Examples](https://pushduck.org/docs/examples)** - Real-world examples
+- **[Providers](https://pushduck.org/docs/providers)** - S3, R2, Spaces, MinIO
+- **[Security](https://pushduck.org/docs/guides/security)** - Security best practices
 
 ## Why Pushduck?
 
@@ -416,7 +416,7 @@ Built using:
   <strong>Built by <a href="https://github.com/abhay-ramesh">Abhay Ramesh</a></strong>
   <br>
   <a href="https://github.com/abhay-ramesh/pushduck">GitHub</a> •
-  <a href="https://pushduck.dev">Documentation</a> •
-  <a href="https://pushduck.dev/discord">Discord</a> •
+  <a href="https://pushduck.org">Documentation</a> •
+  <a href="https://pushduck.org/discord">Discord</a> •
   <a href="https://twitter.com/abhayramesh">Twitter</a>
 </div>

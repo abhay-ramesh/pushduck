@@ -21,7 +21,7 @@ This project and everyone participating in it is governed by our [Code of Conduc
 
 ## Getting Started
 
-Before contributing, please read our **[Philosophy & Scope](https://pushduck.dev/docs/philosophy)** to understand what Pushduck does (and doesn't do). This will help ensure your contribution aligns with the project's goals.
+Before contributing, please read our **[Philosophy & Scope](https://pushduck.org/docs/philosophy)** to understand what Pushduck does (and doesn't do). This will help ensure your contribution aligns with the project's goals.
 
 ### Prerequisites
 

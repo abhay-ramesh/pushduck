@@ -32,7 +32,7 @@ interface Registry {
   }>;
 }
 
-const REGISTRY_BASE_URL = "https://pushduck.dev/r";
+const REGISTRY_BASE_URL = "https://pushduck.org/r";
 
 export async function addComponentCommand(componentName?: string) {
   try {

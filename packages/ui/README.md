@@ -237,12 +237,12 @@ Components require these peer dependencies:
 
 ## Registry URL
 
-Components are served from: `https://pushduck.dev/r/[component-name].json`
+Components are served from: `https://pushduck.org/r/[component-name].json`
 
 Example:
 
-- <https://pushduck.dev/r/upload-dropzone.json>
-- <https://pushduck.dev/r/file-list.json>
+- <https://pushduck.org/r/upload-dropzone.json>
+- <https://pushduck.org/r/file-list.json>
 
 ## Development
 

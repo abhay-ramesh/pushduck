@@ -1,7 +1,7 @@
 blank_issues_enabled: true
 contact_links:
   - name: Documentation
-    url: https://pushduck.dev/docs
+    url: https://pushduck.org/docs
     about: Check the docs before filing — your answer might already be there
 
   - name: Discussions
