@@ -6,7 +6,16 @@ export default defineConfig({
     "src/server.ts",
     "src/client.ts",
     "src/react-native.ts",
+    // The barrel is the documented entry point, but each adapter is also
+    // published on its own subpath. The barrel's .d.ts references next,
+    // express and fastify types, so a project that installs only one of them
+    // and sets skipLibCheck: false gets TS2307 for the peers it lacks.
+    // Importing a single adapter avoids pulling in the others' types.
     "src/adapters/index.ts",
+    "src/adapters/nextjs.ts",
+    "src/adapters/nextjs-pages.ts",
+    "src/adapters/express.ts",
+    "src/adapters/fastify.ts",
   ],
   format: ["cjs", "esm"],
   dts: true,

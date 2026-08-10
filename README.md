@@ -133,13 +133,19 @@ export default function Upload() {
 ### Storage Operations API
 
 ```typescript
-import { storage } from "pushduck/storage";
+import { createStorage, createUploadConfig } from "pushduck/server";
+
+const { config } = createUploadConfig()
+  .provider("aws", { bucket: "my-bucket", region: "us-east-1" })
+  .build();
+
+const storage = createStorage(config);
 
 // List files with filtering
 const files = await storage.list.files({
   prefix: "uploads/",
-  maxResults: 50,
-  sortBy: "lastModified"
+  maxFiles: 50,
+  sortBy: "modified"
 });
 
 // Get file metadata
@@ -155,8 +161,8 @@ await storage.delete.files(["file1.jpg", "file2.pdf"]); // Batch delete
 const downloadUrl = await storage.download.presignedUrl("uploads/document.pdf", 3600);
 
 // Advanced listing with pagination
-for await (const batch of storage.list.paginatedGenerator({ maxResults: 100 })) {
-  console.log(`Processing ${batch.files.length} files`);
+for await (const batch of storage.list.paginatedGenerator({ pageSize: 100 })) {
+  console.log(`Processing ${batch.length} files`);
   // Process large datasets efficiently
 }
 

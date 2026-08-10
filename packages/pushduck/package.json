@@ -7,7 +7,7 @@
   "description": "Add file uploads to any web application. Secure, edge-ready. Works with 16+ frameworks and 5+ storage providers. No heavy AWS SDK required.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/abhay-ramesh/pushduck.git"
+    "url": "git+https://github.com/abhay-ramesh/pushduck.git"
   },
   "homepage": "https://pushduck.org",
   "bugs": {
@@ -82,9 +82,9 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "type-check": "tsc --noEmit",
-    "test": "vitest",
+    "test": "vitest run",
     "test:watch": "vitest --watch",
-    "test:coverage": "vitest --coverage",
+    "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm build",
