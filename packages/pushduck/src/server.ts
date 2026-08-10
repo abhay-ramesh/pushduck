@@ -66,17 +66,18 @@
  *
  * @example Storage API Usage
  * ```typescript
- * import { createStorage, createProvider } from 'pushduck/server';
+ * import { createStorage, createUploadConfig } from 'pushduck/server';
  *
- * const storage = createStorage(createProvider('aws', {
- *   bucket: 'my-bucket',
- *   region: 'us-east-1',
- * }));
+ * const { config } = createUploadConfig()
+ *   .provider('aws', { bucket: 'my-bucket', region: 'us-east-1' })
+ *   .build();
  *
- * // High-level operations
- * const files = await storage.listFiles({ prefix: 'uploads/' });
- * const info = await storage.getFileInfo('uploads/document.pdf');
- * await storage.deleteFile('uploads/old-file.jpg');
+ * const storage = createStorage(config);
+ *
+ * // High-level operations, grouped by namespace
+ * const files = await storage.list.files({ prefix: 'uploads/' });
+ * const info = await storage.metadata.getInfo('uploads/document.pdf');
+ * await storage.delete.file('uploads/old-file.jpg');
  * ```
  *
  * @example Health Monitoring
@@ -254,9 +255,16 @@ export { createS3RouterWithConfig, S3Route } from "./core/router/router-v2";
  */
 export type { S3Router } from "./types";
 
-// Framework adapters - import from specific adapter modules
-// e.g. import { toNextJsHandler } from 'pushduck/adapters/nextjs'
-// e.g. import { toExpressHandler } from 'pushduck/adapters/express'
+// Framework adapters ship on a barrel and on per-adapter subpaths:
+//   import { toExpressHandler } from 'pushduck/adapters'          // preferred
+//   import { toExpressHandler } from 'pushduck/adapters/express'  // narrower types
+//
+// The barrel's types reference next, express and fastify. If you install only
+// one of them and set skipLibCheck: false, import the subpath instead so the
+// peers you do not have are never referenced.
+//
+// Frameworks that speak Web-standard Request/Response need no adapter at all —
+// use `router.handlers` directly.
 
 // ========================================
 // STORAGE API
@@ -266,41 +274,45 @@ export type { S3Router } from "./types";
  * High-level object-style storage API for direct file operations.
  * Provides a clean interface for file management without dealing with upload routes.
  *
+ * Operations are grouped into namespaces: `list`, `metadata`, `download`,
+ * `upload`, `validation` and `delete`.
+ *
  * @example Basic Storage Operations
  * ```typescript
- * import { createStorage, createProvider } from 'pushduck/server';
+ * import { createStorage, createUploadConfig } from 'pushduck/server';
  *
- * const storage = createStorage(createProvider('aws', {
- *   bucket: 'my-bucket',
- *   region: 'us-east-1',
- * }));
+ * const { config } = createUploadConfig()
+ *   .provider('aws', { bucket: 'my-bucket', region: 'us-east-1' })
+ *   .build();
+ *
+ * const storage = createStorage(config);
  *
  * // List files
- * const files = await storage.listFiles({ prefix: 'uploads/', limit: 50 });
+ * const files = await storage.list.files({ prefix: 'uploads/', maxFiles: 50 });
  *
  * // Get file information
- * const info = await storage.getFileInfo('uploads/document.pdf');
+ * const info = await storage.metadata.getInfo('uploads/document.pdf');
  * console.log(`File size: ${info.size}, Last modified: ${info.lastModified}`);
  *
  * // Delete files
- * await storage.deleteFile('uploads/old-file.jpg');
- * await storage.deleteFiles(['file1.jpg', 'file2.png']);
+ * await storage.delete.file('uploads/old-file.jpg');
+ * await storage.delete.files(['file1.jpg', 'file2.png']);
  * ```
  *
  * @example Advanced Storage Operations
  * ```typescript
- * // Generate presigned URLs for direct uploads
- * const presignedUrl = await storage.generatePresignedUploadUrl('uploads/new-file.pdf', {
+ * // Generate a presigned URL for a direct upload
+ * const { url, key } = await storage.upload.presignedUrl({
+ *   key: 'uploads/new-file.pdf',
+ *   contentType: 'application/pdf',
  *   expiresIn: 3600, // 1 hour
- *   conditions: {
- *     'content-type': 'application/pdf',
- *     'content-length-range': [0, 10485760], // Max 10MB
- *   },
  * });
  *
+ * // Generate a presigned URL for a download
+ * const downloadUrl = await storage.download.presignedUrl('uploads/new-file.pdf', 3600);
+ *
  * // Bulk operations
- * const deleteResult = await storage.deleteByPrefix('temp/');
- * console.log(`Deleted ${deleteResult.deletedCount} files`);
+ * const deleteResult = await storage.delete.byPrefix('temp/');
  * ```
  */
 export { createStorage, StorageInstance } from "./core/storage/storage-api";

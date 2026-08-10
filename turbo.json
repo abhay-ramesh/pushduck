@@ -54,9 +54,6 @@
     "clean": {
       "cache": false
     },
-    "type-check": {
-      "cache": false,
-      "persistent": true
-    }
+    "type-check": {}
   }
 }

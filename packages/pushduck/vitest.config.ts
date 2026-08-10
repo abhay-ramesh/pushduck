@@ -12,7 +12,15 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],
-      exclude: ["node_modules/", "dist/", "**/*.test.{ts,tsx}"],
+      // Without `include`, Vitest 3+ only reports files a test imported, so
+      // untested files vanish from the denominator instead of counting as 0%.
+      include: ["src/**"],
+      exclude: [
+        "node_modules/",
+        "dist/",
+        "**/*.test.{ts,tsx}",
+        "src/setupTests.ts",
+      ],
     },
   },
 });
