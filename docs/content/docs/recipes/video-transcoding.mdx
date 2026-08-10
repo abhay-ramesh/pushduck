@@ -1,0 +1,139 @@
+---
+title: Video transcoding
+description: Transcode before upload in the browser, or after upload on your server.
+icon: Video
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+Pushduck does not transcode video, and won't — that means owning a job queue,
+worker infrastructure, progress reporting for a process that outlives the
+request, storage for intermediate artifacts, and codec licensing. That is a
+different product, and doing it badly is worse than not doing it.
+
+What Pushduck does is get the original into your bucket and tell you exactly
+when it landed. There are two places to hook transcoding onto that, and they
+have genuinely different trade-offs.
+
+## Option 1 — Transcode in the browser, before upload
+
+Best when you want to **shrink what crosses the network**: a 4K phone capture
+becomes 720p before a byte is uploaded. Costs you nothing in server compute.
+
+```typescript
+"use client";
+
+import { upload } from "@/lib/upload-client";
+
+async function handleFiles(files: File[]) {
+  // Your transcoder of choice — Mediabunny and ffmpeg.wasm both run in-browser.
+  const prepared = await Promise.all(files.map((file) => transcode(file)));
+  await upload.videoUpload().uploadFiles(prepared);
+}
+```
+
+**Trade-offs.** It's free for you and slow for the user — in-browser transcoding
+is CPU-bound and can take minutes on a laptop, longer on a phone, and may fail
+outright on low-memory devices. Feasible for short clips and modest resolutions;
+not for a 2GB source file.
+
+- [Mediabunny](https://github.com/Vanilagy/mediabunny) — modern, WebCodecs-based
+- [ffmpeg.wasm](https://ffmpegwasm.netlify.app/) — full FFmpeg, much larger bundle
+
+## Option 2 — Transcode after upload, on your server
+
+Best for **anything real**. The original lands in your bucket, and you enqueue
+the work.
+
+```typescript
+// app/api/upload/route.ts
+import { createUploadConfig } from "pushduck/server";
+
+const { s3 } = createUploadConfig()
+  .provider("aws", {
+    bucket: process.env.AWS_BUCKET_NAME!,
+    region: process.env.AWS_REGION!,
+  })
+  .build();
+
+const router = s3.createRouter({
+  videoUpload: s3
+    .file()
+    .accept(["video/*"])
+    .maxFileSize("500MB")
+    .middleware(async ({ req }) => {
+      const user = await authenticate(req);
+      return { userId: user.id };
+    })
+    .onUploadComplete(async ({ key, metadata }) => {
+      // Hand off and return immediately. Do not transcode here.
+      await queue.enqueue("transcode", { key, userId: metadata.userId });
+    }),
+});
+
+export const { GET, POST } = router.handlers;
+```
+
+<Callout type="warn">
+  `onUploadComplete` runs inline with the client's completion request. Enqueue
+  the job and return. Transcoding inside the hook holds the request open for
+  minutes and will fail on any serverless timeout.
+</Callout>
+
+Your worker then does the actual work — reading the original from the bucket and
+writing derivatives back:
+
+```typescript
+// worker/transcode.ts — runs wherever your jobs run
+export async function transcodeJob({ key }: { key: string }) {
+  const source = await storage.download.presignedUrl(key, 3600);
+
+  // ffmpeg -i <source> -vf scale=-2:720 -c:v h264 out.mp4
+  const output = await runFfmpeg(source, { height: 720, codec: "h264" });
+
+  await storage.upload.file(output, key.replace(/\.[^.]+$/, "-720p.mp4"));
+  await db.videos.update({ key, status: "ready" });
+}
+```
+
+Note the worker mints its own download URL with the TTL *it* needs, rather than
+relying on the one returned at completion. That is the pattern to copy: persist
+the `key`, mint URLs on demand.
+
+## Option 3 — Hand off to a service
+
+If video is central to your product, a managed pipeline will beat anything you
+assemble. The hook is identical — you're enqueuing to someone else's queue.
+
+```typescript
+.onUploadComplete(async ({ key }) => {
+  await mux.video.assets.create({
+    inputs: [{ url: await storage.download.presignedUrl(key, 3600) }],
+    playback_policy: ["signed"],
+  });
+})
+```
+
+[Mux](https://mux.com), [Cloudflare Stream](https://developers.cloudflare.com/stream/)
+and [AWS MediaConvert](https://aws.amazon.com/mediaconvert/) all take a signed
+source URL and handle renditions, thumbnails and delivery.
+
+## Which to pick
+
+| | Browser | Your worker | Managed service |
+| --- | --- | --- | --- |
+| Server cost | none | yours | per-minute |
+| Upload size | reduced | full | full |
+| Large files | fails | fine | fine |
+| Setup | small | queue + worker | API key |
+
+Start with **Option 2** unless bandwidth is your bottleneck. Move to **Option 3**
+when renditions, captions or adaptive streaming enter the picture.
+
+## What this recipe doesn't cover
+
+Retries and idempotency (your queue should own both), telling the user when the
+job finishes (webhook or poll on your own status field), cleaning up originals
+after successful transcode, and failure handling when the source is corrupt or
+codec-unsupported. Those differ per deployment; wire them the way your
+infrastructure already does.

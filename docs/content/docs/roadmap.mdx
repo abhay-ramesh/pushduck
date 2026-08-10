@@ -78,22 +78,28 @@ Before anything else. These are small, high-value fixes surfaced by code review.
 
 ### Recipes library
 
-A first-party collection of copy-paste snippets for common integrations. Lives at `docs/content/docs/recipes/` and renders as its own section in the sidebar.
+**Shipped.** A first-party collection of copy-paste patterns for the things
+Pushduck deliberately doesn't do. Lives at [`/docs/recipes`](/docs/recipes).
 
-Planned first set:
+Available now:
+
+- [`recipes/image-thumbnails`](/docs/recipes/image-thumbnails) — responsive derivatives with Sharp
+- [`recipes/video-transcoding`](/docs/recipes/video-transcoding) — browser, worker, or managed service
+- [`recipes/virus-scanning`](/docs/recipes/virus-scanning) — quarantine-by-default with ClamAV
+- [`recipes/database-record`](/docs/recipes/database-record) — persist the key, not the URL
+- [`recipes/rate-limiting`](/docs/recipes/rate-limiting) — per-user quotas in `middleware`
+
+Wanted next — **contributions welcome**, these are the part of the project that
+scales with the community rather than with maintainer time:
 
 - `recipes/nextjs-starter` — minimal App Router setup with typed route + client hook
-- `recipes/clerk-middleware` — auth middleware using Clerk
-- `recipes/authjs-middleware` — auth middleware using Auth.js
-- `recipes/betterauth-middleware` — auth middleware using BetterAuth
-- `recipes/sharp-thumbnails` — thumbnail generation in `onUploadComplete`
+- `recipes/clerk-middleware`, `recipes/authjs-middleware`, `recipes/betterauth-middleware`
 - `recipes/exif-stripping` — strip GPS/metadata from photos before storing
-- `recipes/clamav-scan` — virus scanning via ClamAV
-- `recipes/rate-limiting` — per-user upload quota in middleware
-- `recipes/db-record` — write an upload row to Postgres / SQLite / Drizzle
+- `recipes/webhooks` — notify an external system on completion
 - `recipes/retry-on-failure` — wrap `uploadFiles` with exponential backoff
 
-Recipes are standalone, framework-agnostic, and work without any CLI.
+Recipes are standalone, framework-agnostic, and work without any CLI. See
+[contributing a recipe](/docs/recipes#contributing-a-recipe).
 
 ### ShadCN-style CLI
 
@@ -189,16 +195,16 @@ Not committed. Prioritized based on user demand.
 
 These belong in **your code** (or in a [recipe](#recipes-library)), not in the library. The same scope discipline that keeps Pushduck a thin library also keeps it from turning into a platform.
 
-- **File processing** — thumbnail generation, EXIF stripping, format conversion, resizing. Use Sharp, FFmpeg, Jimp, or ImageMagick in your `onUploadComplete` handler. Recipes provided.
-- **Virus / malware scanning** — use ClamAV, VirusTotal, or a hosted scanner in `onUploadComplete`. Recipe provided.
-- **Authentication integrations** — `middleware` hook accepts any async function. Recipes provided for Clerk, Auth.js, BetterAuth, Lucia.
+- **File processing** — thumbnail generation, EXIF stripping, format conversion, resizing, **video transcoding**. Use Sharp, FFmpeg, Jimp, or ImageMagick in your `onUploadComplete` handler. Recipes: [image thumbnails](/docs/recipes/image-thumbnails), [video transcoding](/docs/recipes/video-transcoding).
+- **Virus / malware scanning** — use ClamAV, VirusTotal, or a hosted scanner in `onUploadComplete`. Recipe: [virus scanning](/docs/recipes/virus-scanning).
+- **Authentication integrations** — `middleware` hook accepts any async function. Recipes for Clerk, Auth.js, BetterAuth and Lucia are planned; contributions welcome.
 - **Admin dashboard** — Pushduck is a library, not a platform.
 - **Hosted service / managed storage** — you bring the bucket.
 - **Team management, billing, multi-tenant quotas** — application concerns.
 - **GraphQL integration** — out of scope. Upload mechanics are REST; use GraphQL above the upload layer for metadata.
-- **Webhooks** — write them in your `onUploadComplete` handler. Recipe provided.
+- **Webhooks** — write them in your `onUploadComplete` handler. Recipe planned.
 - **Built-in analytics** — surface lifecycle events; you wire Plausible, PostHog, Segment, or whatever.
-- **Built-in upload UI components** — headless state, yes. Styled components, no. Recipes provide examples you can copy and restyle.
+- **Built-in upload UI components** — headless state, yes. Styled components, no. Copy-and-restyle examples are planned as recipes.
 
 ---
 

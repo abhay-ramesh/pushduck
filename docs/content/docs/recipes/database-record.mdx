@@ -1,0 +1,109 @@
+---
+title: Database record
+description: Persist uploads correctly — store the key, never the presigned URL.
+icon: Database
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+The most common thing to do after an upload is write a row about it. It is also
+the easiest place to make a mistake that only shows up an hour later.
+
+## Store the key, not the URL
+
+<Callout type="warn">
+  Never persist `presignedUrl`. It is a temporary signed URL — it expires, and
+  your row keeps pointing at a dead link. Store the `key`, which never changes,
+  and mint a URL when you need one.
+</Callout>
+
+```typescript
+const router = s3.createRouter({
+  documentUpload: s3
+    .file()
+    .maxFileSize("50MB")
+    .middleware(async ({ req }) => {
+      const user = await authenticate(req);
+      return { userId: user.id };
+    })
+    .onUploadComplete(async ({ key, file, metadata }) => {
+      await db.uploads.create({
+        key, // the durable identifier
+        name: file.name,
+        size: file.size,
+        contentType: file.type,
+        ownerId: metadata.userId,
+      });
+    }),
+});
+```
+
+## Reading it back
+
+**Public bucket** — the URL is a pure function of the key, so nothing needs
+storing:
+
+```typescript
+const url = storage.download.url(row.key);
+```
+
+**Private bucket** — mint a short-lived URL at read time, with the TTL that
+moment actually needs:
+
+```typescript
+const url = await storage.download.presignedUrl(row.key, 300);
+```
+
+Minting is a local HMAC — no network call, microseconds. Doing it per request is
+cheaper than the bug you get from caching one.
+
+## Ownership belongs to middleware
+
+Note that `ownerId` comes from `metadata`, which came from `middleware`, which
+authenticated the request. It is **not** taken from the client.
+
+```typescript
+.middleware(async ({ req }) => {
+  const user = await authenticate(req);
+  return { userId: user.id }; // server-derived, trustworthy
+})
+```
+
+Anything the browser sends is a claim, not a fact. If a client-supplied field
+ends up in a `WHERE` clause, that is an access-control bug.
+
+## Recording intent before the upload
+
+`onUploadComplete` only fires if the client comes back to report completion. A
+browser that closes mid-upload leaves an object in your bucket with no row.
+
+If you need to reconcile, write a `pending` row when the URL is issued and
+promote it on completion:
+
+```typescript
+.middleware(async ({ req, file }) => {
+  const user = await authenticate(req);
+  const draft = await db.uploads.create({
+    name: file.name,
+    ownerId: user.id,
+    status: "pending",
+  });
+  return { userId: user.id, draftId: draft.id };
+})
+.onUploadComplete(async ({ key, metadata }) => {
+  await db.uploads.update({
+    id: metadata.draftId,
+    key,
+    status: "complete",
+  });
+})
+```
+
+Rows still `pending` after an hour are abandoned uploads — sweep them, and
+reconcile against a bucket listing if you need to catch orphaned objects too.
+
+## What this recipe doesn't cover
+
+Transactional guarantees between your bucket and your database (there are none —
+the sweep above is the pragmatic answer), deleting objects when rows are deleted,
+and soft-delete semantics.

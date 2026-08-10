@@ -1,0 +1,13 @@
+{
+  "title": "Recipes",
+  "description": "Copy-paste patterns for the things Pushduck deliberately doesn't do",
+  "icon": "BookOpen",
+  "pages": [
+    "index",
+    "image-thumbnails",
+    "video-transcoding",
+    "virus-scanning",
+    "database-record",
+    "rate-limiting"
+  ]
+}

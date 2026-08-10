@@ -184,6 +184,26 @@ export type S3LifecycleHook<T = any> = (
   ctx: S3LifecycleContext<T>
 ) => Promise<void> | void;
 
+/**
+ * Context for `onUploadComplete`.
+ *
+ * By the time this hook runs the object exists, so `url` and `key` are always
+ * present. {@link S3LifecycleContext} marks them optional because it is shared
+ * with `onUploadStart`, which runs before a key has been generated — without
+ * this narrowing every completion handler would need `key!` or a guard for a
+ * value that is guaranteed.
+ */
+export interface S3CompletionContext<T = any> extends S3LifecycleContext<T> {
+  /** Public URL of the uploaded object. */
+  url: string;
+  /** Storage key of the uploaded object. Persist this, not a presigned URL. */
+  key: string;
+}
+
+export type S3CompletionHook<T = any> = (
+  ctx: S3CompletionContext<T>
+) => Promise<void> | void;
+
 // ========================================
 // Hierarchical Path Configuration Types
 // ========================================
@@ -587,7 +607,7 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
    * });
    * ```
    */
-  onUploadComplete(hook: S3LifecycleHook<TMetadata>): this {
+  onUploadComplete(hook: S3CompletionHook<TMetadata>): this {
     this.config.onUploadComplete = hook;
     return this;
   }
@@ -689,7 +709,7 @@ interface S3RouteConfig<TMetadata = any> {
     ctx: S3LifecycleContext<TMetadata> & { progress: number }
   ) => Promise<void> | void;
   /** Hook for upload completion events */
-  onUploadComplete?: S3LifecycleHook<TMetadata>;
+  onUploadComplete?: S3CompletionHook<TMetadata>;
   /** Hook for upload error events */
   onUploadError?: (
     ctx: S3LifecycleContext<TMetadata> & { error: Error }

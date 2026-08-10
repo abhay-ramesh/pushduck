@@ -1,0 +1,102 @@
+---
+title: Rate limiting
+description: Enforce per-user upload quotas before a presigned URL is issued.
+icon: Gauge
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+Rate limiting belongs in `middleware`, because that is the only point where you
+can still say no. Once a presigned URL is issued, the upload goes **directly to
+your bucket** — your server is not in the path and cannot stop it.
+
+## Daily quota
+
+```typescript
+const router = s3.createRouter({
+  upload: s3
+    .file()
+    .maxFileSize("50MB")
+    .middleware(async ({ req }) => {
+      const user = await authenticate(req);
+
+      const key = `uploads:${user.id}:${new Date().toISOString().slice(0, 10)}`;
+      const count = await redis.incr(key);
+      if (count === 1) await redis.expire(key, 86_400);
+
+      const limit = user.plan === "pro" ? 1000 : 20;
+      if (count > limit) {
+        throw new Error(`Daily upload limit of ${limit} reached`);
+      }
+
+      return { userId: user.id };
+    }),
+});
+```
+
+Throwing in middleware means no URL is issued and nothing reaches your bucket.
+
+<Callout type="warn">
+  Middleware runs **per file**, not per request. A client asking for ten
+  presigned URLs runs this ten times — which is what you want for a file count
+  quota, and is worth knowing if you are counting requests instead.
+</Callout>
+
+## Quota by stored bytes
+
+Counting files is a poor proxy for cost. If you care about storage spend, count
+bytes — `file.size` is available in middleware.
+
+```typescript
+.middleware(async ({ req, file }) => {
+  const user = await authenticate(req);
+  const used = await db.usage.bytesFor(user.id);
+
+  if (used + file.size > user.quotaBytes) {
+    throw new Error("Storage quota exceeded");
+  }
+
+  return { userId: user.id };
+})
+```
+
+<Callout type="warn">
+  `file.size` is **declared by the client** and is not enforced by the presigned
+  PUT. A modified client can declare 1KB and upload 1GB. Treat this as a guard
+  against honest overuse, not against an attacker. Reconcile against actual
+  object sizes — a bucket listing, or S3 storage metrics — and enforce the hard
+  limit there.
+</Callout>
+
+## Short-window burst control
+
+Daily quotas don't stop a burst. A short sliding window does, and composes with
+the quota above:
+
+```typescript
+const burst = `burst:${user.id}`;
+const hits = await redis.incr(burst);
+if (hits === 1) await redis.expire(burst, 10);
+if (hits > 20) throw new Error("Slow down");
+```
+
+## Returning a useful error
+
+A thrown middleware error currently surfaces as a generic failure. Until
+error-to-status mapping lands, encode what the client needs in the message:
+
+```typescript
+throw new Error(
+  JSON.stringify({ code: "QUOTA_EXCEEDED", limit, resetsAt: endOfDay() })
+);
+```
+
+Not elegant, but it lets the client distinguish "you are out of quota until
+midnight" from "something broke", which is the difference between a useful UI
+and a shrug.
+
+## What this recipe doesn't cover
+
+Distributed correctness under concurrent requests (`INCR` is atomic; a
+read-then-write against Postgres is not), refunding quota when an upload is
+abandoned, and per-organisation rather than per-user accounting.

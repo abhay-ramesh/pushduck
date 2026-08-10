@@ -1,0 +1,91 @@
+---
+title: Recipes
+description: Copy-paste patterns for the things Pushduck deliberately doesn't do.
+icon: BookOpen
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+Pushduck does uploads: presigning, validation, routing, lifecycle hooks. It does
+not process your files, scan them, bill for them, or store records about them —
+see [Philosophy](/docs/philosophy) for why.
+
+That scope only works if the boundary is a **doorway rather than a wall**. These
+recipes are the doorway. Each one is a small, standalone pattern that hangs off a
+hook Pushduck already gives you, using tools that do the job better than a
+first-party feature would.
+
+<Callout type="info">
+  Recipes are documentation, not a package. There is nothing to install and no
+  API to learn — copy the code, own it, change it. Nothing here is a Pushduck
+  feature, and none of it is on the roadmap to become one.
+</Callout>
+
+## The two hooks everything hangs off
+
+Almost every recipe is one of these two shapes.
+
+**`middleware`** runs *before* a presigned URL is issued. Use it to reject the
+request: authentication, quotas, per-user rules. Throwing here means no URL is
+issued and nothing is uploaded.
+
+```typescript
+s3.file().middleware(async ({ req, file }) => {
+  const user = await authenticate(req);
+  return { userId: user.id }; // becomes `metadata` downstream
+});
+```
+
+**`onUploadComplete`** runs *after* the object exists in your bucket. Use it to
+react: enqueue work, write a database row, scan, notify. `url` and `key` are
+always present here.
+
+```typescript
+s3.file().onUploadComplete(async ({ key, url, file, metadata }) => {
+  await queue.enqueue("process", { key });
+});
+```
+
+<Callout type="warn">
+  `onUploadComplete` runs inline with the client's completion request. Keep it
+  fast — **enqueue** work rather than doing it here. A recipe that transcodes a
+  video inside the hook will hold the request open for minutes and fail on any
+  serverless timeout.
+</Callout>
+
+## Available recipes
+
+| Recipe | Hook | What it shows |
+| --- | --- | --- |
+| [Image thumbnails](/docs/recipes/image-thumbnails) | `onUploadComplete` | Generating derivatives with Sharp |
+| [Video transcoding](/docs/recipes/video-transcoding) | client + `onUploadComplete` | Both handoff directions |
+| [Virus scanning](/docs/recipes/virus-scanning) | `onUploadComplete` | Quarantine and delete on failure |
+| [Database record](/docs/recipes/database-record) | `onUploadComplete` | Persisting the key, not the URL |
+| [Rate limiting](/docs/recipes/rate-limiting) | `middleware` | Rejecting before a URL is issued |
+
+## Contributing a recipe
+
+Recipes are the part of the project that scales with the community rather than
+with maintainer time, and contributions are genuinely welcome — a recipe you had
+to work out yourself is exactly the one somebody else is about to need.
+
+A good recipe:
+
+- **Solves one problem**, in one file, in under a page
+- **Uses a hook Pushduck already has** — no new library surface
+- **Names the tool it hands off to** and doesn't try to hide it
+- **Compiles.** Code that doesn't run is worse than no code
+- **Says what it doesn't handle.** Retries, idempotency and failure modes are
+  where real deployments differ; be explicit about what you left out
+
+Open a PR adding a file to `docs/content/docs/recipes/` and listing it in that
+directory's `meta.json`. If you are unsure whether an idea fits, open an issue
+first — "is this a recipe or a feature?" is a fair question and a fast one to
+answer.
+
+<Callout type="info">
+  A first-party extension mechanism is under consideration, which would let
+  some of these patterns install as packages rather than as copy-paste. Nothing
+  is committed yet, and recipes will keep working regardless — they are just
+  code you own.
+</Callout>
