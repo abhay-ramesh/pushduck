@@ -1064,8 +1064,25 @@ export interface UploadCompletion {
 export interface CompletionResponse {
   success: boolean;
   key: string;
+  /**
+   * The object's permanent public URL — your `customDomain` when one is
+   * configured, otherwise the provider URL.
+   *
+   * **Use this for public buckets.** It is unsigned, never expires and keeps
+   * CDN caching intact.
+   */
   url?: string;
-  presignedUrl?: string; // Temporary download URL (expires in 1 hour)
+  /**
+   * A temporary signed URL for reading the object, for **private** buckets.
+   *
+   * Expires after the route's `.expiresIn()`, defaulting to one hour. Always
+   * addressed to the provider's S3 API endpoint, never to `customDomain` — a
+   * custom domain is a read-only CDN front and cannot serve a presigned
+   * request. Cloudflare documents this for R2 explicitly.
+   *
+   * If your bucket is public, prefer {@link CompletionResponse.url}.
+   */
+  presignedUrl?: string;
   file?: S3FileMetadata;
   error?: string;
 }
