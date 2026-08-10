@@ -987,11 +987,13 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         // Get file URL
         const url = getFileUrl(this.config, completion.key);
 
-        // Generate presigned download URL (expires in 1 hour by default)
+        // Generate presigned download URL. Honours the route's .expiresIn(),
+        // falling back to 1 hour, so a route that shortens its upload window
+        // does not hand back a long-lived download URL.
         const presignedUrl = await generatePresignedDownloadUrl(
           this.config,
           completion.key,
-          3600
+          routeConfig.expiresIn ?? 3600
         );
 
         // Call onUploadComplete hook

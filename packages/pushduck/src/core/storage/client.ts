@@ -615,7 +615,23 @@ export interface PresignedUrlResult {
 }
 
 /**
- * Generates a presigned URL for downloading/viewing a file from S3
+ * Generates a presigned URL for downloading/viewing a file from S3.
+ *
+ * The URL is always signed against the provider's S3 API endpoint, never a
+ * configured `customDomain` — the same rule `generatePresignedUploadUrl`
+ * follows, and for the same reason: a custom domain is a read-only CDN front
+ * that does not serve the S3 API. Cloudflare states this explicitly —
+ * "Presigned URLs work with the S3 API domain and cannot be used with custom
+ * domains" (https://developers.cloudflare.com/r2/api/s3/presigned-urls/).
+ *
+ * `host` is part of the SigV4 canonical request, so the host cannot be
+ * swapped after signing. Signing against the custom domain also left the
+ * credential scope without a service (`.../us-east-1//aws4_request`), because
+ * aws4fetch infers the service from the hostname and a CDN host is not
+ * inferable.
+ *
+ * If your bucket is public, prefer `getFileUrl()`, which returns the clean
+ * custom-domain URL and keeps CDN caching intact.
  */
 export async function generatePresignedDownloadUrl(
   uploadConfig: UploadConfig,
@@ -626,7 +642,7 @@ export async function generatePresignedDownloadUrl(
   const config = getS3CompatibleConfig(uploadConfig.provider);
 
   try {
-    const s3Url = buildPublicUrl(key, config);
+    const s3Url = buildS3Url(key, config);
     const url = new URL(s3Url);
 
     // Add expiration as query parameter
