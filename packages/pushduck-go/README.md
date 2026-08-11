@@ -83,11 +83,23 @@ the conformance fixtures deliberately match them by shape and cannot:
 ## Status
 
 Implemented: introspection, presign, complete, middleware, RFC 9457 errors,
-completion tokens, per-file validation, SigV4 with temporary credentials, and
-S3-compatible endpoints with path-style addressing.
+completion tokens, per-file validation, SigV4 with temporary credentials,
+S3-compatible endpoints with path-style addressing, and **multipart uploads** —
+init, sign, complete, abort and list, with HMAC session tokens.
 
-Not yet implemented: multipart uploads. The protocol specifies them and the
-JavaScript client uses them above 100 MiB, so a Go server should decline
-rather than pretend — the four multipart actions currently fall through to
-`Unknown action`, which is a 400 the client surfaces rather than a silent
-failure.
+Multipart is verified against a real MinIO, not a stub, because the two things
+most likely to be silently wrong are only observable against a real server:
+`UploadPart` signatures, which are self-consistently wrong if `partNumber` and
+`uploadId` are not in the canonical request; and assembly, where parts that
+overlap or arrive out of order still complete with a 200 and produce a corrupt
+object.
+
+The end-to-end claim is tested rather than asserted: `cross-language.test.ts`
+in the TypeScript package drives the real JavaScript upload client against this
+server, through the full multipart handshake, and reads the bytes back from
+storage. A React frontend and a Go backend, sharing no code.
+
+Not yet implemented: resumable uploads across process restarts. The client's
+resume support works — it re-lists parts from `multipart-parts`, which this
+server implements — but there is no server-side session store, so a session is
+only as durable as the token the client holds.

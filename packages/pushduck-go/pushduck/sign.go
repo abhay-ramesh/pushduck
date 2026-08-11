@@ -170,6 +170,19 @@ func (c *Config) presign(opts presignOptions) string {
 		hmacSHA256(signingKey(c.SecretAccessKey, dateStamp, opts.Region, "s3"), stringToSign),
 	)
 
-	return "https://" + opts.Host + uriEncode(opts.Path, false) +
+	// The scheme follows the configured endpoint. A signature is computed over
+	// host and path, not scheme, so this is presentation — but returning an
+	// https URL for a plain-http MinIO gives the client a connection error with
+	// nothing to explain it.
+	return c.scheme() + "://" + opts.Host + uriEncode(opts.Path, false) +
 		"?" + canonicalQuery + "&X-Amz-Signature=" + signature
+}
+
+// scheme is http only for an explicitly plain-http endpoint, which in practice
+// means a local MinIO or a test double.
+func (c *Config) scheme() string {
+	if strings.HasPrefix(c.Endpoint, "http://") {
+		return "http"
+	}
+	return "https"
 }

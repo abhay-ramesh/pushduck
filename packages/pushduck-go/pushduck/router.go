@@ -110,6 +110,16 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err = router.presign(w, r, routeName, route, telemetry)
 	case "complete":
 		err = router.complete(w, r, routeName, route, telemetry)
+	case "multipart-init":
+		err = router.multipartInit(w, r, routeName, route, telemetry)
+	case "multipart-sign":
+		err = router.multipartSign(w, r, routeName, route, telemetry)
+	case "multipart-complete":
+		err = router.multipartComplete(w, r, routeName, route, telemetry)
+	case "multipart-abort":
+		err = router.multipartAbort(w, r, routeName, route, telemetry)
+	case "multipart-parts":
+		err = router.multipartParts(w, r, routeName, route, telemetry)
 	default:
 		err = NewError("BAD_REQUEST", fmt.Sprintf("Unknown action: %s", action))
 	}
