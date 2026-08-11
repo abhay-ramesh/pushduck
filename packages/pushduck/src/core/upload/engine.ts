@@ -247,6 +247,12 @@ interface PresignedUrlResult {
   /** Headers the PUT must carry for the signature to validate. */
   requiredHeaders?: Record<string, string>;
   metadata?: unknown;
+  /**
+   * Opaque token binding this key to this route, echoed back at completion so
+   * the server can confirm the caller is finishing an upload it authorised.
+   * Absent from servers that predate it.
+   */
+  completionToken?: string;
   error?: string;
 }
 
@@ -531,6 +537,12 @@ export function createUploadEngine<
     clientFileId: string;
     file: S3FileMetadata;
     metadata: unknown;
+    /**
+     * Echoed back at completion so the server can confirm this caller was the
+     * one it presigned this key for. Absent when talking to a server that
+     * predates the token, which still completes normally.
+     */
+    completionToken?: string;
   } | null> {
     if (!result?.success) {
       // A per-file rejection from the route's validation chain.
@@ -613,6 +625,7 @@ export function createUploadEngine<
         clientFileId: track.id,
         file: track.meta,
         metadata: result.metadata,
+        completionToken: result.completionToken,
       };
     } catch (error) {
       // Cancellation is a distinct outcome from failure: it is not retryable
@@ -738,7 +751,7 @@ export function createUploadEngine<
    * must not turn a successful upload into a failed one.
    */
   async function notifyCompletion(
-    completions: Array<{ key: string; clientFileId: string }>
+    completions: Array<{ key: string; clientFileId: string; completionToken?: string }>
   ): Promise<void> {
     try {
       const response = await fetcher(

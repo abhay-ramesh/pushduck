@@ -1059,6 +1059,31 @@ export class S3FileSchema extends S3Schema<File, File> {
     return new S3Route(this).expiresIn(secondsOrConfig as never);
   }
 
+  /**
+   * Require a completion to present the token issued at presign.
+   *
+   * Completion runs this route's middleware, so an anonymous caller cannot
+   * forge one. But the key travels in the request body, and middleware
+   * authenticates the *caller* rather than the *object* — so an authenticated
+   * user can complete against a key belonging to someone else. Default keys are
+   * often predictable, and `onUploadComplete` is where applications attach a
+   * file to a record and grant access to it.
+   *
+   * Presign always issues the token, and completion always verifies one that is
+   * present. This makes it mandatory, which closes the gap completely but
+   * rejects clients older than the version that started sending it — including,
+   * during a rolling deploy, the previous build of the same application. Turn
+   * it on once every client is known to be current.
+   *
+   * @example
+   * ```typescript
+   * const documents = s3.file().requireCompletionToken();
+   * ```
+   */
+  requireCompletionToken(): S3Route<any, any> {
+    return new S3Route(this).requireCompletionToken();
+  }
+
   // Helper methods
   private _parseSize(size: string | number): number {
     if (typeof size === "number") return size;
