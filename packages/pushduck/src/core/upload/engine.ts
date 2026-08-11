@@ -49,6 +49,8 @@ import {
   UploadError,
 } from "../errors";
 import { getInputMeta, isFile, toBlob } from "./input";
+import { shouldUseMultipart } from "./multipart/plan";
+import { uploadFileMultipart } from "./multipart/uploader";
 import { computeAggregateProgress, computeFileTelemetry } from "./progress";
 import {
   UploadAbortedError,
@@ -91,6 +93,24 @@ export interface UploadEngineOptions<
   TRouter extends S3Router<any> = S3Router<any>,
 > extends UploadRouteConfig,
     UploadAdvancedConfig {
+  /**
+   * Multipart behaviour.
+   *
+   * Optional and invisible: with no configuration, files above the threshold
+   * transparently split into parts and everything else keeps the single-`PUT`
+   * path. Either way the caller sees the same `S3UploadedFile` — same
+   * `progress`, `uploadSpeed`, `eta`, and the same status transitions.
+   */
+  multipart?: {
+    /** Set false to keep every file on a single PUT. @default true */
+    enabled?: boolean;
+    /** Size at or above which a file is split. @default 100 MiB */
+    threshold?: number;
+    /** Preferred uniform part size. @default 5 MiB */
+    partSize?: number;
+    /** Parts in flight at once. @default 4 */
+    concurrency?: number;
+  };
   /**
    * Route name as defined in the server router.
    *
@@ -227,6 +247,7 @@ export function createUploadEngine<
     onSuccess,
     onError,
     onProgress,
+    multipart,
   } = options;
 
   // ---- Observable state -------------------------------------------------
@@ -522,6 +543,83 @@ export function createUploadEngine<
   }
 
   /**
+   * Transfers one file as multiple parts.
+   *
+   * Mirrors {@link transmit}'s state transitions exactly — same statuses, same
+   * telemetry fields, same error handling — so nothing above the engine can
+   * tell which strategy ran. It returns `null` rather than a completion record
+   * because multipart finalises server-side, so the batch's `complete` call
+   * has nothing to add.
+   */
+  async function transmitMultipart(
+    track: FileTrack,
+    clientMetadata: unknown
+  ): Promise<null> {
+    try {
+      track.startedAt = now();
+      patchFile(track.id, {
+        status: "uploading",
+        uploadStartTime: track.startedAt,
+      });
+
+      const blob = track.earlyBlob ?? (await toBlob(track.input, blobFetcher));
+
+      const result = await uploadFileMultipart({
+        blob,
+        file: track.meta,
+        route,
+        endpoint,
+        metadata: clientMetadata,
+        fetcher,
+        transport,
+        signal: track.controller.signal,
+        concurrency: multipart?.concurrency,
+        partSize: multipart?.partSize,
+        onProgress: (loadedBytes, totalBytes) => {
+          // Identical to the single-PUT path: the same telemetry maths turns
+          // bytes into the same progress, uploadSpeed and eta fields.
+          const elapsedSeconds = (now() - track.startedAt) / 1000;
+          patchFile(
+            track.id,
+            computeFileTelemetry(loadedBytes, totalBytes, elapsedSeconds),
+            { reportProgress: true }
+          );
+        },
+      });
+
+      patchFile(
+        track.id,
+        {
+          status: "success",
+          progress: 100,
+          key: result.key,
+          url: result.url,
+          metadata: result.metadata,
+        },
+        { reportProgress: true }
+      );
+
+      return null;
+    } catch (error) {
+      const failure =
+        error instanceof UploadAbortedError
+          ? new UploadError("UPLOAD_CANCELLED", "Upload cancelled", {
+              cause: error,
+              meta: { file: track.meta.name },
+            })
+          : toUploadError(error, "NETWORK_ERROR");
+
+      patchFile(track.id, {
+        status: "error",
+        error: failure.message,
+        errorCode: failure.code,
+      });
+      onError?.(failure);
+      return null;
+    }
+  }
+
+  /**
    * Notifies the server that objects landed, and folds the returned URLs back
    * into file state.
    *
@@ -609,7 +707,28 @@ export function createUploadEngine<
       commit();
 
       const fileMetadata = resolved.map((t) => t.meta);
-      const presign = await requestPresignedUrls(fileMetadata, metadata);
+
+      // Split by strategy. Multipart is a property of the *file*, not the
+      // batch: a 200 MB video and a 2 KB thumbnail in one call take different
+      // paths and still land in the same `files` array with the same shape.
+      const useMultipart = (track: FileTrack) =>
+        multipart?.enabled !== false &&
+        shouldUseMultipart(track.meta.size, {
+          threshold: multipart?.threshold,
+        });
+
+      const singlePart = resolved.filter((t) => !useMultipart(t));
+      const multiPart = resolved.filter(useMultipart);
+
+      // The presign call is skipped entirely when every file is multipart, so
+      // a batch of large files does not pay for an empty round trip.
+      const presign =
+        singlePart.length > 0
+          ? await requestPresignedUrls(
+              singlePart.map((t) => t.meta),
+              metadata
+            )
+          : ({ ok: true, results: [] } as const);
 
       if (!presign.ok) {
         // Recorded on `errors` because this is a *batch-level* failure — the
@@ -628,9 +747,12 @@ export function createUploadEngine<
       lastReportedProgress = 0;
       onProgress?.(0);
 
-      const settled = await Promise.all(
-        resolved.map((track, index) => transmit(track, presign.results[index]))
-      );
+      const settled = await Promise.all([
+        ...singlePart.map((track, index) =>
+          transmit(track, presign.results[index])
+        ),
+        ...multiPart.map((track) => transmitMultipart(track, metadata)),
+      ]);
 
       const completions = settled.filter(
         (result): result is NonNullable<typeof result> => result !== null

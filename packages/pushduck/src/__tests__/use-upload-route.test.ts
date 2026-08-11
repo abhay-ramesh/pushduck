@@ -86,6 +86,12 @@ function stubXhr() {
     setRequestHeader(key: string, value: string) {
       this.headers[key] = value;
     }
+    getResponseHeader(name: string): string | null {
+      // Multipart needs the ETag from each part's response; the single-PUT
+      // path ignores it. Returning one keeps the double faithful to a real
+      // XMLHttpRequest either way.
+      return name.toLowerCase() === "etag" ? '"fake-etag"' : null;
+    }
     abort() {
       this.onabort?.();
     }

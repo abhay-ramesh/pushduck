@@ -30,12 +30,36 @@ export interface UploadTransportRequest {
 }
 
 /**
+ * What a transport reports back after a successful transfer.
+ *
+ * Only multipart needs this: `CompleteMultipartUpload` requires each part's
+ * `ETag`, and the only place to get it is the part's own response.
+ */
+export interface UploadTransportResult {
+  /**
+   * Entity tag from the response, quotes included.
+   *
+   * In a browser this is `null` unless the bucket's CORS policy lists it in
+   * `ExposeHeaders` — a cross-origin response header is invisible to
+   * JavaScript otherwise. That failure is silent and baffling, so the
+   * multipart path raises a specific error naming the fix rather than letting
+   * `CompleteMultipartUpload` fail with `InvalidPart` much later.
+   */
+  etag?: string;
+}
+
+/**
  * Transmits one file's bytes to storage.
  *
  * Resolves on a 2xx response. Rejects on a non-2xx status, a network failure,
  * or an abort.
+ *
+ * The result is optional: a transport that has no use for response headers —
+ * or predates multipart — may resolve with nothing.
  */
-export type UploadTransport = (request: UploadTransportRequest) => Promise<void>;
+export type UploadTransport = (
+  request: UploadTransportRequest
+) => Promise<UploadTransportResult | void>;
 
 /** Error thrown when a transfer is cancelled via its abort signal. */
 export class UploadAbortedError extends Error {
@@ -62,7 +86,7 @@ export const xhrTransport: UploadTransport = ({
   signal,
   onProgress,
 }) => {
-  return new Promise<void>((resolve, reject) => {
+  return new Promise<UploadTransportResult>((resolve, reject) => {
     if (signal?.aborted) {
       reject(new UploadAbortedError());
       return;
@@ -94,7 +118,12 @@ export const xhrTransport: UploadTransport = ({
     xhr.onload = () => {
       cleanup();
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
+        // `getResponseHeader` returns null cross-origin unless the bucket
+        // exposes ETag; the multipart path turns that into a specific error.
+        // Optional call: React Native's XHR and some polyfills implement a
+        // partial surface, and a single-PUT upload has no use for the ETag —
+        // it must not fail merely because the header could not be read.
+        resolve({ etag: xhr.getResponseHeader?.("ETag") ?? undefined });
       } else {
         reject(new Error(`Upload failed with status: ${xhr.status}`));
       }
@@ -143,6 +172,8 @@ export function createFetchTransport(
     if (!response.ok) {
       throw new Error(`Upload failed with status: ${response.status}`);
     }
+
+    return { etag: response.headers.get("etag") ?? undefined };
   };
 }
 
