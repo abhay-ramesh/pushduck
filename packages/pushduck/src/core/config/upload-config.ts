@@ -251,10 +251,64 @@ function createS3Instance(config: UploadConfig) {
 export interface UploadConfig {
   /** Storage provider configuration (AWS S3, Cloudflare R2, etc.) */
   provider: ProviderConfig;
-  /** Enable debug logging */
+  /**
+   * Enable debug logging.
+   *
+   * Also controls error redaction: with `debug` on, server-side (5xx) failures
+   * return their real message and `meta` instead of a generic title. Leave it
+   * off in production so internal detail does not reach clients.
+   */
   debug?: boolean;
   /** Enable metrics collection */
   enableMetrics?: boolean;
+  /**
+   * Maximum accepted request body size, in bytes.
+   *
+   * Bounds a denial-of-service vector: without a limit, a hostile client can
+   * post an arbitrarily large metadata blob to the presign endpoint.
+   *
+   * @default 102400 (100 KB)
+   */
+  maxRequestBodyBytes?: number;
+  /**
+   * Shape error responses before they are sent.
+   *
+   * Runs after redaction, so it sees exactly what would otherwise be returned.
+   * Use it for observability (attaching a trace id), for localisation, or to
+   * match an existing API error convention.
+   *
+   * Deliberately generic: pushduck emits RFC 9457 problem documents and knows
+   * nothing about your framework's error type. Translating to one — a tRPC
+   * code, an Effect failure, your own envelope — belongs in your code, where a
+   * change upstream cannot break this library.
+   *
+   * Returning `undefined` keeps the default document. A throw is logged and
+   * the default is sent, so an error while reporting an error never escalates.
+   *
+   * @example Attach a trace id
+   * ```typescript
+   * createUploadConfig().errorFormatter(({ problem, request }) => ({
+   *   ...problem,
+   *   traceId: request.headers.get("x-trace-id") ?? undefined,
+   * }))
+   * ```
+   *
+   * @example Report server failures to your monitoring
+   * ```typescript
+   * .errorFormatter(({ error, problem }) => {
+   *   if (!error.isClientError) Sentry.captureException(error);
+   *   return problem;
+   * })
+   * ```
+   */
+  errorFormatter?: (context: {
+    /** The normalised error, with `code`, `status`, `retryable`, and `cause`. */
+    error: import("../errors").UploadError;
+    /** The problem document as it would be sent, redaction already applied. */
+    problem: import("../errors").ProblemDetails;
+    /** The request that failed. */
+    request: Request;
+  }) => import("../errors").ProblemDetails | undefined;
   /** Default constraints and settings applied to all uploads */
   defaults?: {
     /** Maximum file size (string like '10MB' or number in bytes) */
@@ -565,6 +619,38 @@ export class UploadConfigBuilder {
    */
   debug(enabled: boolean = true): UploadConfigBuilder {
     this.config.debug = enabled;
+    return this;
+  }
+
+  /**
+   * Bound the accepted request body size, in bytes.
+   *
+   * @param bytes - Maximum body size. Defaults to 100 KB when unset.
+   */
+  maxRequestBodyBytes(bytes: number): UploadConfigBuilder {
+    this.config.maxRequestBodyBytes = bytes;
+    return this;
+  }
+
+  /**
+   * Shape error responses before they are sent.
+   *
+   * Runs after redaction, so the formatter sees exactly what would otherwise
+   * be returned. Return `undefined` to keep the default document.
+   *
+   * @example Attach a trace id and report server failures
+   * ```typescript
+   * createUploadConfig()
+   *   .errorFormatter(({ error, problem, request }) => {
+   *     if (!error.isClientError) Sentry.captureException(error);
+   *     return { ...problem, traceId: request.headers.get("x-trace-id") };
+   *   })
+   * ```
+   */
+  errorFormatter(
+    formatter: NonNullable<UploadConfig["errorFormatter"]>
+  ): UploadConfigBuilder {
+    this.config.errorFormatter = formatter;
     return this;
   }
 
