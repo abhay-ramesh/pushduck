@@ -81,11 +81,11 @@ SolidJS Start is a full-stack SolidJS framework with built-in Web Standards supp
     import { uploadRouter } from '~/lib/upload';
 
     export async function GET(event: APIEvent) {
-      return uploadRouter.handlers(event.request);
+      return uploadRouter.handler(event.request);
     }
 
     export async function POST(event: APIEvent) {
-      return uploadRouter.handlers(event.request);
+      return uploadRouter.handler(event.request);
     }
     ```
   </Step>
@@ -110,7 +110,7 @@ export async function POST(event: APIEvent) {
 
 // Method 2: Combined handler (alternative approach)
 // export async function handler(event: APIEvent) {
-//   return uploadRouter.handlers(event.request);
+//   return uploadRouter.handler(event.request);
 // }
 ```
 

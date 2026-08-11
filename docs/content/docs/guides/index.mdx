@@ -140,9 +140,8 @@ Learn how to build robust file upload features with pushduck through comprehensi
     Use hooks or client for reactive uploads:
     
     ```typescript
-    const { upload, uploading, progress } = useUpload({
+    const { uploadFiles, isUploading, progress } = useUploadRoute('imageUpload', {
       endpoint: '/api/upload',
-      route: 'imageUpload',
     });
     ```
   </Step>
@@ -179,7 +178,7 @@ const uploadRouter = createS3Router({
 });
 
 // Client: Include auth headers
-const { upload } = useUpload({
+const { uploadFiles } = useUploadRoute('imageUpload', {
   endpoint: '/api/upload',
   route: 'userAvatar',
   headers: {

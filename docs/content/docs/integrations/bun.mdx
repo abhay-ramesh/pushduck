@@ -86,7 +86,7 @@ Bun is an ultra-fast JavaScript runtime with native Web Standards support. Since
         const url = new URL(request.url);
         
         if (url.pathname.startsWith('/api/upload/')) {
-          return uploadRouter.handlers(request);
+          return uploadRouter.handler(request);
         }
         
         return new Response('Not found', { status: 404 });
@@ -112,7 +112,7 @@ Bun.serve({
     
     // Method 1: Combined handler (recommended)
     if (url.pathname.startsWith('/api/upload/')) {
-      return uploadRouter.handlers(request);
+      return uploadRouter.handler(request);
     }
     
     // Health check
@@ -161,7 +161,7 @@ Bun.serve({
     
     // Upload routes
     if (url.pathname.startsWith('/api/upload/')) {
-      return uploadRouter.handlers(request).then(response => {
+      return uploadRouter.handler(request).then(response => {
         // Add CORS headers to response
         corsHeaders.forEach((value, key) => {
           response.headers.set(key, value);
@@ -320,7 +320,7 @@ Bun.serve({
     
     // Upload routes
     if (url.pathname.startsWith('/api/upload/')) {
-      return uploadRouter.handlers(request).then(response => {
+      return uploadRouter.handler(request).then(response => {
         Object.entries(corsHeaders).forEach(([key, value]) => {
           response.headers.set(key, value);
         });
@@ -390,7 +390,7 @@ console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 import { uploadRouter } from '../lib/upload';
 
 export function handleUpload(request: Request) {
-  return uploadRouter.handlers(request);
+  return uploadRouter.handler(request);
 }
 ```
 

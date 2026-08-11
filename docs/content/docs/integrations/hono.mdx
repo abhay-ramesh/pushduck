@@ -87,7 +87,7 @@ Hono is a fast, lightweight web framework built on Web Standards. Since Hono use
 
     // Direct usage - no adapter needed!
     app.all('/api/upload/*', (c) => {
-      return uploadRouter.handlers(c.req.raw);
+      return uploadRouter.handler(c.req.raw);
     });
 
     export default app;
@@ -107,7 +107,7 @@ const app = new Hono();
 
 // Method 1: Combined handler (recommended)
 app.all('/api/upload/*', (c) => {
-  return uploadRouter.handlers(c.req.raw);
+  return uploadRouter.handler(c.req.raw);
 });
 
 // Method 2: Separate handlers (if you need method-specific logic)
@@ -136,7 +136,7 @@ app.use('*', cors({
 }));
 
 // Upload routes
-app.all('/api/upload/*', (c) => uploadRouter.handlers(c.req.raw));
+app.all('/api/upload/*', (c) => uploadRouter.handler(c.req.raw));
 
 // Health check
 app.get('/health', (c) => c.json({ status: 'ok' }));
@@ -213,7 +213,7 @@ export type AppUploadRouter = typeof uploadRouter;
 
     const app = new Hono();
 
-    app.all('/api/upload/*', (c) => uploadRouter.handlers(c.req.raw));
+    app.all('/api/upload/*', (c) => uploadRouter.handler(c.req.raw));
 
     export default app;
     ```
@@ -240,7 +240,7 @@ export type AppUploadRouter = typeof uploadRouter;
 
     const app = new Hono();
 
-    app.all('/api/upload/*', (c) => uploadRouter.handlers(c.req.raw));
+    app.all('/api/upload/*', (c) => uploadRouter.handler(c.req.raw));
 
     export default {
       port: 3000,
@@ -262,7 +262,7 @@ export type AppUploadRouter = typeof uploadRouter;
 
     const app = new Hono();
 
-    app.all('/api/upload/*', (c) => uploadRouter.handlers(c.req.raw));
+    app.all('/api/upload/*', (c) => uploadRouter.handler(c.req.raw));
 
     const port = 3000;
     console.log(`Server is running on port ${port}`);
@@ -286,7 +286,7 @@ export type AppUploadRouter = typeof uploadRouter;
 
     const app = new Hono();
 
-    app.all('/api/upload/*', (c) => uploadRouter.handlers(c.req.raw));
+    app.all('/api/upload/*', (c) => uploadRouter.handler(c.req.raw));
 
     Deno.serve(app.fetch);
     ```

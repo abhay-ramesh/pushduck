@@ -1,0 +1,211 @@
+---
+title: Effect
+description: Mount pushduck in an Effect Platform HTTP app, and drive uploads from an Effect program
+icon: Zap
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Steps, Step } from "fumadocs-ui/components/steps";
+
+## Using pushduck with Effect
+
+Effect Platform's HTTP layer is built on Web-standard `Request`/`Response`, and
+pushduck's `router.handler` is exactly a `(Request) => Promise<Response>`. So
+the server integration is a single function call — `HttpApp.fromWebHandler` —
+with no adapter.
+
+<Callout type="info">
+  Both the server mount and the client recipe on this page are covered by tests
+  in the pushduck repo (`src/__tests__/effect-platform.test.ts`), against
+  `effect` 3.x and `@effect/platform` 0.97.
+</Callout>
+
+## Server Setup
+
+<Steps>
+
+<Step>
+
+### Define the upload router
+
+Nothing Effect-specific here — the standard pushduck router.
+
+```typescript title="src/lib/upload.ts"
+import { createUploadConfig } from "pushduck/server";
+
+const { s3 } = createUploadConfig()
+  .provider("aws", {
+    bucket: process.env.S3_BUCKET!,
+    region: process.env.AWS_REGION!,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  })
+  .build();
+
+export const uploadRouter = s3.createRouter({
+  imageUpload: s3.image().maxFileSize("5MB"),
+  documentUpload: s3.file().maxFileSize("10MB"),
+});
+
+export type AppUploadRouter = typeof uploadRouter;
+```
+
+</Step>
+
+<Step>
+
+### Mount it in your HTTP app
+
+```typescript title="src/server.ts"
+import { HttpApp, HttpRouter, HttpServer } from "@effect/platform";
+import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
+import { Layer } from "effect";
+import { createServer } from "node:http";
+import { uploadRouter } from "./lib/upload";
+
+// The entire integration.
+const uploadApp = HttpApp.fromWebHandler(uploadRouter.handler);
+
+const app = HttpRouter.empty.pipe(
+  HttpRouter.mountApp("/api/upload", uploadApp)
+);
+
+const ServerLive = NodeHttpServer.layer(() => createServer(), { port: 3000 });
+
+NodeRuntime.runMain(
+  Layer.launch(HttpServer.serve(app).pipe(Layer.provide(ServerLive)))
+);
+```
+
+<Callout type="warn">
+  Mount with `mountApp`, not `mount`. `mountApp` forwards the request to the
+  sub-app untouched; pushduck reads `route` and `action` from the query string,
+  which must survive the prefix rewrite.
+</Callout>
+
+</Step>
+
+</Steps>
+
+## Client Usage
+
+If your frontend is React, Vue, Svelte, or Solid, use the binding for it — the
+Effect server makes no difference to the client.
+
+To drive uploads from inside an Effect program, `pushduck/core` exposes
+`subscribe`/`getSnapshot`, which lifts into `SubscriptionRef` directly:
+
+```typescript title="src/client/upload.ts"
+import { createUploadEngine } from "pushduck/core";
+import { Effect, SubscriptionRef, Stream } from "effect";
+
+export const uploadFiles = (files: File[]) =>
+  Effect.gen(function* () {
+    const engine = createUploadEngine({
+      endpoint: "/api/upload",
+      route: "imageUpload",
+    });
+
+    const state = yield* SubscriptionRef.make(engine.getSnapshot());
+
+    const unsubscribe = engine.subscribe(() => {
+      Effect.runSync(SubscriptionRef.set(state, engine.getSnapshot()));
+    });
+
+    // Observe progress as a Stream while the upload runs.
+    yield* Effect.forkScoped(
+      Stream.runForEach(state.changes, (snapshot) =>
+        Effect.log(`progress: ${snapshot.progress}%`)
+      )
+    );
+
+    yield* Effect.promise(() => engine.upload(files));
+    unsubscribe();
+
+    return yield* SubscriptionRef.get(state);
+  });
+```
+
+### Cancellation
+
+Wire Effect's interruption to the engine so an interrupted fiber aborts the
+transfer rather than leaking it:
+
+```typescript
+Effect.promise(() => engine.upload(files)).pipe(
+  Effect.onInterrupt(() => Effect.sync(() => engine.cancelAll()))
+);
+```
+
+## What Is Not Effect-Native
+
+Being direct about the seams, so you can decide whether they matter to you.
+
+### Errors are not in the error channel
+
+pushduck reports failures through state and callbacks, not by rejecting. So
+`engine.upload(...)` lifts as `Effect<void, never, never>` — you get no typed
+error channel, which is most of why you would reach for Effect in the first
+place.
+
+You can recover the failures yourself:
+
+```typescript
+const uploaded = yield* Effect.promise(() => engine.upload(files)).pipe(
+  Effect.flatMap(() => SubscriptionRef.get(state)),
+  Effect.flatMap((snapshot) =>
+    snapshot.errors.length > 0
+      ? Effect.fail(new UploadFailed({ errors: snapshot.errors }))
+      : Effect.succeed(snapshot.files)
+  )
+);
+```
+
+Server-side the same gap applies: a `.middleware()` that throws currently
+produces a `500` rather than a typed, status-mapped failure.
+
+### Middleware is promise-based
+
+`.middleware(async ({ req }) => …)` takes an async function, so you cannot yield
+an Effect inside it or reach your services through the `R` channel. Run your
+Effect program manually at the boundary:
+
+```typescript
+.middleware(async ({ req }) => {
+  const user = await Effect.runPromise(
+    authenticate(req).pipe(Effect.provide(AuthLive))
+  );
+  return { userId: user.id };
+})
+```
+
+### Configuration is not a Layer
+
+pushduck is configured with a builder returning a module value, rather than a
+`Layer` you provide. Wrap it in a `Layer` yourself if you want it in the
+dependency graph:
+
+```typescript
+import { Context, Layer } from "effect";
+
+export class UploadRouter extends Context.Tag("UploadRouter")<
+  UploadRouter,
+  typeof uploadRouter
+>() {}
+
+export const UploadRouterLive = Layer.succeed(UploadRouter, uploadRouter);
+```
+
+### Schema is pushduck's, not `effect/Schema`
+
+File constraints use pushduck's chain (`s3.image().maxFileSize("5MB")`) rather
+than `effect/Schema`. The two coexist fine — validate upload *metadata* with
+`effect/Schema` in your middleware if you want that guarantee.
+
+<Callout type="info">
+  **Summary**: the transport layer integrates cleanly and is verified. The
+  functional-programming ergonomics — typed errors, Layers, Effect-valued
+  middleware — are not there yet. If you want pushduck to feel native inside
+  Effect, the error taxonomy is the change that would matter most; it is on the
+  [roadmap](/docs/roadmap).
+</Callout>

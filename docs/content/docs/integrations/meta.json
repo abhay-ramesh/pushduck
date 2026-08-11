@@ -18,6 +18,7 @@
         "elysia",
         "bun",
         "nitro-h3",
+        "effect",
         "--- Traditional Server ---",
         "express",
         "fastify",

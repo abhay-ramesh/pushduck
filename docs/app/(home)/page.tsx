@@ -74,7 +74,10 @@ const themes = {
   dark: "one-dark-pro",
 } satisfies Record<string, BundledTheme>;
 
-export const frameworks = [
+// Not exported: Next.js only permits a known set of Page export fields, and a
+// stray `export const frameworks` fails the production build. It is used only
+// within this file.
+const frameworks = [
   {
     name: "Next.js",
     category: "Full-Stack",

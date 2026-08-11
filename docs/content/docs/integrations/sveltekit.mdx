@@ -68,11 +68,11 @@ SvelteKit is the official application framework for Svelte. It uses Web Standard
 
     // Direct usage - no adapter needed!
     export const GET: RequestHandler = async ({ request }) => {
-      return uploadRouter.handlers(request);
+      return uploadRouter.handler(request);
     };
 
     export const POST: RequestHandler = async ({ request }) => {
-      return uploadRouter.handlers(request);
+      return uploadRouter.handler(request);
     };
     ```
   </Step>
@@ -88,11 +88,11 @@ import { uploadRouter } from '$lib/upload';
 
 // Method 1: Combined handler (recommended)
 export const GET: RequestHandler = async ({ request }) => {
-  return uploadRouter.handlers(request);
+  return uploadRouter.handler(request);
 };
 
 export const POST: RequestHandler = async ({ request }) => {
-  return uploadRouter.handlers(request);
+  return uploadRouter.handler(request);
 };
 
 // Method 2: Separate handlers (if you need method-specific logic)
@@ -192,50 +192,72 @@ export type AppUploadRouter = typeof uploadRouter;
 
 ## Client-Side Usage
 
+SvelteKit uses the Svelte binding, `pushduck/svelte`. `createUploadRoute` returns a
+readable store plus the imperative controls, so `$upload` auto-subscribes in
+both Svelte 4 and Svelte 5.
+
+<Callout type="info">
+  `pushduck/svelte` requires Svelte 4+. It implements the store contract
+  structurally and does not import `svelte/store`, so it adds nothing to your
+  bundle beyond the upload logic itself.
+</Callout>
+
 ### Upload Component
 
 ```svelte title="src/lib/components/FileUpload.svelte"
 <script lang="ts">
-  import { useUpload } from "pushduck/client";
+  import { createUploadRoute } from "pushduck/svelte";
   import type { AppUploadRouter } from "$lib/upload";
-  
-  const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
+
+  const upload = createUploadRoute<AppUploadRouter>("imageUpload", {
     endpoint: "/api/upload",
+    onSuccess: (files) => console.log("Files uploaded:", files),
+    onError: (error) => console.error("Upload failed:", error),
   });
-  
-  function handleUploadComplete(files: any[]) {
-    console.log("Files uploaded:", files);
-    alert("Upload completed!");
-  }
-  
-  function handleUploadError(error: Error) {
-    console.error("Upload error:", error);
-    alert(`Upload failed: ${error.message}`);
+
+  function onSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    upload.uploadFiles([...(input.files ?? [])]);
   }
 </script>
 
-<div class="space-y-6">
-  <div>
-    <h3 class="text-lg font-semibold mb-2">Image Upload</h3>
-    <UploadButton
-      endpoint="imageUpload"
-      onClientUploadComplete={handleUploadComplete}
-      onUploadError={handleUploadError}
-    />
-  </div>
+<div class="space-y-4">
+  <input
+    type="file"
+    multiple
+    accept="image/*"
+    disabled={$upload.isUploading}
+    on:change={onSelect}
+  />
 
-  <div>
-    <h3 class="text-lg font-semibold mb-2">Document Upload</h3>
-    <UploadDropzone
-      endpoint="documentUpload"
-      onClientUploadComplete={handleUploadComplete}
-      onUploadError={handleUploadError}
-    />
-  </div>
+  {#if $upload.isUploading}
+    <progress value={$upload.progress} max="100"></progress>
+  {/if}
+
+  {#each $upload.files as file (file.id)}
+    <div class="flex gap-2 items-center">
+      <span>{file.name}</span>
+      <span>{file.status} ({file.progress}%)</span>
+      {#if file.status === "uploading"}
+        <button on:click={() => upload.cancel(file.id)}>Cancel</button>
+      {/if}
+      {#if file.url}
+        <a href={file.url} target="_blank" rel="noreferrer">View</a>
+      {/if}
+    </div>
+  {/each}
+
+  {#each $upload.errors as error}
+    <p class="text-red-600">{error}</p>
+  {/each}
+
+  {#if $upload.files.length}
+    <button on:click={upload.reset}>Clear</button>
+  {/if}
 </div>
 ```
 
-### Using in Pages
+### Using in Routes
 
 ```svelte title="src/routes/+page.svelte"
 <script lang="ts">
@@ -246,11 +268,55 @@ export type AppUploadRouter = typeof uploadRouter;
   <title>File Upload Demo</title>
 </svelte:head>
 
-<main class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8">
   <h1 class="text-3xl font-bold mb-8">File Upload Demo</h1>
   <FileUpload />
-</main>
+</div>
 ```
+
+### Svelte 5 Runes
+
+Stores remain first-class under runes, so the same code works unchanged. Derive
+from the store where you want a local reactive value:
+
+```svelte title="src/lib/components/RunesUpload.svelte"
+<script lang="ts">
+  import { createUploadRoute } from "pushduck/svelte";
+
+  const upload = createUploadRoute("imageUpload", { endpoint: "/api/upload" });
+
+  let percent = $derived(Math.round($upload.progress));
+  let done = $derived($upload.files.filter((f) => f.status === "success"));
+</script>
+
+<p>{percent}% — {done.length} finished</p>
+```
+
+### Passing Client Metadata
+
+```svelte title="src/lib/components/AlbumUpload.svelte"
+<script lang="ts">
+  import { createUploadRoute } from "pushduck/svelte";
+
+  let albumId = "vacation-2026";
+  const upload = createUploadRoute("imageUpload", { endpoint: "/api/upload" });
+
+  function onSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    upload.uploadFiles([...(input.files ?? [])], {
+      albumId,
+      visibility: "private",
+    });
+  }
+</script>
+```
+
+<Callout type="warn">
+  Client metadata is **untrusted user input**. Validate and sanitize it in your
+  server middleware, and never trust client-provided identity claims such as
+  `userId` or `role` — derive those from the authenticated session instead.
+</Callout>
+
 
 ## File Management
 

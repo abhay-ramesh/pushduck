@@ -68,11 +68,11 @@ Qwik is a web framework focused on resumability and edge optimization. It uses W
 
     // Direct usage - no adapter needed!
     export const onGet: RequestHandler = async ({ request }) => {
-      return uploadRouter.handlers(request);
+      return uploadRouter.handler(request);
     };
 
     export const onPost: RequestHandler = async ({ request }) => {
-      return uploadRouter.handlers(request);
+      return uploadRouter.handler(request);
     };
     ```
   </Step>
@@ -88,7 +88,7 @@ import { uploadRouter } from '~/lib/upload';
 
 // Method 1: Combined handler (recommended)
 export const onRequest: RequestHandler = async ({ request }) => {
-  return uploadRouter.handlers(request);
+  return uploadRouter.handler(request);
 };
 
 // Method 2: Separate handlers (if you need method-specific logic)
@@ -116,7 +116,7 @@ export const onRequest: RequestHandler = async ({ request, headers }) => {
     return new Response(null, { status: 200 });
   }
 
-  const response = await uploadRouter.handlers(request);
+  const response = await uploadRouter.handler(request);
   
   // Add CORS headers to actual response
   headers.set('Access-Control-Allow-Origin', '*');
@@ -201,81 +201,167 @@ async function getUserFromSession(sessionId: string) {
 
 ## Client-Side Usage
 
+Qwik has no dedicated pushduck binding. It does not need one — `pushduck/core`
+exposes the upload engine directly, and Qwik wires it up in a few lines.
+
+The engine holds live state (abort controllers, in-flight transfers) so it is
+not serializable. Create it inside `useVisibleTask$` and wrap it in
+`noSerialize` — the standard Qwik pattern for client-only objects.
+
+<Callout type="info">
+  `pushduck/core` has **no framework dependency and no server code**. It is the
+  same engine the React, Vue, Svelte, and Solid bindings use, so upload
+  behaviour is identical across all of them.
+</Callout>
+
 ### Upload Component
 
 ```tsx title="src/components/file-upload.tsx"
-import { component$, useSignal } from '@builder.io/qwik';
-import { useUpload } from "pushduck/client";
-import type { AppUploadRouter } from "~/lib/upload";
+import {
+  $,
+  component$,
+  noSerialize,
+  useStore,
+  useVisibleTask$,
+  type NoSerialize,
+} from "@builder.io/qwik";
+import {
+  createUploadEngine,
+  type UploadEngine,
+  type UploadEngineState,
+} from "pushduck/core";
 
 export const FileUpload = component$(() => {
-  const uploadProgress = useSignal(0);
-  const isUploading = useSignal(false);
-
-  const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
-    endpoint: "/api/upload",
+  // Mirror of engine state — plain serializable data, safe in a Qwik store.
+  const state = useStore<UploadEngineState>({
+    files: [],
+    isUploading: false,
+    errors: [],
+    progress: 0,
+    uploadSpeed: 0,
+    eta: 0,
   });
 
-  const handleUploadComplete = $((files: any[]) => {
-    console.log("Files uploaded:", files);
-    alert("Upload completed!");
+  // The engine itself is not serializable, so it lives behind noSerialize.
+  const ref = useStore<{ engine?: NoSerialize<UploadEngine> }>({});
+
+  useVisibleTask$(({ cleanup }) => {
+    const engine = createUploadEngine({
+      endpoint: "/api/upload",
+      route: "imageUpload",
+      onError: (error) => console.error("Upload failed:", error),
+    });
+
+    ref.engine = noSerialize(engine);
+
+    // subscribe() returns its own unsubscribe — hand it straight to cleanup.
+    cleanup(
+      engine.subscribe(() => {
+        Object.assign(state, engine.getSnapshot());
+      })
+    );
   });
 
-  const handleUploadError = $((error: Error) => {
-    console.error("Upload error:", error);
-    alert(`Upload failed: ${error.message}`);
+  const onSelect = $((event: Event) => {
+    const input = event.target as HTMLInputElement;
+    ref.engine?.upload([...(input.files ?? [])]);
   });
 
   return (
-    <div class="space-y-6">
-      <div>
-        <h3 class="text-lg font-semibold mb-2">Image Upload</h3>
-        <UploadButton
-          endpoint="imageUpload"
-          onClientUploadComplete$={handleUploadComplete}
-          onUploadError$={handleUploadError}
-        />
-      </div>
+    <div class="space-y-4">
+      <input
+        type="file"
+        multiple
+        accept="image/*"
+        disabled={state.isUploading}
+        onChange$={onSelect}
+      />
 
-      <div>
-        <h3 class="text-lg font-semibold mb-2">Document Upload</h3>
-        <UploadDropzone
-          endpoint="documentUpload"
-          onClientUploadComplete$={handleUploadComplete}
-          onUploadError$={handleUploadError}
-        />
-      </div>
+      {state.isUploading && <progress value={state.progress} max={100} />}
+
+      {state.files.map((file) => (
+        <div key={file.id} class="flex gap-2 items-center">
+          <span>{file.name}</span>
+          <span>
+            {file.status} ({file.progress}%)
+          </span>
+          {file.status === "uploading" && (
+            <button onClick$={() => ref.engine?.cancel(file.id)}>Cancel</button>
+          )}
+          {file.url && (
+            <a href={file.url} target="_blank" rel="noreferrer">
+              View
+            </a>
+          )}
+        </div>
+      ))}
+
+      {state.errors.map((error) => (
+        <p key={error} class="text-red-600">
+          {error}
+        </p>
+      ))}
     </div>
   );
 });
 ```
 
-### Using in Routes
+### Reusable Hook
 
-```tsx title="src/routes/index.tsx"
-import { component$ } from '@builder.io/qwik';
-import type { DocumentHead } from '@builder.io/qwik-city';
-import { FileUpload } from '~/components/file-upload';
+Extracting the wiring keeps components tidy and gives you one place to change
+the endpoint:
 
-export default component$(() => {
-  return (
-    <main class="container mx-auto px-4 py-8">
-      <h1 class="text-3xl font-bold mb-8">File Upload Demo</h1>
-      <FileUpload />
-    </main>
-  );
-});
+```tsx title="src/hooks/use-upload.ts"
+import {
+  noSerialize,
+  useStore,
+  useVisibleTask$,
+  type NoSerialize,
+} from "@builder.io/qwik";
+import {
+  createUploadEngine,
+  type UploadEngine,
+  type UploadEngineState,
+} from "pushduck/core";
 
-export const head: DocumentHead = {
-  title: 'File Upload Demo',
-  meta: [
-    {
-      name: 'description',
-      content: 'Qwik file upload demo with pushduck',
-    },
-  ],
-};
+export function useUpload(route: string, endpoint = "/api/upload") {
+  const state = useStore<UploadEngineState>({
+    files: [],
+    isUploading: false,
+    errors: [],
+    progress: 0,
+    uploadSpeed: 0,
+    eta: 0,
+  });
+  const ref = useStore<{ engine?: NoSerialize<UploadEngine> }>({});
+
+  useVisibleTask$(({ cleanup }) => {
+    const engine = createUploadEngine({ endpoint, route });
+    ref.engine = noSerialize(engine);
+    cleanup(
+      engine.subscribe(() => Object.assign(state, engine.getSnapshot()))
+    );
+  });
+
+  return { state, ref };
+}
 ```
+
+### Passing Client Metadata
+
+```tsx
+ref.engine?.upload([...(input.files ?? [])], {
+  albumId: "vacation-2026",
+  visibility: "private",
+});
+```
+
+<Callout type="warn">
+  Client metadata is **untrusted user input**. Validate and sanitize it in your
+  server middleware, and never trust client-provided identity claims such as
+  `userId` or `role` — derive those from the authenticated session instead.
+</Callout>
+
 
 ## File Management
 
