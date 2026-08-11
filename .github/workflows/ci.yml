@@ -17,6 +17,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    # A real S3-compatible server for the integration suite. Without it the
+    # SigV4 signing path is only ever checked against our own expectations of
+    # the algorithm — a self-consistently wrong signature passes every unit
+    # test and fails in a user's bucket.
+    services:
+      minio:
+        image: bitnami/minio:latest
+        ports:
+          - 9010:9000
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+          MINIO_DEFAULT_BUCKETS: test-uploads
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v6
@@ -34,6 +53,10 @@ jobs:
 
       - name: 🧪 Tests
         run: pnpm test:coverage
+        env:
+          # The integration suite skips itself when this is unreachable, so a
+          # MinIO outage degrades coverage rather than breaking the build.
+          MINIO_ENDPOINT: http://127.0.0.1:9010
 
       - name: 📊 Coverage Report
         uses: codecov/codecov-action@v5
