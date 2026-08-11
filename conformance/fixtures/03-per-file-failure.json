@@ -1,0 +1,52 @@
+[
+  {
+    "name": "an oversized file fails per-file, not per-request",
+    "spec": "Per-file versus whole-request failure",
+    "why": "This is the rule most likely to be implemented backwards. A file that violates a route constraint is reported inside results with success:false and an HTTP 200, because the other files in the same batch may be perfectly valid.",
+    "request": {
+      "query": { "route": "imageUpload" },
+      "body": { "files": [{ "name": "huge.jpg", "size": 52428800, "type": "image/jpeg" }] }
+    },
+    "expect": {
+      "status": 200,
+      "body": {
+        "results": [{ "success": false, "error": { "$type": "string" } }]
+      }
+    }
+  },
+  {
+    "name": "a disallowed file type fails per-file",
+    "spec": "Per-file versus whole-request failure",
+    "request": {
+      "query": { "route": "imageUpload" },
+      "body": { "files": [{ "name": "notes.pdf", "size": 100, "type": "application/pdf" }] }
+    },
+    "expect": {
+      "status": 200,
+      "body": { "results": [{ "success": false, "error": { "$type": "string" } }] }
+    }
+  },
+  {
+    "name": "one invalid file does not fail its valid siblings",
+    "spec": "Per-file versus whole-request failure",
+    "why": "The entire reason per-file reporting exists: a batch is partially usable, and rejecting all of it discards work the user already did.",
+    "request": {
+      "query": { "route": "imageUpload" },
+      "body": {
+        "files": [
+          { "name": "ok.jpg", "size": 1000, "type": "image/jpeg" },
+          { "name": "huge.jpg", "size": 52428800, "type": "image/jpeg" }
+        ]
+      }
+    },
+    "expect": {
+      "status": 200,
+      "body": {
+        "results": [
+          { "success": true, "presignedUrl": { "$contains": "X-Amz-Signature" } },
+          { "success": false }
+        ]
+      }
+    }
+  }
+]
