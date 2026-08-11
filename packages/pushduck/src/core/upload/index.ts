@@ -47,6 +47,13 @@ export type {
 export { formatETA, formatUploadSpeed } from "./format";
 
 export {
+  createBlobChunkReader,
+  createRangeChunkReader,
+  decodeBase64,
+} from "./multipart/chunk-reader";
+export type { ChunkBody, ChunkReader } from "./multipart/chunk-reader";
+
+export {
   createMemoryStore,
   createWebStore,
   fingerprintFile,

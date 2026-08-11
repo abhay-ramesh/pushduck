@@ -16,8 +16,15 @@
 export interface UploadTransportRequest {
   /** Presigned URL to PUT the bytes to. */
   url: string;
-  /** The bytes to send. */
-  body: Blob;
+  /**
+   * The bytes to send.
+   *
+   * A `Blob` on the web, where a slice is a free view into bytes the browser
+   * already holds. A `Uint8Array` where the platform can only hand back a byte
+   * range it has read — React Native reading a part off disk, for instance.
+   * Both are accepted by `XMLHttpRequest.send` and by `fetch`.
+   */
+  body: Blob | Uint8Array<ArrayBuffer>;
   /** Headers that must accompany the request for the signature to validate. */
   headers: Record<string, string>;
   /** Aborts the in-flight transfer when signalled. */

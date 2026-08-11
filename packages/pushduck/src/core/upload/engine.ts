@@ -50,6 +50,7 @@ import {
 } from "../errors";
 import { getInputMeta, isFile, toBlob } from "./input";
 import { shouldUseMultipart } from "./multipart/plan";
+import type { ChunkReader } from "./multipart/chunk-reader";
 import { fingerprintFile, type UploadStore } from "./multipart/store";
 import { uploadFileMultipart } from "./multipart/uploader";
 import { computeAggregateProgress, computeFileTelemetry } from "./progress";
@@ -113,6 +114,35 @@ export interface UploadEngineOptions<
     concurrency?: number;
     /** Attempts per part, including the first. @default 3 */
     maxAttempts?: number;
+    /**
+     * Supplies a range-addressable reader for a file, instead of loading it.
+     *
+     * The default reads the whole file into a `Blob` and slices it, which is
+     * free on the web — a slice is a view, not a copy. On React Native it is
+     * not: the only portable path is `fetch(uri).blob()`, which materialises
+     * the entire file before the first part is sent, and a 500 MB video gets
+     * the app killed by the OS.
+     *
+     * Return a reader to read one part at a time instead, or `undefined` to
+     * fall back to the default for that input. See `createRangeChunkReader`.
+     *
+     * @example
+     * ```typescript
+     * multipart: {
+     *   createChunkReader: (input, meta) =>
+     *     "uri" in input
+     *       ? createRangeChunkReader({
+     *           size: meta.size,
+     *           readRange: (start, end) => readFileRange(input.uri, start, end),
+     *         })
+     *       : undefined,
+     * }
+     * ```
+     */
+    createChunkReader?: (
+      input: UploadInput,
+      meta: { name: string; size: number; type: string }
+    ) => ChunkReader | undefined | Promise<ChunkReader | undefined>;
     /**
      * Where interrupted uploads are remembered, so they can resume.
      *
@@ -574,10 +604,20 @@ export function createUploadEngine<
         uploadStartTime: track.startedAt,
       });
 
-      const blob = track.earlyBlob ?? (await toBlob(track.input, blobFetcher));
+      // Ask for a reader first. Only fall back to materialising the file when
+      // no reader is supplied — on the web that fallback is free, and on a
+      // platform where it is not, this is the seam that avoids it.
+      const reader = await multipart?.createChunkReader?.(
+        track.input,
+        track.meta
+      );
+      const blob = reader
+        ? undefined
+        : (track.earlyBlob ?? (await toBlob(track.input, blobFetcher)));
 
       const result = await uploadFileMultipart({
         blob,
+        reader,
         file: track.meta,
         route,
         endpoint,
