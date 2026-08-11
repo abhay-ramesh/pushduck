@@ -79,6 +79,16 @@ interface S3CompatibleConfig {
   region: string;
   /** S3 bucket name */
   bucket: string;
+  /**
+   * Session token for temporary credentials.
+   *
+   * Present whenever credentials come from STS rather than a static IAM user:
+   * an ECS task role, a Lambda execution role, EKS IRSA, or an OIDC
+   * `AssumeRole`. SigV4 requires it to travel with the request, so dropping it
+   * here makes every such deployment fail with a 403 that names the signature
+   * rather than the missing token.
+   */
+  sessionToken?: string;
   /** Custom endpoint URL for S3-compatible providers */
   endpoint?: string;
   /** Whether to use path-style URLs (required for some providers) */
@@ -126,7 +136,21 @@ function getS3CompatibleConfig(
   config: ProviderConfig,
   options: { debug?: boolean } = {}
 ): S3CompatibleConfig {
+  // Read defensively and set on the *base*, so every provider inherits it via
+  // the `...baseConfig` spread below. Adding it per-case is how it came to be
+  // supported on paper and dropped in practice: the field is declared on the
+  // AWS config, but S3-compatible providers issue temporary credentials too
+  // (MinIO via AssumeRoleWithWebIdentity, Spaces and R2 via their own flows),
+  // and each new provider case would have to remember it.
+  //
+  // An empty string is treated as absent: a shell that exported
+  // AWS_SESSION_TOKEN and later cleared it leaves `""`, and signing a blank
+  // token fails where sending none succeeds.
+  const sessionToken =
+    (config as { sessionToken?: string }).sessionToken || undefined;
+
   const baseConfig = {
+    sessionToken,
     bucket: config.bucket,
     acl: config.acl,
     customDomain: config.customDomain,
@@ -424,6 +448,14 @@ export function createS3Client(uploadConfig?: UploadConfig): AwsClient {
     secretAccessKey: config.secretAccessKey,
     region: config.region,
   };
+
+  // aws4fetch adds `X-Amz-Security-Token` to the canonical request when this
+  // is set, which is what makes an STS credential valid. Assigned rather than
+  // included above so that permanent credentials produce no such parameter at
+  // all — S3 treats an empty one as present and fails the signature.
+  if (config.sessionToken) {
+    clientConfig.sessionToken = config.sessionToken;
+  }
 
   // Add service and endpoint configuration based on provider
   if (config.endpoint) {
