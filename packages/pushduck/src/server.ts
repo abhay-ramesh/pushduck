@@ -596,3 +596,21 @@ export type { HealthCheck, HealthCheckResult } from "./core/utils/health-check";
 export type { LogLevel } from "./core/utils/logger";
 
 // Legacy config types removed - use modern provider config types instead
+
+/**
+ * Throw these from `.middleware()` so failures reach the client with the right
+ * HTTP status and a stable, machine-readable code.
+ */
+export {
+  isRequestScoped,
+  isUploadError,
+  toProblemDetails,
+  toUploadError,
+  UPLOAD_ERROR_CODES,
+  UploadError,
+} from "./core/errors";
+export type {
+  ProblemDetails,
+  UploadErrorCode,
+  UploadErrorOptions,
+} from "./core/errors";
