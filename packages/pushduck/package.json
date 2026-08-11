@@ -150,7 +150,8 @@
         "types": "./dist/solid.d.cts",
         "default": "./dist/solid.cjs"
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "typesVersions": {
     "*": {
