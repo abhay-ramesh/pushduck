@@ -1428,7 +1428,49 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     const routeConfig = route._getConfig();
     const results: CompletionResponse[] = [];
 
+    /**
+     * Authorise every completion before any hook runs.
+     *
+     * `onUploadComplete` is where applications insert the database row, attach
+     * the file to a record, grant access, notify, or bill. This call used to
+     * reach it with no authorisation at all: `key` and `metadata` came
+     * straight from the request body, so an anonymous caller could drive an
+     * application's most consequential hook with values of their choosing.
+     * Presign has always run this chain, and multipart authorises against a
+     * signed session — completion was the one action that trusted the client.
+     *
+     * The chain runs *before* the loop below, and outside its try/catch, for
+     * two reasons. A rejection must fail the whole request with the
+     * middleware's own status rather than being caught and reported per-file
+     * as a 200 with `success: false`. And a batch containing one unauthorised
+     * entry must not fire the hook for the others.
+     *
+     * Client metadata seeds the chain exactly as it does at presign — it is
+     * untrusted input, and whatever the chain returns is authoritative — so a
+     * route with no middleware keeps forwarding client metadata unchanged and
+     * public routes are unaffected.
+     */
+    const middlewareChain = routeConfig.middleware || [];
+    const authorized: unknown[] = [];
+
     for (const completion of completions) {
+      let fileMetadata: unknown = completion.metadata || {};
+
+      for (const middleware of middlewareChain) {
+        fileMetadata = await middleware({
+          req,
+          file: completion.file,
+          metadata: fileMetadata as Record<string, unknown>,
+        });
+      }
+
+      authorized.push(fileMetadata);
+    }
+
+    for (const [index, completion] of completions.entries()) {
+      // The chain's output, not the client's claim.
+      const trustedMetadata = authorized[index];
+
       try {
         // Get file URL
         const url = getFileUrl(this.config, completion.key);
@@ -1448,7 +1490,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         if (routeConfig.onUploadComplete) {
           await routeConfig.onUploadComplete({
             file: completion.file,
-            metadata: completion.metadata || {},
+            metadata: (trustedMetadata || {}) as Record<string, unknown>,
             url,
             key: completion.key,
           });
@@ -1471,7 +1513,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         if (routeConfig.onUploadError) {
           await routeConfig.onUploadError({
             file: completion.file,
-            metadata: completion.metadata || {},
+            metadata: (trustedMetadata || {}) as Record<string, unknown>,
             error: err,
           });
         }
