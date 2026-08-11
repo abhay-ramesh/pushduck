@@ -113,5 +113,11 @@
     "preserveWatchOutput": true
   },
   "include": ["src"],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    // Deno source, not TypeScript-for-Node. Deno requires explicit `.ts`
+    // extensions on relative imports, which this tsconfig rejects, and it is
+    // type-checked by Deno itself when `deno-runtime.test.ts` runs it.
+    "src/__tests__/fixtures/deno-server.ts"
+  ]
 }

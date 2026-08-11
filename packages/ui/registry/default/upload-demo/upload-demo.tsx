@@ -71,10 +71,16 @@ export function UploadDemo({
 
   const handleUploadComplete = React.useCallback(
     (results: any[]) => {
-      // Update file statuses based on results
+      // Matched on `name`, which is the field an uploaded file actually has.
+      // This previously looked for `originalName` — a field that exists on the
+      // server's key-generation input, not on the client's result — so the
+      // match never succeeded and files stayed "Pending" after a perfectly
+      // successful upload.
       setFiles((prev) =>
         prev.map((file) => {
-          const result = results.find((r) => r.originalName === file.name);
+          const result = results.find(
+            (r) => r.name === file.name && r.status !== "error"
+          );
           return result
             ? {
                 ...file,
