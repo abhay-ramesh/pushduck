@@ -58,6 +58,23 @@
 
 import { UploadConfig } from "../config/upload-config";
 import { isRequestScoped, UploadError } from "../errors";
+import {
+  abortMultipartUpload,
+  completeMultipartUpload,
+  createMultipartUpload,
+  listUploadedParts,
+  presignUploadPart,
+  type UploadedPart,
+} from "../storage/multipart";
+import {
+  choosePartSize,
+  partRange,
+} from "../upload/multipart/plan";
+import {
+  signSession,
+  verifySession,
+  type MultipartSession,
+} from "./multipart-session";
 import { normalizeServerError } from "../errors/from-pushduck-error";
 import { createUniversalHandler } from "../handler/universal-handler";
 import { InferS3Input, InferS3Output, S3Schema } from "../schema";
@@ -783,6 +800,31 @@ function generateHierarchicalPath<TMetadata>(
 // Router Implementation
 // ========================================
 
+/**
+ * Secret used to sign multipart session tokens.
+ *
+ * Reuses a credential the server already holds rather than introducing another
+ * one to configure and rotate. Not every provider config carries
+ * `secretAccessKey` — GCS uses a service account — so this falls back rather
+ * than assuming a shape.
+ */
+function multipartSessionSecret(config: UploadConfig): string {
+  const provider = config.provider as unknown as Record<string, unknown>;
+
+  const secret =
+    (typeof provider.secretAccessKey === "string" && provider.secretAccessKey) ||
+    (typeof provider.accessKeyId === "string" && provider.accessKeyId);
+
+  if (!secret) {
+    throw new UploadError(
+      "CONFIG_INVALID",
+      "Multipart uploads need a provider credential to sign session tokens"
+    );
+  }
+
+  return secret;
+}
+
 export type S3RouterDefinition = Record<string, S3Route<any, any>>;
 
 export class S3Router<TRoutes extends S3RouterDefinition> {
@@ -1105,6 +1147,270 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
   }
 
   // Handle upload completion notification
+  /**
+   * Starts a multipart upload for one file.
+   *
+   * Runs the same middleware chain, validation and path generation as a
+   * single-PUT presign — a large file must not bypass the auth and constraints
+   * a small one is subject to.
+   *
+   * Returns an opaque session token rather than a raw `{ key, uploadId }`, so
+   * the later calls cannot be pointed at an object the caller never created.
+   */
+  async initMultipartUpload<K extends keyof TRoutes>(
+    routeName: K,
+    req: Request,
+    file: S3FileMetadata,
+    metadata?: any
+  ): Promise<{
+    session: string;
+    key: string;
+    partSize: number;
+    partCount: number;
+    metadata: any;
+  }> {
+    const route = this.getRoute(routeName);
+    if (!route) {
+      throw new UploadError("NOT_FOUND", `Route "${String(routeName)}" not found`);
+    }
+
+    const routeConfig = route._getConfig();
+    const uploadConfig = this.config;
+
+    let fileMetadata = metadata || {};
+    for (const middleware of routeConfig.middleware || []) {
+      fileMetadata = await middleware({ req, file, metadata: fileMetadata });
+    }
+
+    // Same validation as the single-PUT path: size and type constraints apply
+    // regardless of how the bytes will be transferred.
+    const mockFile = new File([], file.name, { type: file.type });
+    Object.defineProperty(mockFile, "size", { value: file.size });
+
+    const validation = await routeConfig.schema.validate(mockFile);
+    if (!validation.success) {
+      throw new UploadError(
+        "VALIDATION_FAILED",
+        validation.error?.message || "Validation failed",
+        { meta: { file: file.name, size: file.size, type: file.type } }
+      );
+    }
+
+    if (routeConfig.onUploadStart) {
+      await routeConfig.onUploadStart({ file, metadata: fileMetadata });
+    }
+
+    const key = generateHierarchicalPath(
+      { name: file.name, type: file.type },
+      fileMetadata,
+      String(routeName),
+      routeConfig.paths,
+      uploadConfig.paths,
+      uploadConfig
+    );
+
+    const partSize = choosePartSize(file.size, {
+      partSize: uploadConfig.multipart?.partSize,
+    });
+    const partCount = Math.max(1, Math.ceil(file.size / partSize));
+
+    const created = await createMultipartUpload(uploadConfig, {
+      key,
+      contentType: file.type,
+    });
+
+    const session = await signSession(
+      multipartSessionSecret(uploadConfig),
+      {
+        key: created.key,
+        uploadId: created.uploadId,
+        route: String(routeName),
+        partSize,
+        totalSize: file.size,
+      }
+    );
+
+    return {
+      session,
+      key: created.key,
+      partSize,
+      partCount,
+      metadata: fileMetadata,
+    };
+  }
+
+  /**
+   * Presigns a batch of part uploads.
+   *
+   * Batched because this is the hot path — a 5 GiB file at the 5 MiB floor is
+   * over a thousand parts, and one HTTP round trip per signature would dominate
+   * the transfer.
+   */
+  async signMultipartParts<K extends keyof TRoutes>(
+    routeName: K,
+    req: Request,
+    input: { session: unknown; partNumbers: number[] }
+  ): Promise<Array<{ partNumber: number; url: string; size: number }>> {
+    const uploadConfig = this.config;
+    const session = await this.#authorizeSession(routeName, req, input.session);
+
+    const maxPart = Math.max(1, Math.ceil(session.totalSize / session.partSize));
+
+    return Promise.all(
+      input.partNumbers.map(async (partNumber) => {
+        // A part number outside the plan would sign a write past the end of
+        // the object the session was created for.
+        if (
+          !Number.isInteger(partNumber) ||
+          partNumber < 1 ||
+          partNumber > maxPart
+        ) {
+          throw new UploadError(
+            "BAD_REQUEST",
+            `Part number ${partNumber} is outside this upload`,
+            { meta: { partNumber, maxPart } }
+          );
+        }
+
+        const url = await presignUploadPart(uploadConfig, {
+          key: session.key,
+          uploadId: session.uploadId,
+          partNumber,
+          expiresIn: this.#routeExpiry(routeName),
+        });
+
+        const range = partRange(partNumber, session.partSize, session.totalSize);
+        return { partNumber, url, size: range.size };
+      })
+    );
+  }
+
+  /** Stitches the parts and runs the route's completion hook. */
+  async completeMultipartUpload<K extends keyof TRoutes>(
+    routeName: K,
+    req: Request,
+    input: {
+      session: unknown;
+      parts: UploadedPart[];
+      file: S3FileMetadata;
+      metadata?: any;
+    }
+  ): Promise<{ success: true; key: string; url: string }> {
+    const uploadConfig = this.config;
+    const route = this.getRoute(routeName)!;
+    const session = await this.#authorizeSession(routeName, req, input.session);
+
+    await completeMultipartUpload(uploadConfig, {
+      key: session.key,
+      uploadId: session.uploadId,
+      parts: input.parts,
+    });
+
+    const url = getFileUrl(uploadConfig, session.key);
+
+    const routeConfig = route._getConfig();
+    if (routeConfig.onUploadComplete) {
+      await routeConfig.onUploadComplete({
+        file: input.file,
+        metadata: input.metadata ?? {},
+        url,
+        key: session.key,
+      });
+    }
+
+    return { success: true, key: session.key, url };
+  }
+
+  /** Discards a multipart upload. Abandoned parts are billed until removed. */
+  async abortMultipartUpload<K extends keyof TRoutes>(
+    routeName: K,
+    req: Request,
+    input: { session: unknown }
+  ): Promise<{ success: true }> {
+    const session = await this.#authorizeSession(routeName, req, input.session);
+
+    await abortMultipartUpload(this.config, {
+      key: session.key,
+      uploadId: session.uploadId,
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Lists the parts the provider actually holds, for resume.
+   *
+   * The authority over local state: a client's record can be stale, can have
+   * been written before a request actually failed, or can belong to a
+   * different file.
+   */
+  async listMultipartParts<K extends keyof TRoutes>(
+    routeName: K,
+    req: Request,
+    input: { session: unknown }
+  ): Promise<UploadedPart[]> {
+    const session = await this.#authorizeSession(routeName, req, input.session);
+
+    return listUploadedParts(this.config, {
+      key: session.key,
+      uploadId: session.uploadId,
+    });
+  }
+
+  /**
+   * Runs the route's middleware, then verifies the session token.
+   *
+   * Middleware runs on **every** multipart call, not only `init`: a session
+   * that outlives the caller's authorisation must stop working, and a token is
+   * not a substitute for authentication.
+   */
+  async #authorizeSession<K extends keyof TRoutes>(
+    routeName: K,
+    req: Request,
+    token: unknown
+  ): Promise<MultipartSession> {
+    const route = this.getRoute(routeName);
+    if (!route) {
+      throw new UploadError("NOT_FOUND", `Route "${String(routeName)}" not found`);
+    }
+
+    const routeConfig = route._getConfig();
+    let metadata: any = {};
+    for (const middleware of routeConfig.middleware || []) {
+      metadata = await middleware({
+        req,
+        // Middleware is shaped around a file; multipart calls after init do not
+        // carry one, so a placeholder keeps auth checks working unchanged.
+        file: { name: "", size: 0, type: "" },
+        metadata,
+      });
+    }
+
+    const session = await verifySession(
+      multipartSessionSecret(this.config),
+      token
+    );
+
+    // A token minted for one route must not act on another, even for a caller
+    // authorised on both.
+    if (session.route !== String(routeName)) {
+      throw new UploadError("FORBIDDEN", "Session does not belong to this route");
+    }
+
+    return session;
+  }
+
+  /** Upload expiry for a route, falling back to the global default. */
+  #routeExpiry<K extends keyof TRoutes>(routeName: K): number | undefined {
+    const config = this.getRoute(routeName)?._getConfig();
+    const expiresIn = config?.expiresIn as
+      | number
+      | { upload?: number; download?: number }
+      | undefined;
+
+    return typeof expiresIn === "number" ? expiresIn : expiresIn?.upload;
+  }
+
   async handleUploadComplete<K extends keyof TRoutes>(
     routeName: K,
     req: Request,
