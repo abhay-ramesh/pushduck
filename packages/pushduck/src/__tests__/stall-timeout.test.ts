@@ -84,19 +84,24 @@ describe("stall watchdog", () => {
     vi.useFakeTimers();
     const xhr = install();
 
+    // Captured immediately rather than asserted after advancing the clock:
+    // the rejection happens *during* `advanceTimersByTimeAsync`, so attaching
+    // the handler afterwards leaves an unhandled rejection that fails the run
+    // while every individual test still reports as passing.
     const transfer = xhrTransport({
       url: "https://storage.example/put",
       body,
       headers: {},
       stallTimeoutMs: 30_000,
-    });
+    }).catch((error) => error);
 
     // The server accepted the connection and then said nothing at all.
     expect(xhr().sent).toBe(true);
 
     await vi.advanceTimersByTimeAsync(30_001);
 
-    await expect(transfer).rejects.toThrow(/stall|no data|timed out/i);
+    const error = await transfer;
+    expect(String((error as Error).message)).toMatch(/stall|no data|timed out/i);
     // The socket must actually be released, not merely reported as failed.
     expect(xhr().aborted).toBe(true);
 
