@@ -20,7 +20,10 @@
  * ## The constraint that shapes the design
  *
  * **Cloudflare R2 requires every part except the last to be the same size.**
- * AWS does not. Rather than branch on provider, we always emit uniform parts
+ * AWS does not. R2 enforces this at completion, rejecting the request with
+ * `All non-trailing parts must have the same length` — so a non-uniform plan
+ * succeeds for every part upload and only fails at the very end, after the
+ * bytes have already been transferred. Rather than branch on provider, we always emit uniform parts
  * with a smaller remainder at the end: that plan is valid on *every* provider
  * listed, so the same client works against any of them, including
  * S3-compatible services we have never heard of.
