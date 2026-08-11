@@ -4,13 +4,32 @@
   "compilerOptions": {
     "baseUrl": ".",
     "moduleResolution": "bundler",
-    "target": "es2018",
+    "target": "es2022",
     "paths": {
-      "@/*": ["./*"],
-      "pushduck": ["../pushduck/src/index.ts"],
-      "pushduck/client": ["../pushduck/src/client.ts"]
-    }
+      "@/*": [
+        "./*"
+      ],
+      "pushduck": [
+        "../pushduck/src/index.ts"
+      ],
+      "pushduck/client": [
+        "../pushduck/src/client.ts"
+      ]
+    },
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ]
   },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", ".turbo", "public"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    ".turbo",
+    "public",
+    "vitest.config.ts"
+  ]
 }
