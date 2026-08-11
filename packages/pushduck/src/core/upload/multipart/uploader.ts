@@ -210,26 +210,46 @@ export async function uploadFileMultipart(
           .catch(() => [])
       : [];
 
+    //    A listing is not automatically trustworthy. It may name a part this
+    //    plan has no range for — a session created for a *larger* file — or
+    //    repeat one. Either would be forwarded to CompleteMultipartUpload and
+    //    rejected as `InvalidPart` after every byte had been transferred, so
+    //    the listing is filtered against the plan before it is believed.
+    const done = new Set<number>();
     for (const part of alreadyUploaded) {
-      completed.push(part);
       const range = plan.parts.find((p) => p.partNumber === part.partNumber);
-      if (range) committedBytes += range.size;
+      if (!range || done.has(part.partNumber)) continue;
+
+      done.add(part.partNumber);
+      completed.push(part);
+      committedBytes += range.size;
     }
     reportProgress();
-
-    const done = new Set(alreadyUploaded.map((p) => p.partNumber));
     const remaining = plan.parts.filter((p) => !done.has(p.partNumber));
 
     // 3. Transfer what is left.
     await runWithConcurrency(remaining, concurrency, async (part) => {
       if (signal.aborted) throw new UploadAbortedError();
 
-      const [{ url }] = await serverCall<
+      const signed = await serverCall<
         Array<{ partNumber: number; url: string }>
       >(fetcher, `${base}&action=multipart-sign`, {
         session: init.session,
         partNumbers: [part.partNumber],
-      }).then((r) => (Array.isArray(r) ? r : (r as any).results));
+      }).then((r) => (Array.isArray(r) ? r : (r as any)?.results));
+
+      const url = Array.isArray(signed) ? signed[0]?.url : undefined;
+
+      // Without this the destructure fails with an opaque TypeError, or worse,
+      // `undefined` is used as a URL and the part is PUT to the literal string
+      // "undefined" — which some servers accept.
+      if (!url) {
+        throw new UploadError(
+          "INTERNAL_ERROR",
+          `Server did not return an upload URL for part ${part.partNumber}`,
+          { meta: { partNumber: part.partNumber } }
+        );
+      }
 
       const etag = await transferPart({
         url,
