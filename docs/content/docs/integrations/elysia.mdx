@@ -103,12 +103,30 @@ import { uploadRouter } from './lib/upload';
 
 const app = new Elysia();
 
-// Separate GET and POST handlers (required)
-app.get('/api/upload', ({ request }) => uploadRouter.handlers.GET(request));
-app.post('/api/upload', ({ request }) => uploadRouter.handlers.POST(request));
+// One handler for both methods
+app.all('/api/upload', ({ request }) => uploadRouter.handler(request));
 
 app.listen(3000);
 ```
+
+Splitting the methods works too, if you prefer to be explicit or need
+different middleware on each:
+
+```typescript title="server.ts"
+app.get('/api/upload', ({ request }) => uploadRouter.handlers.GET(request));
+app.post('/api/upload', ({ request }) => uploadRouter.handlers.POST(request));
+```
+
+Or use Elysia's `.mount`, which hosts any Web-standard handler:
+
+```typescript title="server.ts"
+const app = new Elysia().mount('/api/upload', uploadRouter.handler);
+```
+
+<Callout type="info">
+  All three are verified against a real Elysia server running under Bun in
+  pushduck's test suite — `.all`, the split handlers, and `.mount`.
+</Callout>
 
 ### With Middleware and CORS
 
