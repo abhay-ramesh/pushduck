@@ -50,6 +50,7 @@ import {
 } from "../errors";
 import { getInputMeta, isFile, toBlob } from "./input";
 import { shouldUseMultipart } from "./multipart/plan";
+import { fingerprintFile, type UploadStore } from "./multipart/store";
 import { uploadFileMultipart } from "./multipart/uploader";
 import { computeAggregateProgress, computeFileTelemetry } from "./progress";
 import {
@@ -110,6 +111,17 @@ export interface UploadEngineOptions<
     partSize?: number;
     /** Parts in flight at once. @default 4 */
     concurrency?: number;
+    /** Attempts per part, including the first. @default 3 */
+    maxAttempts?: number;
+    /**
+     * Where interrupted uploads are remembered, so they can resume.
+     *
+     * Omit and an interrupted upload restarts. `createWebStore()` persists
+     * across reloads in a browser; React Native passes an `AsyncStorage`-backed
+     * implementation. Injectable because `localStorage` does not exist in React
+     * Native, Workers, or any server runtime.
+     */
+    store?: UploadStore;
   };
   /**
    * Route name as defined in the server router.
@@ -574,7 +586,14 @@ export function createUploadEngine<
         transport,
         signal: track.controller.signal,
         concurrency: multipart?.concurrency,
+        maxAttempts: multipart?.maxAttempts,
         partSize: multipart?.partSize,
+        store: multipart?.store,
+        // Keyed on the file itself, not its name: resuming into a *different*
+        // file with the same name stitches one file's parts onto another and
+        // completes successfully with corrupt contents.
+        fingerprint: fingerprintFile(track.input, track.meta, route),
+        now,
         onProgress: (loadedBytes, totalBytes) => {
           // Identical to the single-PUT path: the same telemetry maths turns
           // bytes into the same progress, uploadSpeed and eta fields.

@@ -294,6 +294,11 @@ export interface UploadConfig {
      * @default 4
      */
     concurrency?: number;
+    /**
+     * Attempts per part, including the first.
+     * @default 3
+     */
+    maxAttempts?: number;
   };
 
   /**

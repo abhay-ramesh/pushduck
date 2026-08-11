@@ -46,6 +46,13 @@ export type {
 
 export { formatETA, formatUploadSpeed } from "./format";
 
+export {
+  createMemoryStore,
+  createWebStore,
+  fingerprintFile,
+} from "./multipart/store";
+export type { ResumableUpload, UploadStore } from "./multipart/store";
+
 export { getInputMeta, isFile, isMimeType, toBlob } from "./input";
 export type { NormalizedInputMeta } from "./input";
 

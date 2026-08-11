@@ -21,6 +21,7 @@
 import { UploadError } from "../../errors";
 import { UploadAbortedError, type UploadTransport } from "../transport";
 import { planMultipart, type MultipartPlan } from "./plan";
+import type { ResumableUpload, UploadStore } from "./store";
 
 /** A part the provider has accepted. */
 export interface CompletedPart {
@@ -61,6 +62,12 @@ export interface MultipartUploadOptions {
   partSize?: number;
   /** Injectable for deterministic backoff in tests. */
   sleep?: (ms: number) => Promise<void>;
+  /** Where interrupted uploads are remembered. Omit to disable resume. */
+  store?: UploadStore;
+  /** Identifies this exact file, so a different one cannot resume into it. */
+  fingerprint?: string;
+  /** Clock, injectable for deterministic record ages. */
+  now?: () => number;
 }
 
 /** What the caller gets back once the object exists. */
@@ -120,16 +127,46 @@ export async function uploadFileMultipart(
     sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   } = options;
 
+  const { store, fingerprint, now = Date.now } = options;
   const base = `${endpoint}?route=${route}`;
 
-  // 1. Ask the server to start a session. Middleware, validation and path
-  //    generation all run here, exactly as they do for a single PUT.
-  const init = await serverCall<{
-    session: string;
-    key: string;
-    partSize: number;
-    metadata: unknown;
-  }>(fetcher, `${base}&action=multipart-init`, { file, metadata });
+  // 1. Resume if we already have a session for *this exact file*, otherwise
+  //    start a new one. Middleware, validation and path generation run at
+  //    init, exactly as they do for a single PUT.
+  const resumed = await loadResumable({
+    store,
+    fingerprint,
+    route,
+    totalSize: file.size,
+  });
+
+  const init = resumed
+    ? {
+        session: resumed.session,
+        key: resumed.key,
+        partSize: resumed.partSize,
+        metadata: undefined as unknown,
+      }
+    : await serverCall<{
+        session: string;
+        key: string;
+        partSize: number;
+        metadata: unknown;
+      }>(fetcher, `${base}&action=multipart-init`, { file, metadata });
+
+  if (!resumed && store && fingerprint) {
+    // Recorded before any part is transferred: a drop during the very first
+    // part should still be resumable.
+    await store.set({
+      session: init.session,
+      key: init.key,
+      partSize: init.partSize,
+      totalSize: file.size,
+      fingerprint,
+      route,
+      createdAt: now(),
+    });
+  }
 
   const plan: MultipartPlan = planMultipart(file.size, {
     partSize: init.partSize,
@@ -157,8 +194,34 @@ export async function uploadFileMultipart(
   const completed: CompletedPart[] = [];
 
   try {
-    // 2. Transfer the parts.
-    await runWithConcurrency(plan.parts, concurrency, async (part) => {
+    // 2. Ask the provider which parts it actually holds.
+    //
+    //    The server is the authority, not our record: a locally-noted part may
+    //    have been written before the request truly failed, and a provider may
+    //    have expired the session entirely. Reconciling here means a resume
+    //    never re-uploads what landed and never assumes what did not.
+    const alreadyUploaded = resumed
+      ? await serverCall<{ parts: CompletedPart[] }>(
+          fetcher,
+          `${base}&action=multipart-parts`,
+          { session: init.session }
+        )
+          .then((r) => r.parts ?? [])
+          .catch(() => [])
+      : [];
+
+    for (const part of alreadyUploaded) {
+      completed.push(part);
+      const range = plan.parts.find((p) => p.partNumber === part.partNumber);
+      if (range) committedBytes += range.size;
+    }
+    reportProgress();
+
+    const done = new Set(alreadyUploaded.map((p) => p.partNumber));
+    const remaining = plan.parts.filter((p) => !done.has(p.partNumber));
+
+    // 3. Transfer what is left.
+    await runWithConcurrency(remaining, concurrency, async (part) => {
       if (signal.aborted) throw new UploadAbortedError();
 
       const [{ url }] = await serverCall<
@@ -191,7 +254,7 @@ export async function uploadFileMultipart(
       completed.push({ partNumber: part.partNumber, etag });
     });
 
-    // 3. Stitch. Parts must be ascending; providers reject an unordered list.
+    // 4. Stitch. Parts must be ascending; providers reject an unordered list.
     const result = await serverCall<{ key: string; url: string }>(
       fetcher,
       `${base}&action=multipart-complete`,
@@ -203,8 +266,38 @@ export async function uploadFileMultipart(
       }
     );
 
+    // The session is finished; a stale record would resume into an upload that
+    // no longer exists.
+    if (store && fingerprint) await store.delete(fingerprint);
+
     return { key: result.key, url: result.url, metadata: init.metadata };
   } catch (error) {
+    // How a failure is classified decides whether the transferred bytes
+    // survive, so this distinction *is* the value of resume:
+    //
+    // - **Interrupted** — the network dropped, a request timed out. Keep the
+    //   session and the record. These are precisely the failures resume
+    //   exists for, and aborting would discard everything already uploaded:
+    //   on mobile, usually most of the file, over metered data.
+    // - **Cancelled or permanently failed** — the user pressed cancel, auth
+    //   was rejected, the bucket is misconfigured. Abort and drop the record:
+    //   nothing here succeeds on retry, and abandoned parts are billed until
+    //   removed.
+    //
+    // Keeping a session costs storage bounded by the provider's own expiry —
+    // 7 days on R2, 30 on Spaces — or by a lifecycle rule on AWS, which has no
+    // default and is called out in the docs.
+    const cancelled = error instanceof UploadAbortedError || signal.aborted;
+    const permanent = error instanceof UploadError && !error.retryable;
+
+    if (!cancelled && !permanent && store && fingerprint) {
+      throw error;
+    }
+
+    if (store && fingerprint) {
+      await store.delete(fingerprint).catch(() => undefined);
+    }
+
     // Best effort: a failed abort must not replace the real error.
     await serverCall(fetcher, `${base}&action=multipart-abort`, {
       session: init.session,
@@ -212,6 +305,40 @@ export async function uploadFileMultipart(
 
     throw error;
   }
+}
+
+/**
+ * Loads a stored session, if one belongs to this exact file.
+ *
+ * Every mismatch is a miss rather than an error: resuming is an optimisation,
+ * and the correct fallback is always a fresh upload.
+ */
+async function loadResumable(options: {
+  store?: UploadStore;
+  fingerprint?: string;
+  route: string;
+  totalSize: number;
+}): Promise<ResumableUpload | undefined> {
+  const { store, fingerprint, route, totalSize } = options;
+  if (!store || !fingerprint) return undefined;
+
+  const record = await store.get(fingerprint).catch(() => undefined);
+  if (!record) return undefined;
+
+  // Defence in depth. The fingerprint already encodes route and size, but a
+  // record that disagrees with the file in front of us must never be used —
+  // stitching one file's parts onto another produces a corrupt object that
+  // completes successfully.
+  if (
+    record.route !== route ||
+    record.totalSize !== totalSize ||
+    record.fingerprint !== fingerprint
+  ) {
+    await store.delete(fingerprint).catch(() => undefined);
+    return undefined;
+  }
+
+  return record;
 }
 
 /** Transfers one part, retrying transient failures. */
