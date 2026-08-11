@@ -195,7 +195,7 @@ Choose the appropriate change type:
 
 **Do not open public issues for security vulnerabilities.**
 
-Email security concerns to: [security@pushduck.dev](mailto:security@pushduck.dev)
+Email security concerns to: [security@pushduck.org](mailto:security@pushduck.org)
 
 ### Security Checklist
 

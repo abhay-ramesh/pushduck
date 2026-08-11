@@ -202,7 +202,7 @@ We review PRs as soon as we can. Critical bug fixes get priority.
 
 **Do not open public issues for security vulnerabilities.**
 
-Email security concerns to: [security@pushduck.dev](mailto:security@pushduck.dev)
+Email security concerns to: [security@pushduck.org](mailto:security@pushduck.org)
 
 ### Security Checklist
 

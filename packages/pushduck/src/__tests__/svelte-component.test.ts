@@ -34,7 +34,7 @@ function createFetcher(
     if (options.fail) {
       return new Response(
         JSON.stringify({
-          type: "https://pushduck.dev/errors/forbidden",
+          type: "https://pushduck.org/errors/forbidden",
           title: "Forbidden",
           status: 403,
           code: "FORBIDDEN",
