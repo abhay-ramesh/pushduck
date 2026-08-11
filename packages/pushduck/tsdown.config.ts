@@ -5,7 +5,17 @@ export default defineConfig({
     "src/index.ts",
     "src/server.ts",
     "src/client.ts",
+    // Framework-agnostic engine. Deliberately free of React and of any
+    // server-side module, so non-React bindings and vanilla consumers pull in
+    // neither. Enforced by src/__tests__/architecture.test.ts.
+    "src/core.ts",
     "src/react-native.ts",
+    // Framework bindings. Each is a thin subscription over src/core/upload;
+    // the framework itself is an optional peer, so a React-only consumer never
+    // resolves vue or svelte.
+    "src/vue.ts",
+    "src/svelte.ts",
+    "src/solid.ts",
     // The barrel is the documented entry point, but each adapter is also
     // published on its own subpath. The barrel's .d.ts references next,
     // express and fastify types, so a project that installs only one of them
@@ -23,7 +33,7 @@ export default defineConfig({
   minify: true,
   treeshake: true,
   sourcemap: false,
-  external: ["react", "next", "crypto"],
+  external: ["react", "next", "crypto", "vue", "svelte", "solid-js", "solid-js/store"],
   // The package is "type": "module", so a .js file is parsed as ESM by Node.
   // Emitting the CommonJS build as .js therefore produced files Node could not
   // load via require() at all. CJS must carry the .cjs extension.

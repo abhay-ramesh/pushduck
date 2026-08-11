@@ -26,7 +26,6 @@
 
 "use client";
 
-import { useCallback } from "react";
 import { useUploadRoute } from "../hooks/use-upload-route";
 import type {
   ClientConfig,
@@ -48,90 +47,25 @@ function useTypedRoute<TRouter extends S3Router<any>>(
   config: ClientConfig,
   routeOptions?: UploadRouteConfig
 ): TypedRouteHook<TRouter> {
-  // Merge global config with route-specific options
-  const mergedConfig: UploadRouteConfig = {
+  /**
+   * Delegates wholesale to `useUploadRoute` rather than re-deriving its result.
+   *
+   * The previous implementation rebuilt the return value field by field, which
+   * let it drift: it lacked `cancel`, `cancelAll`, and `uploadFilesAsync`, and
+   * its `uploadFiles` resolved with a *stale* file list — React state had not
+   * re-rendered yet, so callers received the pre-upload snapshot. Spreading the
+   * hook keeps the property-based client and the hook permanently in lockstep.
+   */
+  const hookResult = useUploadRoute(routeName, {
     endpoint: routeOptions?.endpoint || config.endpoint,
     fetcher: routeOptions?.fetcher || config.fetcher,
+    onStart: routeOptions?.onStart || config.defaultOptions?.onStart,
     onSuccess: routeOptions?.onSuccess || config.defaultOptions?.onSuccess,
     onError: routeOptions?.onError || config.defaultOptions?.onError,
     onProgress: routeOptions?.onProgress || config.defaultOptions?.onProgress,
-  };
+  });
 
-  const hookResult = useUploadRoute(routeName, mergedConfig);
-
-  /**
-   * Enhanced upload function that supports client-side metadata.
-   *
-   * @param files - Array of files to upload
-   * @param metadata - Optional metadata to attach to the upload (client-side context)
-   * @returns Promise resolving to array of uploaded files with metadata
-   *
-   * @remarks
-   * Client-provided metadata is passed through to the server and can be accessed
-   * in middleware, lifecycle hooks, and path generation functions. This allows
-   * passing contextual information like user selections, form data, or UI state.
-   *
-   * @security
-   * ⚠️ IMPORTANT: Client metadata is UNTRUSTED user input.
-   * Always validate and sanitize in server-side middleware before use.
-   * Never trust client-provided identity claims (userId, role, etc.).
-   *
-   * @example Basic usage with metadata
-   * ```typescript
-   * const { uploadFiles } = upload.imageUpload();
-   *
-   * // Upload with contextual metadata
-   * await uploadFiles(selectedFiles, {
-   *   albumId: album.id,
-   *   tags: ['vacation', 'summer'],
-   *   visibility: 'private'
-   * });
-   * ```
-   *
-   * @example Server-side validation
-   * ```typescript
-   * // In your route configuration
-   * s3.createRouter({
-   *   imageUpload: s3.image()
-   *     .middleware(async ({ req, metadata }) => {
-   *       const user = await authenticateUser(req);
-   *
-   *       return {
-   *         // Client metadata (untrusted)
-   *         albumId: metadata?.albumId,
-   *         tags: metadata?.tags || [],
-   *
-   *         // Server metadata (trusted) - overrides client
-   *         userId: user.id,
-   *         role: user.role,
-   *         uploadedAt: new Date().toISOString()
-   *       };
-   *     })
-   * });
-   * ```
-   */
-  const enhancedUploadFiles = useCallback(
-    async (files: File[], metadata?: any) => {
-      await hookResult.uploadFiles(files, metadata);
-      return hookResult.files.map((file) => ({
-        ...file,
-        metadata,
-      }));
-    },
-    [hookResult.uploadFiles, hookResult.files, routeName]
-  );
-
-  return {
-    files: hookResult.files,
-    uploadFiles: enhancedUploadFiles,
-    reset: hookResult.reset,
-    isUploading: hookResult.isUploading,
-    errors: hookResult.errors,
-    routeName,
-    progress: hookResult.progress,
-    uploadSpeed: hookResult.uploadSpeed,
-    eta: hookResult.eta,
-  };
+  return { ...hookResult, routeName };
 }
 
 // ========================================
