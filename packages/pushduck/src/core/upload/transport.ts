@@ -10,6 +10,8 @@
  * at module scope, so importing this module never crashes during SSR.
  */
 
+import { UploadError } from "../errors";
+
 /**
  * A single request to transmit one file's bytes to storage.
  */
@@ -34,6 +36,18 @@ export interface UploadTransportRequest {
    * (see {@link fetchTransport}) simply never call it.
    */
   onProgress?: (loadedBytes: number, totalBytes: number) => void;
+  /**
+   * Fail if no bytes move for this many milliseconds. `0` disables it.
+   *
+   * Deliberately *not* `XMLHttpRequest.timeout`, which bounds the whole
+   * request: any value permitting a legitimate multi-gigabyte upload is far
+   * too large to catch a stall, and any value small enough to catch a stall
+   * kills healthy long uploads. An idle timer distinguishes "slow" from
+   * "dead"; a total timer cannot.
+   *
+   * @default 120000
+   */
+  stallTimeoutMs?: number;
 }
 
 /**
@@ -86,12 +100,24 @@ export class UploadAbortedError extends Error {
  * @throws {UploadAbortedError} If the request is aborted.
  * @throws {Error} On a non-2xx response or a network error.
  */
+/**
+ * How long a transfer may make no progress before it is considered dead.
+ *
+ * Two minutes is deliberately generous: a large part on a poor connection can
+ * legitimately go quiet while the OS retransmits, and a false positive costs a
+ * re-upload. It only has to be short enough that a user is not staring at a
+ * frozen bar indefinitely, which the previous behaviour — no timeout at all —
+ * allowed forever.
+ */
+const DEFAULT_STALL_TIMEOUT_MS = 120_000;
+
 export const xhrTransport: UploadTransport = ({
   url,
   body,
   headers,
   signal,
   onProgress,
+  stallTimeoutMs = DEFAULT_STALL_TIMEOUT_MS,
 }) => {
   return new Promise<UploadTransportResult>((resolve, reject) => {
     if (signal?.aborted) {
@@ -114,9 +140,39 @@ export const xhrTransport: UploadTransport = ({
     const onAbort = () => xhr.abort();
     signal?.addEventListener("abort", onAbort, { once: true });
 
-    const cleanup = () => signal?.removeEventListener("abort", onAbort);
+    /**
+     * The stall watchdog.
+     *
+     * `stalled` records *why* the request was aborted, because `xhr.abort()`
+     * fires `onabort` either way and the two cases must not be confused: a
+     * user pressing cancel is final, while a stall is transient and should be
+     * retried.
+     */
+    let stalled = false;
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
+
+    const clearWatchdog = () => {
+      if (watchdog !== undefined) clearTimeout(watchdog);
+      watchdog = undefined;
+    };
+
+    const armWatchdog = () => {
+      if (!stallTimeoutMs) return;
+      clearWatchdog();
+      watchdog = setTimeout(() => {
+        stalled = true;
+        xhr.abort();
+      }, stallTimeoutMs);
+    };
+
+    const cleanup = () => {
+      clearWatchdog();
+      signal?.removeEventListener("abort", onAbort);
+    };
 
     xhr.upload.onprogress = (event) => {
+      // Any byte movement means the connection is alive, so the clock restarts.
+      armWatchdog();
       if (event.lengthComputable && onProgress) {
         onProgress(event.loaded, event.total);
       }
@@ -143,6 +199,22 @@ export const xhrTransport: UploadTransport = ({
 
     xhr.onabort = () => {
       cleanup();
+
+      // A stall is a transient network failure, not a cancellation: reporting
+      // it as an abort would tell the retry layer the user asked to stop, and
+      // the upload would fail permanently on a connection that recovered
+      // seconds later.
+      if (stalled) {
+        reject(
+          new UploadError(
+            "TIMEOUT",
+            `Upload stalled: no data transferred for ${stallTimeoutMs}ms`,
+            { meta: { stallTimeoutMs, url } }
+          )
+        );
+        return;
+      }
+
       reject(new UploadAbortedError());
     };
 
@@ -152,6 +224,10 @@ export const xhrTransport: UploadTransport = ({
       xhr.setRequestHeader(key, value);
     }
 
+    // Armed before sending: a connection that is accepted and then goes
+    // silent never fires a progress event, which is exactly the case this
+    // exists to catch.
+    armWatchdog();
     xhr.send(body);
   });
 };
