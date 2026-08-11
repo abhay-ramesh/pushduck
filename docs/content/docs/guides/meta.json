@@ -3,6 +3,7 @@
   "pages": [
     "client-approaches",
     "image-uploads",
+    "large-files",
     "client-metadata",
     "security",
     "migrate-to-enhanced-client",

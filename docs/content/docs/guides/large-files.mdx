@@ -1,0 +1,304 @@
+---
+title: Large Files
+description: Multipart uploads and resume — what changes, what doesn't, and the two provider settings that bite
+icon: HardDriveUpload
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Step, Steps } from "fumadocs-ui/components/steps";
+
+A single `PUT` has a ceiling. S3 rejects one above 5 GB, mobile networks drop
+long transfers, and a failure at 90% costs you the whole file. Multipart splits
+the file into parts that upload independently, in parallel, each retried on its
+own — and once a part has landed, it stays landed.
+
+## Nothing changes at the call site
+
+Multipart is on by default for files at or above 100 MiB, and it does not
+change the API. The same code handles a 2 MB avatar and a 4 GB video:
+
+```tsx
+const { uploadFiles, files, progress } = upload.videoUpload();
+```
+
+`files` holds the same `S3UploadedFile` objects with the same `progress`,
+`uploadSpeed` and `eta`, moving through the same status transitions. A file
+that went up in six hundred parts is indistinguishable from one that went up in
+a single `PUT` — deliberately, so that adding multipart cannot regress a UI
+that was built before it existed.
+
+<Callout type="info">
+  If you never configure anything, you get parallel multipart above 100 MiB and
+  nothing else to think about. The rest of this page is for when you want to
+  tune it, resume interrupted uploads, or upload large files from React Native.
+</Callout>
+
+## What the server needs
+
+Nothing, in most cases. The multipart endpoints live on the same handler you
+already mounted, and session tokens are signed with a provider credential the
+server already holds — there is no new secret to configure or rotate.
+
+Two provider-side settings do need attention, and both fail in ways that are
+hard to diagnose from the error alone.
+
+<Steps>
+
+<Step>
+
+### Expose the ETag header in CORS
+
+Each part returns an `ETag`, and the client must send all of them back to
+assemble the object. A cross-origin response header is **invisible to
+JavaScript** unless the bucket lists it, so without this every part uploads
+successfully and assembly fails.
+
+```json title="CORS configuration"
+[
+  {
+    "AllowedOrigins": ["https://your-app.com"],
+    "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"]
+  }
+]
+```
+
+<Callout type="warn">
+  This is the single most common multipart misconfiguration. pushduck detects
+  it and raises an error naming this fix rather than letting the upload fail
+  later with an opaque `InvalidPart`, but the bucket still has to be corrected.
+</Callout>
+
+</Step>
+
+<Step>
+
+### Expire abandoned uploads
+
+An upload that is started and never completed leaves its parts in the bucket.
+They do not appear in a normal object listing, and **you are billed for them**.
+
+Most providers clean up on their own schedule — R2 after 7 days,
+DigitalOcean Spaces after 30. **AWS S3 never does.** On S3 you must add a
+lifecycle rule, and without one abandoned parts accumulate indefinitely:
+
+```json title="S3 lifecycle rule"
+{
+  "Rules": [
+    {
+      "ID": "abort-incomplete-multipart-uploads",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "" },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 }
+    }
+  ]
+}
+```
+
+pushduck aborts the upload itself whenever a failure is permanent — a rejected
+authorization, a cancelled upload, a misconfigured bucket. The lifecycle rule
+covers what it cannot: a browser tab closed mid-upload, a process killed, a
+device that goes offline and never comes back.
+
+</Step>
+
+</Steps>
+
+## Tuning
+
+```tsx
+const { uploadFiles } = upload.videoUpload({
+  multipart: {
+    threshold: 50 * 1024 * 1024, // split above 50 MB (default 100 MiB)
+    partSize: 10 * 1024 * 1024, // 10 MB parts (default 5 MiB)
+    concurrency: 6, // parts in flight (default 4)
+    maxAttempts: 5, // attempts per part (default 3)
+  },
+});
+```
+
+| Option | Default | What moving it costs you |
+| --- | --- | --- |
+| `threshold` | 100 MiB | Lower means more small files pay three extra round trips. |
+| `partSize` | 5 MiB | Larger parts mean fewer requests but more to re-send on a failure. |
+| `concurrency` | 4 | Higher saturates a fast link, and starves a slow one. |
+| `maxAttempts` | 3 | Higher survives flakier networks, at the cost of failing slower. |
+| `enabled` | `true` | `false` keeps every file on a single `PUT`. |
+
+`enabled: false` is an opt-out from multipart as an *optimisation*. A file
+above the 5 GiB single-`PUT` ceiling still splits, because at that size a
+single `PUT` is not a legal request — honouring the opt-out there would turn it
+into a rejected upload rather than a slower one.
+
+### Limits you cannot tune past
+
+Part size is clamped to what every supported provider accepts, whatever you
+ask for: **at least 5 MiB** for any part but the last, **at most 5 GiB**, and
+**at most 10,000 parts** per object. A part size too small for the file is
+raised automatically so the part count stays legal — a 500 GB file cannot use
+5 MiB parts, and pushduck adjusts rather than failing at part 10,001.
+
+Every part is the same size except the final one. That is stricter than S3
+requires and is deliberate: **Cloudflare R2 rejects an upload whose non-final
+parts differ in size**, so uniform parts are the only sizing that works
+everywhere.
+
+## Resuming an interrupted upload
+
+By default, an interrupted upload restarts. Pass a store and it continues from
+the parts that already landed:
+
+<Tabs items={["Browser", "React Native"]}>
+
+<Tab value="Browser">
+
+```tsx
+import { createWebStore } from "pushduck/client";
+
+const { uploadFiles } = upload.videoUpload({
+  multipart: { store: createWebStore() },
+});
+```
+
+`createWebStore()` uses `localStorage`, so a resume survives a page reload.
+Records expire after 6 hours, and storage failures — private browsing, quota
+limits — degrade to "no resume" rather than breaking the upload.
+
+</Tab>
+
+<Tab value="React Native">
+
+`UploadStore` is three async methods, which is exactly what `AsyncStorage`
+offers — implement it directly rather than adapting `createWebStore`, whose
+storage interface is synchronous:
+
+```tsx
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { UploadStore } from "pushduck/react-native";
+
+const store: UploadStore = {
+  async get(fingerprint) {
+    const raw = await AsyncStorage.getItem(`upload:${fingerprint}`);
+    return raw ? JSON.parse(raw) : undefined;
+  },
+  async set(record) {
+    await AsyncStorage.setItem(
+      `upload:${record.fingerprint}`,
+      JSON.stringify(record)
+    );
+  },
+  async delete(fingerprint) {
+    await AsyncStorage.removeItem(`upload:${fingerprint}`);
+  },
+};
+```
+
+Consider dropping records older than a few hours: providers expire abandoned
+sessions on their own schedule, so a very old record resumes into a session
+that no longer exists. That costs one wasted round trip rather than a failed
+upload — pushduck starts fresh when the provider has forgotten the session —
+but there is no reason to keep them.
+
+</Tab>
+
+</Tabs>
+
+### What resume does and does not survive
+
+| Situation | Resumes? |
+| --- | --- |
+| Network drop, tunnel, wifi-to-cellular handoff | Yes |
+| Page reload, with `createWebStore()` | Yes |
+| App backgrounded briefly | Yes |
+| Server or storage returning an error | Yes, on the next attempt |
+| The OS killing a suspended app | Only with a persistent store — see below |
+| Cancelling the upload | No, by design: the session is aborted |
+| The provider expiring the session | No — restarts cleanly |
+
+In-memory is the default, so resume survives a network drop within the same
+page or app session but not a reload. `createWebStore()` and an `AsyncStorage`
+implementation both survive the process dying.
+
+<Callout type="warn">
+  **How a file is identified.** A resume is refused unless the file matches the
+  session's record on **name, size and last-modified time**. Picking a
+  different file with the same name starts a new upload rather than stitching
+  two files together — which would otherwise complete successfully and produce
+  a corrupt object.
+
+  This is a fingerprint, not a hash: a replacement file with an identical name,
+  size *and* timestamp would not be caught. Hashing multiple gigabytes on a
+  phone to close that gap costs more than it is worth, but if your app can
+  replace a file's contents while preserving all three, supply your own store
+  keyed on something stronger.
+</Callout>
+
+## Large files from React Native
+
+React Native needs one extra piece. A picker gives you a `file://` URI, and the
+portable way to turn that into bytes is `fetch(uri).blob()` — which reads
+**the entire file into memory** before the first part is sent. For the case
+multipart exists to serve, a 500 MB video, the OS kills the app first.
+
+Supply a reader instead and only the parts in flight are resident:
+
+```tsx title="upload.ts"
+import * as FileSystem from "expo-file-system";
+import { createRangeChunkReader, decodeBase64 } from "pushduck/react-native";
+
+const { uploadFiles } = useUploadRoute<AppRouter>("videoUpload", {
+  multipart: {
+    createChunkReader: (input, meta) =>
+      "uri" in input
+        ? createRangeChunkReader({
+            size: meta.size,
+            readRange: async (start, end) =>
+              decodeBase64(
+                await FileSystem.readAsStringAsync(input.uri, {
+                  encoding: FileSystem.EncodingType.Base64,
+                  position: start,
+                  length: end - start,
+                })
+              ),
+          })
+        : undefined,
+  },
+});
+```
+
+Returning `undefined` falls back to the default, so the same factory handles
+URI assets and web `File` objects — one code path for a shared React Native and
+web codebase.
+
+<Callout type="info">
+  pushduck does not depend on expo-file-system. It is one of several React
+  Native file APIs, it cannot be bundled for web, and every web consumer would
+  otherwise pay for a dependency they cannot use. `createRangeChunkReader`
+  works with any function that can return a byte range —
+  `react-native-fs`, `react-native-blob-util`, or your own native module.
+</Callout>
+
+`decodeBase64` is exported because every React Native file API that reads a
+byte range returns base64, and neither shortcut is portable: `Buffer` needs a
+polyfill, and `atob` only reached Hermes in React Native 0.74.
+
+## Troubleshooting
+
+**"The storage response did not expose an ETag"** — the bucket's CORS
+configuration is missing `"ExposeHeaders": ["ETag"]`. See above.
+
+**`InvalidPart` on completion** — parts were uploaded against a session that no
+longer matches. Almost always a stale resume record against a provider that has
+expired the session; it resolves on the next attempt.
+
+**Uploads are slower than a single `PUT`** — for files near the threshold this
+is expected. Multipart costs three extra round trips, which is a poor trade
+below ~50 MB. Raise `threshold`.
+
+**An upload restarts from zero after a network drop** — no store is configured.
+Resume is opt-in; see above.
+
+**Abandoned parts accumulating in the bucket** — add the lifecycle rule. This
+is required on AWS, which never expires them.
