@@ -1,23 +1,24 @@
 {
-    "title": "Pushduck",
-    "pages": [
-        "index",
-        "--- Getting Started ---",
-        "quick-start",
-        "manual-setup",
-        "how-it-works",
-        "--- Configuration ---",
-        "providers",
-        "integrations",
-        "--- Usage ---",
-        "examples",
-        "guides",
-        "api",
-        "--- Resources ---",
-        "philosophy",
-        "comparisons",
-        "limitations",
-        "roadmap",
-        "ai-integration"
-    ]
+  "title": "Pushduck",
+  "pages": [
+    "index",
+    "--- Getting Started ---",
+    "quick-start",
+    "manual-setup",
+    "how-it-works",
+    "protocol",
+    "--- Configuration ---",
+    "providers",
+    "integrations",
+    "--- Usage ---",
+    "examples",
+    "guides",
+    "api",
+    "--- Resources ---",
+    "philosophy",
+    "comparisons",
+    "limitations",
+    "roadmap",
+    "ai-integration"
+  ]
 }

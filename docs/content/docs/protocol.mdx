@@ -1,0 +1,329 @@
+---
+title: Wire Protocol
+description: The normative HTTP contract between a pushduck client and server — implementable in any language
+icon: FileCode
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+## Scope
+
+pushduck's TypeScript packages are one implementation of a small HTTP contract.
+This page specifies that contract so **any** language can implement either half.
+
+The key words **MUST**, **MUST NOT**, **SHOULD** and **MAY** are used as in
+[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
+
+<Callout type="info">
+  **Version 1.** Reported as `protocolVersion` by the introspection endpoint
+  and as the `X-Pushduck-Protocol` header on every response.
+</Callout>
+
+## Why there is a protocol at all
+
+File bytes never pass through the upload server. The client asks for a
+presigned URL, `PUT`s directly to storage, and tells the server it finished:
+
+```
+Client ──1. presign──► Server ──► Storage (signs)
+Client ──2. PUT ─────────────────► Storage (bytes)
+Client ──3. complete─► Server        (hooks, DB writes)
+```
+
+The server is therefore a small, stateless signing and bookkeeping service —
+which is exactly why it is portable to Go, Python, or anything else.
+
+## Transport
+
+- All requests **MUST** use HTTPS in production.
+- Request and response bodies **MUST** be UTF-8 JSON with
+  `Content-Type: application/json`, except errors (see [Errors](#errors)).
+- A server **MUST** accept a request body of at least 100 KB on `presign`.
+  It **MAY** reject larger bodies with `413`.
+
+## Endpoint and dispatch
+
+A server exposes one endpoint. Both the route and the operation are carried as
+**query parameters**:
+
+```
+POST  {endpoint}?route={routeName}&action=presign
+POST  {endpoint}?route={routeName}&action=complete
+GET   {endpoint}
+```
+
+- `route` **MUST** be a route name defined by the server. A server **MUST**
+  answer `404` for an unknown route.
+- `action` **MUST** be `presign` or `complete`. When absent, a server **MUST**
+  default to `presign`. An unrecognised action **MUST** answer `400`.
+- Route names **SHOULD** be percent-encoded by clients.
+
+<Callout type="warn">
+  `{endpoint}` is chosen by the application — `/api/upload`, `/upload`,
+  `/v1/files`, anything. A server implementation **MUST NOT** depend on its own
+  mount path: it receives a request and answers it. This is what allows one
+  handler to work unchanged across frameworks, and why dispatch is in the query
+  string rather than the path.
+</Callout>
+
+## 1. Presign
+
+Asks the server to validate a batch and mint upload URLs.
+
+**Request** — `POST {endpoint}?route={routeName}&action=presign`
+
+```jsonc
+{
+  "files": [
+    { "name": "photo.jpg", "size": 1048576, "type": "image/jpeg" }
+  ],
+  "metadata": { "albumId": "summer-2026" }   // optional, UNTRUSTED
+}
+```
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `files` | array | yes | **MUST** be an array; `400` otherwise |
+| `files[].name` | string | yes | Original filename |
+| `files[].size` | number | yes | Bytes. A server **MUST NOT** trust this as the authoritative size |
+| `files[].type` | string | yes | MIME type |
+| `metadata` | any | no | Client context, passed to middleware |
+
+<Callout type="warn">
+  `metadata` is **untrusted input**. A server **MUST** validate it before use
+  and **MUST NOT** accept identity claims (`userId`, `role`) from it. Derive
+  identity from the request's own credentials.
+</Callout>
+
+**Response** — `200`
+
+```jsonc
+{
+  "success": true,
+  "results": [
+    {
+      "success": true,
+      "file": { "name": "photo.jpg", "size": 1048576, "type": "image/jpeg" },
+      "presignedUrl": "https://bucket.s3.amazonaws.com/…?X-Amz-Signature=…",
+      "key": "uploads/2026/photo.jpg",
+      "requiredHeaders": { "Content-Type": "image/jpeg" },
+      "metadata": { "userId": "u_1" }
+    }
+  ]
+}
+```
+
+`results` **MUST** be positionally aligned with the request's `files`.
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `success` | yes | Per-file outcome |
+| `presignedUrl` | when `success` | Absolute URL for the `PUT` |
+| `key` | when `success` | Object key, echoed back at `complete` |
+| `requiredHeaders` | no | Headers the `PUT` **MUST** carry for the signature to validate |
+| `metadata` | no | Server middleware output, returned to the client |
+| `error` | when not `success` | Human-readable reason |
+
+### Per-file versus whole-request failure
+
+This distinction is **normative** and easy to get wrong:
+
+- A failure describing **one file** (too large, wrong type, failed validation)
+  **MUST** be reported as `results[i].success = false` inside a `200`. One
+  rejected file **MUST NOT** fail the others.
+- A failure describing **the request** (unauthenticated, forbidden, over
+  quota, unknown route, malformed body) **MUST** abort the batch and be
+  returned as an error response with the appropriate status.
+
+Burying a `401` inside a `200` makes it invisible to every status check, proxy,
+retry policy and alert.
+
+## 2. Upload
+
+The client `PUT`s the bytes directly to `presignedUrl`.
+
+- The client **MUST** send every header in `requiredHeaders`, unmodified.
+- When `requiredHeaders` is absent, the client **SHOULD** send
+  `Content-Type: {file.type}`.
+- The client **MUST NOT** send credentials; the URL is already signed.
+- This request does not reach the pushduck server.
+
+## 3. Complete
+
+Tells the server which objects landed, so it can run post-processing.
+
+**Request** — `POST {endpoint}?route={routeName}&action=complete`
+
+```jsonc
+{
+  "completions": [
+    {
+      "key": "uploads/2026/photo.jpg",
+      "file": { "name": "photo.jpg", "size": 1048576, "type": "image/jpeg" },
+      "metadata": { "userId": "u_1" }
+    }
+  ]
+}
+```
+
+**Response** — `200`
+
+```jsonc
+{
+  "success": true,
+  "results": [
+    {
+      "success": true,
+      "key": "uploads/2026/photo.jpg",
+      "url": "https://cdn.example.com/uploads/2026/photo.jpg",
+      "presignedUrl": "https://…"        // optional, time-limited read URL
+    }
+  ]
+}
+```
+
+A client **SHOULD** treat a failed `complete` as non-fatal: the bytes are
+already in storage, and reporting the upload as failed would be inaccurate.
+
+## Introspection
+
+**Request** — `GET {endpoint}` · **Response** — `200`
+
+```jsonc
+{
+  "success": true,
+  "protocolVersion": 1,
+  "routes": [{ "name": "imageUpload", "type": "s3-upload" }]
+}
+```
+
+Servers **MUST** implement this. It is how a client, conformance runner, or
+synthetic check discovers routes and negotiates version.
+
+## Errors
+
+Errors **MUST** be [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem
+documents with `Content-Type: application/problem+json`, and the HTTP status
+**MUST** match the document's `status`.
+
+```jsonc
+{
+  "type": "https://pushduck.org/errors/file-too-large",
+  "title": "File exceeds the maximum size",
+  "status": 413,
+  "detail": "photo.jpg is 9.0 MB; the limit is 5.0 MB",
+  "instance": "/api/upload?route=imageUpload&action=presign",
+  "code": "FILE_TOO_LARGE",
+  "retryable": false,
+  "meta": { "limit": 5242880, "actual": 9437184 },
+  "error": "photo.jpg is 9.0 MB; the limit is 5.0 MB"
+}
+```
+
+`code`, `retryable`, `meta` and `error` are RFC 9457 extension members.
+Clients **MUST** branch on `code`, never on `title` or `detail`.
+`error` mirrors `detail` for clients predating this specification and **MAY**
+be omitted by a new implementation.
+
+### Codes
+
+| Code | Status | Retryable | Meaning |
+| --- | --- | --- | --- |
+| `UNAUTHORIZED` | 401 | no | Caller is not authenticated |
+| `FORBIDDEN` | 403 | no | Authenticated but not allowed |
+| `NOT_FOUND` | 404 | no | Unknown route or object |
+| `BAD_REQUEST` | 400 | no | Malformed request |
+| `VALIDATION_FAILED` | 400 | no | File failed the route's constraints |
+| `FILE_TOO_LARGE` | 413 | no | Exceeds the route's size limit |
+| `FILE_TYPE_NOT_ALLOWED` | 415 | no | MIME type not accepted |
+| `TOO_MANY_FILES` | 400 | no | Batch exceeds the route's file count |
+| `PAYLOAD_TOO_LARGE` | 413 | no | Request body too large |
+| `RATE_LIMITED` | 429 | **yes** | Caller is being throttled |
+| `QUOTA_EXCEEDED` | 429 | **yes** | Quota exhausted |
+| `STORAGE_UNAVAILABLE` | 502 | **yes** | Storage unreachable |
+| `STORAGE_ACCESS_DENIED` | 502 | no | Storage rejected *our* credentials |
+| `NETWORK_ERROR` | 502 | **yes** | Network failure reaching storage |
+| `TIMEOUT` | 504 | **yes** | Operation timed out |
+| `CONFIG_INVALID` | 500 | no | Server misconfiguration |
+| `INTERNAL_ERROR` | 500 | no | Unhandled failure |
+
+`STORAGE_ACCESS_DENIED` is `502`, not `403`: the *caller* is authorised — the
+server's own storage credentials are not. A `403` would wrongly tell the client
+to re-authenticate.
+
+An implementation **MAY** add codes. A client **MUST** treat an unrecognised
+code as `INTERNAL_ERROR` and fall back to the HTTP status.
+
+### Redaction
+
+- For `4xx`, a server **SHOULD** return `detail` and `meta` — they describe the
+  caller's own request.
+- For `5xx`, a server **SHOULD** replace `detail` with `title` and omit `meta`
+  unless explicitly configured otherwise; they may describe server internals.
+
+## Response headers
+
+| Header | Presence | Meaning |
+| --- | --- | --- |
+| `X-Pushduck-Protocol` | **MUST** | Protocol version, e.g. `1` |
+| `X-Pushduck-Action` | **SHOULD** | `presign`, `complete`, or `introspect` |
+| `X-Pushduck-Route` | **SHOULD**, when known | Route name |
+
+These exist so infrastructure can distinguish operations. Query strings are
+legitimately dropped or ignored by CDNs, gateways and APM tools, which would
+otherwise collapse every upload request into one indistinguishable line.
+
+## Versioning
+
+- `PROTOCOL_VERSION` is bumped **only** for a breaking change — a new required
+  field, a changed URL shape, a removed operation.
+- Additive changes (a new optional field, a new `action`) **MUST NOT** bump it.
+  Clients **MUST** ignore unknown fields.
+- A server **SHOULD** accept older protocol versions indefinitely. Deployments
+  are not atomic: a browser holding a cached bundle will speak the old version
+  to a new server for as long as its cache lives.
+
+<Callout type="info">
+  **If the URL shape ever changes** — for example moving dispatch into path
+  segments — that is version 2. Servers would accept version 1 permanently,
+  clients would opt in, and the default would flip only at a major release, so
+  no deployment order can break.
+</Callout>
+
+## Implementing a server in another language
+
+You need three handlers, and a SigV4 presigner from your ecosystem
+(`aws-sdk-go-v2`'s presign client, boto3's `generate_presigned_url`).
+
+```go
+// Go — net/http, no dependencies beyond the AWS SDK
+func handler(w http.ResponseWriter, r *http.Request) {
+    route  := r.URL.Query().Get("route")
+    action := r.URL.Query().Get("action")
+    if action == "" { action = "presign" }
+    // dispatch on (r.Method, action)
+}
+```
+
+```python
+# Python — FastAPI
+@app.post("/api/upload")
+async def upload(route: str, action: str = "presign", body: dict = Body(...)):
+    ...
+```
+
+Query-string dispatch is deliberate here: `r.URL.Query()` and
+`request.query_params` are stdlib in both languages and behave identically,
+whereas path parameters differ per web framework and would force the server to
+know its own mount prefix.
+
+## Conformance
+
+An implementation conforms when it:
+
+1. Implements all three operations plus introspection at one endpoint
+2. Reports `protocolVersion` and the `X-Pushduck-Protocol` header
+3. Returns RFC 9457 problem documents with matching HTTP statuses
+4. Distinguishes per-file from whole-request failures as specified
+5. Aligns `results` positionally with the request's `files`
+6. Does not depend on its own mount path
