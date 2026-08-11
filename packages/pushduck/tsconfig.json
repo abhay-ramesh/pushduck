@@ -25,7 +25,8 @@
     // "moduleDetection": "auto",                        /* Control what method is used to detect module-format JS files. */
 
     /* Modules */
-    "module": "CommonJS" /* Specify what module code is generated. */,
+    "module": "ESNext" /* ESNext, not CommonJS: the package is "type": "module",
+       tsdown emits both formats itself, and top-level await in tests requires it. */,
     // "rootDir": "./",                                  /* Specify the root folder within your source files. */
     // "moduleResolution": "node10",                     /* Specify how TypeScript looks up a file from a given module specifier. */
     // "baseUrl": "./",                                  /* Specify the base directory to resolve non-relative module names. */
@@ -106,7 +107,9 @@
     // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
     "skipLibCheck": true /* Skip type checking all .d.ts files. */,
     "isolatedModules": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",  /* node10 cannot read package.json "exports",
+       so modern packages (astro, react-router) resolved differently here than
+       in a real consumer's project. */
     "preserveWatchOutput": true
   },
   "include": ["src"],
