@@ -48,19 +48,32 @@ You keep:
 
 Think of Pushduck as a **TypeScript-first library** in this sense — cross-language support is a REST contract, not a code contract.
 
-## Non-React frontends have no shipped hook
+## Frontend bindings cover the major frameworks, not all of them
 
-`useUploadRoute` and `createUploadClient` currently target React. There is no shipped hook for:
+pushduck ships bindings for React, React Native, Vue, Svelte, and Solid. All of
+them wrap the same upload engine, so progress, speed, ETA, cancellation, and
+metadata behave identically — only the return shape differs, to match each
+framework's idiom.
 
-- Vue
-- Svelte
-- Solid
+There is **no dedicated binding** for:
+
 - Angular
-- Vanilla JS / Web Components
+- Qwik
+- Preact (outside React compat)
+- Lit / Web Components
+- Alpine, htmx, and similar
 
 **What you can still do:**
 
-The underlying logic is in `packages/pushduck/src/client/upload-client.ts` — a small set of functions that presign, upload via XHR, and complete. You can wrap it yourself in any framework's reactive primitive. A Vue composable or a Svelte store would be ~50 lines. Contributions welcome.
+`pushduck/core` is the upload engine with no framework attached. It exposes
+`subscribe(listener)` and `getSnapshot()` — the same contract React's
+`useSyncExternalStore`, Svelte stores, and Zustand all speak — so wiring it into
+any reactive system is roughly fifty lines. The [Qwik](/docs/integrations/qwik)
+and [Fresh](/docs/integrations/fresh) guides are worked examples, and it is
+equally usable from plain JavaScript with no framework at all.
+
+You lose nothing functionally by using `pushduck/core` directly; a binding is
+purely ergonomic sugar over it.
 
 ## Node server-side streaming uploads are out of scope
 

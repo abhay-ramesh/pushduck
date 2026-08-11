@@ -84,8 +84,11 @@ Express uses the traditional Node.js `req`/`res` API pattern. Pushduck provides 
 
     const app = express();
 
-    // Convert pushduck handlers to Express middleware
-    app.all('/api/upload/*', toExpressHandler(uploadRouter.handlers));
+    // `app.use` rather than `app.all('/api/upload/*')`: the wildcard form
+    // throws at startup on Express 5, whose path-to-regexp requires a *named*
+    // wildcard. `use` mounts identically on v4 and v5 and matches both
+    // `/api/upload` and anything below it.
+    app.use('/api/upload', toExpressHandler(uploadRouter.handlers));
 
     app.listen(3000, () => {
       console.log('Server running on http://localhost:3000');
@@ -111,7 +114,7 @@ app.use(cors());
 app.use(express.json());
 
 // Upload routes using adapter
-app.all('/api/upload/*', toExpressHandler(uploadRouter.handlers));
+app.use('/api/upload', toExpressHandler(uploadRouter.handlers));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -153,10 +156,10 @@ const authenticateToken = (req: express.Request, res: express.Response, next: ex
 };
 
 // Public upload route (no auth)
-app.all('/api/upload/public/*', toExpressHandler(uploadRouter.handlers));
+app.use('/api/upload/public', toExpressHandler(uploadRouter.handlers));
 
 // Private upload route (with auth)
-app.all('/api/upload/private/*', authenticateToken, toExpressHandler(uploadRouter.handlers));
+app.use('/api/upload/private', authenticateToken, toExpressHandler(uploadRouter.handlers));
 
 app.listen(3000);
 ```
@@ -322,7 +325,7 @@ app.get('/api', (req, res) => {
 });
 
 // Upload routes with rate limiting
-app.all('/api/upload/*', uploadLimiter, toExpressHandler(uploadRouter.handlers));
+app.use('/api/upload', uploadLimiter, toExpressHandler(uploadRouter.handlers));
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -389,10 +392,10 @@ import { authenticateToken } from '../middleware/auth';
 const router = Router();
 
 // Public uploads
-router.all('/public/*', toExpressHandler(uploadRouter.handlers));
+router.use('/public', toExpressHandler(uploadRouter.handlers));
 
 // Private uploads (requires authentication)
-router.all('/private/*', authenticateToken, toExpressHandler(uploadRouter.handlers));
+router.use('/private', authenticateToken, toExpressHandler(uploadRouter.handlers));
 
 export default router;
 ```

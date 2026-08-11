@@ -34,37 +34,64 @@ const uploadRouter = createS3Router({
 export const { GET, POST } = uploadRouter.handlers;
 ```
 
-## Framework Categories
+## Two Independent Questions
 
-Pushduck supports frameworks in two categories:
+"Does pushduck support my framework?" is really two questions, and they have
+different answers. Read the table for your situation before adopting.
+
+### 1. Can my backend mount the handler?
 
 <Cards>
-  <Card 
-    title="Web Standards Native" 
-    description="Modern frameworks using Web Request/Response"
+  <Card
+    title="Web Standards Native"
+    description="Frameworks using Web Request/Response"
     href="/docs/integrations/hono"
   >
-    **No adapter needed!** Use `uploadRouter.handlers` directly.
-    
-    - Hono
-    - Elysia  
-    - Bun Runtime
-    - TanStack Start
-    - SolidJS Start
+    **No adapter needed.** Use `uploadRouter.handler` directly.
+
+    Hono · Elysia · Bun · Deno · Astro · SvelteKit · Nuxt/Nitro · Remix ·
+    TanStack Start · SolidStart · Fresh · Qwik · Cloudflare Workers ·
+    Vercel & Netlify edge
   </Card>
-  
-  <Card 
-    title="Custom Request/Response APIs" 
-    description="Frameworks with their own request/response patterns"
+
+  <Card
+    title="Custom Request/Response APIs"
+    description="Frameworks with their own request objects"
     href="/docs/integrations/express"
   >
-    **Simple adapters provided** for straightforward integration.
-    
-    - Next.js (App & Pages Router)
-    - Express
-    - Fastify
+    **A small adapter is provided.**
+
+    Next.js (App & Pages Router) · Express · Fastify
   </Card>
 </Cards>
+
+### 2. Which client does my frontend use?
+
+Every binding wraps the **same upload engine**, so behaviour — progress, speed,
+ETA, cancellation, metadata, lifecycle hooks — is identical. Only the return
+shape changes, to match each framework's idiom.
+
+| Frontend | Import | Entry point | State comes back as |
+| --- | --- | --- | --- |
+| React, Next.js | `pushduck/client` | `useUploadRoute` | plain values |
+| React Native, Expo | `pushduck/react-native` | `useUploadRoute` | plain values |
+| Vue, Nuxt | `pushduck/vue` | `useUploadRoute` | `ComputedRef`s |
+| Svelte, SvelteKit | `pushduck/svelte` | `createUpload` | a readable store |
+| SolidJS, SolidStart | `pushduck/solid` | `createUpload` | `[state, actions]` |
+| Anything else | `pushduck/core` | `createUploadEngine` | `subscribe` / `getSnapshot` |
+
+<Callout type="info">
+  **No binding for your framework?** `pushduck/core` is the engine with no
+  framework attached — Preact, Qwik, Angular, Alpine, Lit, or plain JavaScript
+  wire into it via `subscribe`/`getSnapshot` in roughly fifty lines. The Qwik
+  and Fresh guides show exactly that.
+</Callout>
+
+<Callout type="warn">
+  A framework appearing in the *server* table above says nothing about the
+  *client* table. A Qwik app, for example, mounts the handler with no adapter,
+  but drives uploads through `pushduck/core` rather than a dedicated binding.
+</Callout>
 
 ## Quick Start by Framework
 
@@ -76,7 +103,7 @@ Pushduck supports frameworks in two categories:
 
     // Direct usage - no adapter needed!
     app.all('/api/upload/*', (ctx) => {
-      return uploadRouter.handlers(ctx.request); // or c.req.raw
+      return uploadRouter.handler(ctx.request); // or c.req.raw
     });
     ```
   </Tab>

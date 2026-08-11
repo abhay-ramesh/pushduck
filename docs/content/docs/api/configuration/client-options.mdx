@@ -324,14 +324,14 @@ For teams that prefer React hooks, the hook-based API provides a familiar patter
 
 ### Hook Usage Examples
 
-<Tabs items={["useUpload Hook", "Multiple Endpoints", "Custom Hook"]} groupId="hook-api">
-  <Tab value="useUpload Hook">
+<Tabs items={["useUploadRoute Hook", "Multiple Endpoints", "Custom Hook"]} groupId="hook-api">
+  <Tab value="useUploadRoute Hook">
     ```typescript
-    import { useUpload } from 'pushduck/client'
+    import { useUploadRoute } from 'pushduck/client'
     import type { AppRouter } from '@/lib/upload'
 
     export function ImageUploadComponent() {
-      const { uploadFiles, files, isUploading, error, reset } = useUpload<AppRouter>('imageUpload', {
+      const { uploadFiles, files, isUploading, error, reset } = useUploadRoute<AppRouter>('imageUpload', {
         onSuccess: (results) => {
           console.log('Upload completed:', results)
         },
@@ -371,8 +371,8 @@ For teams that prefer React hooks, the hook-based API provides a familiar patter
   <Tab value="Multiple Endpoints">
     ```typescript
     export function MultiUploadComponent() {
-      const images = useUpload<AppRouter>('imageUpload')
-      const documents = useUpload<AppRouter>('documentUpload')
+      const images = useUploadRoute<AppRouter>('imageUpload')
+      const documents = useUploadRoute<AppRouter>('documentUpload')
 
       return (
         <div>
@@ -405,12 +405,12 @@ For teams that prefer React hooks, the hook-based API provides a familiar patter
   
   <Tab value="Custom Hook">
     ```typescript
-    import { useUpload } from 'pushduck/client'
+    import { useUploadRoute } from 'pushduck/client'
     import { useCallback } from 'react'
     import type { AppRouter } from '@/lib/upload'
 
     export function useImageUpload() {
-      const upload = useUpload<AppRouter>('imageUpload', {
+      const upload = useUploadRoute<AppRouter>('imageUpload', {
         onSuccess: (results) => {
           // Show success toast
           toast.success(`Uploaded ${results.length} images`)

@@ -269,11 +269,11 @@ graph TD
         import { uploadRouter } from "~/lib/storage";
 
         export async function loader({ request }: LoaderFunctionArgs) {
-          return uploadRouter.handlers(request);
+          return uploadRouter.handler(request);
         }
 
         export async function action({ request }: ActionFunctionArgs) {
-          return uploadRouter.handlers(request);
+          return uploadRouter.handler(request);
         }
         ```
       </Tab>
@@ -284,11 +284,11 @@ graph TD
         import { uploadRouter } from '$lib/storage';
 
         export const GET: RequestHandler = async ({ request }) => {
-          return uploadRouter.handlers(request);
+          return uploadRouter.handler(request);
         };
 
         export const POST: RequestHandler = async ({ request }) => {
-          return uploadRouter.handlers(request);
+          return uploadRouter.handler(request);
         };
         ```
       </Tab>
@@ -357,307 +357,366 @@ graph TD
   </Step>
 </Steps>
 
-## Client-Side Integration
+## Client-Side Usage
 
-### React with tRPC and pushduck
+Uploads bypass tRPC entirely — bytes go straight to storage via presigned URLs —
+while tRPC owns everything *around* them: listing, deleting, metadata, and
+permissions. On the client that means the pushduck hook sits alongside your
+tRPC hooks, and the two are joined by React Query cache invalidation.
 
-```tsx title="components/FileManager.tsx"
-import { trpc } from '~/lib/trpc';
-import { useUpload } from 'pushduck/client';
-import type { AppUploadRouter } from '~/lib/storage';
+### Upload Component with Cache Invalidation
 
-// Upload hooks are from pushduck (framework-native)
-const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
-  endpoint: "/api/upload",
-});
+The key integration point: when an upload completes, invalidate the tRPC queries
+that list files, so your UI updates the same way it would after any mutation.
 
-export function FileManager() {
-  // Storage operations are from tRPC (type-safe)
-  const { 
-    data: files, 
-    refetch,
-    fetchNextPage,
-    hasNextPage 
-  } = trpc.files.list.useInfiniteQuery(
-    { limit: 20 },
-    {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-    }
-  );
-  
-  const deleteFile = trpc.files.delete.useMutation({
-    onSuccess: () => refetch(),
-  });
-  
-  const getDownloadUrl = trpc.files.getDownloadUrl.useMutation();
-  const fileStats = trpc.files.getStats.useQuery({});
+```tsx title="src/components/FileUpload.tsx"
+import { useUploadRoute } from "pushduck/client";
+import { trpc } from "~/utils/trpc";
+import type { AppUploadRouter } from "~/lib/upload";
 
-  const handleUploadComplete = async (uploadedFiles: any[]) => {
-    // Files are uploaded, refresh the list
-    await refetch();
-    console.log('Upload completed:', uploadedFiles);
-  };
+export function FileUpload() {
+  const utils = trpc.useUtils();
 
-  const handleDelete = async (key: string) => {
-    if (confirm('Are you sure you want to delete this file?')) {
-      await deleteFile.mutateAsync({ key });
-    }
-  };
-
-  const handleDownload = async (key: string) => {
-    const result = await getDownloadUrl.mutateAsync({ key });
-    window.open(result.url, '_blank');
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Upload Section - Uses pushduck hooks */}
-      <div>
-        <h2 className="text-2xl font-bold mb-4">Upload Files</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Images</h3>
-            <UploadButton
-              endpoint="imageUpload"
-              onClientUploadComplete={handleUploadComplete}
-              onUploadError={(error) => alert(`Upload failed: ${error.message}`)}
-            />
-          </div>
-          
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Documents</h3>
-            <UploadDropzone
-              endpoint="documentUpload"
-              onClientUploadComplete={handleUploadComplete}
-              onUploadError={(error) => alert(`Upload failed: ${error.message}`)}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Section - Uses tRPC */}
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <h3 className="text-lg font-semibold mb-2">Storage Statistics</h3>
-        {fileStats.data && (
-          <div className="grid grid-cols-3 gap-4 text-sm">
-            <div>
-              <span className="font-medium">Total Files:</span> {fileStats.data.count}
-            </div>
-            <div>
-              <span className="font-medium">Total Size:</span> {formatFileSize(fileStats.data.totalSize)}
-            </div>
-            <div>
-              <span className="font-medium">Extensions:</span> {Object.keys(fileStats.data.byExtension).join(', ')}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* File List Section - Uses tRPC */}
-      <div>
-        <h2 className="text-2xl font-bold mb-4">Your Files</h2>
-        
-        {files?.pages[0]?.files.length === 0 ? (
-          <p className="text-gray-500">No files uploaded yet.</p>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {files?.pages.flatMap(page => page.files).map((file) => (
-                <div key={file.key} className="border rounded-lg p-4">
-                  <h3 className="font-medium truncate" title={file.key}>
-                    {file.key.split('/').pop()}
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    {formatFileSize(file.size)}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {new Date(file.lastModified).toLocaleDateString()}
-                  </p>
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={() => handleDownload(file.key)}
-                      className="text-blue-500 hover:underline text-sm"
-                      disabled={getDownloadUrl.isLoading}
-                    >
-                      Download
-                    </button>
-                    <button
-                      onClick={() => handleDelete(file.key)}
-                      className="text-red-500 hover:underline text-sm"
-                      disabled={deleteFile.isLoading}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            {hasNextPage && (
-              <button
-                onClick={() => fetchNextPage()}
-                className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
-              >
-                Load More Files
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function formatFileSize(bytes: number): string {
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  if (bytes === 0) return '0 Bytes';
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
-}
-```
-
-### Advanced File Search
-
-```tsx title="components/FileSearch.tsx"
-import { useState } from 'react';
-import { trpc } from '~/lib/trpc';
-
-export function FileSearch() {
-  const [searchType, setSearchType] = useState<'extension' | 'size'>('extension');
-  const [extension, setExtension] = useState('');
-  const [minSize, setMinSize] = useState<number>();
-  const [maxSize, setMaxSize] = useState<number>();
-
-  // Type-safe search operations via tRPC
-  const searchByExtension = trpc.files.searchByExtension.useQuery(
-    { extension },
-    { enabled: searchType === 'extension' && !!extension }
-  );
-
-  const searchBySize = trpc.files.searchBySize.useQuery(
-    { minSize, maxSize },
-    { enabled: searchType === 'size' && (!!minSize || !!maxSize) }
-  );
-
-  const results = searchType === 'extension' ? searchByExtension.data : searchBySize.data;
+  const { files, progress, isUploading, uploadFiles, cancel } =
+    useUploadRoute<AppUploadRouter>("imageUpload", {
+      endpoint: "/api/upload",
+      onSuccess: async () => {
+        // Same invalidation you would run after a tRPC mutation — the upload
+        // just happened over a different transport.
+        await utils.files.list.invalidate();
+        await utils.files.getStats.invalidate();
+      },
+      onError: (error) => console.error("Upload failed:", error),
+    });
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-4">
-        <select 
-          value={searchType} 
-          onChange={(e) => setSearchType(e.target.value as any)}
-          className="border rounded px-3 py-2"
-        >
-          <option value="extension">By Extension</option>
-          <option value="size">By Size</option>
-        </select>
+      <input
+        type="file"
+        multiple
+        accept="image/*"
+        disabled={isUploading}
+        onChange={(e) => uploadFiles(Array.from(e.target.files ?? []))}
+      />
 
-        {searchType === 'extension' ? (
-          <input
-            type="text"
-            placeholder="e.g., jpg, pdf, mp4"
-            value={extension}
-            onChange={(e) => setExtension(e.target.value)}
-            className="border rounded px-3 py-2 flex-1"
-          />
-        ) : (
-          <div className="flex gap-2 flex-1">
-            <input
-              type="number"
-              placeholder="Min size (bytes)"
-              value={minSize || ''}
-              onChange={(e) => setMinSize(Number(e.target.value) || undefined)}
-              className="border rounded px-3 py-2 flex-1"
-            />
-            <input
-              type="number"
-              placeholder="Max size (bytes)"
-              value={maxSize || ''}
-              onChange={(e) => setMaxSize(Number(e.target.value) || undefined)}
-              className="border rounded px-3 py-2 flex-1"
-            />
-          </div>
-        )}
-      </div>
+      {isUploading && <progress value={progress} max={100} />}
 
-      {results && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {results.files.map((file) => (
-            <div key={file.key} className="border rounded-lg p-4">
-              <h3 className="font-medium truncate">{file.key}</h3>
-              <p className="text-sm text-gray-500">{formatFileSize(file.size)}</p>
-            </div>
-          ))}
+      {files.map((file) => (
+        <div key={file.id} className="flex gap-2 items-center">
+          <span>{file.name}</span>
+          <span>
+            {file.status} ({file.progress}%)
+          </span>
+          {file.status === "uploading" && (
+            <button onClick={() => cancel(file.id)}>Cancel</button>
+          )}
         </div>
-      )}
+      ))}
     </div>
   );
 }
 ```
 
+### Uploads as a Mutation
+
+The component above lets the pushduck hook own loading and error state. If you
+would rather tRPC and TanStack Query own it — so uploads sit in the same
+`isPending` / `onError` / retry machinery as the rest of your app — use the
+promise-based `uploadFiles` instead of the hook:
+
+```tsx title="src/components/UploadMutation.tsx"
+import { uploadFiles } from "pushduck/client";
+import { useMutation } from "@tanstack/react-query";
+import { trpc } from "~/utils/trpc";
+
+export function UploadMutation() {
+  const utils = trpc.useUtils();
+
+  const { mutate: upload, isPending, error } = useMutation({
+    mutationFn: (files: File[]) =>
+      uploadFiles({
+        files,
+        route: "imageUpload",
+        endpoint: "/api/upload",
+        onFileStateChange: (file) => {
+          // Per-file progress, if you want to render it.
+          console.log(file.name, file.status, file.progress);
+        },
+      }),
+    onSuccess: async ({ files, failedFiles }) => {
+      if (failedFiles.length > 0) {
+        console.warn(`${failedFiles.length} file(s) failed`);
+      }
+      await utils.files.list.invalidate();
+    },
+  });
+
+  return (
+    <>
+      <input
+        type="file"
+        multiple
+        disabled={isPending}
+        onChange={(e) => upload(Array.from(e.target.files ?? []))}
+      />
+      {error && <p role="alert">{error.message}</p>}
+    </>
+  );
+}
+```
+
+<Callout type="info">
+  **Which one should I use?**
+
+  - **`useUploadRoute`** — the hook owns per-file state, progress, speed, ETA,
+    and cancellation. Fewest moving parts for an upload-centric UI.
+  - **`uploadFiles` + `useMutation`** — your async-state library owns loading
+    and errors, so uploads inherit your existing retry, error-boundary, and
+    devtools setup. Track per-file progress yourself via `onFileStateChange`.
+
+  Both drive the same engine, so behaviour is identical.
+</Callout>
+
+#### Resolve vs. reject
+
+`uploadFiles` distinguishes two kinds of failure, which is what makes it behave
+correctly under `useMutation`:
+
+| Outcome | Result |
+| --- | --- |
+| Batch could not run — auth rejected, route missing, network down | **Rejects** with `UploadBatchError`, so `onError` fires and retries apply |
+| Some files failed, others succeeded | **Resolves** with `{ files, failedFiles }` |
+
+Partial failure resolves deliberately: those bytes are already in storage, and
+throwing would discard the successful uploads along with the failed ones.
+
+
+### Upload and Manage Together
+
+A file browser that uploads through pushduck and manages through tRPC:
+
+```tsx title="src/components/FileManager.tsx"
+import { useUploadRoute } from "pushduck/client";
+import { trpc } from "~/utils/trpc";
+
+export function FileManager() {
+  const utils = trpc.useUtils();
+
+  const { data: files, isLoading } = trpc.files.list.useQuery({});
+
+  const deleteFile = trpc.files.delete.useMutation({
+    onSuccess: () => utils.files.list.invalidate(),
+  });
+
+  const { uploadFiles, isUploading, progress } = useUploadRoute("imageUpload", {
+    endpoint: "/api/upload",
+    onSuccess: () => utils.files.list.invalidate(),
+  });
+
+  if (isLoading) return <p>Loading…</p>;
+
+  return (
+    <div>
+      <input
+        type="file"
+        multiple
+        disabled={isUploading}
+        onChange={(e) => uploadFiles(Array.from(e.target.files ?? []))}
+      />
+      {isUploading && <progress value={progress} max={100} />}
+
+      <ul>
+        {files?.map((file) => (
+          <li key={file.key}>
+            {file.key}
+            <button
+              onClick={() => deleteFile.mutate({ key: file.key })}
+              disabled={deleteFile.isPending}
+            >
+              Delete
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+<Callout type="info">
+  **Two routers, by design.** You export `AppRouter` (tRPC) and
+  `AppUploadRouter` (pushduck) separately. tRPC is JSON-RPC and cannot carry
+  binary bodies or report upload progress, so routing files through it would
+  mean base64-encoding them and losing progress, cancellation, and direct-to-S3
+  transfer. The two systems stay parallel and meet at the cache.
+</Callout>
+
+### Optimistic UI
+
+Because `files` from the hook already carries per-file status and progress, you
+usually do not need optimistic updates for the upload itself — render the hook's
+state during the upload and the invalidated tRPC query afterwards.
+
+
 ## Authentication Integration
 
-```typescript title="server/trpc.ts"
-import { initTRPC, TRPCError } from '@trpc/server';
-import { storage } from '~/lib/storage';
+This is where the two systems most need to agree. tRPC derives the user in
+`createContext`; pushduck's middleware receives the raw `Request`. Write the
+resolver **once** and call it from both — otherwise your auth rules drift apart.
 
-// Create context with user authentication
-export const createContext = async ({ req }: { req: Request }) => {
-  const authHeader = req.headers.get('authorization');
-  
-  if (!authHeader?.startsWith('Bearer ')) {
-    return { user: null };
-  }
-  
+### One Resolver, Two Consumers
+
+```typescript title="src/server/auth.ts"
+/**
+ * Single source of truth for "who is making this request".
+ * Consumed by tRPC's context and by pushduck's upload middleware.
+ */
+export async function getUserFromRequest(req: Request) {
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) return null;
+
   try {
-    const token = authHeader.substring(7);
-    const user = await validateToken(token); // Your auth logic
-    return { user };
+    return await validateToken(authHeader.substring(7));
   } catch {
-    return { user: null };
+    return null;
   }
-};
+}
+```
+
+```typescript title="src/server/trpc.ts"
+import { initTRPC, TRPCError } from "@trpc/server";
+import { getUserFromRequest } from "./auth";
+
+export const createContext = async ({ req }: { req: Request }) => ({
+  user: await getUserFromRequest(req),
+});
 
 type Context = Awaited<ReturnType<typeof createContext>>;
 const t = initTRPC.context<Context>().create();
 
-// Auth middleware
 const isAuthenticated = t.middleware(({ next, ctx }) => {
-  if (!ctx.user) {
-    throw new TRPCError({ code: 'UNAUTHORIZED' });
-  }
+  if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
   return next({ ctx: { ...ctx, user: ctx.user } });
 });
 
-const protectedProcedure = t.procedure.use(isAuthenticated);
+export const protectedProcedure = t.procedure.use(isAuthenticated);
+export const router = t.router;
+```
 
-export const appRouter = t.router({
-  files: t.router({
-    // User's files only
-    list: protectedProcedure
-      .input(z.object({ prefix: z.string().optional() }))
-      .query(async ({ input, ctx }) => {
-        // Scope to user's folder
-        const userPrefix = `users/${ctx.user.id}/${input.prefix || ''}`;
-        return await storage.list.files({ prefix: userPrefix });
-      }),
+```typescript title="src/lib/upload.ts"
+import { getUserFromRequest } from "~/server/auth";
 
-    // User can only delete their own files
-    delete: protectedProcedure
-      .input(z.object({ key: z.string() }))
-      .mutation(async ({ input, ctx }) => {
-        // Ensure user owns the file
-        if (!input.key.startsWith(`users/${ctx.user.id}/`)) {
-          throw new TRPCError({ code: 'FORBIDDEN' });
-        }
-        
-        return await storage.delete.file(input.key);
-      }),
-  }),
+const uploadRouter = s3.createRouter({
+  imageUpload: s3
+    .image()
+    .maxFileSize("5MB")
+    // The same resolver tRPC uses — one place to change auth rules.
+    .middleware(async ({ req }) => {
+      const user = await getUserFromRequest(req);
+      if (!user) throw new Error("Unauthorized");
+
+      return {
+        userId: user.id,
+        // Never trust client-provided identity claims; derive them here.
+        role: user.role,
+      };
+    })
+    .paths({
+      // Scope uploads to the same prefix your tRPC procedures enforce.
+      prefix: ({ metadata }) => `users/${metadata.userId}`,
+    }),
+});
+
+export type AppUploadRouter = typeof uploadRouter;
+export const { GET, POST } = uploadRouter.handlers;
+```
+
+<Callout type="warn">
+  Keep the **path prefix** and your tRPC procedures' ownership checks in sync.
+  If uploads land in `users/{id}/` then `files.list` and `files.delete` must
+  scope to that same prefix, or a user will be able to read or delete another
+  user's objects.
+</Callout>
+
+### Reusing tRPC Procedures in `onUploadComplete`
+
+When an upload finishes you usually want to write a database row — logic that
+probably already exists as a tRPC procedure. Use `createCaller` to invoke it
+server-side instead of duplicating it:
+
+```typescript title="src/lib/upload.ts"
+import { appRouter } from "~/server/routers/_app";
+
+const uploadRouter = s3.createRouter({
+  imageUpload: s3
+    .image()
+    .middleware(async ({ req }) => {
+      const user = await getUserFromRequest(req);
+      if (!user) throw new Error("Unauthorized");
+      return { userId: user.id, user };
+    })
+    .onUploadComplete(async ({ file, metadata }) => {
+      // Same procedure your client calls — one implementation, one set of
+      // validation rules, called with an authenticated context.
+      const caller = appRouter.createCaller({ user: metadata.user });
+
+      await caller.files.record({
+        key: file.key,
+        name: file.name,
+        size: file.size,
+        contentType: file.type,
+      });
+    }),
 });
 ```
+
+<Callout type="info">
+  `createCaller` is tRPC's server-side invocation API. It runs the procedure's
+  input validation and middleware exactly as an HTTP call would, so business
+  rules cannot drift between the upload path and the API path.
+</Callout>
+
+### Scoped Storage Procedures
+
+```typescript title="src/server/routers/files.ts"
+import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import { storage } from "~/lib/storage";
+import { protectedProcedure, router } from "../trpc";
+
+export const filesRouter = router({
+  list: protectedProcedure
+    .input(z.object({ prefix: z.string().optional() }))
+    .query(async ({ input, ctx }) => {
+      // Same prefix convention the upload router writes to.
+      const userPrefix = `users/${ctx.user.id}/${input.prefix ?? ""}`;
+      return storage.list.files({ prefix: userPrefix });
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ key: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      if (!input.key.startsWith(`users/${ctx.user.id}/`)) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      return storage.delete.file(input.key);
+    }),
+
+  record: protectedProcedure
+    .input(
+      z.object({
+        key: z.string(),
+        name: z.string(),
+        size: z.number(),
+        contentType: z.string(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      return db.file.create({ data: { ...input, userId: ctx.user.id } });
+    }),
+});
+```
+
 
 ## Real-time Updates with Subscriptions
 

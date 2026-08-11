@@ -23,7 +23,7 @@ Complete reference documentation for all pushduck APIs, from client-side hooks t
     description="Reactive hooks for file uploads with built-in state management"
     href="/docs/api/client"
   >
-    - `useUpload` - Core upload hook with progress tracking
+    - `useUploadRoute` - Core upload hook with progress tracking
     - `useUploadRoute` - Route-specific uploads with validation
     
     **Perfect for**: React applications, reactive UIs
@@ -179,18 +179,18 @@ export const { GET, POST } = uploadRouter.handlers;
 ### Basic Client Usage
 
 ```typescript
-import { useUpload } from 'pushduck/client';
+import { useUploadRoute } from 'pushduck/client';
 
 function UploadComponent() {
-  const { upload, uploading, progress } = useUpload({
+  const { uploadFiles, files, isUploading, progress } = useUploadRoute('imageUpload', {
     endpoint: '/api/upload',
-    route: 'imageUpload',
   });
 
   const handleUpload = async (file: File) => {
-    const result = await upload(file);
-    console.log('Public URL:', result.url);           // Permanent access
-    console.log('Download URL:', result.presignedUrl); // Temporary access (1 hour)
+    await uploadFiles([file]);
+    const uploaded = files[0];
+    console.log('Public URL:', uploaded?.url);           // Permanent access
+    console.log('Download URL:', uploaded?.presignedUrl); // Temporary access (1 hour)
   };
 
   return (
