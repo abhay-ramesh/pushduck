@@ -115,6 +115,14 @@ export interface UploadEngineOptions<
     /** Attempts per part, including the first. @default 3 */
     maxAttempts?: number;
     /**
+     * Delay between part retries. Defaults to exponential backoff.
+     *
+     * Injectable for the same reason `now` and `transport` are: a test that
+     * exercises retries otherwise waits out real backoff, which makes the
+     * suite slow enough that nobody runs the interesting cases.
+     */
+    sleep?: (ms: number) => Promise<void>;
+    /**
      * Supplies a range-addressable reader for a file, instead of loading it.
      *
      * The default reads the whole file into a `Blob` and slices it, which is
@@ -251,6 +259,47 @@ interface FileTrack {
   meta: S3FileMetadata;
   controller: AbortController;
   startedAt: number;
+  /**
+   * Highest progress percentage ever reported for this file.
+   *
+   * Multipart re-sends a failed part's bytes, so the honest byte count can
+   * fall — see {@link monotonicTelemetry}. Kept on the track rather than read
+   * back from state so it survives any patch ordering, and scoped per file so
+   * it cannot leak into the next upload.
+   */
+  peakProgress: number;
+}
+
+/**
+ * Turns a byte count into telemetry whose percentage never retreats.
+ *
+ * A single `PUT` reports a number that only grows, so this changes nothing
+ * there. Multipart can genuinely go backwards: when a part fails at 4 of 5 MiB
+ * those bytes are gone and must be re-sent, so its contribution resets to zero.
+ *
+ * The dip is truthful, but truth in the *percentage* is worth less than
+ * stability — a user reads the bar as "how close am I", not "how many bytes has
+ * my radio moved", and a bar that retreats reads as a broken upload. So the
+ * percentage is clamped to its high-water mark.
+ *
+ * `uploadSpeed` and `eta` are deliberately left alone. They are computed from
+ * the real byte count, so during a re-transfer the bar holds steady while the
+ * ETA grows — which is the honest answer, in the field that can express it.
+ * Clamping those too would hide the re-transfer completely and make the
+ * estimate simply wrong.
+ */
+function monotonicTelemetry(
+  track: FileTrack,
+  loadedBytes: number,
+  totalBytes: number,
+  elapsedSeconds: number
+): { progress: number; uploadSpeed: number; eta: number } {
+  const telemetry = computeFileTelemetry(loadedBytes, totalBytes, elapsedSeconds);
+
+  const progress = Math.max(telemetry.progress, track.peakProgress);
+  track.peakProgress = progress;
+
+  return { ...telemetry, progress };
 }
 
 const INITIAL_STATE: UploadEngineState = Object.freeze({
@@ -421,6 +470,7 @@ export function createUploadEngine<
           meta: { name: meta.name, size, type: meta.type },
           controller: new AbortController(),
           startedAt: 0,
+          peakProgress: 0,
         };
       })
     );
@@ -539,7 +589,8 @@ export function createUploadEngine<
         signal: track.controller.signal,
         onProgress: (loadedBytes, totalBytes) => {
           const elapsedSeconds = (now() - track.startedAt) / 1000;
-          const telemetry = computeFileTelemetry(
+          const telemetry = monotonicTelemetry(
+            track,
             loadedBytes,
             totalBytes,
             elapsedSeconds
@@ -627,6 +678,7 @@ export function createUploadEngine<
         signal: track.controller.signal,
         concurrency: multipart?.concurrency,
         maxAttempts: multipart?.maxAttempts,
+        sleep: multipart?.sleep,
         partSize: multipart?.partSize,
         store: multipart?.store,
         // Keyed on the file itself, not its name: resuming into a *different*
@@ -640,7 +692,7 @@ export function createUploadEngine<
           const elapsedSeconds = (now() - track.startedAt) / 1000;
           patchFile(
             track.id,
-            computeFileTelemetry(loadedBytes, totalBytes, elapsedSeconds),
+            monotonicTelemetry(track, loadedBytes, totalBytes, elapsedSeconds),
             { reportProgress: true }
           );
         },
