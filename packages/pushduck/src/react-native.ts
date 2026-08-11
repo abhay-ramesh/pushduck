@@ -173,6 +173,24 @@ export function createUploadClient<TRouter extends S3Router<any>>(
 
 // ─── Re-exports ───────────────────────────────────────────────────────────────
 
+/**
+ * Promise-based upload functions, re-exported for convenience.
+ *
+ * Framework-free: use them when an async-state library (TanStack Query, SWR)
+ * should own loading and error state. Identical across every pushduck entry
+ * point, so switching frameworks never changes this import.
+ */
+export {
+  uploadFile,
+  uploadFiles,
+  UploadBatchError,
+} from "./core/upload/upload-files";
+export type {
+  UploadFileOptions,
+  UploadFilesOptions,
+  UploadFilesResult,
+} from "./core/upload/upload-files";
+
 export { formatETA, formatUploadSpeed };
 
 export type {
@@ -188,3 +206,12 @@ export type {
   TypedUploadedFile,
   UploadRouteConfig,
 };
+
+/**
+ * The error type every pushduck failure uses.
+ *
+ * Built on HTTP status codes and RFC 9457 rather than any framework's error
+ * convention — map `code`/`status` to your ecosystem's shape in your own code.
+ */
+export { isUploadError, UPLOAD_ERROR_CODES, UploadError } from "./core/errors";
+export type { UploadErrorCode } from "./core/errors";
