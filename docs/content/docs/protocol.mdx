@@ -396,6 +396,28 @@ A server **MUST** raise the part size when the requested one would exceed the
 Servers **MUST** implement this. It is how a client, conformance runner, or
 synthetic check discovers routes and negotiates version.
 
+### Advertising optional features
+
+A server **MAY** include a `features` array naming the optional parts of the
+protocol it implements:
+
+```jsonc
+{
+  "success": true,
+  "protocolVersion": 1,
+  "routes": [ { "name": "imageUpload", "type": "s3-upload" } ],
+  "features": ["multipart"]            // optional
+}
+```
+
+Without it, a client can only discover multipart support by attempting
+`multipart-init` and interpreting a `400` — which is indistinguishable from a
+malformed request. A client **MUST** tolerate the field being absent and
+**SHOULD** treat absence as "unknown" rather than "unsupported", falling back to
+attempting the operation.
+
+Defined feature names: `multipart`.
+
 ## Errors
 
 Errors **MUST** be [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem

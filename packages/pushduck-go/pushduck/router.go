@@ -144,6 +144,11 @@ func (router *Router) introspect(w http.ResponseWriter, telemetry map[string]str
 		"success":         true,
 		"protocolVersion": ProtocolVersion,
 		"routes":          infos,
+		// Optional parts of the protocol this server implements. Without it a
+		// client can only discover multipart support by attempting
+		// `multipart-init` and interpreting a 400, which is indistinguishable
+		// from a malformed request.
+		"features": []string{"multipart"},
 	})
 }
 

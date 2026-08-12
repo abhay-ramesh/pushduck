@@ -20,6 +20,15 @@ export interface Fixture {
   spec?: string;
   /** Why the rule exists, for a reader who fails this case. */
   why?: string;
+  /**
+   * Optional protocol feature this case depends on.
+   *
+   * A server that does not advertise it in introspection is *conforming* by
+   * omitting the feature, so the case is skipped rather than failed —
+   * otherwise every implementation would be penalised for the parts of the
+   * protocol it deliberately does not implement.
+   */
+  feature?: string;
   request: {
     method?: "GET" | "POST";
     query?: Record<string, string>;
@@ -42,6 +51,32 @@ export interface CaseResult {
   mismatches: Mismatch[];
   /** Present when the request could not be made at all. */
   error?: string;
+  /** Set when the server does not advertise the feature this case needs. */
+  skipped?: boolean;
+}
+
+/**
+ * Asks a server which optional features it implements.
+ *
+ * Absence is treated as "none", so a server predating the `features` field
+ * simply runs the core suite. That is the safe direction: a missing feature
+ * skips cases rather than inventing failures.
+ */
+export async function detectFeatures(options: {
+  url: string;
+  fetchImpl?: typeof fetch;
+}): Promise<Set<string>> {
+  const fetchImpl = options.fetchImpl ?? fetch;
+
+  try {
+    const response = await fetchImpl(options.url, { method: "GET" });
+    const body = (await response.json()) as { features?: unknown };
+    return new Set(
+      Array.isArray(body.features) ? body.features.map(String) : []
+    );
+  } catch {
+    return new Set();
+  }
 }
 
 /** Sends one fixture and reports how the response differed. */
@@ -132,14 +167,21 @@ export async function runFixture(
 /** Runs every fixture in order and returns each result. */
 export async function runAll(
   fixtures: Fixture[],
-  options: Parameters<typeof runFixture>[1]
+  options: Parameters<typeof runFixture>[1] & { features?: Set<string> }
 ): Promise<CaseResult[]> {
+  const features = options.features ?? (await detectFeatures(options));
   const results: CaseResult[] = [];
+
   // Sequential on purpose: a failing implementation is easier to read when the
   // output order matches the fixture order, and the suite is small.
   for (const fixture of fixtures) {
+    if (fixture.feature && !features.has(fixture.feature)) {
+      results.push({ fixture, passed: true, mismatches: [], skipped: true });
+      continue;
+    }
     results.push(await runFixture(fixture, options));
   }
+
   return results;
 }
 
@@ -148,6 +190,13 @@ export function formatResults(results: CaseResult[]): string {
   const lines: string[] = [];
 
   for (const result of results) {
+    if (result.skipped) {
+      lines.push(
+        `SKIP  ${result.fixture.name} (${result.fixture.feature} not implemented)`
+      );
+      continue;
+    }
+
     lines.push(`${result.passed ? "PASS" : "FAIL"}  ${result.fixture.name}`);
 
     if (result.passed) continue;
@@ -164,11 +213,15 @@ export function formatResults(results: CaseResult[]): string {
   }
 
   const failed = results.filter((result) => !result.passed).length;
+  const skipped = results.filter((result) => result.skipped).length;
+  const ran = results.length - skipped;
+
   lines.push("");
+  const suffix = skipped > 0 ? ` (${skipped} skipped)` : "";
   lines.push(
     failed === 0
-      ? `All ${results.length} conformance cases passed.`
-      : `${failed} of ${results.length} conformance cases failed.`
+      ? `All ${ran} conformance cases passed${suffix}.`
+      : `${failed} of ${ran} conformance cases failed${suffix}.`
   );
 
   return lines.join("\n");

@@ -289,6 +289,14 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
           // can negotiate without parsing an upload response.
           protocolVersion: PROTOCOL_VERSION,
           routes: routes.map((name) => ({ name, type: "s3-upload" })),
+          /**
+           * Optional parts of the protocol this server implements.
+           *
+           * Without it a client can only discover multipart support by
+           * attempting `multipart-init` and interpreting a 400, which is
+           * indistinguishable from a malformed request.
+           */
+          features: ["multipart"],
         },
         200,
         identity
