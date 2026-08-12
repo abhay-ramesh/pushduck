@@ -1,0 +1,35 @@
+[
+  {
+    "name": "a forged multipart session is rejected",
+    "spec": "Multipart",
+    "why": "The session is the only thing tying a caller to an object. If a forged one were accepted, anyone could sign parts for — or abort — another user's upload.",
+    "request": {
+      "query": { "route": "fileUpload", "action": "multipart-sign" },
+      "body": { "session": "bm90LWEtc2Vzc2lvbg.ZmFrZXNpZ25hdHVyZQ", "partNumbers": [1] }
+    },
+    "expect": {
+      "status": 403,
+      "headers": { "x-pushduck-protocol": "1" },
+      "body": { "status": 403, "code": { "$type": "string" } }
+    }
+  },
+  {
+    "name": "a malformed multipart session is rejected the same way",
+    "spec": "Multipart",
+    "why": "One response for every failure mode, so probing reveals nothing about which part of the token was wrong.",
+    "request": {
+      "query": { "route": "fileUpload", "action": "multipart-sign" },
+      "body": { "session": "not-even-token-shaped", "partNumbers": [1] }
+    },
+    "expect": { "status": 403, "body": { "status": 403 } }
+  },
+  {
+    "name": "aborting with a forged session is rejected",
+    "spec": "Multipart",
+    "request": {
+      "query": { "route": "fileUpload", "action": "multipart-abort" },
+      "body": { "session": "bm90LWEtc2Vzc2lvbg.ZmFrZQ" }
+    },
+    "expect": { "status": 403 }
+  }
+]

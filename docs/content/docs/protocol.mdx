@@ -50,13 +50,24 @@ A server exposes one endpoint. Both the route and the operation are carried as
 POST  {endpoint}?route={routeName}&action=presign
 POST  {endpoint}?route={routeName}&action=complete
 GET   {endpoint}
+
+POST  {endpoint}?route={routeName}&action=multipart-init
+POST  {endpoint}?route={routeName}&action=multipart-sign
+POST  {endpoint}?route={routeName}&action=multipart-complete
+POST  {endpoint}?route={routeName}&action=multipart-abort
+POST  {endpoint}?route={routeName}&action=multipart-parts
 ```
 
 - `route` **MUST** be a route name defined by the server. A server **MUST**
   answer `404` for an unknown route.
-- `action` **MUST** be `presign` or `complete`. When absent, a server **MUST**
+- `action` **MUST** be one of the values above. When absent, a server **MUST**
   default to `presign`. An unrecognised action **MUST** answer `400`.
 - Route names **SHOULD** be percent-encoded by clients.
+
+A **conforming server MUST implement** `presign`, `complete` and introspection.
+The five `multipart-*` actions are **OPTIONAL**: a server that omits them
+**MUST** answer `400` for each, which a client surfaces as an ordinary failure
+rather than misreading as success. See [Multipart](#multipart-optional).
 
 <Callout type="warn">
   `{endpoint}` is chosen by the application — `/api/upload`, `/upload`,
@@ -107,7 +118,8 @@ Asks the server to validate a batch and mint upload URLs.
       "presignedUrl": "https://bucket.s3.amazonaws.com/…?X-Amz-Signature=…",
       "key": "uploads/2026/photo.jpg",
       "requiredHeaders": { "Content-Type": "image/jpeg" },
-      "metadata": { "userId": "u_1" }
+      "metadata": { "userId": "u_1" },
+      "completionToken": "eyJrZXkiOiJ1cGxvYWRzLzIwMjYvcGhvdG8uanBnIiwicm91dGUiOiJpbWFnZVVwbG9hZCJ9.…"
     }
   ]
 }
@@ -122,6 +134,7 @@ Asks the server to validate a batch and mint upload URLs.
 | `key` | when `success` | Object key, echoed back at `complete` |
 | `requiredHeaders` | no | Headers the `PUT` **MUST** carry for the signature to validate |
 | `metadata` | no | Server middleware output, returned to the client |
+| `completionToken` | no | Opaque token binding this `key` to this route; see [Completion tokens](#completion-tokens-optional) |
 | `error` | when not `success` | Human-readable reason |
 
 ### Per-file versus whole-request failure
@@ -160,11 +173,25 @@ Tells the server which objects landed, so it can run post-processing.
     {
       "key": "uploads/2026/photo.jpg",
       "file": { "name": "photo.jpg", "size": 1048576, "type": "image/jpeg" },
-      "metadata": { "userId": "u_1" }
+      "metadata": { "userId": "u_1" },
+      "completionToken": "eyJrZXkiOiJ1cGxvYWRzLzIwMjYvcGhvdG8uanBnIiwicm91dGUiOiJpbWFnZVVwbG9hZCJ9.…"
     }
   ]
 }
 ```
+
+<Callout type="warn">
+  **This call MUST be authorised.** It is where an application attaches a file
+  to a record, grants access to it, or bills for it, and both `key` and
+  `metadata` arrive from the client. A server **MUST** run the route's
+  middleware here exactly as it does at `presign`, and **MUST NOT** treat
+  client `metadata` as authoritative — the middleware's output is.
+
+  A rejection is a whole-request failure with the middleware's status, not a
+  per-file result, and a server **MUST** authorise every entry before invoking
+  any completion hook, so one unauthorised entry cannot fire the hook for its
+  siblings.
+</Callout>
 
 **Response** — `200`
 
@@ -184,6 +211,175 @@ Tells the server which objects landed, so it can run post-processing.
 
 A client **SHOULD** treat a failed `complete` as non-fatal: the bytes are
 already in storage, and reporting the upload as failed would be inaccurate.
+
+### Completion tokens (OPTIONAL)
+
+Middleware authenticates the *caller*. It does not establish that the caller is
+finishing an upload they themselves started, because `key` travels in the
+request body — so an authenticated user can complete against a key belonging to
+someone else. Default keys are frequently the sanitised filename, which makes
+guessing one straightforward.
+
+A server **MAY** return a `completionToken` from `presign`, binding the issued
+`key` to its route under a signature the client cannot forge. Where it does:
+
+- A client **SHOULD** echo the token back in the matching completion entry.
+- A server **MUST** verify a token that is present, and **MUST** answer `403`
+  when the token's key or route does not match the completion.
+- A server **MUST** accept a completion carrying no token, unless the route is
+  configured to require one. Rejecting by default would break every client
+  older than the token, including — during a rolling deploy — the previous
+  build of the same application.
+
+The token is opaque. Its contents, signing algorithm and secret are entirely
+the server's business; a client **MUST** treat it as a string to be echoed.
+
+## Multipart (OPTIONAL)
+
+A single `PUT` cannot carry more than 5 GB, and on a mobile connection a
+failure at 90% discards everything transferred. Multipart splits one object
+into parts that upload independently, in parallel, each retried on its own.
+
+A server **MAY** implement it. A server that does not **MUST** answer `400` to
+each `multipart-*` action, which a client surfaces as an ordinary failure. A
+client **MUST NOT** assume support: it discovers it by attempting `init`, and
+a `400` means fall back to a single `PUT` or fail the file honestly.
+
+Every multipart action **MUST** be authorised exactly as `presign` is. The
+route's middleware runs on each call, so a revoked user cannot finish an upload
+they started.
+
+### Sessions
+
+`init` returns an opaque **session** identifying the upload. Later calls
+present the session rather than a key and provider upload id.
+
+<Callout type="warn">
+  This is not a convenience. If a client sent `{ key, uploadId }` directly,
+  anyone who guessed or observed that pair could sign parts for — or abort —
+  another user's upload. Middleware authenticates the caller; nothing would tie
+  the caller to the object. A server **MUST** make the session unforgeable and
+  **MUST** derive the key and upload id from it rather than from anything else
+  the client sent.
+</Callout>
+
+### 4a. `multipart-init`
+
+```jsonc
+// request
+{
+  "file": { "name": "video.mp4", "size": 524288000, "type": "video/mp4" },
+  "metadata": { "albumId": "summer-2026" },   // optional, UNTRUSTED
+  "partSize": 5242880                          // optional, a preference
+}
+
+// response 200
+{
+  "success": true,
+  "session": "…",                 // opaque
+  "key": "uploads/2026/video.mp4",
+  "partSize": 5242880,            // authoritative
+  "metadata": { "userId": "u_1" }
+}
+```
+
+The server's `partSize` is **authoritative**; a client **MUST** use it to
+compute part boundaries and **MUST NOT** use its own preference. Route
+validation and middleware run here, so a multipart upload cannot bypass a
+route's constraints.
+
+### 4b. `multipart-sign`
+
+```jsonc
+// request
+{ "session": "…", "partNumbers": [1, 2, 3] }
+
+// response 200 — a bare array
+[
+  { "partNumber": 1, "url": "https://…", "size": 5242880 }
+]
+```
+
+A server **MUST** reject a part number outside the plan implied by the
+session's total size and part size, because signing one would authorise a write
+past the end of the object.
+
+### 4c. `multipart-complete`
+
+```jsonc
+// request
+{
+  "session": "…",
+  "parts": [ { "partNumber": 1, "etag": "\"abc…\"" } ],
+  "file": { "name": "video.mp4", "size": 524288000, "type": "video/mp4" },
+  "metadata": { }
+}
+
+// response 200
+{ "success": true, "key": "uploads/2026/video.mp4", "url": "https://…" }
+```
+
+- A client **MUST** send each part's `etag` exactly as the storage provider
+  returned it, quotes included. Stripping them is rejected as `InvalidPart`
+  after every byte has already been transferred.
+- A server **MUST** send parts to the provider in ascending `partNumber` order;
+  providers reject an unordered list.
+
+<Callout type="warn">
+  A browser can only read the `ETag` response header if the bucket's CORS
+  policy lists it in `ExposeHeaders`. Without that, every part uploads
+  successfully and assembly fails — the single most common multipart
+  misconfiguration.
+</Callout>
+
+### 4d. `multipart-abort`
+
+```jsonc
+// request
+{ "session": "…" }
+
+// response 200
+{ "success": true }
+```
+
+Discards the session and its parts. Abandoned parts are billed until removed
+and do not appear in a normal object listing, so a client **SHOULD** abort on
+any permanent failure. A server **MUST** treat aborting an already-absent
+upload as success, since that is the desired end state.
+
+### 4e. `multipart-parts`
+
+```jsonc
+// request
+{ "session": "…" }
+
+// response 200
+{ "success": true, "parts": [ { "partNumber": 1, "etag": "\"abc…\"" } ] }
+```
+
+Reports which parts the provider actually holds, which is what makes resume
+possible: the client's own record is a hint, and the provider is the authority.
+
+A server **MUST** follow provider pagination to completion. A truncated listing
+is indistinguishable from a complete one, and stopping early makes a resuming
+client re-upload parts the provider already has.
+
+### Part sizing
+
+Constraints are the intersection of what every supported provider accepts:
+
+| Rule | Value |
+| --- | --- |
+| Minimum part size (all but the last) | 5 MiB |
+| Maximum part size | 5 GiB |
+| Maximum parts per object | 10,000 |
+
+Every part except the last **MUST** be the same size. That is stricter than S3
+requires, and deliberate: Cloudflare R2 rejects an upload whose non-final parts
+differ in size, so uniform parts are the only sizing that works everywhere.
+
+A server **MUST** raise the part size when the requested one would exceed the
+10,000-part cap. At the 5 MiB floor that cap is reached at roughly 48.8 GiB.
 
 ## Introspection
 
@@ -283,6 +479,17 @@ otherwise collapse every upload request into one indistinguishable line.
   are not atomic: a browser holding a cached bundle will speak the old version
   to a new server for as long as its cache lives.
 
+### Added since version 1 shipped
+
+All additive, so none bumped the version. An implementation may omit any of
+them and still conform; a client **MUST** tolerate their absence.
+
+| Extension | Where | Notes |
+| --- | --- | --- |
+| `X-Pushduck-*` response headers | every response | Observability only |
+| `completionToken` | `presign` response, `complete` request | Binds a key to its route |
+| `multipart-*` actions | dispatch | Five actions; `400` when unimplemented |
+
 <Callout type="info">
   **If the URL shape ever changes** — for example moving dispatch into path
   segments — that is version 2. Servers would accept version 1 permanently,
@@ -321,9 +528,49 @@ know its own mount prefix.
 
 An implementation conforms when it:
 
-1. Implements all three operations plus introspection at one endpoint
+1. Implements `presign`, `complete` and introspection at one endpoint
 2. Reports `protocolVersion` and the `X-Pushduck-Protocol` header
 3. Returns RFC 9457 problem documents with matching HTTP statuses
 4. Distinguishes per-file from whole-request failures as specified
 5. Aligns `results` positionally with the request's `files`
-6. Does not depend on its own mount path
+6. Authorises `complete` with the route's middleware
+7. Answers `400` for any optional action it does not implement
+8. Does not depend on its own mount path
+
+### Checking it
+
+That list is prose, and prose is not enough. Point 4 is the rule most often
+implemented backwards — a file failing validation is a `200` with
+`results[].success: false`, not a `4xx` — and the author of the reference
+implementation read it wrong while writing tests for their own server.
+
+So the rules are also an executable suite. It is language-neutral JSON plus a
+runner, and it tests a server over HTTP without caring what it is written in:
+
+```bash
+pnpm conformance --url http://localhost:8080/api/upload
+```
+
+The suite is in [`conformance/`](https://github.com/abhay-ramesh/pushduck/tree/main/conformance),
+along with the fixed route surface an implementation must expose for the
+fixtures to assert anything about validation. Each fixture names the section of
+this page it comes from, so a failure points at the rule rather than only at
+the assertion.
+
+A reference server is included for the ambiguous cases:
+
+```bash
+pnpm conformance:serve   # then diff your responses against it
+```
+
+Two implementations pass it today: the TypeScript server in
+`packages/pushduck`, and the Go server in `packages/pushduck-go`. Their SigV4
+signatures are byte-identical for the same inputs, which is what allows a
+client to presign against one and complete against the other.
+
+<Callout type="info">
+  **Adding a rule.** Every bug found in any implementation should become a
+  fixture first. A defect found once in one language is then impossible to ship
+  in another — which is the entire reason this suite exists rather than a
+  checklist.
+</Callout>
