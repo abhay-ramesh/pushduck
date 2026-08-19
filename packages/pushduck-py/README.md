@@ -73,9 +73,8 @@ python3 cmd/conformance_server.py
 pnpm conformance --url http://localhost:4322/api/upload
 ```
 
-All 20 core cases pass. The three multipart cases are skipped, because this
-server does not advertise `multipart` in introspection and the protocol says an
-unimplemented optional action must answer `400` — which it does.
+All 23 cases pass, including the multipart ones, which run because this server
+advertises `multipart` in introspection.
 
 `tests/test_interop.py` checks the two things the fixtures deliberately match
 by shape and therefore cannot:
@@ -97,8 +96,18 @@ python3 -m unittest discover -s tests
 Implemented: introspection with feature advertisement, presign, complete,
 per-route handlers, RFC 9457 errors, completion tokens, per-file validation,
 SigV4 with temporary credentials, S3-compatible endpoints with path-style
-addressing, and both ASGI and WSGI adapters.
+addressing, both ASGI and WSGI adapters, and **multipart uploads** — init,
+sign, complete, abort and list, with HMAC session tokens.
 
-Not implemented: multipart uploads. The five actions answer `400` and
-introspection does not advertise the feature, so a client falls back cleanly
-rather than failing obscurely. This is the next thing to add.
+Multipart uses `urllib` and `xml.etree`, both stdlib, so the package still
+installs nothing. It reproduces three provider behaviours the TypeScript
+implementation learnt expensively rather than rediscovering them: S3 returning
+an error document with HTTP 200, `ListParts` pagination that makes a truncated
+listing look complete, and an abort of an already-absent upload returning 404
+as the desired end state.
+
+Not implemented: resumable uploads across process restarts. The client's resume
+support works — it re-lists parts from `multipart-parts`, which this server
+implements — but there is no server-side session store, so a session is only as
+durable as the token the client holds. The same is true of the TypeScript and
+Go servers.

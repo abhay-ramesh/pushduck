@@ -18,9 +18,18 @@ from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, List, Mapping, Optional, Tuple, Union
 from urllib.parse import parse_qs, quote
 
-from .config import FileMeta, Route, UploadConfig, file as file_route
+from .config import FileMeta, Route, UploadConfig, choose_part_size, file as file_route
 from .errors import UploadError, as_upload_error, problem_document
 from .keys import generate_key
+from .multipart import (
+    abort_multipart_upload,
+    complete_multipart_upload,
+    create_multipart_upload,
+    list_uploaded_parts,
+    presign_upload_part,
+    sign_session,
+    verify_session,
+)
 from .sign import presign
 
 #: The wire contract this implementation speaks.
@@ -129,6 +138,17 @@ class Router:
             if action == "complete":
                 return await self._complete(request, route_name, route, telemetry)
 
+            multipart = {
+                "multipart-init": self._multipart_init,
+                "multipart-sign": self._multipart_sign,
+                "multipart-complete": self._multipart_complete,
+                "multipart-abort": self._multipart_abort,
+                "multipart-parts": self._multipart_parts,
+            }.get(action)
+
+            if multipart is not None:
+                return await multipart(request, route_name, route, telemetry)
+
             raise UploadError("BAD_REQUEST", f"Unknown action: {action}")
 
         except BaseException as error:  # noqa: BLE001 - every failure becomes a document
@@ -144,6 +164,11 @@ class Router:
             "success": True,
             "protocolVersion": PROTOCOL_VERSION,
             "routes": [{"name": name, "type": "s3-upload"} for name in self.routes],
+            # Optional parts of the protocol this server implements. Without it
+            # a client can only discover multipart support by attempting
+            # `multipart-init` and interpreting a 400, which is
+            # indistinguishable from a malformed request.
+            "features": ["multipart"],
         }
 
     async def _run_handler(
@@ -284,6 +309,161 @@ class Router:
             )
 
         return self._json(200, telemetry, {"success": True, "results": results})
+
+
+    # ─── multipart ───────────────────────────────────────────────────────────
+
+    async def _authorize_session(
+        self, request: "Request", route_name: str, route: Route, token: Any
+    ) -> Dict[str, Any]:
+        """Verify the token *and* re-run the route's handler.
+
+        Both are required. The token proves which object is being acted on; the
+        handler proves the caller is still allowed to act. Checking only the
+        token would let a revoked user finish an upload they started.
+        """
+        session = verify_session(self.config.secret_access_key, token)
+
+        if session.get("route") != route_name:
+            raise UploadError("FORBIDDEN", "Invalid or expired multipart session")
+
+        await self._run_handler(
+            route, request, FileMeta(str(session["key"]), int(session.get("totalSize") or 0)), {}
+        )
+
+        return session
+
+    async def _multipart_init(
+        self, request: "Request", route_name: str, route: Route, telemetry: Dict[str, str]
+    ) -> "Response":
+        payload = request.json()
+        file = FileMeta.from_json(payload.get("file") or {})
+        if file.size <= 0:
+            raise UploadError(
+                "BAD_REQUEST",
+                "`file` with name, size and type is required to start a multipart upload",
+            )
+
+        # Handler and validation run here exactly as they do for a single PUT,
+        # so a multipart upload cannot bypass a route's constraints.
+        metadata = await self._run_handler(
+            route, request, file, dict(payload.get("metadata") or {})
+        )
+
+        message = route.validate(file)
+        if message:
+            raise UploadError("VALIDATION_FAILED", message)
+
+        key = generate_key(file.name)
+        upload_id = create_multipart_upload(self.config, key, file.type)
+        part_size = choose_part_size(file.size, payload.get("partSize"))
+
+        try:
+            token = sign_session(
+                self.config.secret_access_key,
+                {
+                    "key": key,
+                    "uploadId": upload_id,
+                    "route": route_name,
+                    "partSize": part_size,
+                    "totalSize": file.size,
+                },
+            )
+        except Exception:
+            # The session exists at the provider but cannot be handed out, so it
+            # would be billed forever with nobody able to finish or abort it.
+            abort_multipart_upload(self.config, key, upload_id)
+            raise
+
+        return self._json(
+            200,
+            telemetry,
+            {
+                "success": True,
+                "session": token,
+                "key": key,
+                "partSize": part_size,
+                "metadata": metadata,
+            },
+        )
+
+    async def _multipart_sign(
+        self, request: "Request", route_name: str, route: Route, telemetry: Dict[str, str]
+    ) -> "Response":
+        payload = request.json()
+        part_numbers = payload.get("partNumbers")
+        if not isinstance(part_numbers, list):
+            raise UploadError("BAD_REQUEST", "`partNumbers` must be an array")
+
+        session = await self._authorize_session(
+            request, route_name, route, payload.get("session")
+        )
+
+        total = int(session["totalSize"])
+        part_size = int(session["partSize"])
+        max_part = max(1, -(-total // part_size))
+
+        signed = []
+        for raw in part_numbers:
+            part_number = int(raw)
+            # A part number outside the plan would sign a write past the end of
+            # the object the session was created for.
+            if part_number < 1 or part_number > max_part:
+                raise UploadError("BAD_REQUEST", "Part number is outside this upload")
+
+            start = (part_number - 1) * part_size
+            signed.append(
+                {
+                    "partNumber": part_number,
+                    "url": presign_upload_part(
+                        self.config, str(session["key"]), str(session["uploadId"]), part_number
+                    ),
+                    "size": min(part_size, total - start),
+                }
+            )
+
+        return self._json(200, telemetry, signed)
+
+    async def _multipart_complete(
+        self, request: "Request", route_name: str, route: Route, telemetry: Dict[str, str]
+    ) -> "Response":
+        payload = request.json()
+        parts = payload.get("parts")
+        if not isinstance(parts, list):
+            raise UploadError("BAD_REQUEST", "`parts` must be an array")
+
+        session = await self._authorize_session(
+            request, route_name, route, payload.get("session")
+        )
+
+        complete_multipart_upload(
+            self.config, str(session["key"]), str(session["uploadId"]), parts
+        )
+
+        scheme, host, path = self.config.object_address(str(session["key"]))
+        return self._json(
+            200,
+            telemetry,
+            {"success": True, "key": session["key"], "url": f"{scheme}://{host}{path}"},
+        )
+
+    async def _multipart_abort(
+        self, request: "Request", route_name: str, route: Route, telemetry: Dict[str, str]
+    ) -> "Response":
+        session = await self._authorize_session(
+            request, route_name, route, request.json().get("session")
+        )
+        abort_multipart_upload(self.config, str(session["key"]), str(session["uploadId"]))
+        return self._json(200, telemetry, {"success": True})
+
+    async def _multipart_parts(
+        self, request: "Request", route_name: str, route: Route, telemetry: Dict[str, str]
+    ) -> "Response":
+        session = await self._authorize_session(
+            request, route_name, route, request.json().get("session")
+        )
+        parts = list_uploaded_parts(self.config, str(session["key"]), str(session["uploadId"]))
+        return self._json(200, telemetry, {"success": True, "parts": parts})
 
     # ─── completion tokens ───────────────────────────────────────────────────
 
