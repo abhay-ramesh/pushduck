@@ -39,12 +39,25 @@ func main() {
 		return map[string]any{"userId": "conformance-user"}, nil
 	}
 
+	// Authenticates and returns nothing — the shape that reveals whether an
+	// implementation treats "no metadata" as "keep the client's".
+	strictAuth := func(r *http.Request, _ pushduck.FileMeta) (map[string]any, error) {
+		if r.Header.Get("Authorization") != "Bearer conformance-token" {
+			return nil, pushduck.NewError("UNAUTHORIZED", "Sign in to upload")
+		}
+		return nil, nil
+	}
+
 	router := pushduck.NewRouter(config, pushduck.Routes{
 		"imageUpload": pushduck.Image(pushduck.MaxSize("5MB")),
 		"fileUpload":  pushduck.File(pushduck.MaxSize("50MB")),
 		"privateUpload": pushduck.File(
 			pushduck.MaxSize("5MB"),
 			pushduck.WithMiddleware(requireAuth),
+		),
+		"strictUpload": pushduck.File(
+			pushduck.MaxSize("5MB"),
+			pushduck.WithMiddleware(strictAuth),
 		),
 	})
 

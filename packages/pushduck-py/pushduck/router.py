@@ -98,6 +98,7 @@ class Router:
         def decorate(handler: Handler) -> Handler:
             definition = schema or file_route()
             definition.handler = handler
+            definition.handler_wants_file = _wants_file(name, handler)
             self.routes[name] = definition
             return handler
 
@@ -195,27 +196,55 @@ class Router:
         }
 
     async def _run_handler(
-        self, route: Route, request: Request, file: FileMeta, seed: Dict[str, Any]
+        self,
+        route: Route,
+        request: Request,
+        file: FileMeta,
+        client_metadata: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Invoke the route's handler, sync or async.
+        """Invoke the route's handler and return the upload's metadata.
 
-        Accepting both is not indulgence: Django and Flask users write sync
-        handlers, and forcing `async def` on them would make this package feel
-        foreign in half the ecosystem it targets.
+        The contract is deliberately narrow, because the previous one was not
+        and the difference was an authorisation bug:
+
+        * **No handler** — the route is public; the client's metadata is all
+          there is.
+        * **Returns a mapping** — that mapping *is* the metadata. The client's
+          is replaced rather than merged, so a caller cannot add claims the
+          handler never made.
+        * **Returns ``None``** — the upload has no metadata.
+        * **Returns anything else** — a programming error, raised rather than
+          quietly falling back to something plausible.
+
+        Sync and async handlers are both accepted: Django and Flask users write
+        sync ones, and forcing ``async def`` on half the ecosystem would make
+        this package feel foreign in it.
         """
         if route.handler is None:
-            return seed
+            # The route is public: the client's metadata is all there is. Still
+            # untrusted, and the application must treat it that way.
+            return dict(client_metadata)
 
-        parameters = inspect.signature(route.handler).parameters
-        arguments: List[Any] = [request]
-        if len(parameters) > 1:
-            arguments.append(file)
-
+        arguments = [request, file] if route.handler_wants_file else [request]
         produced = route.handler(*arguments)
         if inspect.isawaitable(produced):
             produced = await produced
 
-        return produced if isinstance(produced, dict) else seed
+        if produced is None:
+            # Not "keep whatever the client sent". An authenticate-only handler
+            # returning nothing is the most natural shape there is, and reading
+            # it as consent to the caller's identity claims silently promotes
+            # untrusted input to authoritative.
+            return {}
+
+        if not isinstance(produced, Mapping):
+            raise TypeError(
+                f"the handler returned {type(produced).__name__}; return a "
+                "mapping of metadata, or None for no metadata"
+            )
+
+        # Copied, so a handler cannot hand out a reference it keeps mutating.
+        return dict(produced)
 
     # ─── presign ─────────────────────────────────────────────────────────────
 
@@ -536,6 +565,43 @@ class Router:
         headers = dict(telemetry)
         headers["Content-Type"] = "application/json"
         return Response(status, headers, json.dumps(body).encode("utf-8"))
+
+
+def _wants_file(route_name: str, handler: Handler) -> bool:
+    """Decide once whether a handler takes the file as a second argument.
+
+    Inspecting per request made arity a property of *how the function happened
+    to be written* rather than of the contract: ``def h(*args)`` silently
+    received one argument, and an unsupported signature failed on a user's
+    first upload rather than at startup.
+    """
+    try:
+        parameters = list(inspect.signature(handler).parameters.values())
+    except (TypeError, ValueError):
+        # Builtins and some C-implemented callables expose no signature.
+        # Assume the common shape rather than refusing to start.
+        return False
+
+    if any(parameter.kind is parameter.VAR_POSITIONAL for parameter in parameters):
+        raise TypeError(
+            f'the handler for route "{route_name}" takes *args; declare '
+            "(request) or (request, file) so the arity is unambiguous"
+        )
+
+    positional = [
+        parameter
+        for parameter in parameters
+        if parameter.kind
+        in (parameter.POSITIONAL_ONLY, parameter.POSITIONAL_OR_KEYWORD)
+    ]
+
+    if not 1 <= len(positional) <= 2:
+        raise TypeError(
+            f'the handler for route "{route_name}" takes {len(positional)} '
+            "positional arguments; declare (request) or (request, file)"
+        )
+
+    return len(positional) == 2
 
 
 def parse_query(query_string: str) -> Dict[str, str]:

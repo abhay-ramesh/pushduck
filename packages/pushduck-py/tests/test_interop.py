@@ -13,6 +13,7 @@ TypeScript implementation and asserted identically in the Go tests.
 
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from datetime import datetime, timezone
@@ -187,3 +188,96 @@ class PartSizing(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HandlerContract(unittest.TestCase):
+    """What a handler returns decides the upload's metadata, deterministically.
+
+    The previous contract inferred too much. A handler returning ``None`` — the
+    most natural shape for one that only authenticates — caused the *client's*
+    metadata to become authoritative, so a caller could assert
+    ``{"userId": "someone-else"}`` and have the application read it as though
+    the server had vouched for it. Returning a non-mapping did the same, quietly.
+    """
+
+    @staticmethod
+    def presign(handler, client_metadata):
+        import asyncio
+        import json as _json
+
+        from pushduck import Request, Router, UploadConfig, file as file_route
+
+        router = Router(
+            UploadConfig(bucket="b", access_key_id="k", secret_access_key="s")
+        )
+        if handler is None:
+            router.add_route("up", file_route())
+        else:
+            router.route("up", file_route())(handler)
+
+        response = asyncio.run(
+            router.handle(
+                Request(
+                    method="POST",
+                    path="/u?route=up",
+                    query={"route": "up"},
+                    headers={"content-type": "application/json"},
+                    body=_json.dumps(
+                        {
+                            "files": [{"name": "a.jpg", "size": 10, "type": "image/jpeg"}],
+                            "metadata": client_metadata,
+                        }
+                    ).encode(),
+                )
+            )
+        )
+        return response.status, _json.loads(response.body)
+
+    SPOOFED = {"userId": "attacker", "role": "admin"}
+
+    def test_a_returned_mapping_replaces_the_client_metadata(self) -> None:
+        status, body = self.presign(lambda request: {"userId": "real"}, self.SPOOFED)
+        self.assertEqual(status, 200)
+        # Replaced, not merged: `role` must not survive.
+        self.assertEqual(body["results"][0]["metadata"], {"userId": "real"})
+
+    def test_returning_none_leaves_no_metadata(self) -> None:
+        status, body = self.presign(lambda request: None, self.SPOOFED)
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            body["results"][0]["metadata"], {},
+            "a handler that returned nothing must not promote the client's claims",
+        )
+
+    def test_returning_a_non_mapping_is_a_loud_failure(self) -> None:
+        # Silently falling back to the client's metadata is how the previous
+        # contract turned a typo into an authorisation bug.
+        status, body = self.presign(lambda request: "oops", self.SPOOFED)
+        self.assertGreaterEqual(status, 500)
+        self.assertNotIn("attacker", json.dumps(body))
+
+    def test_a_route_without_a_handler_passes_the_client_metadata_through(self) -> None:
+        # Explicitly public: there is no handler to have an opinion, and this
+        # matches a route with no middleware in the other implementations.
+        status, body = self.presign(None, {"albumId": "summer"})
+        self.assertEqual(status, 200)
+        self.assertEqual(body["results"][0]["metadata"], {"albumId": "summer"})
+
+    def test_the_file_is_available_to_a_two_argument_handler(self) -> None:
+        status, body = self.presign(lambda request, file: {"name": file.name}, {})
+        self.assertEqual(status, 200)
+        self.assertEqual(body["results"][0]["metadata"], {"name": "a.jpg"})
+
+    def test_an_ambiguous_signature_fails_at_registration(self) -> None:
+        # At import time with the route's name, rather than on a user's first
+        # upload with a TypeError from inside the library.
+        from pushduck import Router, UploadConfig, file as file_route
+
+        router = Router(UploadConfig(bucket="b"))
+
+        with self.assertRaises(TypeError) as caught:
+            router.route("up", file_route())(lambda *args: {})
+        self.assertIn("up", str(caught.exception))
+
+        with self.assertRaises(TypeError):
+            router.route("up", file_route())(lambda: {})

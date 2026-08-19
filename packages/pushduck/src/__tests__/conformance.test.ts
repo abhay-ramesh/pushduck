@@ -69,6 +69,17 @@ function buildConformanceServer() {
         }
         return { userId: "conformance-user" };
       }),
+    // Authenticates and returns nothing — the shape that reveals whether an
+    // implementation treats "no metadata" as "keep the client's".
+    strictUpload: s3
+      .file()
+      .maxFileSize("5MB")
+      .middleware(async ({ req }) => {
+        if (req.headers.get("authorization") !== "Bearer conformance-token") {
+          throw new UploadError("UNAUTHORIZED", "Sign in to upload");
+        }
+        return undefined as never;
+      }),
   });
 }
 
@@ -84,7 +95,7 @@ describe("conformance suite", () => {
   it("loads every fixture file", () => {
     // Guards the glob: a renamed directory would otherwise make the whole
     // suite vacuously pass with zero cases.
-    expect(fixtures.length).toBeGreaterThanOrEqual(23);
+    expect(fixtures.length).toBeGreaterThanOrEqual(25);
   });
 
   it.each(fixtures.map((fixture) => [fixture.name, fixture] as const))(

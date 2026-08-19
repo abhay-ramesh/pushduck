@@ -127,6 +127,10 @@ class Route:
     #: The decorated function. Runs on every operation for this route and may
     #: raise to reject; whatever it returns becomes the upload's metadata.
     handler: Optional[Callable[..., object]] = None
+    #: Whether the handler takes ``(request, file)`` rather than ``(request)``.
+    #: Resolved once at registration, so an unsupported signature fails at
+    #: import time rather than on a user's first upload.
+    handler_wants_file: bool = False
     #: Reject a completion presenting no token. Off by default so clients older
     #: than the token keep working.
     require_completion_token: bool = False

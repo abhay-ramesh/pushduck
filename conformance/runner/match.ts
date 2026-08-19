@@ -170,7 +170,23 @@ export function match(
   }
 
   if (typeof expected === "object" && expected !== null) {
-    if (typeof actual !== "object" || actual === null || Array.isArray(actual)) {
+    /**
+     * An absent container means every key inside it is absent.
+     *
+     * Without this, `{ metadata: { userId: { $absent: true } } }` fails
+     * against a response that omits `metadata` entirely — even though that is
+     * the strongest possible way of satisfying the expectation. An
+     * implementation that returns no metadata and one that returns an empty
+     * object are both conforming, and a fixture should not have to pick.
+     */
+    if (actual === undefined || actual === null) {
+      for (const [key, value] of Object.entries(expected)) {
+        out.push(...match(value, undefined, path ? `${path}.${key}` : key));
+      }
+      return out;
+    }
+
+    if (typeof actual !== "object" || Array.isArray(actual)) {
       out.push({
         path: path || "$",
         expected: "object",

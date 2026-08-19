@@ -46,6 +46,18 @@ def private_upload(request: Request) -> dict:
     return {"userId": "conformance-user"}
 
 
+@router.route("strictUpload", file(max_size="5MB"))
+def strict_upload(request: Request) -> None:
+    """Authenticates and returns nothing.
+
+    The shape that reveals whether an implementation treats "no metadata" as
+    "keep whatever the client sent".
+    """
+    if request.header("authorization") != "Bearer conformance-token":
+        raise UploadError("UNAUTHORIZED", "Sign in to upload")
+    return None
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
