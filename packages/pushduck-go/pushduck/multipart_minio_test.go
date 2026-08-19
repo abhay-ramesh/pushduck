@@ -370,3 +370,129 @@ func TestChoosePartSizeRespectsProviderLimits(t *testing.T) {
 		t.Errorf("part size %d leaves %d parts, above the 10,000 cap", size, huge/size)
 	}
 }
+
+// TestResumeAfterInterruption is the end-to-end resume claim: interrupt an
+// upload, discover what actually landed, send only the rest, and get an object
+// identical to the one intended.
+//
+// It exercises something no other test does, and that only a real provider can
+// check: the ETags returned by ListParts must be acceptable to
+// CompleteMultipartUpload. If the two differ in quoting or format — and they
+// are produced by different S3 operations — completion fails with InvalidPart
+// after every byte has already been transferred, which is the worst possible
+// moment to discover it.
+func TestResumeAfterInterruption(t *testing.T) {
+	if !minioAvailable() {
+		t.Skip("MinIO unreachable")
+	}
+
+	// 22 MiB at 5 MiB parts → five parts, with a short final one.
+	payload := patternedBytes(22 * mib)
+	name := fmt.Sprintf("go-resume-%d.bin", time.Now().UnixNano())
+
+	router := newMinioRouter()
+
+	initiated := post(t, router, "multipart-init", map[string]any{
+		"file":     map[string]any{"name": name, "size": len(payload), "type": "application/octet-stream"},
+		"partSize": minPartSize,
+	})
+	session := initiated["session"].(string)
+	key := initiated["key"].(string)
+	partSize := int(initiated["partSize"].(float64))
+	partCount := (len(payload) + partSize - 1) / partSize
+
+	// ── first attempt: parts 1 and 2 land, then the network "drops" ──────────
+	uploadParts(t, router, session, payload, partSize, []int{1, 2})
+
+	// ── resume: ask the provider what it actually holds ─────────────────────
+	//
+	// The provider is the authority. A client's own record of what landed is a
+	// hint that may be wrong in either direction.
+	listed := post(t, router, "multipart-parts", map[string]any{"session": session})
+	held := listed["parts"].([]any)
+
+	if len(held) != 2 {
+		t.Fatalf("provider reports %d parts held, expected 2", len(held))
+	}
+
+	recovered := make([]CompletedPart, 0, len(held))
+	for _, entry := range held {
+		part := entry.(map[string]any)
+		recovered = append(recovered, CompletedPart{
+			PartNumber: int(part["partNumber"].(float64)),
+			ETag:       part["etag"].(string),
+		})
+	}
+
+	// ── send only what is missing ───────────────────────────────────────────
+	missing := make([]int, 0, partCount-2)
+	for number := 3; number <= partCount; number++ {
+		missing = append(missing, number)
+	}
+	fresh := uploadParts(t, router, session, payload, partSize, missing)
+
+	// Completion mixes ETags from two sources: the listing for the parts that
+	// survived, and the upload responses for the rest.
+	all := append(recovered, fresh...)
+
+	post(t, router, "multipart-complete", map[string]any{
+		"session": session, "parts": all,
+		"file": map[string]any{"name": name, "size": len(payload), "type": "application/octet-stream"},
+	})
+
+	actual := readBack(t, minioConfig(), key)
+
+	if len(actual) != len(payload) {
+		t.Fatalf("resumed object is %d bytes, expected %d", len(actual), len(payload))
+	}
+	if index := firstDifference(actual, payload); index != -1 {
+		t.Fatalf("resumed object differs from what was uploaded at byte %d", index)
+	}
+}
+
+// uploadParts signs and transfers the given part numbers, returning their ETags.
+func uploadParts(
+	t *testing.T, router *Router, session string, payload []byte, partSize int, numbers []int,
+) []CompletedPart {
+	t.Helper()
+
+	encoded, _ := json.Marshal(map[string]any{"session": session, "partNumbers": numbers})
+	request := httptest.NewRequest(http.MethodPost,
+		"/api/upload?route=bigUpload&action=multipart-sign", bytes.NewReader(encoded))
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("multipart-sign failed with %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	var signed []struct {
+		PartNumber int    `json:"partNumber"`
+		URL        string `json:"url"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &signed); err != nil {
+		t.Fatalf("decode signed parts: %v", err)
+	}
+
+	parts := make([]CompletedPart, 0, len(signed))
+	for _, part := range signed {
+		start := (part.PartNumber - 1) * partSize
+		end := min(start+partSize, len(payload))
+
+		put, _ := http.NewRequest(http.MethodPut, part.URL, bytes.NewReader(payload[start:end]))
+		response, err := http.DefaultClient.Do(put)
+		if err != nil {
+			t.Fatalf("PUT part %d: %v", part.PartNumber, err)
+		}
+		response.Body.Close()
+
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("part %d rejected with %d", part.PartNumber, response.StatusCode)
+		}
+		parts = append(parts, CompletedPart{
+			PartNumber: part.PartNumber, ETag: response.Header.Get("ETag"),
+		})
+	}
+
+	return parts
+}

@@ -251,6 +251,132 @@ class MinioRoundTrip(unittest.TestCase):
         # rather than only that the contents differ.
         return bytes(i % 251 for i in range(size))
 
+    def _upload_parts(self, session: str, payload: bytes, part_size: int, numbers: list) -> list:
+        """Sign and transfer the given part numbers, returning their ETags."""
+        status, signed = call(
+            self.router, "multipart-sign", {"session": session, "partNumbers": numbers}
+        )
+        self.assertEqual(status, 200, signed)
+
+        parts = []
+        for part in signed:
+            start = (part["partNumber"] - 1) * part_size
+            chunk = payload[start : start + part_size]
+            request = urllib.request.Request(part["url"], data=chunk, method="PUT")
+            with urllib.request.urlopen(request, timeout=30) as response:
+                self.assertEqual(response.status, 200)
+                etag = response.headers.get("ETag")
+            self.assertTrue(etag, f"part {part['partNumber']} returned no ETag")
+            parts.append({"partNumber": part["partNumber"], "etag": etag})
+
+        return parts
+
+    def _read_back(self, key: str) -> bytes:
+        from pushduck.sign import presign
+
+        scheme, host, path = self.config.object_address(key)
+        url = presign(
+            access_key_id=self.config.access_key_id,
+            secret_access_key=self.config.secret_access_key,
+            session_token=None, method="GET", scheme=scheme, host=host, path=path,
+            region=self.config.region, expires_in=120, now=self.config.now(),
+        )
+        with urllib.request.urlopen(url, timeout=30) as response:
+            return response.read()
+
+    def test_resumes_after_an_interruption(self) -> None:
+        """The end-to-end resume claim.
+
+        Interrupt an upload, ask the provider what actually landed, send only
+        the rest, and get the object that was intended.
+
+        It also exercises something only a real provider can check: the ETags
+        returned by `ListParts` must be acceptable to
+        `CompleteMultipartUpload`. They come from two different S3 operations,
+        and if their quoting differs, completion fails with `InvalidPart` after
+        every byte has already been transferred.
+        """
+        # 22 MiB at 5 MiB parts → five parts, with a short final one.
+        payload = self.patterned(22 * 1024 * 1024)
+        name = f"py-resume-{datetime.now(timezone.utc).timestamp()}.bin"
+
+        status, initiated = call(
+            self.router, "multipart-init",
+            {"file": {"name": name, "size": len(payload), "type": "application/octet-stream"},
+             "partSize": MIN_PART_SIZE},
+        )
+        self.assertEqual(status, 200, initiated)
+
+        session, key = initiated["session"], initiated["key"]
+        part_size = initiated["partSize"]
+        count = -(-len(payload) // part_size)
+
+        # First attempt: parts 1 and 2 land, then the network "drops".
+        self._upload_parts(session, payload, part_size, [1, 2])
+
+        # Resume: the provider is the authority on what survived. A client's own
+        # record is a hint that can be wrong in either direction.
+        status, listed = call(self.router, "multipart-parts", {"session": session})
+        self.assertEqual(status, 200, listed)
+        recovered = listed["parts"]
+        self.assertEqual(len(recovered), 2, f"provider reports {len(recovered)} parts, expected 2")
+
+        # Send only what is missing.
+        fresh = self._upload_parts(session, payload, part_size, list(range(3, count + 1)))
+
+        # Completion mixes ETags from two sources: the listing for the parts
+        # that survived, and the upload responses for the rest.
+        status, completed = call(
+            self.router, "multipart-complete",
+            {"session": session, "parts": recovered + fresh,
+             "file": {"name": name, "size": len(payload), "type": "application/octet-stream"}},
+        )
+        self.assertEqual(status, 200, completed)
+
+        stored = self._read_back(key)
+        self.assertEqual(len(stored), len(payload))
+        self.assertEqual(stored, payload, "the resumed object differs from what was uploaded")
+
+    def test_follows_pagination_when_a_listing_is_truncated(self) -> None:
+        """A truncated listing is indistinguishable from a complete one.
+
+        Providers page `ListParts` at 1000 by default, which no realistic test
+        reaches — 1000 parts is a 5 GiB upload — so this path had never
+        executed in any implementation. Forcing a page size of 1 exercises it
+        against a real server for the cost of two parts.
+
+        Stopping at the first page makes a resuming client re-upload parts the
+        provider already holds: wasted bandwidth on a metered connection, and
+        silently so.
+        """
+        from pushduck.multipart import list_uploaded_parts
+
+        payload = self.patterned(12 * 1024 * 1024)
+        name = f"py-paged-{datetime.now(timezone.utc).timestamp()}.bin"
+
+        status, initiated = call(
+            self.router, "multipart-init",
+            {"file": {"name": name, "size": len(payload), "type": "application/octet-stream"},
+             "partSize": MIN_PART_SIZE},
+        )
+        self.assertEqual(status, 200, initiated)
+        session, key = initiated["session"], initiated["key"]
+
+        self._upload_parts(session, payload, initiated["partSize"], [1, 2, 3])
+
+        session_claim = verify_session(self.config.secret_access_key, session)
+        upload_id = str(session_claim["uploadId"])
+
+        # One part per page: the provider truncates, and only a loop that
+        # follows NextPartNumberMarker sees all three.
+        paged = list_uploaded_parts(self.config, key, upload_id, page_size=1)
+        self.assertEqual(
+            [part["partNumber"] for part in paged], [1, 2, 3],
+            "pagination was not followed — a truncated listing was treated as complete",
+        )
+
+        call(self.router, "multipart-abort", {"session": session})
+
     def test_uploads_and_reads_back_byte_identical(self) -> None:
         payload = self.patterned(12 * 1024 * 1024)
         name = f"py-multi-{datetime.now(timezone.utc).timestamp()}.bin"

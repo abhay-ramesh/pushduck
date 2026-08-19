@@ -226,7 +226,7 @@ def abort_multipart_upload(config: UploadConfig, key: str, upload_id: str) -> No
 
 
 def list_uploaded_parts(
-    config: UploadConfig, key: str, upload_id: str
+    config: UploadConfig, key: str, upload_id: str, page_size: Optional[int] = None
 ) -> List[Dict[str, Any]]:
     """Report which parts the provider actually holds.
 
@@ -240,6 +240,11 @@ def list_uploaded_parts(
         query = {"uploadId": upload_id}
         if marker:
             query["part-number-marker"] = marker
+        # Providers page at 1000 by default, which no realistic test reaches —
+        # 1000 parts is a 5 GiB upload. Setting it small is the only practical
+        # way to exercise the pagination loop below against a real server.
+        if page_size:
+            query["max-parts"] = str(page_size)
 
         payload = _signed_request(
             config, "GET", key, query=query, operation="ListParts"
