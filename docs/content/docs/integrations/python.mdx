@@ -1,0 +1,213 @@
+---
+title: Python
+description: Use pushduck from FastAPI, Django, Flask, Starlette or Litestar — with the same JavaScript client
+icon: FileCode
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+The Python package is a **server**. Your frontend keeps using the JavaScript
+client unchanged — it only speaks the [wire protocol](/docs/protocol), so it
+neither knows nor cares which language answered.
+
+```bash
+pip install pushduck
+# or
+uv add pushduck
+```
+
+**Zero runtime dependencies.** Signing is HMAC-SHA256 from `hashlib` and the
+protocol is JSON over HTTP, so nothing is dragged into your application.
+
+## Defining routes
+
+```python title="upload.py"
+import os
+from pushduck import Router, UploadConfig, image, file
+
+config = UploadConfig(
+    bucket=os.environ["AWS_S3_BUCKET"],
+    region=os.environ["AWS_REGION"],
+    access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+    secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+    session_token=os.environ.get("AWS_SESSION_TOKEN"),  # ECS, EKS IRSA, OIDC
+)
+
+router = Router(config)
+
+@router.route("imageUpload", image(max_size="5MB"))
+async def image_upload(request):
+    user = await authenticate(request)
+    return {"user_id": user.id}          # becomes the upload's metadata
+
+@router.route("documentUpload", file(max_size="50MB", allow_types=["application/pdf"]))
+def document_upload(request):            # sync handlers work too
+    return {"tenant": current_tenant()}
+```
+
+The decorated function **is** the middleware. Raise to reject the request;
+whatever you return becomes the upload's metadata. There is no separate
+middleware concept because a decorated handler already runs on every request —
+that is what a Python developer expects.
+
+<Callout type="warn">
+  Raise `UploadError` to control the status. Any other exception becomes a 500
+  with its message withheld, because a driver exception routinely carries
+  hostnames, credentials and query fragments that nobody vetted for disclosure.
+</Callout>
+
+## Mounting
+
+<Tabs items={["FastAPI", "Starlette", "Django", "Flask"]}>
+
+<Tab value="FastAPI">
+
+```python title="main.py"
+from fastapi import FastAPI
+from upload import router
+
+app = FastAPI()
+app.mount("/api/upload", router.asgi())
+```
+
+</Tab>
+
+<Tab value="Starlette">
+
+```python title="main.py"
+from starlette.applications import Starlette
+from starlette.routing import Mount
+from upload import router
+
+app = Starlette(routes=[Mount("/api/upload", router.asgi())])
+```
+
+</Tab>
+
+<Tab value="Django">
+
+Django's URLconf expects a **view**, not an ASGI app — so
+`path("api/upload", router.asgi())` does not work. The adapter is a few lines:
+
+```python title="uploads/views.py"
+import asyncio
+from django.http import HttpResponse
+from pushduck import Request
+from .upload import router
+
+def upload_view(request):
+    response = asyncio.run(
+        router.handle(
+            Request(
+                method=request.method,
+                path=request.get_full_path(),
+                query=request.GET.dict(),
+                headers={k.lower(): v for k, v in request.headers.items()},
+                body=request.body,
+            )
+        )
+    )
+
+    django_response = HttpResponse(
+        response.body,
+        status=response.status,
+        content_type=response.headers.get("Content-Type", "application/json"),
+    )
+    for key, value in response.headers.items():
+        if key.lower() != "content-type":
+            django_response[key] = value
+    return django_response
+```
+
+```python title="urls.py"
+from django.urls import path
+from uploads.views import upload_view
+
+urlpatterns = [path("api/upload", upload_view)]
+```
+
+</Tab>
+
+<Tab value="Flask">
+
+Flask is WSGI, so it takes the other adapter. Either keep the endpoint out of
+Flask's routing entirely:
+
+```python title="app.py"
+from flask import Flask
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
+from upload import router
+
+app = Flask(__name__)
+app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {"/api/upload": router.wsgi()})
+```
+
+…or write an ordinary view, which most people will find more familiar:
+
+```python title="app.py"
+import asyncio
+from flask import Flask, request as flask_request
+from pushduck import Request
+from upload import router
+
+app = Flask(__name__)
+
+@app.route("/api/upload", methods=["GET", "POST"])
+def upload():
+    response = asyncio.run(
+        router.handle(
+            Request(
+                method=flask_request.method,
+                path=flask_request.full_path,
+                query=flask_request.args.to_dict(),
+                headers={k.lower(): v for k, v in flask_request.headers.items()},
+                body=flask_request.get_data(),
+            )
+        )
+    )
+    return response.body, response.status, list(response.headers.items())
+```
+
+</Tab>
+
+</Tabs>
+
+<Callout type="info">
+  Every snippet above is executed by `tests/test_frameworks.py` against the
+  real framework, with a request driven through it and the response asserted.
+  A snippet nobody runs is a claim, not documentation — and this project has
+  shipped incorrect ones before.
+
+  **Any other ASGI framework** — Litestar, Quart, Sanic — mounts
+  `router.asgi()` the same way FastAPI does, and any other WSGI framework takes
+  `router.wsgi()`. Those are not listed above only because they are not covered
+  by a test here.
+</Callout>
+
+## The frontend is unchanged
+
+```ts title="app/upload.ts"
+import { createUploadClient } from "pushduck/client";
+
+const upload = createUploadClient({ endpoint: "/api/upload" });
+```
+
+Multipart, resume, progress and typed errors all work exactly as they do
+against the TypeScript server, because the client only speaks the protocol.
+
+## What is supported
+
+| | |
+| --- | --- |
+| Presign, complete, introspection | yes |
+| Multipart uploads | yes — init, sign, complete, abort, list |
+| Resume after interruption | yes, verified against real storage |
+| Completion tokens | yes |
+| Temporary credentials (STS) | yes |
+| S3-compatible providers | yes — R2, MinIO, Spaces, path-style addressing |
+| Resume across server restarts | no server-side session store yet |
+
+Behaviour is pinned by the shared [conformance suite](/docs/protocol#conformance),
+which this server passes in full — the same 23 cases the TypeScript and Go
+servers pass.

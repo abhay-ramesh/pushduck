@@ -1,0 +1,164 @@
+---
+title: Go
+description: Use pushduck from net/http, chi, gin, echo or gorilla — with the same JavaScript client
+icon: FileCode
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+The Go package is a **server**. Your frontend keeps using the JavaScript client
+unchanged — it only speaks the [wire protocol](/docs/protocol), so it neither
+knows nor cares which language answered.
+
+```bash
+go get github.com/abhay-ramesh/pushduck-go
+```
+
+## Defining routes
+
+```go title="upload.go"
+package main
+
+import (
+    "net/http"
+    "os"
+
+    "github.com/abhay-ramesh/pushduck-go/pushduck"
+)
+
+config := pushduck.Config{
+    Bucket:          os.Getenv("AWS_S3_BUCKET"),
+    Region:          os.Getenv("AWS_REGION"),
+    AccessKeyID:     os.Getenv("AWS_ACCESS_KEY_ID"),
+    SecretAccessKey: os.Getenv("AWS_SECRET_ACCESS_KEY"),
+    SessionToken:    os.Getenv("AWS_SESSION_TOKEN"), // ECS, EKS IRSA, OIDC
+}
+
+router := pushduck.NewRouter(config, pushduck.Routes{
+    "imageUpload": pushduck.Image(
+        pushduck.MaxSize("5MB"),
+        pushduck.WithMiddleware(requireUser),
+        pushduck.OnComplete(saveToDatabase),
+    ),
+    "documentUpload": pushduck.File(
+        pushduck.MaxSize("50MB"),
+        pushduck.AllowTypes("application/pdf"),
+    ),
+})
+```
+
+Middleware authenticates the request and returns the upload's metadata:
+
+```go
+func requireUser(r *http.Request, file pushduck.FileMeta) (map[string]any, error) {
+    user, err := authenticate(r)
+    if err != nil {
+        return nil, pushduck.NewError("UNAUTHORIZED", "Sign in to upload")
+    }
+    return map[string]any{"userId": user.ID}, nil
+}
+```
+
+<Callout type="warn">
+  Return a `*pushduck.Error` to control the status. Any other error becomes a
+  500 with its message withheld, because a driver error routinely carries
+  hostnames, credentials and query fragments that nobody vetted for disclosure.
+</Callout>
+
+## Mounting
+
+`http.Handler` is the interface net/http, chi and gorilla already speak, and
+gin and echo wrap it in a line. Unlike the JavaScript package — where every
+framework needs its own adapter — the router *is* the integration.
+
+<Tabs items={["net/http", "chi", "gin", "echo", "gorilla"]}>
+
+<Tab value="net/http">
+
+```go
+http.Handle("/api/upload", router)
+log.Fatal(http.ListenAndServe(":8080", nil))
+```
+
+</Tab>
+
+<Tab value="chi">
+
+```go
+r := chi.NewRouter()
+r.Handle("/api/upload", router)
+```
+
+</Tab>
+
+<Tab value="gin">
+
+```go
+r := gin.Default()
+r.Any("/api/upload", gin.WrapH(router))
+```
+
+</Tab>
+
+<Tab value="echo">
+
+```go
+e := echo.New()
+e.Any("/api/upload", echo.WrapHandler(router))
+```
+
+</Tab>
+
+<Tab value="gorilla">
+
+```go
+r := mux.NewRouter()
+r.Handle("/api/upload", router)
+```
+
+</Tab>
+
+</Tabs>
+
+<Callout type="info">
+  The `http.Handler` mountings are executed by `pushduck/mounting_test.go`,
+  including behind wrapping middleware and mounted at four different paths —
+  because a handler that consulted its own mount path would break exactly one
+  of those and pass the rest.
+
+  `gin.WrapH` and `echo.WrapHandler` are those frameworks' own documented
+  adapters for an `http.Handler`; adding two web frameworks as test
+  dependencies to a package that has none would cost more than it proves.
+</Callout>
+
+## The frontend is unchanged
+
+```ts title="app/upload.ts"
+import { createUploadClient } from "pushduck/client";
+
+const upload = createUploadClient({ endpoint: "/api/upload" });
+```
+
+Multipart, resume, progress and typed errors all work exactly as they do
+against the TypeScript server, because the client only speaks the protocol.
+This is verified end to end: `cross-language.test.ts` drives the real
+JavaScript client against this Go server through the full multipart handshake
+and reads the bytes back byte-identical.
+
+## What is supported
+
+| | |
+| --- | --- |
+| Presign, complete, introspection | yes |
+| Multipart uploads | yes — init, sign, complete, abort, list |
+| Resume after interruption | yes, verified against real storage |
+| Completion tokens | yes |
+| Temporary credentials (STS) | yes |
+| S3-compatible providers | yes — R2, MinIO, Spaces, path-style addressing |
+| Resume across server restarts | no server-side session store yet |
+
+Behaviour is pinned by the shared [conformance suite](/docs/protocol#conformance),
+which this server passes in full — the same 23 cases the TypeScript and Python
+servers pass. SigV4 signatures are byte-identical across all three, so a client
+can presign against one server and complete against another.

@@ -107,6 +107,29 @@ class Router:
         """Register a route with no handler, for the plainest possible case."""
         self.routes[name] = schema
 
+    def asgi(self):
+        """This router as an ASGI application.
+
+        Mount it directly: FastAPI, Starlette, Litestar and async Django all
+        speak ASGI, so no per-framework adapter is needed.
+
+            app.mount("/api/upload", router.asgi())
+        """
+        from .asgi import asgi_app
+
+        return asgi_app(self)
+
+    def wsgi(self):
+        """This router as a WSGI application, for Flask and sync Django.
+
+            app.wsgi_app = DispatcherMiddleware(
+                app.wsgi_app, {"/api/upload": router.wsgi()}
+            )
+        """
+        from .wsgi import wsgi_app
+
+        return wsgi_app(self)
+
     # ─── dispatch ────────────────────────────────────────────────────────────
 
     async def handle(self, request: Request) -> Response:
