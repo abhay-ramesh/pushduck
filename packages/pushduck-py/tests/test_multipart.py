@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from pushduck import Request, Router, UploadConfig, UploadError, file  # noqa: E402
+from pushduck import Request, Route, Router, UploadConfig, UploadError, file  # noqa: E402
 from pushduck.config import MAX_PARTS, MIN_PART_SIZE, choose_part_size  # noqa: E402
 from pushduck.multipart import sign_session, verify_session  # noqa: E402
 
@@ -128,7 +128,7 @@ class SessionAuthorisation(unittest.TestCase):
 
     def test_signing_rejects_a_forged_session(self) -> None:
         router = self.router()
-        router.add_route("bigUpload", file(max_size="500MB"))
+        router.add("bigUpload", Route(schema=file(max_size="500MB")))
 
         status, body = call(
             router, "multipart-sign",
@@ -141,8 +141,8 @@ class SessionAuthorisation(unittest.TestCase):
         # Otherwise a session minted on a permissive route signs parts on a
         # strict one.
         router = self.router()
-        router.add_route("bigUpload", file(max_size="500MB"))
-        router.add_route("otherUpload", file(max_size="500MB"))
+        router.add("bigUpload", Route(schema=file(max_size="500MB")))
+        router.add("otherUpload", Route(schema=file(max_size="500MB")))
 
         token = sign_session(
             "conformance-secret",
@@ -157,7 +157,7 @@ class SessionAuthorisation(unittest.TestCase):
         # Signing one would authorise a write past the end of the object the
         # session was created for.
         router = self.router()
-        router.add_route("bigUpload", file(max_size="500MB"))
+        router.add("bigUpload", Route(schema=file(max_size="500MB")))
 
         token = sign_session(
             "conformance-secret",
@@ -170,7 +170,7 @@ class SessionAuthorisation(unittest.TestCase):
 
     def test_signs_a_part_within_the_plan(self) -> None:
         router = self.router()
-        router.add_route("bigUpload", file(max_size="500MB"))
+        router.add("bigUpload", Route(schema=file(max_size="500MB")))
 
         total = 12 * 1024 * 1024
         token = sign_session(
@@ -189,7 +189,7 @@ class SessionAuthorisation(unittest.TestCase):
         # client writes past the end of its own file.
         self.assertEqual(body[1]["size"], total - 2 * MIN_PART_SIZE)
 
-    def test_the_route_handler_runs_on_every_multipart_call(self) -> None:
+    def test_authorize_runs_on_every_multipart_call(self) -> None:
         # The token proves which object is acted on; the handler proves the
         # caller is still allowed to act. Checking only the token would let a
         # revoked user finish an upload they started.
@@ -197,11 +197,11 @@ class SessionAuthorisation(unittest.TestCase):
             UploadConfig(bucket="b", access_key_id="k", secret_access_key="conformance-secret")
         )
 
-        @router.route("bigUpload", file(max_size="500MB"))
-        def guard(request: Request) -> dict:
+        def guard(request: Request) -> None:
             if request.header("authorization") != "Bearer ok":
                 raise UploadError("UNAUTHORIZED", "Sign in to upload")
-            return {}
+
+        router.add("bigUpload", Route(schema=file(max_size="500MB"), authorize=[guard]))
 
         token = sign_session(
             "conformance-secret",
@@ -210,7 +210,7 @@ class SessionAuthorisation(unittest.TestCase):
         )
 
         status, _ = call(router, "multipart-sign", {"session": token, "partNumbers": [1]})
-        self.assertEqual(status, 401, "a valid session must not bypass the route handler")
+        self.assertEqual(status, 401, "a valid session must not bypass the route's authorize channel")
 
 
 class PartPlanning(unittest.TestCase):
@@ -243,7 +243,7 @@ class MinioRoundTrip(unittest.TestCase):
             force_path_style=True,
         )
         self.router = Router(self.config)
-        self.router.add_route("bigUpload", file(max_size="500MB"))
+        self.router.add("bigUpload", Route(schema=file(max_size="500MB")))
 
     @staticmethod
     def patterned(size: int) -> bytes:

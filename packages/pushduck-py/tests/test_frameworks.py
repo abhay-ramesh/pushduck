@@ -25,7 +25,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from pushduck import Request, Router, UploadConfig, UploadError, image  # noqa: E402
+from pushduck import Request, Route, Router, UploadConfig, UploadError, image  # noqa: E402
 
 
 def installed(module: str) -> bool:
@@ -45,11 +45,18 @@ def build_router() -> Router:
         )
     )
 
-    @router.route("imageUpload", image(max_size="5MB"))
-    def image_upload(request: Request) -> dict:
+    def require_token(request: Request) -> None:
         if request.header("authorization") != "Bearer token":
             raise UploadError("UNAUTHORIZED", "Sign in to upload")
-        return {"userId": "u1"}
+
+    router.add(
+        "imageUpload",
+        Route(
+            schema=image(max_size="5MB"),
+            authorize=[require_token],
+            metadata=lambda ctx, f: {"userId": "u1"},
+        ),
+    )
 
     return router
 

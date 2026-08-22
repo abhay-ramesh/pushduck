@@ -18,7 +18,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from pushduck import Request, Router, UploadConfig, UploadError, file, image  # noqa: E402
+from pushduck import (  # noqa: E402
+    Request,
+    Route,
+    Router,
+    UploadConfig,
+    UploadError,
+    file,
+    image,
+)
 from pushduck.router import parse_query  # noqa: E402
 
 PORT = int(os.environ.get("PORT", "4322"))
@@ -32,30 +40,38 @@ config = UploadConfig(
 
 router = Router(config)
 
+
+def require_conformance_token(request: Request) -> None:
+    if request.header("authorization") != "Bearer conformance-token":
+        raise UploadError("UNAUTHORIZED", "Sign in to upload")
+
+
 # Exactly the route surface `conformance/README.md` requires, so a failure means
 # the implementation disagrees with the protocol rather than that the servers
 # were configured differently.
-router.add_route("imageUpload", image(max_size="5MB"))
-router.add_route("fileUpload", file(max_size="50MB"))
+router.add("imageUpload", Route(schema=image(max_size="5MB")))
+router.add("fileUpload", Route(schema=file(max_size="50MB")))
 
+router.add(
+    "privateUpload",
+    Route(
+        schema=file(max_size="5MB"),
+        authorize=[require_conformance_token],
+        metadata=lambda ctx, f: {"userId": "conformance-user"},
+    ),
+)
 
-@router.route("privateUpload", file(max_size="5MB"))
-def private_upload(request: Request) -> dict:
-    if request.header("authorization") != "Bearer conformance-token":
-        raise UploadError("UNAUTHORIZED", "Sign in to upload")
-    return {"userId": "conformance-user"}
-
-
-@router.route("strictUpload", file(max_size="5MB"))
-def strict_upload(request: Request) -> None:
-    """Authenticates and returns nothing.
-
-    The shape that reveals whether an implementation treats "no metadata" as
-    "keep whatever the client sent".
-    """
-    if request.header("authorization") != "Bearer conformance-token":
-        raise UploadError("UNAUTHORIZED", "Sign in to upload")
-    return None
+# Authenticates and publishes nothing — the shape that reveals whether an
+# implementation treats "no metadata" as "keep whatever the client sent".
+#
+# Under the channel design this is simply a route with `authorize` and no
+# `metadata`. There is no longer any way to spell it that could be misread,
+# which is the whole point: the previous spelling was `return None` from a
+# handler whose return value was also the metadata.
+router.add(
+    "strictUpload",
+    Route(schema=file(max_size="5MB"), authorize=[require_conformance_token]),
+)
 
 
 class Handler(BaseHTTPRequestHandler):

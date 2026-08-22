@@ -10,7 +10,7 @@ from .config import (
     MAX_PARTS,
     MIN_PART_SIZE,
     FileMeta,
-    Route,
+    Schema,
     UploadConfig,
     file,
     format_size,
@@ -18,14 +18,19 @@ from .config import (
     parse_size,
 )
 from .errors import UploadError
-from .keys import generate_key
+from .keys import generate_key, resolve_key
 from .router import PROTOCOL_VERSION, Request, Response, Router
+from .routes import Anonymous, Completion, Context, Route
 from .wsgi import wsgi_app
 
 __all__ = [
     "UploadConfig",
     "Router",
     "Route",
+    "Schema",
+    "Context",
+    "Completion",
+    "Anonymous",
     "Request",
     "Response",
     "FileMeta",
@@ -35,6 +40,7 @@ __all__ = [
     "asgi_app",
     "wsgi_app",
     "generate_key",
+    "resolve_key",
     "parse_size",
     "format_size",
     "PROTOCOL_VERSION",

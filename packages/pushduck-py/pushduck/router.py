@@ -12,15 +12,16 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-import inspect
+import contextlib
 import json
-from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Dict, List, Mapping, Optional, Tuple, Union
+from dataclasses import dataclass, replace as _replace
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 from urllib.parse import parse_qs, quote
 
-from .config import FileMeta, Route, UploadConfig, choose_part_size, file as file_route
+from .config import FileMeta, Schema, UploadConfig, choose_part_size
 from .errors import UploadError, as_upload_error, problem_document
-from .keys import generate_key
+from .keys import generate_key, resolve_key
+from .routes import Completion, Context, Route
 from .multipart import (
     abort_multipart_upload,
     complete_multipart_upload,
@@ -70,43 +71,107 @@ class Response:
     body: bytes
 
 
-Handler = Callable[..., Union[Optional[Dict[str, Any]], Awaitable[Optional[Dict[str, Any]]]]]
+async def _invoke(channel: Any, *args: Any) -> Any:
+    """Call a channel.
+
+    ``Route.__post_init__`` has already normalised every channel to a coroutine
+    function, so this is always awaitable — but the *declared* field types
+    describe what a user may pass in, which is either shape. This helper is
+    where those two views meet, rather than a ``cast`` at each of the eight call
+    sites.
+    """
+    return await channel(*args)
+
+
+#: Every action this server understands. Validated before the value is echoed
+#: into a response header, because ASGI encodes headers as latin-1 and an
+#: unvalidated `?action=☃` would raise inside the send path — outside any
+#: handler's reach, and therefore an unauthenticated crash rather than a
+#: problem document.
+ACTIONS = frozenset(
+    {
+        "presign",
+        "complete",
+        "multipart-init",
+        "multipart-sign",
+        "multipart-complete",
+        "multipart-abort",
+        "multipart-parts",
+    }
+)
 
 
 class Router:
     """Serves one endpoint for a set of named routes.
 
-    Routes are declared with the decorator, because a Python developer already
-    expects a decorated handler to run on every request — so there is no
-    separate middleware concept to learn:
+    A route is a value, so registering one is an ordinary function call::
 
         router = Router(config)
 
-        @router.route("imageUpload", image(max_size="5MB"))
-        async def image_upload(request):
-            user = await authenticate(request)
-            return {"user_id": user.id}
+        router.add("avatar", Route(
+            schema=image(max_size="5MB"),
+            authorize=[require_session],
+            principal=load_user,
+            key=lambda ctx, f: f"{ctx.user.tenant}/{f.name}",
+            metadata=lambda ctx, f: {"owner_id": ctx.user.id},
+            on_complete=[record_upload],
+        ))
+
+    Defaults shared by every route are given once and *prepend* to each route's
+    own channels rather than replacing them. DRF made the opposite choice —
+    a view's ``permission_classes`` replaces the global default — and the result
+    is that adding one route-specific rule silently drops the global one.
     """
 
-    def __init__(self, config: UploadConfig) -> None:
+    def __init__(self, config: UploadConfig, defaults: Optional[Route] = None) -> None:
         self.config = config
+        self.defaults = defaults
         self.routes: Dict[str, Route] = {}
 
-    def route(self, name: str, schema: Optional[Route] = None) -> Callable[[Handler], Handler]:
-        """Register a route and its handler."""
+    def add(self, name: str, route: Route) -> Route:
+        """Register a route. Returns it, so it can be reused or derived from."""
+        if not isinstance(route, Route):
+            raise TypeError(
+                f'route "{name}" is {type(route).__name__}; pass a Route. '
+                "A bare schema goes in Route(schema=...)."
+            )
+        self.routes[name] = self._apply_defaults(route)
+        return route
 
-        def decorate(handler: Handler) -> Handler:
-            definition = schema or file_route()
-            definition.handler = handler
-            definition.handler_wants_file = _wants_file(name, handler)
-            self.routes[name] = definition
-            return handler
+    def _apply_defaults(self, route: Route) -> Route:
+        """Prepend the router's shared channels to a route's own."""
+        if self.defaults is None:
+            return route
 
-        return decorate
+        merged: Dict[str, Any] = {}
+        for name in ("authorize", "around", "validate", "on_complete", "on_error"):
+            shared = getattr(self.defaults, name)
+            if shared:
+                merged[name] = tuple(shared) + tuple(getattr(route, name))
 
-    def add_route(self, name: str, schema: Route) -> None:
-        """Register a route with no handler, for the plainest possible case."""
-        self.routes[name] = schema
+        # Single-slot channels are not merged — two functions cannot both be
+        # the key — so a route's own always wins, and the default fills in only
+        # where the route is silent.
+        for name in ("principal", "key", "metadata", "schema"):
+            if getattr(route, name) is None and getattr(self.defaults, name) is not None:
+                merged[name] = getattr(self.defaults, name)
+
+        return _replace(route, **merged) if merged else route
+
+    def describe(self) -> str:
+        """Which channels each route has, for printing at boot.
+
+        A route that has silently lost its authentication is otherwise
+        invisible until someone notices the uploads. tusd added a
+        ``Capabilities()`` printout for the same reason.
+        """
+        if not self.routes:
+            return "no routes registered"
+        width = max(len(name) for name in self.routes)
+        return "\n".join(
+            f"  {name.ljust(width)}  {route.describe()}"
+            for name, route in sorted(self.routes.items())
+        )
 
     def asgi(self):
         """This router as an ASGI application.
@@ -138,18 +203,28 @@ class Router:
         # Omitting `action` means presign, or every client would have to send a
         # parameter with only one sensible value.
         action = request.query.get("action") or "presign"
+        known_action = action in ACTIONS
 
-        # Set on every response, including failures: a client reading the
-        # header to negotiate behaviour needs it most on the responses an older
-        # server is likeliest to produce.
+        # Set on every response, including failures: a client reading the header
+        # to negotiate behaviour needs it most on the responses an older server
+        # is likeliest to produce.
+        #
+        # Only values this server recognises are echoed. ASGI encodes header
+        # values as latin-1, so reflecting an arbitrary query parameter raises
+        # inside the send path — outside every handler, and therefore an
+        # unauthenticated crash rather than a problem document. `?action=☃` was
+        # enough.
         telemetry = {
             "X-Pushduck-Protocol": str(PROTOCOL_VERSION),
-            "X-Pushduck-Action": action,
+            "X-Pushduck-Action": action if known_action else "unknown",
         }
-        if route_name:
+        if route_name in self.routes:
             telemetry["X-Pushduck-Route"] = route_name
 
         try:
+            if not known_action:
+                raise UploadError("BAD_REQUEST", f"Unknown action: {action!r}")
+
             if request.method == "GET" and not route_name:
                 return self._json(200, telemetry, self._introspect())
 
@@ -175,7 +250,11 @@ class Router:
 
             raise UploadError("BAD_REQUEST", f"Unknown action: {action}")
 
-        except BaseException as error:  # noqa: BLE001 - every failure becomes a document
+        except Exception as error:  # noqa: BLE001 - every failure becomes a document
+            # `Exception`, not `BaseException`. Catching the latter swallows
+            # `asyncio.CancelledError`, so a disconnected client, a server-side
+            # timeout and a graceful shutdown all turn into a 500 the framework
+            # reads as a normal response — and the task refuses to cancel.
             typed = as_upload_error(error)
             document = problem_document(typed, request.path)
             body = json.dumps(document).encode("utf-8")
@@ -195,56 +274,124 @@ class Router:
             "features": ["multipart"],
         }
 
-    async def _run_handler(
+    # ─── lifecycle ───────────────────────────────────────────────────────────
+    #
+    #   authorize (list, per request, veto)
+    #   principal (per request, produces ctx.user)
+    #   around    (list, per request, wraps everything below)
+    #     schema  (per file, produces a message)
+    #     validate(list, per file, veto)
+    #     key     (per file, produces a fragment; the library owns the result)
+    #     metadata(per file, produces ctx.metadata)
+    #
+    # Each channel is named after what it produces, which is what makes
+    # "authenticate but publish no metadata" expressible without overloading a
+    # return value.
+
+    async def _open(
         self,
         route: Route,
         request: Request,
-        file: FileMeta,
-        client_metadata: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """Invoke the route's handler and return the upload's metadata.
+        route_name: str,
+        client_metadata: Mapping[str, Any],
+    ) -> Context[Any]:
+        """Run the per-request channels and build the context.
 
-        The contract is deliberately narrow, because the previous one was not
-        and the difference was an authorisation bug:
-
-        * **No handler** — the route is public; the client's metadata is all
-          there is.
-        * **Returns a mapping** — that mapping *is* the metadata. The client's
-          is replaced rather than merged, so a caller cannot add claims the
-          handler never made.
-        * **Returns ``None``** — the upload has no metadata.
-        * **Returns anything else** — a programming error, raised rather than
-          quietly falling back to something plausible.
-
-        Sync and async handlers are both accepted: Django and Flask users write
-        sync ones, and forcing ``async def`` on half the ecosystem would make
-        this package feel foreign in it.
+        Once per request, not once per file. The previous design ran the
+        handler inside the file loop, so a 50-file batch performed 50 session
+        lookups — an amplification primitive reachable by anyone who could
+        reach the endpoint.
         """
-        if route.handler is None:
-            # The route is public: the client's metadata is all there is. Still
-            # untrusted, and the application must treat it that way.
-            return dict(client_metadata)
+        for check in route.authorize:
+            await _invoke(check, request)
 
-        arguments = [request, file] if route.handler_wants_file else [request]
-        produced = route.handler(*arguments)
-        if inspect.isawaitable(produced):
-            produced = await produced
+        user = await _invoke(route.principal, request) if route.principal is not None else None
 
-        if produced is None:
-            # Not "keep whatever the client sent". An authenticate-only handler
-            # returning nothing is the most natural shape there is, and reading
-            # it as consent to the caller's identity claims silently promotes
-            # untrusted input to authoritative.
-            return {}
+        return Context(
+            request=request,
+            route=route_name,
+            user=user,
+            # Kept, but never merged into `metadata`. The name is the warning.
+            client_metadata=dict(client_metadata),
+            metadata={},
+        )
 
-        if not isinstance(produced, Mapping):
-            raise TypeError(
-                f"the handler returned {type(produced).__name__}; return a "
-                "mapping of metadata, or None for no metadata"
-            )
+    @contextlib.asynccontextmanager
+    async def _around(self, route: Route, ctx: Context[Any]):
+        """Enter every ``around`` generator, innermost last.
 
-        # Copied, so a handler cannot hand out a reference it keeps mutating.
-        return dict(produced)
+        The only channel that brackets rather than transforms. Django rewrote
+        its entire middleware layer (DEP 0005) because the split
+        ``process_request``/``process_response`` form could not guarantee that
+        an entered hook would be exited — which is precisely what a transaction
+        needs.
+        """
+        async with contextlib.AsyncExitStack() as stack:
+            for wrap in route.around:
+                await stack.enter_async_context(
+                    contextlib.asynccontextmanager(wrap)(ctx)
+                )
+            yield
+
+    async def _prepare(
+        self, route: Route, ctx: Context[Any], file: FileMeta
+    ) -> Tuple[str, Dict[str, Any]]:
+        """Run the per-file channels. Returns ``(key, metadata)``.
+
+        Raising ``UploadError`` from ``validate`` fails *this file* while the
+        others continue, because the channel decides the scope — the same
+        exception raised from ``authorize`` fails the whole request. Any other
+        exception propagates: a ``TypeError`` from a bug is not a per-file
+        outcome, and turning it into one would put an internal message in the
+        response body.
+        """
+        if route.schema is not None:
+            message = route.schema.check(file)
+            if message:
+                raise UploadError("VALIDATION_FAILED", message)
+
+        for check in route.validate:
+            await _invoke(check, ctx, file)
+
+        if route.key is not None:
+            # A fragment, not a key. `resolve_key` refuses traversal and
+            # re-sanitises every segment, so a custom key cannot opt out of the
+            # handling that keeps non-Latin filenames from colliding.
+            key = resolve_key(await _invoke(route.key, ctx, file), file.name)
+        else:
+            key = generate_key(file.name)
+
+        # A per-file view, so one file's key and metadata cannot leak into the
+        # next. The request-level context stays the shared, read-mostly part.
+        scoped = _replace(ctx, key=key, metadata={})
+
+        metadata: Dict[str, Any] = {}
+        if route.metadata is not None:
+            produced = await _invoke(route.metadata, scoped, file)
+            if not isinstance(produced, Mapping):
+                raise TypeError(
+                    f"the `metadata` channel returned {type(produced).__name__}; "
+                    "return a mapping"
+                )
+            metadata = dict(produced)
+
+        return key, metadata
+
+    async def _report(
+        self,
+        route: Route,
+        ctx: Optional[Context[Any]],
+        file: Optional[FileMeta],
+        error: BaseException,
+    ) -> None:
+        """Fire ``on_error``. Observational: a failure here changes nothing."""
+        if ctx is None:
+            return
+        for observer in route.on_error:
+            try:
+                await _invoke(observer, ctx, file, error)
+            except Exception:  # noqa: BLE001 - an observer cannot change the outcome
+                pass
 
     # ─── presign ─────────────────────────────────────────────────────────────
 
@@ -256,54 +403,59 @@ class Router:
         if not isinstance(files, list):
             raise UploadError("BAD_REQUEST", "`files` must be an array of file descriptors")
 
-        client_metadata = payload.get("metadata") or {}
+        ctx = await self._open(route, request, route_name, payload.get("metadata") or {})
         results: List[Dict[str, Any]] = []
 
-        for raw in files:
-            file = FileMeta.from_json(raw)
+        async with self._around(route, ctx):
+            for raw in files:
+                file = FileMeta.from_json(raw)
 
-            # The handler authenticates the *request*, so a rejection fails all
-            # of it. A constraint violation is per-file. That distinction is the
-            # one the conformance suite exists to pin down.
-            metadata = await self._run_handler(route, request, file, dict(client_metadata))
+                try:
+                    key, metadata = await self._prepare(route, ctx, file)
+                except UploadError as error:
+                    if error.status >= 500:
+                        # The server is at fault — a key channel returning `..`,
+                        # a misconfiguration. Failing one entry of a batch would
+                        # report a bug in this deployment as a property of the
+                        # user's file.
+                        raise
+                    await self._report(route, ctx, file, error)
+                    results.append(
+                        {"success": False, "file": file.to_json(), "error": error.message}
+                    )
+                    continue
 
-            message = route.validate(file)
-            if message:
-                results.append({"success": False, "file": file.to_json(), "error": message})
-                continue
+                scheme, host, path = self.config.object_address(key)
 
-            key = generate_key(file.name)
-            scheme, host, path = self.config.object_address(key)
+                url = presign(
+                    access_key_id=self.config.access_key_id,
+                    secret_access_key=self.config.secret_access_key,
+                    session_token=self.config.session_token,
+                    method="PUT",
+                    scheme=scheme,
+                    host=host,
+                    path=path,
+                    region=self.config.region,
+                    headers={"x-amz-acl": "private"},
+                    expires_in=self.config.upload_expiry,
+                    now=self.config.now(),
+                )
 
-            url = presign(
-                access_key_id=self.config.access_key_id,
-                secret_access_key=self.config.secret_access_key,
-                session_token=self.config.session_token,
-                method="PUT",
-                scheme=scheme,
-                host=host,
-                path=path,
-                region=self.config.region,
-                headers={"x-amz-acl": "private"},
-                expires_in=self.config.upload_expiry,
-                now=self.config.now(),
-            )
+                required = {"x-amz-acl": "private"}
+                if file.type:
+                    required["Content-Type"] = file.type
 
-            required = {"x-amz-acl": "private"}
-            if file.type:
-                required["Content-Type"] = file.type
-
-            results.append(
-                {
-                    "success": True,
-                    "file": file.to_json(),
-                    "presignedUrl": url,
-                    "key": key,
-                    "requiredHeaders": required,
-                    "metadata": metadata,
-                    "completionToken": self._sign_completion(key, route_name),
-                }
-            )
+                results.append(
+                    {
+                        "success": True,
+                        "file": file.to_json(),
+                        "presignedUrl": url,
+                        "key": key,
+                        "requiredHeaders": required,
+                        "metadata": metadata,
+                        "completionToken": self._sign_completion(key, route_name),
+                    }
+                )
 
         return self._json(200, telemetry, {"success": True, "results": results})
 
@@ -317,51 +469,69 @@ class Router:
         if not isinstance(completions, list):
             raise UploadError("BAD_REQUEST", "`completions` must be an array")
 
-        # Authorised in full before any hook runs, so a batch containing one
-        # unauthorised entry cannot fire the handler for the others.
-        authorised: List[Tuple[Dict[str, Any], FileMeta, str]] = []
+        ctx = await self._open(route, request, route_name, {})
+        results = []
 
-        for entry in completions:
-            if not isinstance(entry, dict):
-                raise UploadError("BAD_REQUEST", "each completion must be an object")
+        async with self._around(route, ctx):
+            # Every entry is authorised before any `on_complete` fires, so a
+            # batch containing one unauthorised entry cannot commit the others.
+            verified: List[Tuple[str, FileMeta, Dict[str, Any]]] = []
 
-            key = str(entry.get("key", ""))
-            token = entry.get("completionToken")
+            for entry in completions:
+                if not isinstance(entry, dict):
+                    raise UploadError("BAD_REQUEST", "each completion must be an object")
 
-            if token:
-                claim = self._verify_completion(str(token))
-                if claim.get("key") != key or claim.get("route") != route_name:
+                key = str(entry.get("key", ""))
+                token = entry.get("completionToken")
+
+                if token:
+                    claim = self._verify_completion(str(token))
+                    if claim.get("key") != key or claim.get("route") != route_name:
+                        raise UploadError(
+                            "FORBIDDEN",
+                            "This completion does not match the upload it was issued for",
+                        )
+                elif route.require_completion_token:
                     raise UploadError(
                         "FORBIDDEN",
-                        "This completion does not match the upload it was issued for",
+                        "This route requires the completion token issued at presign",
                     )
-            elif route.require_completion_token:
-                raise UploadError(
-                    "FORBIDDEN",
-                    "This route requires the completion token issued at presign",
+
+                file = FileMeta.from_json(entry.get("file") or {"name": key, "size": 0})
+
+                # The metadata channel runs again rather than trusting what the
+                # client echoed back. Its input is the server's context, so the
+                # result cannot contain a claim the application never made.
+                scoped = _replace(ctx, key=key, metadata={})
+                metadata: Dict[str, Any] = {}
+                if route.metadata is not None:
+                    produced = await _invoke(route.metadata, scoped, file)
+                    metadata = dict(produced) if isinstance(produced, Mapping) else {}
+
+                verified.append((key, file, metadata))
+
+            for key, file, metadata in verified:
+                scheme, host, path = self.config.object_address(key)
+                url = f"{scheme}://{host}{path}"
+
+                for observer in route.on_complete:
+                    await _invoke(
+                        observer,
+                        _replace(ctx, key=key, metadata=metadata),
+                        Completion(key=key, file=file, url=url),
+                    )
+
+                results.append(
+                    {
+                        "success": True,
+                        "key": key,
+                        "url": url,
+                        "file": file.to_json(),
+                        "metadata": metadata,
+                    }
                 )
 
-            file = FileMeta.from_json(entry.get("file") or {"name": key, "size": 0})
-            metadata = await self._run_handler(
-                route, request, file, dict(entry.get("metadata") or {})
-            )
-            authorised.append((metadata, file, key))
-
-        results = []
-        for metadata, file, key in authorised:
-            scheme, host, path = self.config.object_address(key)
-            results.append(
-                {
-                    "success": True,
-                    "key": key,
-                    "url": f"{scheme}://{host}{path}",
-                    "file": file.to_json(),
-                    "metadata": metadata,
-                }
-            )
-
         return self._json(200, telemetry, {"success": True, "results": results})
-
 
     # ─── multipart ───────────────────────────────────────────────────────────
 
@@ -379,9 +549,9 @@ class Router:
         if session.get("route") != route_name:
             raise UploadError("FORBIDDEN", "Invalid or expired multipart session")
 
-        await self._run_handler(
-            route, request, FileMeta(str(session["key"]), int(session.get("totalSize") or 0)), {}
-        )
+        # Re-runs `authorize` and `principal`, so a revoked user cannot finish
+        # an upload they were allowed to start.
+        await self._open(route, request, route_name, {})
 
         return session
 
@@ -396,17 +566,12 @@ class Router:
                 "`file` with name, size and type is required to start a multipart upload",
             )
 
-        # Handler and validation run here exactly as they do for a single PUT,
-        # so a multipart upload cannot bypass a route's constraints.
-        metadata = await self._run_handler(
-            route, request, file, dict(payload.get("metadata") or {})
-        )
-
-        message = route.validate(file)
-        if message:
-            raise UploadError("VALIDATION_FAILED", message)
-
-        key = generate_key(file.name)
+        # The same channels run here as for a single PUT, so a multipart upload
+        # cannot bypass a route's constraints. Two of the three upload-library
+        # CVEs found while designing this were a second entry point that skipped
+        # stages the first one ran.
+        ctx = await self._open(route, request, route_name, payload.get("metadata") or {})
+        key, metadata = await self._prepare(route, ctx, file)
         upload_id = create_multipart_upload(self.config, key, file.type)
         part_size = choose_part_size(file.size, payload.get("partSize"))
 
@@ -565,43 +730,6 @@ class Router:
         headers = dict(telemetry)
         headers["Content-Type"] = "application/json"
         return Response(status, headers, json.dumps(body).encode("utf-8"))
-
-
-def _wants_file(route_name: str, handler: Handler) -> bool:
-    """Decide once whether a handler takes the file as a second argument.
-
-    Inspecting per request made arity a property of *how the function happened
-    to be written* rather than of the contract: ``def h(*args)`` silently
-    received one argument, and an unsupported signature failed on a user's
-    first upload rather than at startup.
-    """
-    try:
-        parameters = list(inspect.signature(handler).parameters.values())
-    except (TypeError, ValueError):
-        # Builtins and some C-implemented callables expose no signature.
-        # Assume the common shape rather than refusing to start.
-        return False
-
-    if any(parameter.kind is parameter.VAR_POSITIONAL for parameter in parameters):
-        raise TypeError(
-            f'the handler for route "{route_name}" takes *args; declare '
-            "(request) or (request, file) so the arity is unambiguous"
-        )
-
-    positional = [
-        parameter
-        for parameter in parameters
-        if parameter.kind
-        in (parameter.POSITIONAL_ONLY, parameter.POSITIONAL_OR_KEYWORD)
-    ]
-
-    if not 1 <= len(positional) <= 2:
-        raise TypeError(
-            f'the handler for route "{route_name}" takes {len(positional)} '
-            "positional arguments; declare (request) or (request, file)"
-        )
-
-    return len(positional) == 2
 
 
 def parse_query(query_string: str) -> Dict[str, str]:
