@@ -200,6 +200,14 @@ export interface CloudflareR2Config extends BaseProviderConfig {
   region?: "auto";
   /** Custom endpoint (auto-generated from accountId if not provided) */
   endpoint?: string;
+  /**
+   * Session token for temporary credentials.
+   *
+   * Set when credentials come from STS rather than a static key pair. SigV4
+   * signs it as `X-Amz-Security-Token`; without it the provider rejects the
+   * signature.
+   */
+  sessionToken?: string;
 }
 
 /**
@@ -242,6 +250,14 @@ export interface DigitalOceanSpacesConfig extends BaseProviderConfig {
   region: string;
   /** Custom endpoint (auto-generated from region if not provided) */
   endpoint?: string;
+  /**
+   * Session token for temporary credentials.
+   *
+   * Set when credentials come from STS rather than a static key pair. SigV4
+   * signs it as `X-Amz-Security-Token`; without it the provider rejects the
+   * signature.
+   */
+  sessionToken?: string;
 }
 
 /**
@@ -288,6 +304,14 @@ export interface MinIOConfig extends BaseProviderConfig {
   useSSL?: boolean;
   /** Custom port (default: 9000) */
   port?: number;
+  /**
+   * Session token for temporary credentials.
+   *
+   * Set when credentials come from STS rather than a static key pair. SigV4
+   * signs it as `X-Amz-Security-Token`; without it the provider rejects the
+   * signature.
+   */
+  sessionToken?: string;
 }
 
 // ========================================
@@ -494,6 +518,7 @@ const PROVIDER_SPECS = {
         "CLOUDFLARE_R2_SECRET_ACCESS_KEY",
         "R2_SECRET_ACCESS_KEY",
       ],
+      sessionToken: ["CLOUDFLARE_R2_SESSION_TOKEN", "R2_SESSION_TOKEN"],
       endpoint: ["CLOUDFLARE_R2_ENDPOINT", "R2_ENDPOINT"],
       customDomain: ["R2_CUSTOM_DOMAIN"],
       acl: [],
@@ -524,6 +549,7 @@ const PROVIDER_SPECS = {
         "DO_SPACES_SECRET_ACCESS_KEY",
         "DIGITALOCEAN_SPACES_SECRET_ACCESS_KEY",
       ],
+      sessionToken: ["DO_SPACES_SESSION_TOKEN"],
       endpoint: ["DO_SPACES_ENDPOINT", "DIGITALOCEAN_SPACES_ENDPOINT"],
       customDomain: ["DO_SPACES_CUSTOM_DOMAIN"],
       acl: [],
@@ -546,6 +572,7 @@ const PROVIDER_SPECS = {
       bucket: ["MINIO_BUCKET"],
       accessKeyId: ["MINIO_ACCESS_KEY_ID", "MINIO_ACCESS_KEY"],
       secretAccessKey: ["MINIO_SECRET_ACCESS_KEY", "MINIO_SECRET_KEY"],
+      sessionToken: ["MINIO_SESSION_TOKEN"],
       region: ["MINIO_REGION"],
       customDomain: ["MINIO_CUSTOM_DOMAIN"],
       acl: [],
@@ -587,6 +614,7 @@ const PROVIDER_SPECS = {
       bucket: ["S3_BUCKET", "S3_BUCKET_NAME"],
       accessKeyId: ["S3_ACCESS_KEY_ID", "ACCESS_KEY_ID"],
       secretAccessKey: ["S3_SECRET_ACCESS_KEY", "SECRET_ACCESS_KEY"],
+      sessionToken: ["S3_SESSION_TOKEN", "AWS_SESSION_TOKEN"],
       region: ["S3_REGION", "REGION"],
       customDomain: ["S3_CUSTOM_DOMAIN"],
       acl: ["S3_ACL"],
