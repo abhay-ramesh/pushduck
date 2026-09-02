@@ -80,8 +80,34 @@ export interface S3UploadedFile {
   url?: string;
   key?: string;
   presignedUrl?: string; // Temporary download URL (expires in 1 hour)
+  /**
+   * Human-readable failure message.
+   *
+   * Safe to render directly. To *branch* on the failure, use
+   * {@link S3UploadedFile.errorCode} — messages are for people and may change,
+   * codes are stable.
+   */
   error?: string;
+  /**
+   * Stable machine-readable failure code.
+   *
+   * Present whenever `status` is `"error"`. Lets a UI react to the specific
+   * failure — offer re-authentication for `UNAUTHORIZED`, an upgrade prompt for
+   * `QUOTA_EXCEEDED`, a retry for `NETWORK_ERROR` — without parsing a string.
+   */
+  errorCode?: import("../core/errors").UploadErrorCode;
   file?: File;
+  /**
+   * Metadata returned by the server for this file.
+   *
+   * This is the output of your route's middleware chain — whatever it returned
+   * (user id, album id, generated record id) travels back with the presigned
+   * URL and lands here, so the client can use it without a second round trip.
+   *
+   * Distinct from the *client* metadata passed into `uploadFiles(files, meta)`,
+   * which is untrusted input to the middleware rather than its result.
+   */
+  metadata?: unknown;
   // ETA tracking
   uploadStartTime?: number;
   uploadSpeed?: number; // bytes per second
@@ -100,13 +126,36 @@ export interface UploadRouteConfig {
   fetcher?: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
   onStart?: (files: S3FileMetadata[]) => void | Promise<void>;
   onSuccess?: (results: S3UploadedFile[]) => void | Promise<void>;
-  onError?: (error: Error) => void;
+  /**
+   * Called when an upload fails.
+   *
+   * Receives an `UploadError`, so `error.code`, `error.status`,
+   * `error.retryable`, and `error.meta` are available for branching. It is
+   * still an `Error`, so a handler typed `(e: Error) => void` keeps working.
+   */
+  onError?: (error: import("../core/errors").UploadError) => void;
   onProgress?: (progress: number) => void;
+}
+
+/**
+ * Advanced engine options, on top of {@link UploadRouteConfig}.
+ *
+ * Declared here rather than only in the engine so that every binding *and* the
+ * property-based client accept an identical options object — otherwise
+ * `upload.imageUpload({ transport })` would compile in Vue but not React.
+ */
+export interface UploadAdvancedConfig {
+  /** Transport for the bytes-to-storage leg. Defaults to the XHR transport. */
+  transport?: import("../core/upload/transport").UploadTransport;
+  /** Clock source in milliseconds. Injectable for deterministic tests. */
+  now?: () => number;
+  /** Fetch used to read React Native local file URIs. */
+  blobFetcher?: typeof fetch;
 }
 
 // Legacy aliases for backward compatibility
 export type S3RouteUploadConfig = UploadRouteConfig;
-export type RouteUploadOptions = UploadRouteConfig;
+export type RouteUploadOptions = UploadRouteConfig & UploadAdvancedConfig;
 
 /**
  * Result object returned by upload hooks with client metadata support.
@@ -152,8 +201,63 @@ export interface S3RouteUploadResult {
    */
   uploadFiles: (files: File[], metadata?: any) => Promise<void>;
 
+  /**
+   * Upload files and resolve with the results, rejecting on batch failure.
+   *
+   * Use this as a `mutationFn` for TanStack Query, tRPC, or SWR, or wherever an
+   * async-state library should own loading and error state. The hook's
+   * reactive `files` and `progress` remain live during the upload, so you get
+   * both without tracking per-file state yourself.
+   *
+   * @throws {UploadBatchError} If the batch could not run at all.
+   *
+   * @example
+   * ```typescript
+   * const { uploadFilesAsync, files, progress } = useUploadRoute('imageUpload');
+   *
+   * const { mutate, isPending } = useMutation({
+   *   mutationFn: uploadFilesAsync,
+   *   onSuccess: () => utils.files.list.invalidate(),
+   * });
+   * ```
+   */
+  uploadFilesAsync: (
+    files: File[],
+    metadata?: any
+  ) => Promise<{ files: S3UploadedFile[]; failedFiles: S3UploadedFile[] }>;
+
   /** Reset upload state and clear files */
   reset: () => void;
+
+  /**
+   * Abort a single in-flight upload, marking that file as errored.
+   *
+   * Files that already completed are unaffected; bytes already sent are
+   * discarded, since a presigned PUT cannot be resumed.
+   *
+   * @param fileId - The `id` of the file to cancel, from `files[n].id`
+   *
+   * @example
+   * ```typescript
+   * {files.map((file) => (
+   *   <div key={file.id}>
+   *     {file.name}
+   *     {file.status === 'uploading' && (
+   *       <button onClick={() => cancel(file.id)}>Cancel</button>
+   *     )}
+   *   </div>
+   * ))}
+   * ```
+   */
+  cancel: (fileId: string) => void;
+
+  /**
+   * Abort every in-flight upload in the current batch.
+   *
+   * Unlike {@link S3RouteUploadResult.reset}, completed files and their results
+   * are retained — only transfers still in progress are aborted.
+   */
+  cancelAll: () => void;
 
   /** Whether an upload is currently in progress */
   isUploading: boolean;
@@ -231,44 +335,16 @@ export interface TypedUploadedFile<TOutput = any> extends S3UploadedFile {
 export interface TypedRouteHook<
   TRouter = any,
   TRouteName extends string = string,
-> {
-  /** Array of uploaded files with enhanced metadata */
-  files: TypedUploadedFile[];
-
+> extends S3RouteUploadResult {
   /**
-   * Upload files with optional client-side metadata.
+   * The route this client instance is bound to.
    *
-   * @param files - Array of File objects to upload
-   * @param metadata - Optional metadata (untrusted client data)
-   * @returns Promise resolving to array of upload results
-   *
-   * @security
-   * Client metadata is untrusted and must be validated by server middleware.
+   * Typed as a literal, so `upload.imageUpload().routeName` narrows to
+   * `"imageUpload"` rather than widening to `string`.
    */
-  uploadFiles: (files: File[], metadata?: any) => Promise<any[]>;
-
-  /** Reset upload state */
-  reset: () => void;
-
-  /** Whether upload is in progress */
-  isUploading: boolean;
-
-  /** Array of error messages */
-  errors: string[];
-
-  /** Type-safe route name */
   routeName: TRouteName;
-
-  // Overall progress tracking across all files
-  /** Overall progress percentage (0-100) */
-  progress?: number;
-
-  /** Overall upload speed in bytes/second */
-  uploadSpeed?: number;
-
-  /** Estimated time remaining in seconds */
-  eta?: number;
 }
+
 
 // ========================================
 // Template Literal Types

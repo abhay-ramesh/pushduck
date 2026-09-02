@@ -160,6 +160,33 @@
  */
 export { createUploadClient } from "./client/upload-client";
 
+/**
+ * Promise-based upload functions, for use with an async-state library.
+ *
+ * `useUploadRoute` owns loading and error state itself. When TanStack Query,
+ * tRPC, SWR, or Effect should own it instead, use these: they resolve with
+ * results and reject on failure, which is the contract `useMutation` expects.
+ *
+ * @example TanStack Query / tRPC
+ * ```typescript
+ * const { mutate, isPending } = useMutation({
+ *   mutationFn: (files: File[]) =>
+ *     uploadFiles({ files, route: "imageUpload", endpoint: "/api/upload" }),
+ *   onSuccess: () => utils.files.list.invalidate(),
+ * });
+ * ```
+ */
+export {
+  uploadFile,
+  uploadFiles,
+  UploadBatchError,
+} from "./core/upload/upload-files";
+export type {
+  UploadFileOptions,
+  UploadFilesOptions,
+  UploadFilesResult,
+} from "./core/upload/upload-files";
+
 // ========================================
 // HOOKS
 // ========================================
@@ -321,3 +348,12 @@ export type {
   TypedRouteHook,
   TypedUploadedFile,
 } from "./types";
+
+/**
+ * The error type every pushduck failure uses.
+ *
+ * Built on HTTP status codes and RFC 9457 rather than any framework's error
+ * convention — map `code`/`status` to your ecosystem's shape in your own code.
+ */
+export { isUploadError, UPLOAD_ERROR_CODES, UploadError } from "./core/errors";
+export type { UploadErrorCode } from "./core/errors";
