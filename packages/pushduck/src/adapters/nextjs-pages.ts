@@ -92,7 +92,18 @@ async function convertWebResponseToNextApiResponse(
   // Handle response body
   const contentType = response.headers.get("content-type");
 
-  if (contentType && contentType.includes("application/json")) {
+  /**
+   * Matches the whole `+json` structured-syntax family, not just
+   * `application/json`.
+   *
+   * Every error this library returns is `application/problem+json` (RFC 9457),
+   * which `includes("application/json")` does not match — so every failure
+   * response took the text path while every success took the JSON one. The
+   * bytes a client received were the same, but the two paths are not
+   * equivalent to anything inspecting the response server-side, and the
+   * asymmetry was accidental rather than intended.
+   */
+  if (contentType && /\bjson\b/i.test(contentType)) {
     // JSON response
     const data = await response.json();
     res.json(data);

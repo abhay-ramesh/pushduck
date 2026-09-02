@@ -32,6 +32,7 @@ import type {
   InferClientRouter,
   S3Router,
   TypedRouteHook,
+  UploadAdvancedConfig,
   UploadRouteConfig,
 } from "../types";
 
@@ -45,7 +46,7 @@ import type {
 function useTypedRoute<TRouter extends S3Router<any>>(
   routeName: string,
   config: ClientConfig,
-  routeOptions?: UploadRouteConfig
+  routeOptions?: UploadRouteConfig & UploadAdvancedConfig
 ): TypedRouteHook<TRouter> {
   /**
    * Delegates wholesale to `useUploadRoute` rather than re-deriving its result.
@@ -57,12 +58,26 @@ function useTypedRoute<TRouter extends S3Router<any>>(
    * hook keeps the property-based client and the hook permanently in lockstep.
    */
   const hookResult = useUploadRoute(routeName, {
+    /**
+     * Merged by spreading rather than field by field.
+     *
+     * The previous version named six options explicitly, which silently
+     * dropped every other one the engine accepts: `transport`, `multipart`,
+     * `blobFetcher` and `now`. That made the whole large-file feature set —
+     * threshold, resume store, chunk reader — unreachable from the client the
+     * documentation leads with, while still type-checking, because
+     * `UploadAdvancedConfig` exists precisely so "every binding *and* the
+     * property-based client accept an identical options object".
+     *
+     * Spreading means a new engine option works here the day it is added,
+     * instead of the day someone remembers to add a seventh line.
+     */
+    ...config.defaultOptions,
+    ...routeOptions,
+    // Resolved last: a route may override the client's endpoint, but an
+    // absent route value must not blank it.
     endpoint: routeOptions?.endpoint || config.endpoint,
     fetcher: routeOptions?.fetcher || config.fetcher,
-    onStart: routeOptions?.onStart || config.defaultOptions?.onStart,
-    onSuccess: routeOptions?.onSuccess || config.defaultOptions?.onSuccess,
-    onError: routeOptions?.onError || config.defaultOptions?.onError,
-    onProgress: routeOptions?.onProgress || config.defaultOptions?.onProgress,
   });
 
   return { ...hookResult, routeName };
@@ -155,7 +170,7 @@ export function createUploadClient<TRouter extends S3Router<any>>(
 
       // Return a hook factory function that accepts optional route configuration
       // This ensures hooks are called consistently on every render
-      return (routeOptions?: UploadRouteConfig) =>
+      return (routeOptions?: UploadRouteConfig & UploadAdvancedConfig) =>
         useTypedRoute<TRouter>(prop, config, routeOptions);
     },
 
