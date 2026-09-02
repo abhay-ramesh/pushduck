@@ -111,6 +111,63 @@ export class UploadAbortedError extends Error {
  */
 const DEFAULT_STALL_TIMEOUT_MS = 120_000;
 
+/**
+ * Turns a storage response status into a typed, correctly-classified error.
+ *
+ * Both transports used to reject with a bare `Error`, which made every failure
+ * look identical to the retry loop. Since that loop only skips a retry for an
+ * `UploadError` marked non-retryable, a 403 from an expired URL was retried to
+ * `maxAttempts` — spending the user's time and bandwidth to arrive at the
+ * failure that was already decided. The same bug recurs upstream: tus #196,
+ * #723, #66, #636.
+ *
+ * The split is the ordinary HTTP one. A 4xx says the request itself is wrong,
+ * and repeating it unchanged cannot help. A 5xx, a 429 and a 408 say the other
+ * end is temporarily unable, which is exactly what a retry is for.
+ *
+ * The status is preserved in `meta` because the code deliberately collapses
+ * detail — several statuses share a code — and the original number is what a
+ * developer needs when reading a log.
+ */
+function classifyStatus(status: number, url: string): UploadError {
+  const meta = { status, url };
+
+  switch (status) {
+    case 400:
+      return new UploadError("BAD_REQUEST", `Storage rejected the upload (400)`, { meta });
+    case 401:
+      return new UploadError("UNAUTHORIZED", `Storage rejected the credentials (401)`, { meta });
+    case 403:
+      // Overwhelmingly an expired or mis-signed URL, which never becomes valid
+      // by waiting.
+      return new UploadError("FORBIDDEN", `Storage denied the upload (403) — the signed URL may have expired`, { meta });
+    case 404:
+      return new UploadError("NOT_FOUND", `Storage returned 404 — the bucket or key does not exist`, { meta });
+    case 408:
+      return new UploadError("TIMEOUT", `Storage timed out (408)`, { meta });
+    case 413:
+      return new UploadError("PAYLOAD_TOO_LARGE", `Storage rejected the body as too large (413)`, { meta });
+    case 429:
+      return new UploadError("RATE_LIMITED", `Storage is rate limiting this upload (429)`, { meta });
+    case 504:
+      return new UploadError("TIMEOUT", `Storage gateway timed out (504)`, { meta });
+    default:
+      break;
+  }
+
+  if (status >= 500) {
+    return new UploadError("STORAGE_UNAVAILABLE", `Storage is unavailable (${status})`, { meta });
+  }
+
+  if (status >= 400) {
+    // An unlisted 4xx is still the caller's problem, so it must not be retried
+    // merely because it was not enumerated above.
+    return new UploadError("BAD_REQUEST", `Storage rejected the upload (${status})`, { meta });
+  }
+
+  return new UploadError("INTERNAL_ERROR", `Unexpected storage response (${status})`, { meta });
+}
+
 export const xhrTransport: UploadTransport = ({
   url,
   body,
@@ -188,13 +245,19 @@ export const xhrTransport: UploadTransport = ({
         // it must not fail merely because the header could not be read.
         resolve({ etag: xhr.getResponseHeader?.("ETag") ?? undefined });
       } else {
-        reject(new Error(`Upload failed with status: ${xhr.status}`));
+        reject(classifyStatus(xhr.status, url));
       }
     };
 
     xhr.onerror = () => {
       cleanup();
-      reject(new Error("Upload failed"));
+      // No status at all: DNS failure, refused connection, CORS rejection.
+      // Genuinely transient often enough to be worth another attempt.
+      reject(
+        new UploadError("NETWORK_ERROR", "Upload failed: the request could not be completed", {
+          meta: { url },
+        })
+      );
     };
 
     xhr.onabort = () => {
@@ -253,7 +316,7 @@ export function createFetchTransport(
     });
 
     if (!response.ok) {
-      throw new Error(`Upload failed with status: ${response.status}`);
+      throw classifyStatus(response.status, url);
     }
 
     return { etag: response.headers.get("etag") ?? undefined };
