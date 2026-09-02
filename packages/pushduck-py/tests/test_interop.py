@@ -154,11 +154,11 @@ class ValidationAgreement(unittest.TestCase):
         route = image(max_size="5MB")
         from pushduck import FileMeta
 
-        message = route.check(FileMeta("huge.jpg", 50 * 1024 * 1024, "image/jpeg"))
+        message = route.validate(FileMeta("huge.jpg", 50 * 1024 * 1024, "image/jpeg"))
         self.assertEqual(message, "File size 50.0MB exceeds maximum 5.0MB")
 
-        self.assertIsNone(route.check(FileMeta("a.png", 10, "image/png")))
-        self.assertIsNotNone(route.check(FileMeta("a.pdf", 10, "application/pdf")))
+        self.assertIsNone(route.validate(FileMeta("a.png", 10, "image/png")))
+        self.assertIsNotNone(route.validate(FileMeta("a.pdf", 10, "application/pdf")))
 
 
 class CompletionTokens(unittest.TestCase):

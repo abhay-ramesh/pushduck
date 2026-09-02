@@ -131,7 +131,7 @@ class Schema:
     max_size: Optional[int] = None
     allow_types: Sequence[str] = ()
 
-    def check(self, file: FileMeta) -> Optional[str]:
+    def validate(self, file: FileMeta) -> Optional[str]:
         """Return a message when the file violates this schema.
 
         A message rather than an exception, because a constraint violation is a

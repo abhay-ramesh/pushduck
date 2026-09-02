@@ -346,7 +346,7 @@ class Router:
         response body.
         """
         if route.schema is not None:
-            message = route.schema.check(file)
+            message = route.schema.validate(file)
             if message:
                 raise UploadError("VALIDATION_FAILED", message)
 
