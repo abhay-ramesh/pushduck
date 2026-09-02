@@ -215,3 +215,50 @@ export type {
  */
 export { isUploadError, UPLOAD_ERROR_CODES, UploadError } from "./core/errors";
 export type { UploadErrorCode } from "./core/errors";
+
+/**
+ * Reading a large file one part at a time, rather than all at once.
+ *
+ * This matters more on React Native than anywhere else. The portable way to
+ * turn a picker's `file://` URI into bytes is `fetch(uri).blob()`, which reads
+ * the whole file into memory before the first part is sent — and a 500 MB
+ * video, the exact case multipart exists for, gets the app killed by the OS.
+ *
+ * Pass a reader instead and only the parts in flight are resident. pushduck
+ * does not depend on expo-file-system, so the binding is four lines in your app:
+ *
+ * @example
+ * ```typescript
+ * import * as FileSystem from "expo-file-system";
+ * import { createRangeChunkReader, decodeBase64 } from "pushduck/react-native";
+ *
+ * const { uploadFiles } = useUploadRoute("videoUpload", {
+ *   multipart: {
+ *     store: createAsyncStore(),
+ *     createChunkReader: (input, meta) =>
+ *       "uri" in input
+ *         ? createRangeChunkReader({
+ *             size: meta.size,
+ *             readRange: async (start, end) =>
+ *               decodeBase64(
+ *                 await FileSystem.readAsStringAsync(input.uri, {
+ *                   encoding: FileSystem.EncodingType.Base64,
+ *                   position: start,
+ *                   length: end - start,
+ *                 })
+ *               ),
+ *           })
+ *         : undefined,
+ *   },
+ * });
+ * ```
+ */
+export {
+  createBlobChunkReader,
+  createRangeChunkReader,
+  decodeBase64,
+} from "./core/upload/multipart/chunk-reader";
+export type { ChunkBody, ChunkReader } from "./core/upload/multipart/chunk-reader";
+
+export { createMemoryStore } from "./core/upload/multipart/store";
+export type { ResumableUpload, UploadStore } from "./core/upload/multipart/store";

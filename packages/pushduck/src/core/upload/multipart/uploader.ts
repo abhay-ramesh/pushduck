@@ -20,6 +20,7 @@
 
 import { UploadError } from "../../errors";
 import { UploadAbortedError, type UploadTransport } from "../transport";
+import { createBlobChunkReader, type ChunkReader } from "./chunk-reader";
 import { planMultipart, type MultipartPlan } from "./plan";
 import type { ResumableUpload, UploadStore } from "./store";
 
@@ -31,8 +32,21 @@ export interface CompletedPart {
 
 /** Everything the orchestrator needs. All I/O is injected. */
 export interface MultipartUploadOptions {
-  /** The bytes. */
-  blob: Blob;
+  /**
+   * The bytes, when the whole file is already in hand.
+   *
+   * Web callers pass this: a `Blob` slice is a view, so holding one costs
+   * nothing. Prefer {@link MultipartUploadOptions.reader} on platforms where
+   * materialising the file is expensive — see `chunk-reader.ts`.
+   */
+  blob?: Blob;
+  /**
+   * A range-addressable source, read one part at a time.
+   *
+   * Takes precedence over `blob`. This is how React Native avoids loading a
+   * 500 MB video into memory before the first part is sent.
+   */
+  reader?: ChunkReader;
   /** Descriptor sent to the server for validation and path generation. */
   file: { name: string; size: number; type: string };
   /** Route to upload through. */
@@ -114,6 +128,7 @@ export async function uploadFileMultipart(
 ): Promise<MultipartUploadResult> {
   const {
     blob,
+    reader: providedReader,
     file,
     route,
     endpoint,
@@ -129,6 +144,32 @@ export async function uploadFileMultipart(
 
   const { store, fingerprint, now = Date.now } = options;
   const base = `${endpoint}?route=${route}`;
+
+  // One of the two must be present. A `blob` is wrapped rather than special-
+  // cased, so there is exactly one read path below and the web cannot drift
+  // away from what React Native exercises.
+  const reader =
+    providedReader ?? (blob ? createBlobChunkReader(blob) : undefined);
+
+  if (!reader) {
+    throw new UploadError(
+      "INTERNAL_ERROR",
+      "Multipart upload requires either `blob` or `reader`"
+    );
+  }
+
+  // Part ranges are planned from `file.size` — the value the server validated
+  // and signed against — while the bytes come from the reader. If those two
+  // disagree the plan addresses ranges the source does not have: the object is
+  // truncated or the final read runs off the end, and neither failure names its
+  // cause. A picker reporting a stale size is the usual way this happens.
+  if (reader.size !== file.size) {
+    throw new UploadError(
+      "INTERNAL_ERROR",
+      `File size (${file.size}) does not match the byte source (${reader.size}); the file may have changed since it was selected`,
+      { meta: { declaredSize: file.size, readerSize: reader.size } }
+    );
+  }
 
   // 1. Resume if we already have a session for *this exact file*, otherwise
   //    start a new one. Middleware, validation and path generation run at
@@ -253,7 +294,7 @@ export async function uploadFileMultipart(
 
       const etag = await transferPart({
         url,
-        body: blob.slice(part.start, part.end),
+        body: await reader.read(part.start, part.end),
         contentType: file.type,
         signal,
         transport,
@@ -324,6 +365,11 @@ export async function uploadFileMultipart(
     }).catch(() => undefined);
 
     throw error;
+  } finally {
+    // Runs on success, failure and cancellation alike. A reader may hold a file
+    // handle or a temporary copy, and leaking one per upload is how an app
+    // hits its descriptor limit after a few hundred files.
+    await Promise.resolve(reader.close?.()).catch(() => undefined);
   }
 }
 
@@ -364,7 +410,7 @@ async function loadResumable(options: {
 /** Transfers one part, retrying transient failures. */
 async function transferPart(options: {
   url: string;
-  body: Blob;
+  body: Blob | Uint8Array<ArrayBuffer>;
   contentType: string;
   signal: AbortSignal;
   transport: UploadTransport;
