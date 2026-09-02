@@ -111,8 +111,8 @@ class Router:
         router.add("avatar", Route(
             schema=image(max_size="5MB"),
             authorize=[require_session],
-            principal=load_user,
-            key=lambda ctx, f: f"{ctx.user.tenant}/{f.name}",
+            user=load_user,
+            storage_path=lambda ctx, f: f"{ctx.user.tenant}/{f.name}",
             metadata=lambda ctx, f: {"owner_id": ctx.user.id},
             on_complete=[record_upload],
         ))
@@ -150,9 +150,9 @@ class Router:
                 merged[name] = tuple(shared) + tuple(getattr(route, name))
 
         # Single-slot channels are not merged — two functions cannot both be
-        # the key — so a route's own always wins, and the default fills in only
-        # where the route is silent.
-        for name in ("principal", "key", "metadata", "schema"):
+        # the storage path — so a route's own always wins, and the default
+        # fills in only where the route is silent.
+        for name in ("user", "storage_path", "metadata", "schema"):
             if getattr(route, name) is None and getattr(self.defaults, name) is not None:
                 merged[name] = getattr(self.defaults, name)
 
@@ -277,11 +277,11 @@ class Router:
     # ─── lifecycle ───────────────────────────────────────────────────────────
     #
     #   authorize (list, per request, veto)
-    #   principal (per request, produces ctx.user)
+    #   user      (per request, produces ctx.user)
     #   around    (list, per request, wraps everything below)
     #     schema  (per file, produces a message)
     #     validate(list, per file, veto)
-    #     key     (per file, produces a fragment; the library owns the result)
+    #     storage_path (per file, produces a fragment; the library owns the result)
     #     metadata(per file, produces ctx.metadata)
     #
     # Each channel is named after what it produces, which is what makes
@@ -305,7 +305,7 @@ class Router:
         for check in route.authorize:
             await _invoke(check, request)
 
-        user = await _invoke(route.principal, request) if route.principal is not None else None
+        user = await _invoke(route.user, request) if route.user is not None else None
 
         return Context(
             request=request,
@@ -353,17 +353,17 @@ class Router:
         for check in route.validate:
             await _invoke(check, ctx, file)
 
-        if route.key is not None:
-            # A fragment, not a key. `resolve_key` refuses traversal and
-            # re-sanitises every segment, so a custom key cannot opt out of the
-            # handling that keeps non-Latin filenames from colliding.
-            key = resolve_key(await _invoke(route.key, ctx, file), file.name)
+        if route.storage_path is not None:
+            # A fragment, not a whole path. `resolve_key` refuses traversal and
+            # re-sanitises every segment, so a custom path cannot opt out of
+            # the handling that keeps non-Latin filenames from colliding.
+            key = resolve_key(await _invoke(route.storage_path, ctx, file), file.name)
         else:
             key = generate_key(file.name)
 
         # A per-file view, so one file's key and metadata cannot leak into the
         # next. The request-level context stays the shared, read-mostly part.
-        scoped = _replace(ctx, key=key, metadata={})
+        scoped = _replace(ctx, storage_path=key, metadata={})
 
         metadata: Dict[str, Any] = {}
         if route.metadata is not None:
@@ -502,7 +502,7 @@ class Router:
                 # The metadata channel runs again rather than trusting what the
                 # client echoed back. Its input is the server's context, so the
                 # result cannot contain a claim the application never made.
-                scoped = _replace(ctx, key=key, metadata={})
+                scoped = _replace(ctx, storage_path=key, metadata={})
                 metadata: Dict[str, Any] = {}
                 if route.metadata is not None:
                     produced = await _invoke(route.metadata, scoped, file)
@@ -517,7 +517,7 @@ class Router:
                 for observer in route.on_complete:
                     await _invoke(
                         observer,
-                        _replace(ctx, key=key, metadata=metadata),
+                        _replace(ctx, storage_path=key, metadata=metadata),
                         Completion(key=key, file=file, url=url),
                     )
 
@@ -549,7 +549,7 @@ class Router:
         if session.get("route") != route_name:
             raise UploadError("FORBIDDEN", "Invalid or expired multipart session")
 
-        # Re-runs `authorize` and `principal`, so a revoked user cannot finish
+        # Re-runs `authorize` and `user`, so a revoked user cannot finish
         # an upload they were allowed to start.
         await self._open(route, request, route_name, {})
 

@@ -170,7 +170,7 @@ func (router *Router) presign(
 	results := make([]presignResult, 0, len(request.Files))
 
 	for _, file := range request.Files {
-		// Middleware authenticates the *request*, so a rejection fails all of
+		// Metadata hooks authenticate the *request*, so a rejection fails all of
 		// it. This is the distinction the conformance suite pins down: a
 		// request-scoped failure is a status, a file-scoped one is an entry.
 		metadata := map[string]any{}
@@ -178,20 +178,20 @@ func (router *Router) presign(
 			metadata[key] = value
 		}
 
-		for _, middleware := range route.Middleware {
-			produced, err := middleware(r, file)
+		for _, hook := range route.Metadata {
+			produced, err := hook(r, file)
 			if err != nil {
 				return err
 			}
 			// Assigned unconditionally. Keeping the previous value when a
-			// middleware returns nil sounds harmless and is not: that value is
-			// the *client's* metadata, so an authenticate-only middleware —
+			// hook returns nil sounds harmless and is not: that value is
+			// the *client's* metadata, so an authenticate-only hook —
 			// the most natural shape there is — would silently promote the
 			// caller's own identity claims to the ones the application trusts.
 			metadata = produced
 		}
 
-		// A middleware ran and returned nothing, so the upload has no
+		// A hook ran and returned nothing, so the upload has no
 		// metadata. Never the client's.
 		if metadata == nil {
 			metadata = map[string]any{}
@@ -286,8 +286,8 @@ func (router *Router) complete(
 			metadata[key] = value
 		}
 
-		for _, middleware := range route.Middleware {
-			produced, err := middleware(r, entry.File)
+		for _, hook := range route.Metadata {
+			produced, err := hook(r, entry.File)
 			if err != nil {
 				return err
 			}

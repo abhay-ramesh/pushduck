@@ -68,11 +68,11 @@ type FileMeta struct {
 	Type string `json:"type"`
 }
 
-// Middleware authenticates a request and returns metadata for the upload.
+// MetadataHook authenticates a request and returns metadata for the upload.
 //
 // Returning an error rejects the whole request. Return an *Error to control
 // the status; any other error becomes a 500 with its detail withheld.
-type Middleware func(r *http.Request, file FileMeta) (map[string]any, error)
+type MetadataHook func(r *http.Request, file FileMeta) (map[string]any, error)
 
 // CompleteHook runs once an upload finishes.
 //
@@ -85,7 +85,7 @@ type CompleteHook func(r *http.Request, key string, file FileMeta, metadata map[
 type Route struct {
 	MaxSize    int64
 	AllowTypes []string
-	Middleware []Middleware
+	Metadata   []MetadataHook
 	OnComplete CompleteHook
 	// RequireCompletionToken rejects a completion that presents no token.
 	// Off by default so clients older than the token still work.
@@ -114,10 +114,10 @@ func AllowTypes(types ...string) RouteOption {
 	return func(route *Route) { route.AllowTypes = types }
 }
 
-// WithMiddleware appends to the chain; each runs in order and may reject.
-func WithMiddleware(middleware ...Middleware) RouteOption {
+// WithMetadata appends to the metadata chain; each hook runs in order and may reject.
+func WithMetadata(hooks ...MetadataHook) RouteOption {
 	return func(route *Route) {
-		route.Middleware = append(route.Middleware, middleware...)
+		route.Metadata = append(route.Metadata, hooks...)
 	}
 }
 

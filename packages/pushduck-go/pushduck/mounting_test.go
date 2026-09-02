@@ -30,7 +30,7 @@ func mountingRouter() *Router {
 		Routes{
 			"imageUpload": Image(
 				MaxSize("5MB"),
-				WithMiddleware(func(r *http.Request, _ FileMeta) (map[string]any, error) {
+				WithMetadata(func(r *http.Request, _ FileMeta) (map[string]any, error) {
 					if r.Header.Get("Authorization") != "Bearer token" {
 						return nil, NewError("UNAUTHORIZED", "Sign in to upload")
 					}
@@ -68,9 +68,9 @@ func assertPresigned(t *testing.T, recorder *httptest.ResponseRecorder) {
 	if !bytes.Contains([]byte(body.Results[0].PresignedURL), []byte("X-Amz-Signature")) {
 		t.Error("presigned URL carries no signature")
 	}
-	// The middleware ran and its output is authoritative.
+	// The hook ran and its output is authoritative.
 	if body.Results[0].Metadata["userId"] != "u1" {
-		t.Errorf("middleware metadata missing: %v", body.Results[0].Metadata)
+		t.Errorf("hook metadata missing: %v", body.Results[0].Metadata)
 	}
 }
 
@@ -113,7 +113,7 @@ func TestWorksBehindMiddleware(t *testing.T) {
 
 	assertPresigned(t, recorder)
 	if !sawRequest {
-		t.Error("the wrapping middleware never ran")
+		t.Error("the wrapping hook never ran")
 	}
 }
 
