@@ -1,0 +1,42 @@
+[
+  {
+    "name": "a route requiring auth rejects an unauthenticated presign",
+    "spec": "Errors",
+    "why": "Middleware rejection is a whole-request failure with the middleware's own status, not a per-file result.",
+    "request": {
+      "query": { "route": "privateUpload" },
+      "body": { "files": [{ "name": "a.bin", "size": 10, "type": "application/octet-stream" }] }
+    },
+    "expect": {
+      "status": 401,
+      "body": { "status": 401, "code": "UNAUTHORIZED" }
+    }
+  },
+  {
+    "name": "the same route accepts an authenticated presign",
+    "spec": "Errors",
+    "request": {
+      "query": { "route": "privateUpload" },
+      "headers": { "authorization": "Bearer conformance-token" },
+      "body": { "files": [{ "name": "a.bin", "size": 10, "type": "application/octet-stream" }] }
+    },
+    "expect": {
+      "status": 200,
+      "body": { "results": [{ "success": true, "key": { "$type": "string" } }] }
+    }
+  },
+  {
+    "name": "completion is authorised, not merely accepted",
+    "spec": "3. Complete",
+    "why": "onUploadComplete is where an application attaches a file to a record and grants access to it. An unauthenticated caller must not be able to drive it.",
+    "request": {
+      "query": { "route": "privateUpload", "action": "complete" },
+      "body": {
+        "completions": [
+          { "key": "uploads/victim.bin", "file": { "name": "a.bin", "size": 10, "type": "application/octet-stream" }, "metadata": {} }
+        ]
+      }
+    },
+    "expect": { "status": 401, "body": { "code": "UNAUTHORIZED" } }
+  }
+]

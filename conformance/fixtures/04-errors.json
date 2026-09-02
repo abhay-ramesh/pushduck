@@ -1,0 +1,59 @@
+[
+  {
+    "name": "an unknown route is a whole-request 404 problem document",
+    "spec": "Errors",
+    "why": "The route is named in the query string, so an unknown one is a malformed request rather than a per-file outcome.",
+    "request": {
+      "query": { "route": "noSuchRoute" },
+      "body": { "files": [{ "name": "a.jpg", "size": 1, "type": "image/jpeg" }] }
+    },
+    "expect": {
+      "status": 404,
+      "headers": { "content-type": { "$contains": "json" } },
+      "body": { "status": 404, "code": "NOT_FOUND", "title": { "$type": "string" } }
+    }
+  },
+  {
+    "name": "a malformed body is a 400 problem document",
+    "spec": "Errors",
+    "request": {
+      "query": { "route": "imageUpload" },
+      "rawBody": "this is not json"
+    },
+    "expect": { "status": 400, "body": { "status": 400, "code": { "$type": "string" } } }
+  },
+  {
+    "name": "a missing files array is a 400, not a crash",
+    "spec": "1. Presign",
+    "request": { "query": { "route": "imageUpload" }, "body": { "notFiles": true } },
+    "expect": { "status": 400, "body": { "code": { "$type": "string" } } }
+  },
+  {
+    "name": "an unknown action is rejected",
+    "spec": "Endpoint and dispatch",
+    "request": {
+      "query": { "route": "imageUpload", "action": "noSuchAction" },
+      "body": {}
+    },
+    "expect": { "status": 400, "body": { "code": { "$type": "string" } } }
+  },
+  {
+    "name": "a problem document carries the RFC 9457 members",
+    "spec": "Errors",
+    "why": "type, title and status are what let a generic client render a failure it has never seen before.",
+    "request": {
+      "query": { "route": "noSuchRoute" },
+      "body": { "files": [] }
+    },
+    "expect": {
+      "status": 404,
+      "body": {
+        "type": { "$matches": "^https?://" },
+        "title": { "$type": "string" },
+        "status": 404,
+        "code": { "$type": "string" },
+        "retryable": { "$type": "boolean" }
+      }
+    }
+  }
+]

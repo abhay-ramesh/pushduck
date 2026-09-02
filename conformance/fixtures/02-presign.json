@@ -1,0 +1,55 @@
+[
+  {
+    "name": "presign returns a signed URL and key per file",
+    "spec": "1. Presign",
+    "request": {
+      "query": { "route": "imageUpload" },
+      "body": { "files": [{ "name": "photo.jpg", "size": 1000, "type": "image/jpeg" }] }
+    },
+    "expect": {
+      "status": 200,
+      "headers": { "x-pushduck-protocol": "1" },
+      "body": {
+        "success": true,
+        "results": [
+          {
+            "success": true,
+            "key": { "$type": "string" },
+            "presignedUrl": { "$contains": "X-Amz-Signature" }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "results align positionally with the request's files",
+    "spec": "1. Presign",
+    "why": "Clients match results to files by index; a reordered or shortened array silently attributes one file's URL to another.",
+    "request": {
+      "query": { "route": "fileUpload" },
+      "body": {
+        "files": [
+          { "name": "first.bin", "size": 10, "type": "application/octet-stream" },
+          { "name": "second.bin", "size": 20, "type": "application/octet-stream" },
+          { "name": "third.bin", "size": 30, "type": "application/octet-stream" }
+        ]
+      }
+    },
+    "expect": {
+      "status": 200,
+      "body": {
+        "results": [
+          { "success": true, "file": { "name": "first.bin" } },
+          { "success": true, "file": { "name": "second.bin" } },
+          { "success": true, "file": { "name": "third.bin" } }
+        ]
+      }
+    }
+  },
+  {
+    "name": "an empty file list is accepted, not an error",
+    "spec": "1. Presign",
+    "request": { "query": { "route": "imageUpload" }, "body": { "files": [] } },
+    "expect": { "status": 200, "body": { "success": true, "results": [] } }
+  }
+]

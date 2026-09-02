@@ -1,0 +1,26 @@
+[
+  {
+    "name": "introspection reports the protocol version and routes",
+    "spec": "Introspection",
+    "why": "A client discovers the server's capabilities here; without protocolVersion it cannot tell which contract it is talking to.",
+    "request": { "method": "GET" },
+    "expect": {
+      "status": 200,
+      "headers": { "x-pushduck-protocol": "1" },
+      "body": {
+        "success": true,
+        "protocolVersion": 1,
+        "routes": { "$type": "array" }
+      }
+    }
+  },
+  {
+    "name": "introspection names every configured route",
+    "spec": "Introspection",
+    "request": { "method": "GET" },
+    "expect": {
+      "status": 200,
+      "body": { "routes": { "$type": "array" } }
+    }
+  }
+]

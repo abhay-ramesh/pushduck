@@ -1,0 +1,37 @@
+[
+  {
+    "name": "every response carries the protocol header",
+    "spec": "Response headers",
+    "request": {
+      "query": { "route": "imageUpload" },
+      "body": { "files": [{ "name": "a.jpg", "size": 10, "type": "image/jpeg" }] }
+    },
+    "expect": { "status": 200, "headers": { "x-pushduck-protocol": "1" } }
+  },
+  {
+    "name": "an error response carries the protocol header too",
+    "spec": "Response headers",
+    "why": "A client that reads the header to negotiate behaviour must be able to read it on the responses it is most likely to receive from an older server.",
+    "request": { "query": { "route": "noSuchRoute" }, "body": { "files": [] } },
+    "expect": { "status": 404, "headers": { "x-pushduck-protocol": "1" } }
+  },
+  {
+    "name": "the route is echoed on the response",
+    "spec": "Response headers",
+    "request": {
+      "query": { "route": "imageUpload" },
+      "body": { "files": [{ "name": "a.jpg", "size": 10, "type": "image/jpeg" }] }
+    },
+    "expect": { "status": 200, "headers": { "x-pushduck-route": "imageUpload" } }
+  },
+  {
+    "name": "presign is the default action",
+    "spec": "Endpoint and dispatch",
+    "why": "Omitting action must mean presign, or every client has to send a parameter that has only one sensible value.",
+    "request": {
+      "query": { "route": "imageUpload" },
+      "body": { "files": [{ "name": "a.jpg", "size": 10, "type": "image/jpeg" }] }
+    },
+    "expect": { "status": 200, "body": { "success": true } }
+  }
+]
