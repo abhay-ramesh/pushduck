@@ -141,6 +141,13 @@ export interface S3FileConstraints {
   maxSize?: string | number;
   /** Minimum file size (string like '1KB' or number in bytes) */
   minSize?: string | number;
+  /**
+   * Accepted file types — mirrors HTML `<input accept>`.
+   * Supports MIME types (`'image/jpeg'`), wildcards (`'image/*'`),
+   * and extensions with dots (`'.pdf'`). Mixes are allowed.
+   * @example s3.file({ accept: ['image/*', '.pdf'] })
+   */
+  accept?: string | string[];
   /** Allowed MIME types (e.g., ['image/jpeg', 'application/pdf']) */
   allowedTypes?: string[];
   /** Allowed file extensions (e.g., ['.jpg', '.pdf']) */
@@ -643,6 +650,23 @@ export class S3FileSchema extends S3Schema<File, File> {
    */
   constructor(protected constraints: S3FileConstraints = {}) {
     super();
+    // Process `accept` shorthand into allowedTypes / allowedExtensions
+    if (constraints.accept) {
+      const acceptArray = Array.isArray(constraints.accept)
+        ? constraints.accept
+        : [constraints.accept];
+      const mimeTypes = acceptArray.filter((t) => !t.startsWith("."));
+      const exts = acceptArray
+        .filter((t) => t.startsWith("."))
+        .map((e) => e.slice(1)); // strip leading dot for internal storage
+      if (mimeTypes.length && !constraints.allowedTypes) {
+        constraints = { ...constraints, allowedTypes: mimeTypes };
+      }
+      if (exts.length && !constraints.allowedExtensions) {
+        constraints = { ...constraints, allowedExtensions: exts };
+      }
+      this.constraints = constraints;
+    }
     this._constraints = { ...constraints };
   }
 
@@ -746,11 +770,20 @@ export class S3FileSchema extends S3Schema<File, File> {
    * const schema2 = s3.file().maxFileSize(10485760); // 10MB in bytes
    * ```
    */
+  /** @deprecated Use `.maxSize()` instead. */
   max(size: string | number): S3FileSchema {
     console.warn(
-      "⚠️  The `max()` method is deprecated. Use `maxFileSize()` instead."
+      "⚠️ pushduck: .max() is deprecated. Use .maxSize() instead."
     );
-    return new S3FileSchema({ ...this.constraints, maxSize: size });
+    return this.maxSize(size);
+  }
+
+  /** @deprecated Use `.maxSize()` instead. */
+  maxFileSize(size: string | number): S3FileSchema {
+    console.warn(
+      "⚠️ pushduck: .maxFileSize() is deprecated. Use .maxSize() instead."
+    );
+    return this.maxSize(size);
   }
 
   /**
@@ -761,12 +794,20 @@ export class S3FileSchema extends S3Schema<File, File> {
    *
    * @example
    * ```typescript
-   * const schema = s3.file().maxFileSize('10MB');
-   * const schema2 = s3.file().maxFileSize(10485760); // 10MB in bytes
+   * upload.file().maxSize('10MB')
+   * upload.file().maxSize(10485760) // 10MB in bytes
    * ```
    */
-  maxFileSize(size: string | number): S3FileSchema {
+  maxSize(size: string | number): S3FileSchema {
     return new S3FileSchema({ ...this.constraints, maxSize: size });
+  }
+
+  /** @deprecated Use `.minSize()` instead. */
+  min(size: string | number): S3FileSchema {
+    console.warn(
+      "⚠️ pushduck: .min() is deprecated. Use .minSize() instead."
+    );
+    return this.minSize(size);
   }
 
   /**
@@ -777,45 +818,54 @@ export class S3FileSchema extends S3Schema<File, File> {
    *
    * @example
    * ```typescript
-   * const schema = s3.file().min('1KB');
-   * const schema2 = s3.file().min(1024); // 1KB in bytes
+   * upload.file().minSize('1KB')
    * ```
    */
-  min(size: string | number): S3FileSchema {
+  minSize(size: string | number): S3FileSchema {
     return new S3FileSchema({ ...this.constraints, minSize: size });
   }
 
   /**
-   * Sets the accepted file types for this upload route.
+   * Sets accepted file types — mirrors HTML `<input accept>`.
+   * Replaces `.types()` and `.extensions()` with a single unified method.
    *
-   * @param mimeTypes - Array of MIME types (e.g., `'image/jpeg'`, `'application/pdf'`, `'video/*'`)
-   * @returns New schema instance with type constraint
-   *
+   * Supports MIME types, wildcards, and extensions (with dots):
    * @example
    * ```typescript
-   * s3.file().accept(['image/jpeg', 'image/png', 'image/webp'])
-   * s3.file().accept(['application/pdf', 'application/msword'])
-   * s3.file().accept(['video/*'])  // wildcard
+   * upload.file().accept('image/*')
+   * upload.file().accept(['image/jpeg', 'image/png'])
+   * upload.file().accept(['.pdf', '.doc'])
+   * upload.file().accept(['image/*', '.pdf']) // mixed
    * ```
    */
-  accept(mimeTypes: MimeType[]): S3FileSchema {
-    return new S3FileSchema({ ...this.constraints, allowedTypes: mimeTypes });
+  accept(types: string | string[]): S3FileSchema {
+    const typeArray = Array.isArray(types) ? types : [types];
+    const mimeTypes = typeArray.filter((t) => !t.startsWith("."));
+    const exts = typeArray
+      .filter((t) => t.startsWith("."))
+      .map((e) => e.slice(1)); // strip leading dot
+    const newConstraints = { ...this.constraints };
+    if (mimeTypes.length > 0) newConstraints.allowedTypes = mimeTypes;
+    if (exts.length > 0) newConstraints.allowedExtensions = exts;
+    return new S3FileSchema(newConstraints);
   }
 
-  /**
-   * @deprecated Use `accept()` instead (e.g., `accept(['image/jpeg', 'image/png'])`).
-   */
-  types(allowedTypes: MimeType[]): S3FileSchema {
-    console.warn("⚠️  The `types()` method is deprecated. Use `accept()` instead.");
+  /** @deprecated Use `.accept()` instead. */
+  types(allowedTypes: string[]): S3FileSchema {
+    console.warn(
+      "⚠️ pushduck: .types() is deprecated. Use .accept() instead."
+    );
     return this.accept(allowedTypes);
   }
 
-  /**
-   * @deprecated Use `accept()` instead with MIME types (e.g., `accept(['.jpg', '.pdf'])`).
-   */
+  /** @deprecated Use `.accept(['.ext'])` instead. */
   extensions(allowedExtensions: string[]): S3FileSchema {
-    console.warn("⚠️  The `extensions()` method is deprecated. Use `accept()` with MIME types instead.");
-    return new S3FileSchema({ ...this.constraints, allowedExtensions });
+    console.warn(
+      "⚠️ pushduck: .extensions() is deprecated. Use .accept() with dot-prefixed extensions instead, e.g. .accept([\'.pdf\', \'.doc\'])."
+    );
+    return this.accept(
+      allowedExtensions.map((e) => (e.startsWith(".") ? e : `.${e}`))
+    );
   }
 
   /**
@@ -921,13 +971,36 @@ export class S3FileSchema extends S3Schema<File, File> {
    *   });
    * ```
    */
+  /**
+   * @deprecated Use `.onStart()` instead.
+   */
   onUploadStart(
     hook: (ctx: {
       file: { name: string; size: number; type: string };
       metadata: any;
     }) => Promise<void> | void
   ) {
-    return new S3Route(this).onUploadStart(hook);
+    console.warn('⚠️ pushduck: .onUploadStart() is deprecated. Use .onStart() instead.');
+    return new S3Route(this).onStart(hook);
+  }
+
+  /**
+   * Adds a hook that executes when file upload starts.
+   *
+   * @example
+   * ```typescript
+   * upload.file().onStart(async ({ file, metadata }) => {
+   *   await logUploadEvent('start', file.name, metadata.userId);
+   * });
+   * ```
+   */
+  onStart(
+    hook: (ctx: {
+      file: { name: string; size: number; type: string };
+      metadata: any;
+    }) => Promise<void> | void
+  ) {
+    return new S3Route(this).onStart(hook);
   }
 
   /**
@@ -965,6 +1038,9 @@ export class S3FileSchema extends S3Schema<File, File> {
    *   });
    * ```
    */
+  /**
+   * @deprecated Use `.onComplete()` instead.
+   */
   onUploadComplete(
     hook: (ctx: {
       file: { name: string; size: number; type: string };
@@ -973,7 +1049,29 @@ export class S3FileSchema extends S3Schema<File, File> {
       key?: string;
     }) => Promise<void> | void
   ) {
-    return new S3Route(this).onUploadComplete(hook);
+    console.warn('⚠️ pushduck: .onUploadComplete() is deprecated. Use .onComplete() instead.');
+    return new S3Route(this).onComplete(hook);
+  }
+
+  /**
+   * Adds a hook that executes when file upload completes successfully.
+   *
+   * @example
+   * ```typescript
+   * upload.file().onComplete(async ({ file, url, key, metadata }) => {
+   *   await db.files.create({ name: file.name, url, uploadedBy: metadata.userId });
+   * });
+   * ```
+   */
+  onComplete(
+    hook: (ctx: {
+      file: { name: string; size: number; type: string };
+      metadata: any;
+      url?: string;
+      key?: string;
+    }) => Promise<void> | void
+  ) {
+    return new S3Route(this).onComplete(hook);
   }
 
   /**
@@ -1008,6 +1106,9 @@ export class S3FileSchema extends S3Schema<File, File> {
    *   });
    * ```
    */
+  /**
+   * @deprecated Use `.onError()` instead.
+   */
   onUploadError(
     hook: (ctx: {
       file: { name: string; size: number; type: string };
@@ -1015,7 +1116,28 @@ export class S3FileSchema extends S3Schema<File, File> {
       error: Error;
     }) => Promise<void> | void
   ) {
-    return new S3Route(this).onUploadError(hook);
+    console.warn('⚠️ pushduck: .onUploadError() is deprecated. Use .onError() instead.');
+    return new S3Route(this).onError(hook);
+  }
+
+  /**
+   * Adds a hook that executes when file upload fails.
+   *
+   * @example
+   * ```typescript
+   * upload.file().onError(async ({ file, error, metadata }) => {
+   *   await logUploadError({ fileName: file.name, error: error.message });
+   * });
+   * ```
+   */
+  onError(
+    hook: (ctx: {
+      file: { name: string; size: number; type: string };
+      metadata: any;
+      error: Error;
+    }) => Promise<void> | void
+  ) {
+    return new S3Route(this).onError(hook);
   }
 
   /**
@@ -1151,55 +1273,53 @@ export class S3ImageSchema extends S3FileSchema {
     return new S3ImageSchema({ ...this.constraints, allowedTypes: mimeTypes });
   }
 
-  // Override methods to maintain S3ImageSchema type
-  /**
-   * @deprecated Use `maxFileSize()` instead. This method will be removed in a future version.
-   */
+  // Override methods to maintain S3ImageSchema return type
+  /** @deprecated Use `.maxSize()` instead. */
   override max(size: string | number): S3ImageSchema {
-    console.warn(
-      "⚠️  The `max()` method is deprecated. Use `maxFileSize()` instead."
-    );
+    console.warn("⚠️ pushduck: .max() is deprecated. Use .maxSize() instead.");
+    return this.maxSize(size);
+  }
+
+  /** @deprecated Use `.maxSize()` instead. */
+  override maxFileSize(size: string | number): S3ImageSchema {
+    console.warn("⚠️ pushduck: .maxFileSize() is deprecated. Use .maxSize() instead.");
+    return this.maxSize(size);
+  }
+
+  override maxSize(size: string | number): S3ImageSchema {
     return new S3ImageSchema({ ...this.constraints, maxSize: size });
   }
 
-  /**
-   * Sets the maximum file size constraint.
-   *
-   * @param size - Maximum size as string (e.g., '10MB', '500KB') or number (bytes)
-   * @returns New schema instance with max size constraint
-   *
-   * @example
-   * ```typescript
-   * const schema = s3.image().maxFileSize('10MB');
-   * const schema2 = s3.image().maxFileSize(10485760); // 10MB in bytes
-   * ```
-   */
-  maxFileSize(size: string | number): S3ImageSchema {
-    return new S3ImageSchema({ ...this.constraints, maxSize: size });
-  }
-
+  /** @deprecated Use `.minSize()` instead. */
   override min(size: string | number): S3ImageSchema {
+    console.warn("⚠️ pushduck: .min() is deprecated. Use .minSize() instead.");
+    return this.minSize(size);
+  }
+
+  override minSize(size: string | number): S3ImageSchema {
     return new S3ImageSchema({ ...this.constraints, minSize: size });
   }
 
-  override accept(mimeTypes: MimeType[]): S3ImageSchema {
-    return new S3ImageSchema({ ...this.constraints, allowedTypes: mimeTypes });
+  override accept(types: string | string[]): S3ImageSchema {
+    const typeArray = Array.isArray(types) ? types : [types];
+    const mimeTypes = typeArray.filter((t) => !t.startsWith("."));
+    const exts = typeArray.filter((t) => t.startsWith(".")).map((e) => e.slice(1));
+    const newConstraints = { ...this.constraints };
+    if (mimeTypes.length > 0) newConstraints.allowedTypes = mimeTypes;
+    if (exts.length > 0) newConstraints.allowedExtensions = exts;
+    return new S3ImageSchema(newConstraints);
   }
 
-  /**
-   * @deprecated Use `accept()` instead (e.g., `accept(['image/jpeg', 'image/png'])`).
-   */
-  override types(allowedTypes: MimeType[]): S3ImageSchema {
-    console.warn("⚠️  The `types()` method is deprecated. Use `accept()` instead.");
+  /** @deprecated Use `.accept()` instead. */
+  override types(allowedTypes: string[]): S3ImageSchema {
+    console.warn("⚠️ pushduck: .types() is deprecated. Use .accept() instead.");
     return this.accept(allowedTypes);
   }
 
-  /**
-   * @deprecated Use `accept()` instead with MIME types (e.g., `accept(['image/jpeg', 'image/png'])`).
-   */
+  /** @deprecated Use `.accept(['.ext'])` instead. */
   override extensions(allowedExtensions: string[]): S3ImageSchema {
-    console.warn("⚠️  The `extensions()` method is deprecated. Use `accept()` with MIME types instead.");
-    return new S3ImageSchema({ ...this.constraints, allowedExtensions });
+    console.warn("⚠️ pushduck: .extensions() is deprecated. Use .accept() with dot-prefixed extensions instead.");
+    return this.accept(allowedExtensions.map((e) => (e.startsWith(".") ? e : `.${e}`)));
   }
 
   /**

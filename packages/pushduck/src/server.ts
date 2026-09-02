@@ -101,10 +101,8 @@
  *
  */
 
-// ========================================
-// CONFIGURATION & INITIALIZATION
-// ========================================
-
+// =================================// CONFIGURATION & INITIALIZATION
+// =================================
 /**
  * Provider system for configuring cloud storage services.
  *
@@ -149,10 +147,8 @@ export {
  */
 export { createUploadConfig } from "./core/config/upload-config";
 
-// ========================================
-// SCHEMA BUILDERS
-// ========================================
-
+// =================================// SCHEMA BUILDERS
+// =================================
 /**
  * Type-safe schema system for file validation and transformation.
  * Provides chainable API similar to Zod for defining upload constraints.
@@ -204,10 +200,8 @@ export {
   S3Schema,
 } from "./core/schema";
 
-// ========================================
-// ROUTER SYSTEM
-// ========================================
-
+// =================================// ROUTER SYSTEM
+// =================================
 /**
  * Modern config-aware router system for handling file uploads.
  * Provides type-safe routing with middleware, lifecycle hooks, and automatic presigned URL generation.
@@ -266,10 +260,8 @@ export type { S3Router } from "./types";
 // Frameworks that speak Web-standard Request/Response need no adapter at all —
 // use `router.handlers` directly.
 
-// ========================================
-// STORAGE API
-// ========================================
-
+// =================================// STORAGE API
+// =================================
 /**
  * High-level object-style storage API for direct file operations.
  * Provides a clean interface for file management without dealing with upload routes.
@@ -338,10 +330,8 @@ export { createStorage, StorageInstance } from "./core/storage/storage-api";
  */
 export { createS3Client, resetS3Client } from "./core/storage/client";
 
-// ========================================
-// UTILITIES & HEALTH CHECKS
-// ========================================
-
+// =================================// UTILITIES & HEALTH CHECKS
+// =================================
 /**
  * Comprehensive error handling system with typed error categories.
  * Provides structured error handling for different failure scenarios.
@@ -519,10 +509,8 @@ export {
  */
 export { logger } from "./core/utils/logger";
 
-// ========================================
-// TYPES & INTERFACES
-// ========================================
-
+// =================================// TYPES & INTERFACES
+// =================================
 // Configuration types
 export type {
   AWSProviderConfig,
@@ -614,3 +602,28 @@ export type {
   UploadErrorCode,
   UploadErrorOptions,
 } from "./core/errors";
+// =================================// PROVIDER-NEUTRAL TYPE ALIASES
+// =================================
+// These aliases drop the "S3" prefix so they read naturally when using R2, MinIO, or any provider.
+// The S3-prefixed originals remain fully supported.
+
+export type {
+  UploadRouter,
+  UploadedFile,
+  UploadResult,
+  RouteNames,
+} from "./types";
+
+// Schema aliases
+export type { S3FileConstraints as FileConstraints } from "./core/schema";
+export type { InferS3Input as InferFileInput, InferS3Output as InferFileOutput } from "./core/schema";
+
+// Router/lifecycle aliases
+export type {
+  S3LifecycleContext as LifecycleContext,
+  S3LifecycleHook as LifecycleHook,
+  S3Middleware as Middleware,
+  S3MiddlewareContext as MiddlewareContext,
+  S3RouteContext as RouteContext,
+  S3RouterDefinition as RouterDefinition,
+} from "./core/router/router-v2";

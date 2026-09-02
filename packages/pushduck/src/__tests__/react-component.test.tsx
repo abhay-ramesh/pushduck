@@ -185,7 +185,7 @@ describe("React binding in a rendered component", () => {
       <BlockingUploader fetcher={createFetcher()} transport={() => blocked} />
     );
 
-    let settle!: Promise<void>;
+    let settle!: Promise<unknown>;
     await act(async () => {
       settle = controls.uploadFiles([makeFile()]);
       // Let the presign round trip land, but not the transfer.
