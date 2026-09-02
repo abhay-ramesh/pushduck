@@ -969,13 +969,8 @@ export class S3FileSchema extends S3Schema<File, File> {
     hook: (ctx: {
       file: { name: string; size: number; type: string };
       metadata: any;
-      /** Public URL of the uploaded object. Always present in this hook. */
-      url: string;
-      /**
-       * Storage key of the uploaded object. Always present in this hook.
-       * Persist this, not a presigned URL — URLs expire, keys do not.
-       */
-      key: string;
+      url?: string;
+      key?: string;
     }) => Promise<void> | void
   ) {
     return new S3Route(this).onUploadComplete(hook);

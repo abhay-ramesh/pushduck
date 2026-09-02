@@ -57,6 +57,8 @@
  */
 
 import { UploadConfig } from "../config/upload-config";
+import { isRequestScoped, UploadError } from "../errors";
+import { normalizeServerError } from "../errors/from-pushduck-error";
 import { createUniversalHandler } from "../handler/universal-handler";
 import { InferS3Input, InferS3Output, S3Schema } from "../schema";
 import {
@@ -182,26 +184,6 @@ export type S3Middleware<TInput = any, TOutput = any> = (
  */
 export type S3LifecycleHook<T = any> = (
   ctx: S3LifecycleContext<T>
-) => Promise<void> | void;
-
-/**
- * Context for `onUploadComplete`.
- *
- * By the time this hook runs the object exists, so `url` and `key` are always
- * present. {@link S3LifecycleContext} marks them optional because it is shared
- * with `onUploadStart`, which runs before a key has been generated — without
- * this narrowing every completion handler would need `key!` or a guard for a
- * value that is guaranteed.
- */
-export interface S3CompletionContext<T = any> extends S3LifecycleContext<T> {
-  /** Public URL of the uploaded object. */
-  url: string;
-  /** Storage key of the uploaded object. Persist this, not a presigned URL. */
-  key: string;
-}
-
-export type S3CompletionHook<T = any> = (
-  ctx: S3CompletionContext<T>
 ) => Promise<void> | void;
 
 // ========================================
@@ -466,8 +448,10 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
   ): this {
     const assertRange = (label: string, value: number) => {
       if (!Number.isFinite(value) || value <= 0 || value > 604800) {
-        throw new Error(
-          `${label} must be between 1 and 604800 seconds (7 days), got ${value}`
+        throw new UploadError(
+          "CONFIG_INVALID",
+          `${label} must be between 1 and 604800 seconds (7 days), got ${value}`,
+          { meta: { label, value } }
         );
       }
     };
@@ -607,7 +591,7 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
    * });
    * ```
    */
-  onUploadComplete(hook: S3CompletionHook<TMetadata>): this {
+  onUploadComplete(hook: S3LifecycleHook<TMetadata>): this {
     this.config.onUploadComplete = hook;
     return this;
   }
@@ -709,7 +693,7 @@ interface S3RouteConfig<TMetadata = any> {
     ctx: S3LifecycleContext<TMetadata> & { progress: number }
   ) => Promise<void> | void;
   /** Hook for upload completion events */
-  onUploadComplete?: S3CompletionHook<TMetadata>;
+  onUploadComplete?: S3LifecycleHook<TMetadata>;
   /** Hook for upload error events */
   onUploadError?: (
     ctx: S3LifecycleContext<TMetadata> & { error: Error }
@@ -818,8 +802,76 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     return Object.keys(this.routes);
   }
 
+  /**
+   * Per-method Web-standard handlers.
+   *
+   * Use this where a framework wants named method exports:
+   *
+   * ```typescript
+   * // Next.js App Router
+   * export const { GET, POST } = uploadRouter.handlers;
+   * ```
+   *
+   * @see {@link S3Router.handler} for frameworks that mount a single catch-all.
+   */
   get handlers() {
     return createUniversalHandler(this, this.config);
+  }
+
+  /**
+   * A single Web-standard handler that dispatches on the request method.
+   *
+   * Most frameworks mount one catch-all route rather than per-method exports,
+   * and this is the shape they want:
+   *
+   * ```typescript
+   * // Hono
+   * app.all("/api/upload/*", (c) => uploadRouter.handler(c.req.raw));
+   *
+   * // Elysia
+   * app.all("/api/upload/*", ({ request }) => uploadRouter.handler(request));
+   *
+   * // Astro
+   * export const ALL = ({ request }) => uploadRouter.handler(request);
+   *
+   * // Bun / Deno / Cloudflare Workers
+   * export default { fetch: uploadRouter.handler };
+   * ```
+   *
+   * Unsupported methods get a `405` with an `Allow` header rather than falling
+   * through to the framework's 404, so a misconfigured mount is diagnosable.
+   *
+   * @param request - Web-standard `Request`
+   * @returns Web-standard `Response`
+   */
+  get handler(): (request: Request) => Promise<Response> {
+    const handlers = this.handlers;
+    const allowed = Object.keys(handlers);
+
+    return (request: Request): Promise<Response> => {
+      const method = request.method?.toUpperCase();
+      const handle = handlers[method as keyof typeof handlers];
+
+      if (!handle) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              success: false,
+              error: `Method ${method ?? "unknown"} not allowed`,
+            }),
+            {
+              status: 405,
+              headers: {
+                "Content-Type": "application/json",
+                Allow: allowed.join(", "),
+              },
+            }
+          )
+        );
+      }
+
+      return handle(request);
+    };
   }
 
   /**
@@ -903,7 +955,11 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
   ): Promise<PresignedUrlResponse[]> {
     const route = this.getRoute(routeName);
     if (!route) {
-      throw new Error(`Route "${String(routeName)}" not found`);
+      throw new UploadError(
+        "NOT_FOUND",
+        `Route "${String(routeName)}" not found`,
+        { meta: { route: String(routeName) } }
+      );
     }
 
     const routeConfig = route._getConfig();
@@ -947,8 +1003,18 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
 
         const validationResult = await routeConfig.schema.validate(mockFile);
         if (!validationResult.success) {
-          throw new Error(
-            validationResult.error?.message || "Validation failed"
+          // The caller's file does not satisfy the route's constraints, so this
+          // is a 400 they can act on — not an anonymous 500.
+          throw new UploadError(
+            "VALIDATION_FAILED",
+            validationResult.error?.message || "Validation failed",
+            {
+              meta: {
+                file: file.name,
+                size: file.size,
+                type: file.type,
+              },
+            }
           );
         }
 
@@ -1010,10 +1076,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           metadata: fileMetadata,
         });
       } catch (error) {
-        const err =
-          error instanceof Error
-            ? error
-            : new Error("Failed to generate presigned URL");
+        const err = normalizeServerError(error);
 
         // Call onUploadError hook with enriched metadata
         if (routeConfig.onUploadError) {
@@ -1023,6 +1086,12 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
             error: err,
           });
         }
+
+        // A request-scoped failure — rejected auth, exhausted quota, bad
+        // credentials — is not a property of this file. Abort the batch so the
+        // handler answers with the real status instead of a 200 containing N
+        // copies of the same problem.
+        if (isRequestScoped(err.code)) throw err;
 
         results.push({
           success: false,
@@ -1043,7 +1112,11 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
   ): Promise<CompletionResponse[]> {
     const route = this.getRoute(routeName);
     if (!route) {
-      throw new Error(`Route "${String(routeName)}" not found`);
+      throw new UploadError(
+        "NOT_FOUND",
+        `Route "${String(routeName)}" not found`,
+        { meta: { route: String(routeName) } }
+      );
     }
 
     const routeConfig = route._getConfig();
