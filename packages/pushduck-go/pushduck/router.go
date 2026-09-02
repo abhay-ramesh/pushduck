@@ -144,6 +144,11 @@ func (router *Router) introspect(w http.ResponseWriter, telemetry map[string]str
 		"success":         true,
 		"protocolVersion": ProtocolVersion,
 		"routes":          infos,
+		// Optional parts of the protocol this server implements. Without it a
+		// client can only discover multipart support by attempting
+		// `multipart-init` and interpreting a 400, which is indistinguishable
+		// from a malformed request.
+		"features": []string{"multipart"},
 	})
 }
 
@@ -178,9 +183,18 @@ func (router *Router) presign(
 			if err != nil {
 				return err
 			}
-			if produced != nil {
-				metadata = produced
-			}
+			// Assigned unconditionally. Keeping the previous value when a
+			// middleware returns nil sounds harmless and is not: that value is
+			// the *client's* metadata, so an authenticate-only middleware —
+			// the most natural shape there is — would silently promote the
+			// caller's own identity claims to the ones the application trusts.
+			metadata = produced
+		}
+
+		// A middleware ran and returned nothing, so the upload has no
+		// metadata. Never the client's.
+		if metadata == nil {
+			metadata = map[string]any{}
 		}
 
 		if message := route.validate(file); message != "" {
@@ -277,9 +291,13 @@ func (router *Router) complete(
 			if err != nil {
 				return err
 			}
-			if produced != nil {
-				metadata = produced
-			}
+			// As at presign: nil means "no metadata", never "keep the
+			// client's".
+			metadata = produced
+		}
+
+		if metadata == nil {
+			metadata = map[string]any{}
 		}
 
 		trusted = append(trusted, metadata)

@@ -42,9 +42,18 @@ surface, no fixture could assert anything about validation.
 | `imageUpload`  | images only, max 5 MB                 |
 | `fileUpload`   | any type, max 50 MB                   |
 | `privateUpload`| any type, max 5 MB, requires auth     |
+| `strictUpload` | any type, max 5 MB, requires auth, handler returns **no** metadata |
 
 `privateUpload` must reject a request without `Authorization` with a `401`
 `UNAUTHORIZED` problem document, and accept `Authorization: Bearer conformance-token`.
+
+`strictUpload` takes the same credential, but its handler returns nothing. That
+distinction exists to pin down a rule an implementation can get wrong in a way
+nothing else notices: a handler that authenticates and returns no metadata must
+leave the upload with *no* metadata, not with whatever the client sent. Treating
+"returned nothing" as "keep the client's claims" silently promotes untrusted
+input to authoritative — which is the shape of an authorisation bug, not a
+formatting one.
 
 ## Why responses are matched by shape
 

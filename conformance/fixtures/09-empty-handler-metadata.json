@@ -1,0 +1,26 @@
+[
+  {
+    "name": "a handler that returns nothing leaves no metadata, not the client's",
+    "spec": "1. Presign",
+    "why": "An authenticate-only handler is the most natural shape there is, and it returns nothing. If that means 'keep the client's metadata', a caller's identity claims silently become the ones the application trusts — an authorisation bug wearing the clothes of a default.",
+    "request": {
+      "query": { "route": "strictUpload" },
+      "headers": { "authorization": "Bearer conformance-token" },
+      "body": {
+        "files": [{ "name": "a.bin", "size": 10, "type": "application/octet-stream" }],
+        "metadata": { "userId": "spoofed", "role": "admin" }
+      }
+    },
+    "expect": {
+      "status": 200,
+      "body": {
+        "results": [
+          {
+            "success": true,
+            "metadata": { "userId": { "$absent": true }, "role": { "$absent": true } }
+          }
+        ]
+      }
+    }
+  }
+]

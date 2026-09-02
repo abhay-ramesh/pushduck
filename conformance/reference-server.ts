@@ -42,6 +42,16 @@ const router = s3.createRouter({
       }
       return { userId: "conformance-user" };
     }),
+  // Authenticates and returns nothing.
+  strictUpload: s3
+    .file()
+    .maxFileSize("5MB")
+    .middleware(async ({ req }) => {
+      if (req.headers.get("authorization") !== "Bearer conformance-token") {
+        throw new UploadError("UNAUTHORIZED", "Sign in to upload");
+      }
+      return undefined as never;
+    }),
 });
 
 const server = createServer(async (req, res) => {

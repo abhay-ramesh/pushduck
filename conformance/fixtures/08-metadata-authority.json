@@ -1,0 +1,26 @@
+[
+  {
+    "name": "the handler's metadata replaces the client's, rather than merging",
+    "spec": "1. Presign",
+    "why": "Client metadata is untrusted input. If a server merged it with the handler's output, a caller could add identity claims the handler never made — and the application would read them as though the server had vouched for them.",
+    "request": {
+      "query": { "route": "privateUpload" },
+      "headers": { "authorization": "Bearer conformance-token" },
+      "body": {
+        "files": [{ "name": "a.bin", "size": 10, "type": "application/octet-stream" }],
+        "metadata": { "userId": "spoofed", "role": "admin" }
+      }
+    },
+    "expect": {
+      "status": 200,
+      "body": {
+        "results": [
+          {
+            "success": true,
+            "metadata": { "userId": "conformance-user", "role": { "$absent": true } }
+          }
+        ]
+      }
+    }
+  }
+]
