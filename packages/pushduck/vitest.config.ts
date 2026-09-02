@@ -1,7 +1,13 @@
 /// <reference types="vitest" />
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  // Compiles the `.svelte` fixture used by `svelte-component.test.ts`. Svelte's
+  // `$store` auto-subscription is compiler output, so the only way to test it
+  // is to compile a real component. Scoped to `.svelte` files, so every other
+  // suite is untouched.
+  plugins: [svelte({ compilerOptions: { dev: true } })],
   resolve: {
     // Solid ships separate client and server builds behind export conditions.
     // Under Node's default conditions it resolves to the server build, whose
