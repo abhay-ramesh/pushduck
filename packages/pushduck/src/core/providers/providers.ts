@@ -68,6 +68,8 @@
  *
  */
 
+import { logger } from "../utils/logger";
+
 // ========================================
 // Provider Types
 // ========================================
@@ -471,6 +473,32 @@ function createProviderBuilder<T extends ProviderConfig>(
     // Apply custom logic if provided
     if (spec.customLogic) {
       Object.assign(result, spec.customLogic(config, result));
+    }
+
+    /**
+     * Report anything the caller supplied that did not survive.
+     *
+     * Only listed keys are copied, and everything else is discarded — which is
+     * how `sessionToken` came to be declared, documented, read from the
+     * environment and then lost before signing. The resolution behaviour is
+     * deliberately unchanged, because copying arbitrary keys into a provider
+     * config would defeat validation. What changes is that it is no longer
+     * silent: a typo, an option from a newer version, or a key copied from a
+     * sibling provider now says so instead of being ignored.
+     *
+     * Compared against the *final* result rather than `configKeys`, so options
+     * a provider computes for itself — MinIO's `useSSL` and `port` — do not
+     * produce a warning nobody should act on.
+     */
+    const dropped = Object.keys(config).filter(
+      (key) => config[key as keyof T] !== undefined && !(key in result)
+    );
+
+    if (dropped.length > 0) {
+      logger.warn(
+        `Ignored unrecognised ${spec.provider} provider option${dropped.length > 1 ? "s" : ""}: ${dropped.join(", ")}`,
+        { provider: spec.provider, ignored: dropped }
+      );
     }
 
     // Validate the final configuration
