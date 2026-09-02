@@ -42,13 +42,18 @@ jobs:
       - name: 🔷 TypeScript
         run: pnpm type-check
 
-      # The Bun suite skips itself when `bun` is absent, so without this the
-      # Elysia and Bun.serve coverage would silently vanish from CI while
-      # still reporting green.
+      # The Bun and Deno suites skip themselves when their binary is absent,
+      # so without these the Elysia, Bun.serve, Deno.serve and Fresh coverage
+      # would silently vanish from CI while still reporting green.
       - name: 🥟 Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: 🦕 Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
 
       - name: 🧪 Tests
         run: pnpm test:coverage
