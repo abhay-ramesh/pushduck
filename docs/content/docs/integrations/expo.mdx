@@ -337,11 +337,11 @@ If you're using Expo Router with API routes, the server runs inside your Expo ap
 import { uploadRouter } from '../../../lib/upload';
 
 export async function GET(request: Request) {
-  return uploadRouter.handlers(request);
+  return uploadRouter.handler(request);
 }
 
 export async function POST(request: Request) {
-  return uploadRouter.handlers(request);
+  return uploadRouter.handler(request);
 }
 ```
 
@@ -478,7 +478,7 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: Request) {
-  const response = await uploadRouter.handlers(request);
+  const response = await uploadRouter.handler(request);
   response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
   return response;
 }

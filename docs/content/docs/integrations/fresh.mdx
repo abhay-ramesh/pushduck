@@ -45,7 +45,7 @@ Fresh is a modern web framework for Deno that uses islands architecture for opti
             "preact": "https://esm.sh/preact@10.19.2",
             "preact/": "https://esm.sh/preact@10.19.2/",
             "pushduck/server": "https://esm.sh/pushduck@latest/server",
-            "pushduck/client": "https://esm.sh/pushduck@latest/client"
+            "pushduck/core": "https://esm.sh/pushduck@latest/core"
           }
         }
         ```
@@ -129,10 +129,10 @@ Fresh is a modern web framework for Deno that uses islands architecture for opti
     // Direct usage - no adapter needed!
     export const handler: Handlers = {
       async GET(req) {
-        return uploadRouter.handlers(req);
+        return uploadRouter.handler(req);
       },
       async POST(req) {
-        return uploadRouter.handlers(req);
+        return uploadRouter.handler(req);
       },
     };
     ```
@@ -150,20 +150,20 @@ import { uploadRouter } from "../../../lib/upload.ts";
 // Method 1: Combined handler (recommended)
 export const handler: Handlers = {
   async GET(req) {
-    return uploadRouter.handlers(req);
+    return uploadRouter.handler(req);
   },
   async POST(req) {
-    return uploadRouter.handlers(req);
+    return uploadRouter.handler(req);
   },
 };
 
 // Method 2: Universal handler
 export const handler: Handlers = {
   async GET(req) {
-    return uploadRouter.handlers(req);
+    return uploadRouter.handler(req);
   },
   async POST(req) {
-    return uploadRouter.handlers(req);
+    return uploadRouter.handler(req);
   },
   async OPTIONS(req) {
     return new Response(null, {
@@ -268,71 +268,119 @@ async function getUserFromSession(sessionId: string) {
 
 ## Client-Side Usage
 
-### Upload Island Component
+Fresh islands run Preact in the browser. pushduck ships no Preact-specific
+binding, and does not need one — `pushduck/core` exposes the upload engine
+directly and wires into Preact hooks in a few lines.
 
-```tsx title="islands/FileUpload.tsx"
-import { useUpload } from "pushduck/client";
-import type { AppUploadRouter } from "../lib/upload.ts";
+<Callout type="info">
+  `pushduck/core` has **no framework dependency and no server code**. It is the
+  same engine the React, Vue, Svelte, and Solid bindings wrap, so upload
+  behaviour is identical everywhere.
+</Callout>
 
-const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
+### The Engine API
+
+```typescript
+import { createUploadEngine } from "pushduck/core";
+
+const engine = createUploadEngine({
   endpoint: "/api/upload",
+  route: "imageUpload",
 });
 
-export default function FileUpload() {
-  function handleUploadComplete(files: any[]) {
-    console.log("Files uploaded:", files);
-    alert("Upload completed!");
-  }
+engine.subscribe(() => {
+  const { files, progress, isUploading, errors } = engine.getSnapshot();
+  // render however your framework prefers
+});
 
-  function handleUploadError(error: Error) {
-    console.error("Upload error:", error);
-    alert(`Upload failed: ${error.message}`);
-  }
+await engine.upload([...fileInput.files]);
+```
+
+| Member | Purpose |
+| --- | --- |
+| `upload(files, metadata?)` | Start a batch; resolves when it settles |
+| `getSnapshot()` | Current state — stable reference between changes |
+| `subscribe(listener)` | Register a change listener; returns unsubscribe |
+| `cancel(fileId)` | Abort one in-flight file |
+| `cancelAll()` | Abort every in-flight file |
+| `reset()` | Abort everything and clear state |
+
+### Upload Island
+
+```tsx title="islands/FileUpload.tsx"
+import { useEffect, useRef, useState } from "preact/hooks";
+import {
+  createUploadEngine,
+  type UploadEngine,
+  type UploadEngineState,
+} from "pushduck/core";
+
+export default function FileUpload() {
+  const engineRef = useRef<UploadEngine | null>(null);
+  const [state, setState] = useState<UploadEngineState | null>(null);
+
+  useEffect(() => {
+    const engine = createUploadEngine({
+      endpoint: "/api/upload",
+      route: "imageUpload",
+      onError: (error) => console.error("Upload failed:", error),
+    });
+
+    engineRef.current = engine;
+    setState(engine.getSnapshot());
+
+    // subscribe() returns its own unsubscribe — hand it straight back.
+    return engine.subscribe(() => setState(engine.getSnapshot()));
+  }, []);
+
+  if (!state) return <p>Loading…</p>;
 
   return (
-    <div class="space-y-6">
-      <div>
-        <h3 class="text-lg font-semibold mb-2">Image Upload</h3>
-        <UploadButton
-          endpoint="imageUpload"
-          onClientUploadComplete={handleUploadComplete}
-          onUploadError={handleUploadError}
-        />
-      </div>
+    <div class="space-y-4">
+      <input
+        type="file"
+        multiple
+        accept="image/*"
+        disabled={state.isUploading}
+        onChange={(e) =>
+          engineRef.current?.upload([
+            ...((e.target as HTMLInputElement).files ?? []),
+          ])
+        }
+      />
 
-      <div>
-        <h3 class="text-lg font-semibold mb-2">Document Upload</h3>
-        <UploadDropzone
-          endpoint="documentUpload"
-          onClientUploadComplete={handleUploadComplete}
-          onUploadError={handleUploadError}
-        />
-      </div>
+      {state.isUploading && <progress value={state.progress} max={100} />}
+
+      {state.files.map((file) => (
+        <div key={file.id} class="flex gap-2 items-center">
+          <span>{file.name}</span>
+          <span>
+            {file.status} ({file.progress}%)
+          </span>
+          {file.status === "uploading" && (
+            <button onClick={() => engineRef.current?.cancel(file.id)}>
+              Cancel
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
 ```
 
-### Using in Pages
+### Passing Client Metadata
 
-```tsx title="routes/index.tsx"
-import { Head } from "$fresh/runtime.ts";
-import FileUpload from "../islands/FileUpload.tsx";
-
-export default function Home() {
-  return (
-    <>
-      <Head>
-        <title>File Upload Demo</title>
-      </Head>
-      <main class="container mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold mb-8">File Upload Demo</h1>
-        <FileUpload />
-      </main>
-    </>
-  );
-}
+```typescript
+await engine.upload(files, { albumId: "vacation-2026", visibility: "private" });
 ```
+
+<Callout type="warn">
+  Client metadata is **untrusted user input**. Validate and sanitize it in your
+  server middleware, and never trust client-provided identity claims such as
+  `userId` or `role` — derive those from the authenticated session instead.
+</Callout>
+
 
 ## File Management
 

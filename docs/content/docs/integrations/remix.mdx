@@ -64,11 +64,11 @@ Remix is a full-stack React framework focused on web standards and modern UX. It
 
     // Direct usage - no adapter needed!
     export async function loader({ request }: LoaderFunctionArgs) {
-      return uploadRouter.handlers(request);
+      return uploadRouter.handler(request);
     }
 
     export async function action({ request }: ActionFunctionArgs) {
-      return uploadRouter.handlers(request);
+      return uploadRouter.handler(request);
     }
     ```
   </Step>
@@ -84,11 +84,11 @@ import { uploadRouter } from "~/lib/upload";
 
 // Method 1: Combined handler (recommended)
 export async function loader({ request }: LoaderFunctionArgs) {
-  return uploadRouter.handlers(request);
+  return uploadRouter.handler(request);
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  return uploadRouter.handlers(request);
+  return uploadRouter.handler(request);
 }
 
 // Method 2: Method-specific handlers (if you need different logic)
@@ -127,7 +127,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
   }
   
-  const response = await uploadRouter.handlers(request);
+  const response = await uploadRouter.handler(request);
   
   // Add CORS headers
   response.headers.set('Access-Control-Allow-Origin', '*');
@@ -136,7 +136,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  const response = await uploadRouter.handlers(request);
+  const response = await uploadRouter.handler(request);
   
   // Add CORS headers
   response.headers.set('Access-Control-Allow-Origin', '*');
@@ -201,71 +201,98 @@ export type AppUploadRouter = typeof uploadRouter;
 
 ## Client-Side Usage
 
-### Remix Upload Hook
-
-```typescript title="app/hooks/useUpload.ts"
-import { useUpload } from "pushduck/client";
-import type { AppUploadRouter } from "~/lib/upload";
-
-export const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
-  endpoint: "/api/upload",
-});
-```
+Remix is React, so it uses `pushduck/client` directly.
 
 ### Upload Component
 
 ```tsx title="app/components/FileUpload.tsx"
-import { UploadButton, UploadDropzone } from "~/hooks/useUpload";
+import { useUploadRoute } from "pushduck/client";
+import type { AppUploadRouter } from "~/lib/upload";
 
 export function FileUpload() {
-  function handleUploadComplete(files: any[]) {
-    console.log("Files uploaded:", files);
-    alert("Upload completed!");
-  }
-
-  function handleUploadError(error: Error) {
-    console.error("Upload error:", error);
-    alert(`Upload failed: ${error.message}`);
-  }
+  const { files, progress, isUploading, errors, uploadFiles, cancel, reset } =
+    useUploadRoute<AppUploadRouter>("imageUpload", {
+      endpoint: "/api/upload",
+      onSuccess: (uploaded) => console.log("Files uploaded:", uploaded),
+      onError: (error) => console.error("Upload failed:", error),
+    });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-2">Image Upload</h3>
-        <UploadButton
-          endpoint="imageUpload"
-          onClientUploadComplete={handleUploadComplete}
-          onUploadError={handleUploadError}
-        />
-      </div>
+    <div className="space-y-4">
+      <input
+        type="file"
+        multiple
+        accept="image/*"
+        disabled={isUploading}
+        onChange={(e) => uploadFiles(Array.from(e.target.files ?? []))}
+      />
 
-      <div>
-        <h3 className="text-lg font-semibold mb-2">Document Upload</h3>
-        <UploadDropzone
-          endpoint="documentUpload"
-          onClientUploadComplete={handleUploadComplete}
-          onUploadError={handleUploadError}
-        />
-      </div>
+      {isUploading && <progress value={progress} max={100} />}
+
+      {files.map((file) => (
+        <div key={file.id} className="flex gap-2 items-center">
+          <span>{file.name}</span>
+          <span>
+            {file.status} ({file.progress}%)
+          </span>
+          {file.status === "uploading" && (
+            <button onClick={() => cancel(file.id)}>Cancel</button>
+          )}
+          {file.url && (
+            <a href={file.url} target="_blank" rel="noreferrer">
+              View
+            </a>
+          )}
+        </div>
+      ))}
+
+      {errors.map((error) => (
+        <p key={error} className="text-red-600">
+          {error}
+        </p>
+      ))}
+
+      {files.length > 0 && <button onClick={reset}>Clear</button>}
     </div>
   );
 }
 ```
 
-### Using in Routes
+### Type-Safe Property Access
 
-```tsx title="app/routes/_index.tsx"
-import { FileUpload } from "~/components/FileUpload";
+`createUploadClient` gives you one client with a property per route, fully typed
+from your server router:
 
-export default function Index() {
-  return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold mb-6">File Upload Demo</h1>
-      <FileUpload />
-    </div>
-  );
-}
+```tsx title="app/lib/upload-client.ts"
+import { createUploadClient } from "pushduck/client";
+import type { AppUploadRouter } from "~/lib/upload";
+
+export const upload = createUploadClient<AppUploadRouter>({
+  endpoint: "/api/upload",
+});
+
+// In a component — route names autocomplete and their metadata is inferred:
+//   const { uploadFiles, files } = upload.imageUpload();
 ```
+
+### Passing Client Metadata
+
+Contextual data from your UI travels with the upload and is available in server
+middleware, lifecycle hooks, and path generation:
+
+```tsx
+await uploadFiles(selectedFiles, {
+  albumId: "vacation-2026",
+  visibility: "private",
+});
+```
+
+<Callout type="warn">
+  Client metadata is **untrusted user input**. Validate and sanitize it in your
+  server middleware, and never trust client-provided identity claims such as
+  `userId` or `role` — derive those from the authenticated session instead.
+</Callout>
+
 
 ## File Management
 

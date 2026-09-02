@@ -8,7 +8,9 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-export const spaceGrotesk = Space_Grotesk({
+// Not exported: Next.js only permits a known set of Layout export fields, and a
+// stray `export const spaceGrotesk` fails the production build. Used only here.
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-space-grotesk",
 });

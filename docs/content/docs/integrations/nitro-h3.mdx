@@ -82,7 +82,7 @@ Nitro is a universal web server framework that powers Nuxt.js, built on top of H
 
     // Direct usage - no adapter needed!
     export default defineEventHandler(async (event) => {
-      return uploadRouter.handlers(event.node.req);
+      return uploadRouter.handler(event.node.req);
     });
     ```
   </Step>
@@ -97,7 +97,7 @@ import { uploadRouter } from '~/lib/upload';
 
 // Method 1: Combined handler (recommended)
 export default defineEventHandler(async (event) => {
-  return uploadRouter.handlers(event.node.req);
+  return uploadRouter.handler(event.node.req);
 });
 
 // Method 2: Method-specific handlers
@@ -142,7 +142,7 @@ export default defineEventHandler(async (event) => {
   }
   
   try {
-    return await uploadRouter.handlers(event.node.req);
+    return await uploadRouter.handler(event.node.req);
   } catch (error) {
     throw createError({
       statusCode: 500,
@@ -261,7 +261,7 @@ const app = createApp();
 
 // Upload routes
 app.use('/api/upload/**', defineEventHandler(async (event) => {
-  return uploadRouter.handlers(event.node.req);
+  return uploadRouter.handler(event.node.req);
 }));
 
 // Health check
@@ -272,83 +272,99 @@ export default toNodeListener(app);
 
 ## Client-Side Usage
 
-### HTML with Vanilla JavaScript
+Nitro and H3 are server frameworks, so the client side is entirely your
+choice. `pushduck/core` gives you the upload engine with no framework
+attached — usable from plain JavaScript, a Web Component, or any
+framework pushduck does not ship a binding for.
 
-```html title="public/index.html"
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>File Upload Demo</title>
-  <script src="https://unpkg.com/pushduck@latest/client.js"></script>
-</head>
-<body>
-  <div class="container">
-    <h1>File Upload Demo</h1>
-    
-    <div id="upload-area">
-      <div class="upload-section">
-        <h3>Image Upload</h3>
-        <div id="image-upload"></div>
-      </div>
-      
-      <div class="upload-section">
-        <h3>Document Upload</h3>
-        <div id="document-upload"></div>
-      </div>
-    </div>
-  </div>
+<Callout type="info">
+  `pushduck/core` has **no framework dependency and no server code**. It is the
+  same engine the React, Vue, Svelte, and Solid bindings wrap, so upload
+  behaviour is identical everywhere.
+</Callout>
 
-  <script>
-    const { useUpload } = pushduck;
-    
-    const { UploadButton, UploadDropzone } = useUpload({
-      endpoint: "/api/upload",
-    });
-    
-    // Mount upload components
-    const imageUpload = new UploadButton({
-      endpoint: 'imageUpload',
-      onClientUploadComplete: (files) => {
-        console.log('Files uploaded:', files);
-        alert('Upload completed!');
-      },
-      onUploadError: (error) => {
-        console.error('Upload error:', error);
-        alert(`Upload failed: ${error.message}`);
-      }
-    });
-    
-    const documentUpload = new UploadDropzone({
-      endpoint: 'documentUpload',
-      onClientUploadComplete: (files) => {
-        console.log('Files uploaded:', files);
-        alert('Upload completed!');
-      },
-      onUploadError: (error) => {
-        console.error('Upload error:', error);
-        alert(`Upload failed: ${error.message}`);
-      }
-    });
-    
-    imageUpload.mount('#image-upload');
-    documentUpload.mount('#document-upload');
-  </script>
-</body>
-</html>
-```
+### The Engine API
 
-### With Framework Integration
+```typescript
+import { createUploadEngine } from "pushduck/core";
 
-```typescript title="plugins/upload.client.ts"
-import { useUpload } from "pushduck/client";
-import type { AppUploadRouter } from "~/lib/upload";
-
-export const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
+const engine = createUploadEngine({
   endpoint: "/api/upload",
+  route: "imageUpload",
 });
+
+engine.subscribe(() => {
+  const { files, progress, isUploading, errors } = engine.getSnapshot();
+  // render however your framework prefers
+});
+
+await engine.upload([...fileInput.files]);
 ```
+
+| Member | Purpose |
+| --- | --- |
+| `upload(files, metadata?)` | Start a batch; resolves when it settles |
+| `getSnapshot()` | Current state — stable reference between changes |
+| `subscribe(listener)` | Register a change listener; returns unsubscribe |
+| `cancel(fileId)` | Abort one in-flight file |
+| `cancelAll()` | Abort every in-flight file |
+| `reset()` | Abort everything and clear state |
+
+### Vanilla Browser Usage
+
+```html title="public/upload.html"
+<input type="file" id="picker" multiple />
+<progress id="bar" value="0" max="100"></progress>
+<ul id="list"></ul>
+
+<script type="module">
+  import { createUploadEngine } from "https://esm.sh/pushduck/core";
+
+  const engine = createUploadEngine({
+    endpoint: "/api/upload",
+    route: "imageUpload",
+  });
+
+  engine.subscribe(() => {
+    const { progress, files } = engine.getSnapshot();
+    document.querySelector("#bar").value = progress;
+    document.querySelector("#list").innerHTML = files
+      .map((f) => `<li>${f.name} — ${f.status} (${f.progress}%)</li>`)
+      .join("");
+  });
+
+  document.querySelector("#picker").addEventListener("change", (event) => {
+    engine.upload([...event.target.files]);
+  });
+</script>
+```
+
+### Using a Framework Instead
+
+Nitro is a server framework, so any frontend can sit in front of it. If yours is
+one pushduck ships a binding for, use that instead of the raw engine:
+
+| Frontend | Import |
+| --- | --- |
+| React / Next.js | `pushduck/client` |
+| Vue / Nuxt | `pushduck/vue` |
+| Svelte / SvelteKit | `pushduck/svelte` |
+| SolidJS | `pushduck/solid` |
+| React Native / Expo | `pushduck/react-native` |
+| Anything else | `pushduck/core` |
+
+### Passing Client Metadata
+
+```typescript
+await engine.upload(files, { albumId: "vacation-2026", visibility: "private" });
+```
+
+<Callout type="warn">
+  Client metadata is **untrusted user input**. Validate and sanitize it in your
+  server middleware, and never trust client-provided identity claims such as
+  `userId` or `role` — derive those from the authenticated session instead.
+</Callout>
+
 
 ## File Management
 
@@ -397,14 +413,14 @@ async function getFilesForUser(userId: string) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Files</title>
-  <script src="https://unpkg.com/pushduck@latest/client.js"></script>
 </head>
 <body>
   <div class="container">
     <h1>My Files</h1>
-    
+
     <div id="upload-area">
-      <div id="file-upload"></div>
+      <input type="file" id="file-input" multiple accept="image/*">
+      <progress id="upload-progress" value="0" max="100"></progress>
     </div>
     
     <div id="files-list">
@@ -413,7 +429,9 @@ async function getFilesForUser(userId: string) {
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    import { createUploadEngine } from "https://esm.sh/pushduck/core";
+
     async function loadFiles() {
       try {
         const response = await fetch('/api/files?userId=current-user');
@@ -448,24 +466,29 @@ async function getFilesForUser(userId: string) {
       return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
     }
     
-    // Initialize upload component
-    const { UploadDropzone } = pushduck.useUpload({
-      endpoint: "/api/upload",
-    });
-    
-    const fileUpload = new UploadDropzone({
-      endpoint: 'imageUpload',
-      onClientUploadComplete: (files) => {
+    // Initialize the upload engine
+    const engine = createUploadEngine({
+      endpoint: '/api/upload',
+      route: 'imageUpload',
+      onSuccess: (files) => {
         console.log('Files uploaded:', files);
         loadFiles(); // Refresh file list
       },
-      onUploadError: (error) => {
+      onError: (error) => {
         console.error('Upload error:', error);
         alert(`Upload failed: ${error.message}`);
       }
     });
-    
-    fileUpload.mount('#file-upload');
+
+    engine.subscribe(() => {
+      const { progress, isUploading } = engine.getSnapshot();
+      document.querySelector('#upload-progress').value = progress;
+      document.querySelector('#file-input').disabled = isUploading;
+    });
+
+    document.querySelector('#file-input').addEventListener('change', (event) => {
+      engine.upload([...event.target.files]);
+    });
     
     // Load files on page load
     loadFiles();

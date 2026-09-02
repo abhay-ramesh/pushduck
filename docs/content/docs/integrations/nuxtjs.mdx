@@ -67,7 +67,7 @@ Nuxt.js is the intuitive Vue.js framework for building full-stack web applicatio
 
     // Direct usage - no adapter needed!
     export default defineEventHandler(async (event) => {
-      return uploadRouter.handlers(event.node.req);
+      return uploadRouter.handler(event.node.req);
     });
     ```
   </Step>
@@ -82,7 +82,7 @@ import { uploadRouter } from '~/server/utils/upload';
 
 // Method 1: Combined handler (recommended)
 export default defineEventHandler(async (event) => {
-  return uploadRouter.handlers(event.node.req);
+  return uploadRouter.handler(event.node.req);
 });
 
 // Method 2: Method-specific handlers
@@ -179,75 +179,111 @@ export type AppUploadRouter = typeof uploadRouter;
 
 ## Client-Side Usage
 
-### Upload Composable
+Nuxt uses the Vue binding, `pushduck/vue`. It exposes the same `useUploadRoute`
+composable as every other pushduck client — the only difference is that state
+comes back as Vue refs, so destructuring in `<script setup>` keeps reactivity.
 
-```typescript title="composables/useUpload.ts"
-import { useUpload } from "pushduck/client";
-import type { AppUploadRouter } from "~/server/utils/upload";
-
-export const { UploadButton, UploadDropzone } = useUpload<AppUploadRouter>({
-  endpoint: "/api/upload",
-});
-```
+<Callout type="info">
+  `pushduck/vue` requires Vue 3.3+. It is an optional peer dependency, so
+  nothing extra is installed for projects that do not use it.
+</Callout>
 
 ### Upload Component
 
 ```vue title="components/FileUpload.vue"
-<template>
-  <div class="space-y-6">
-    <div>
-      <h3 class="text-lg font-semibold mb-2">Image Upload</h3>
-      <UploadButton
-        endpoint="imageUpload"
-        @client-upload-complete="handleUploadComplete"
-        @upload-error="handleUploadError"
-      />
-    </div>
-
-    <div>
-      <h3 class="text-lg font-semibold mb-2">Document Upload</h3>
-      <UploadDropzone
-        endpoint="documentUpload"
-        @client-upload-complete="handleUploadComplete"
-        @upload-error="handleUploadError"
-      />
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { UploadButton, UploadDropzone } from "~/composables/useUpload";
+import { useUploadRoute } from "pushduck/vue";
+import type { AppUploadRouter } from "~/server/utils/upload";
 
-function handleUploadComplete(files: any[]) {
-  console.log("Files uploaded:", files);
-  alert("Upload completed!");
-}
+const { files, progress, isUploading, errors, uploadFiles, cancel, reset } =
+  useUploadRoute<AppUploadRouter>("imageUpload", {
+    endpoint: "/api/upload",
+    onSuccess: (uploaded) => console.log("Files uploaded:", uploaded),
+    onError: (error) => console.error("Upload failed:", error),
+  });
 
-function handleUploadError(error: Error) {
-  console.error("Upload error:", error);
-  alert(`Upload failed: ${error.message}`);
+function onSelect(event: Event) {
+  const input = event.target as HTMLInputElement;
+  uploadFiles([...(input.files ?? [])]);
 }
 </script>
+
+<template>
+  <div class="space-y-4">
+    <input
+      type="file"
+      multiple
+      accept="image/*"
+      :disabled="isUploading"
+      @change="onSelect"
+    />
+
+    <progress v-if="isUploading" :value="progress" max="100" />
+
+    <div v-for="file in files" :key="file.id" class="flex gap-2 items-center">
+      <span>{{ file.name }}</span>
+      <span>{{ file.status }} ({{ file.progress }}%)</span>
+      <button v-if="file.status === 'uploading'" @click="cancel(file.id)">
+        Cancel
+      </button>
+      <a v-if="file.url" :href="file.url" target="_blank">View</a>
+    </div>
+
+    <p v-for="error in errors" :key="error" class="text-red-600">{{ error }}</p>
+
+    <button v-if="files.length" @click="reset">Clear</button>
+  </div>
+</template>
 ```
 
 ### Using in Pages
 
 ```vue title="pages/index.vue"
+<script setup lang="ts">
+import FileUpload from "~/components/FileUpload.vue";
+
+useHead({ title: "File Upload Demo" });
+</script>
+
 <template>
   <div class="container mx-auto px-4 py-8">
     <h1 class="text-3xl font-bold mb-8">File Upload Demo</h1>
     <FileUpload />
   </div>
 </template>
+```
 
+### Passing Client Metadata
+
+Any contextual data your UI holds can travel with the upload and is available in
+server middleware, lifecycle hooks, and path generation.
+
+```vue title="components/AlbumUpload.vue"
 <script setup lang="ts">
-import FileUpload from "~/components/FileUpload.vue";
+import { ref } from "vue";
+import { useUploadRoute } from "pushduck/vue";
 
-useHead({
-  title: 'File Upload Demo'
+const albumId = ref("vacation-2026");
+const { uploadFiles } = useUploadRoute("imageUpload", {
+  endpoint: "/api/upload",
 });
+
+function onSelect(event: Event) {
+  const input = event.target as HTMLInputElement;
+  uploadFiles([...(input.files ?? [])], {
+    albumId: albumId.value,
+    visibility: "private",
+  });
+}
 </script>
 ```
+
+<Callout type="warn">
+  Client metadata is **untrusted user input**. Validate and sanitize it in your
+  server middleware, and never trust client-provided identity claims such as
+  `userId` or `role` — derive those from the authenticated session instead.
+</Callout>
+
 
 ## File Management
 
