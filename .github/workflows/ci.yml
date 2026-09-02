@@ -42,6 +42,14 @@ jobs:
       - name: 🔷 TypeScript
         run: pnpm type-check
 
+      # The Bun suite skips itself when `bun` is absent, so without this the
+      # Elysia and Bun.serve coverage would silently vanish from CI while
+      # still reporting green.
+      - name: 🥟 Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: 🧪 Tests
         run: pnpm test:coverage
         env:

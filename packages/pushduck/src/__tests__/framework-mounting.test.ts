@@ -11,9 +11,11 @@
  * checks the response. Frameworks that genuinely need no adapter are proven to
  * need none, rather than assumed to.
  *
- * Elysia and Bun are absent because they require the Bun runtime; their
- * mounting pattern is identical to Hono's (`ctx.request` → `router.handler`),
- * which is covered here.
+ * Elysia and Bun are absent from *this* file because they require the Bun
+ * runtime, which vitest does not provide. They are covered for real in
+ * `bun-runtime.test.ts`, which spawns the `bun` binary against a fixture that
+ * starts actual servers — rather than the argument this comment used to make,
+ * that their mounting pattern is identical to Hono's so they must work.
  */
 
 import express from "express";

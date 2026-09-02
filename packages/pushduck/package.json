@@ -281,6 +281,7 @@
     "@vue/test-utils": "^2.4.11",
     "astro": "^7.2.0",
     "effect": "^3.22.1",
+    "elysia": "^1.4.29",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
