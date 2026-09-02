@@ -71,6 +71,8 @@ import {
   partRange,
 } from "../upload/multipart/plan";
 import {
+  signCompletion,
+  verifyCompletion,
   signSession,
   verifySession,
   type MultipartSession,
@@ -458,6 +460,20 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
    * one with `storage.download.presignedUrl(key, ttl)` when you need it —
    * otherwise a stored URL expires while the record still points at it.
    */
+  /**
+   * Require a completion to present the token issued at presign.
+   *
+   * See the note on the schema-level method: presign always issues the token
+   * and completion always verifies one that is present, so this only changes
+   * whether an *absent* token is tolerated. Enabling it closes the remaining
+   * gap — an authenticated caller completing against someone else's key — at
+   * the cost of rejecting clients older than the version that began sending it.
+   */
+  requireCompletionToken(): this {
+    this.config.requireCompletionToken = true;
+    return this;
+  }
+
   expiresIn(seconds: number): this;
   expiresIn(config: { upload?: number; download?: number }): this;
   expiresIn(
@@ -703,6 +719,13 @@ interface S3RouteConfig<TMetadata = any> {
    * Independent of the upload window.
    */
   downloadExpiresIn?: number;
+  /**
+   * Reject a completion that carries no token. @default false
+   *
+   * Off by default because the wire protocol is frozen at v1 and a server that
+   * demanded a new field would reject every client not yet upgraded.
+   */
+  requireCompletionToken?: boolean;
   /** Hook for upload start events */
   onUploadStart?: S3LifecycleHook<TMetadata>;
   /** Hook for upload progress events */
@@ -1116,6 +1139,17 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           key: presignedResult.key,
           requiredHeaders: presignedResult.requiredHeaders,
           metadata: fileMetadata,
+          /**
+           * Binds this key to this route, so completion can verify that the
+           * caller is finishing an upload the server actually authorised
+           * rather than naming someone else's object. Additive: a client that
+           * ignores it still works, and `requireCompletionToken()` makes it
+           * mandatory once every client is known to send it.
+           */
+          completionToken: await signCompletion(
+            multipartSessionSecret(uploadConfig),
+            { key: presignedResult.key, route: String(routeName) }
+          ),
         });
       } catch (error) {
         const err = normalizeServerError(error);
@@ -1454,6 +1488,40 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     const authorized: unknown[] = [];
 
     for (const completion of completions) {
+      /**
+       * Verify the key against the token presign issued for it.
+       *
+       * Middleware authenticates the *caller*; this authenticates the
+       * *object*. Without it an authenticated user can complete against a key
+       * belonging to someone else — and default keys are predictable enough
+       * that guessing one is not much of an obstacle.
+       *
+       * Verified whenever a token is present, so an upgraded client is
+       * protected immediately. Whether an *absent* token is tolerated is the
+       * route's decision: rejecting by default would break every client older
+       * than the version that began sending one.
+       */
+      if (completion.completionToken !== undefined) {
+        const claim = await verifyCompletion(
+          multipartSessionSecret(this.config),
+          completion.completionToken
+        );
+
+        if (claim.key !== completion.key || claim.route !== String(routeName)) {
+          throw new UploadError(
+            "FORBIDDEN",
+            "This completion does not match the upload it was issued for",
+            { meta: { reason: "completion-token-mismatch" } }
+          );
+        }
+      } else if (routeConfig.requireCompletionToken) {
+        throw new UploadError(
+          "FORBIDDEN",
+          "This route requires the completion token issued at presign",
+          { meta: { reason: "completion-token-missing" } }
+        );
+      }
+
       let fileMetadata: unknown = completion.metadata || {};
 
       for (const middleware of middlewareChain) {
@@ -1542,6 +1610,14 @@ export interface PresignedUrlResponse {
   /** Headers the client must send with the PUT request. See {@link PresignedUrlResult.requiredHeaders}. */
   requiredHeaders?: Record<string, string>;
   metadata?: any;
+  /**
+   * Opaque token binding this key to this route.
+   *
+   * Echo it back on `action=complete`. Additive in protocol v1: a client that
+   * omits it still completes, unless the route calls
+   * `requireCompletionToken()`.
+   */
+  completionToken?: string;
   error?: string;
 }
 
@@ -1549,6 +1625,8 @@ export interface UploadCompletion {
   key: string;
   file: S3FileMetadata;
   metadata?: any;
+  /** The token issued for this key at presign, if the client kept it. */
+  completionToken?: string;
 }
 
 export interface CompletionResponse {

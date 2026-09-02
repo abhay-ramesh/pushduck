@@ -138,3 +138,78 @@ export async function verifySession(
     return reject() as never;
   }
 }
+
+
+// ========================================
+// Completion tokens
+// ========================================
+
+/** What a completion token asserts, once verified. */
+export interface CompletionClaim {
+  /** Object key this completion is allowed to name. */
+  key: string;
+  /** Route the key was presigned on. */
+  route: string;
+}
+
+/**
+ * Issues a token binding a presigned key to the route that issued it.
+ *
+ * Completion runs the route's middleware, so an anonymous caller cannot forge
+ * one. But the key arrives in the request body, and middleware authenticates
+ * the *caller*, not the *object* — so an authenticated user can complete
+ * against a key belonging to someone else. Default keys are frequently
+ * predictable, and `onUploadComplete` is where applications attach a file to a
+ * record and grant access to it.
+ *
+ * The token is the same construction as a multipart session and exists for the
+ * same reason: the server re-derives the key from something it signed rather
+ * than trusting what it was sent.
+ */
+export async function signCompletion(
+  secret: string,
+  claim: CompletionClaim
+): Promise<string> {
+  const payload = toBase64Url(new TextEncoder().encode(JSON.stringify(claim)));
+  return `${payload}.${await hmac(`completion:${secret}`, payload)}`;
+}
+
+/**
+ * Verifies a completion token and returns what it asserts.
+ *
+ * @throws {UploadError} `FORBIDDEN` if the token is missing, malformed or
+ *   unsigned — indistinguishable to the caller, so probing reveals nothing.
+ */
+export async function verifyCompletion(
+  secret: string,
+  token: unknown
+): Promise<CompletionClaim> {
+  const reject = (): never => {
+    throw new UploadError("FORBIDDEN", "Invalid completion token", {
+      meta: { reason: "completion-token" },
+    });
+  };
+
+  if (typeof token !== "string" || !token.includes(".")) reject();
+
+  const [payload, signature] = (token as string).split(".");
+  if (!payload || !signature) reject();
+
+  if (!timingSafeEqual(signature, await hmac(`completion:${secret}`, payload))) {
+    reject();
+  }
+
+  try {
+    const decoded = JSON.parse(
+      new TextDecoder().decode(fromBase64Url(payload))
+    ) as CompletionClaim;
+
+    if (typeof decoded.key !== "string" || typeof decoded.route !== "string") {
+      reject();
+    }
+
+    return decoded;
+  } catch {
+    return reject();
+  }
+}
