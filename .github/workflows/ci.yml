@@ -23,6 +23,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      # A real S3-compatible server for the integration suite. Without it the
+      # SigV4 signing path is only ever checked against our own expectations of
+      # the algorithm — a self-consistently wrong signature passes every unit
+      # test and fails in a user's bucket. The same script developers use
+      # locally; a service container can't run the official minio/minio image
+      # because services accept no command, and the Bitnami image that could
+      # was withdrawn from Docker Hub.
+      - name: 🪣 Start MinIO
+        run: ./packages/pushduck/scripts/minio.sh start
+
       - name: 🏗️ Setup project
         uses: ./.github/actions/setup
 
@@ -34,6 +44,10 @@ jobs:
 
       - name: 🧪 Tests
         run: pnpm test:coverage
+        env:
+          # The integration suite skips itself when this is unreachable, so a
+          # MinIO outage degrades coverage rather than breaking the build.
+          MINIO_ENDPOINT: http://127.0.0.1:9010
 
       - name: 📊 Coverage Report
         uses: codecov/codecov-action@v5

@@ -51,6 +51,16 @@
         "default": "./dist/client.cjs"
       }
     },
+    "./core": {
+      "import": {
+        "types": "./dist/core.d.mts",
+        "default": "./dist/core.mjs"
+      },
+      "require": {
+        "types": "./dist/core.d.cts",
+        "default": "./dist/core.cjs"
+      }
+    },
     "./react-native": {
       "import": {
         "types": "./dist/react-native.d.mts",
@@ -59,6 +69,26 @@
       "require": {
         "types": "./dist/react-native.d.cts",
         "default": "./dist/react-native.cjs"
+      }
+    },
+    "./vue": {
+      "import": {
+        "types": "./dist/vue.d.mts",
+        "default": "./dist/vue.mjs"
+      },
+      "require": {
+        "types": "./dist/vue.d.cts",
+        "default": "./dist/vue.cjs"
+      }
+    },
+    "./svelte": {
+      "import": {
+        "types": "./dist/svelte.d.mts",
+        "default": "./dist/svelte.mjs"
+      },
+      "require": {
+        "types": "./dist/svelte.d.cts",
+        "default": "./dist/svelte.cjs"
       }
     },
     "./adapters": {
@@ -110,18 +140,56 @@
         "types": "./dist/adapters/fastify.d.cts",
         "default": "./dist/adapters/fastify.cjs"
       }
+    },
+    "./solid": {
+      "import": {
+        "types": "./dist/solid.d.mts",
+        "default": "./dist/solid.mjs"
+      },
+      "require": {
+        "types": "./dist/solid.d.cts",
+        "default": "./dist/solid.cjs"
+      }
     }
   },
   "typesVersions": {
     "*": {
-      "server": ["./dist/server.d.cts"],
-      "client": ["./dist/client.d.cts"],
-      "react-native": ["./dist/react-native.d.cts"],
-      "adapters": ["./dist/adapters/index.d.cts"],
-      "adapters/nextjs": ["./dist/adapters/nextjs.d.cts"],
-      "adapters/nextjs-pages": ["./dist/adapters/nextjs-pages.d.cts"],
-      "adapters/express": ["./dist/adapters/express.d.cts"],
-      "adapters/fastify": ["./dist/adapters/fastify.d.cts"]
+      "server": [
+        "./dist/server.d.cts"
+      ],
+      "client": [
+        "./dist/client.d.cts"
+      ],
+      "core": [
+        "./dist/core.d.cts"
+      ],
+      "react-native": [
+        "./dist/react-native.d.cts"
+      ],
+      "vue": [
+        "./dist/vue.d.cts"
+      ],
+      "svelte": [
+        "./dist/svelte.d.cts"
+      ],
+      "adapters": [
+        "./dist/adapters/index.d.cts"
+      ],
+      "adapters/nextjs": [
+        "./dist/adapters/nextjs.d.cts"
+      ],
+      "adapters/nextjs-pages": [
+        "./dist/adapters/nextjs-pages.d.cts"
+      ],
+      "adapters/express": [
+        "./dist/adapters/express.d.cts"
+      ],
+      "adapters/fastify": [
+        "./dist/adapters/fastify.d.cts"
+      ],
+      "solid": [
+        "./dist/solid.d.cts"
+      ]
     }
   },
   "files": [
@@ -146,7 +214,11 @@
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm build",
     "maintenance:health": "./scripts/health-check.sh",
-    "maintenance:deps": "./scripts/update-deps.sh"
+    "maintenance:deps": "./scripts/update-deps.sh",
+    "test:types": "vitest run --typecheck",
+    "minio": "./scripts/minio.sh start",
+    "minio:stop": "./scripts/minio.sh stop",
+    "test:integration": "./scripts/minio.sh start && vitest run src/__tests__/minio-integration.test.ts"
   },
   "keywords": [
     "file-upload",
@@ -194,6 +266,8 @@
     "frontend"
   ],
   "devDependencies": {
+    "@effect/platform": "^0.97.1",
+    "@sveltejs/kit": "^2.70.2",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
     "@types/express": "^5.0.6",
@@ -203,19 +277,28 @@
     "@typescript-eslint/parser": "^8.55.0",
     "@vitejs/plugin-react": "^5.1.0",
     "@vitest/coverage-v8": "^4.0.10",
+    "@vue/test-utils": "^2.4.11",
+    "astro": "^7.2.0",
+    "effect": "^3.22.1",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "express": "^5.2.1",
     "fastify": "^5.7.4",
     "gzip-size-cli": "^5.1.0",
+    "h3": "2.0.1-rc.26",
     "happy-dom": "^20.6.1",
+    "hono": "^4.13.1",
     "next": "15.5.9",
     "prettier": "^3.8.1",
     "react": "^19.2.0",
+    "react-router": "^8.3.0",
+    "solid-js": "^1.9.14",
+    "svelte": "^5.56.8",
     "tsdown": "^0.20.3",
     "typescript": "^5.9.3",
     "vitest": "^4.0.10",
+    "vue": "^3.5.41",
     "zod": "^4.3.6"
   },
   "peerDependencies": {
@@ -224,6 +307,9 @@
     "fastify": ">=4.0.0",
     "next": ">=13.0.0",
     "react": ">=18.0.0",
+    "solid-js": ">=1.7.0",
+    "svelte": ">=4.0.0",
+    "vue": ">=3.3.0",
     "zod": ">=3.20.0"
   },
   "peerDependenciesMeta": {
@@ -243,6 +329,15 @@
       "optional": true
     },
     "fastify": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    },
+    "svelte": {
+      "optional": true
+    },
+    "solid-js": {
       "optional": true
     }
   },
