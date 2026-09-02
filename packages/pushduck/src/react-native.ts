@@ -260,5 +260,18 @@ export {
 } from "./core/upload/multipart/chunk-reader";
 export type { ChunkBody, ChunkReader } from "./core/upload/multipart/chunk-reader";
 
-export { createMemoryStore } from "./core/upload/multipart/store";
-export type { ResumableUpload, UploadStore } from "./core/upload/multipart/store";
+/**
+ * Remembering an interrupted upload.
+ *
+ * `createWebStore` is named for its default backing (`localStorage`) but takes
+ * any storage implementation, so React Native binds it to `AsyncStorage` in
+ * three lines rather than implementing `UploadStore` by hand.
+ */
+export {
+  createMemoryStore,
+  createWebStore,
+} from "./core/upload/multipart/store";
+export type {
+  ResumableUpload,
+  UploadStore,
+} from "./core/upload/multipart/store";

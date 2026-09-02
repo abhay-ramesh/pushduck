@@ -371,6 +371,49 @@ describe("degenerate configuration", () => {
     expect(sent).toHaveLength(3);
   }, 10_000);
 
+  it("still splits a file too large for a single PUT, even with multipart off", async () => {
+    // `enabled: false` means "multipart is not worth it", not "attempt what
+    // the provider rejects". Above 5 GiB a single PUT is not a legal option at
+    // all, so honouring the opt-out there turns it into a broken upload with
+    // an opaque `EntityTooLarge`.
+    const server = createServer({ partSize: 5 * MIB });
+    const { transport } = recordingTransport();
+
+    // 6 GiB, declared rather than allocated. A reader supplies the ranges, so
+    // no test needs six gigabytes of memory — and it is what a file this size
+    // would realistically use anyway.
+    const size = 6 * 1024 * MIB;
+    const engine = buildEngine(server, transport, {
+      enabled: false,
+      createChunkReader: () => ({
+        size,
+        read: async (start: number, end: number) =>
+          new Uint8Array(new ArrayBuffer(end - start)),
+      }),
+    });
+    const huge = {
+      uri: "file:///huge.bin",
+      name: "huge.bin",
+      size,
+      mimeType: "application/octet-stream",
+    };
+
+    await engine.upload([huge as never]);
+
+    expect(server.actions).toContain("multipart-init");
+  });
+
+  it("keeps an ordinary large file on a single PUT when multipart is off", async () => {
+    // The opt-out must still work for everything below the hard ceiling.
+    const server = createServer();
+    const { transport } = recordingTransport();
+
+    const engine = buildEngine(server, transport, { enabled: false });
+    await engine.upload([makeFile(12 * MIB)]);
+
+    expect(server.actions).not.toContain("multipart-init");
+  });
+
   it("uploads a file exactly one byte over the threshold", async () => {
     const server = createServer();
     const { transport, sent } = recordingTransport();

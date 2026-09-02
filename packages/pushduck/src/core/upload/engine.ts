@@ -770,11 +770,23 @@ export function createUploadEngine<
       // Split by strategy. Multipart is a property of the *file*, not the
       // batch: a 200 MB video and a 2 KB thumbnail in one call take different
       // paths and still land in the same `files` array with the same shape.
-      const useMultipart = (track: FileTrack) =>
-        multipart?.enabled !== false &&
-        shouldUseMultipart(track.meta.size, {
+      const useMultipart = (track: FileTrack) => {
+        // `shouldUseMultipart` answers two different questions at once: is
+        // multipart *worthwhile* (the threshold), and is it *mandatory* (the
+        // file exceeds what a single PUT can carry at all). `enabled: false`
+        // may only override the first. Letting it override the second sends a
+        // 6 GB file down a path the provider rejects outright, turning an
+        // opt-out into a broken upload with an opaque `EntityTooLarge`.
+        const mandatory = shouldUseMultipart(track.meta.size, {
+          threshold: Number.POSITIVE_INFINITY,
+        });
+
+        if (multipart?.enabled === false) return mandatory;
+
+        return shouldUseMultipart(track.meta.size, {
           threshold: multipart?.threshold,
         });
+      };
 
       const singlePart = resolved.filter((t) => !useMultipart(t));
       const multiPart = resolved.filter(useMultipart);

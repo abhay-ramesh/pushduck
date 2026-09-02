@@ -357,3 +357,46 @@ export type {
  */
 export { isUploadError, UPLOAD_ERROR_CODES, UploadError } from "./core/errors";
 export type { UploadErrorCode } from "./core/errors";
+
+/**
+ * Remembering an interrupted multipart upload, so it can resume.
+ *
+ * Resume is opt-in: without a store, an interrupted upload restarts from zero.
+ * `createWebStore()` persists across page reloads via `localStorage` and
+ * degrades to no-resume when storage is unavailable, which is the right
+ * default for a browser. Pass your own `storage` to back it with something
+ * else.
+ *
+ * @example
+ * ```typescript
+ * const { uploadFiles } = upload.videoUpload({
+ *   multipart: { store: createWebStore() },
+ * });
+ * ```
+ */
+export {
+  createMemoryStore,
+  createWebStore,
+} from "./core/upload/multipart/store";
+export type {
+  ResumableUpload,
+  UploadStore,
+} from "./core/upload/multipart/store";
+
+/**
+ * Reading a large file one part at a time instead of loading it whole.
+ *
+ * Rarely needed in a browser, where `Blob.slice` is already a free view into
+ * bytes the browser holds. Exported here so a codebase shared with React
+ * Native can import from one place — see the React Native entry point, where
+ * this is what keeps a 500 MB video from being read into memory.
+ */
+export {
+  createBlobChunkReader,
+  createRangeChunkReader,
+  decodeBase64,
+} from "./core/upload/multipart/chunk-reader";
+export type {
+  ChunkBody,
+  ChunkReader,
+} from "./core/upload/multipart/chunk-reader";
