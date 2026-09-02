@@ -262,6 +262,46 @@ export interface UploadConfig {
   /** Enable metrics collection */
   enableMetrics?: boolean;
   /**
+   * Multipart upload behaviour.
+   *
+   * Entirely optional: with no configuration, files above the default
+   * threshold transparently use multipart and everything below keeps the
+   * single-PUT path. The client API is identical either way — same
+   * `uploadFiles`, same per-file `progress`, `uploadSpeed` and `eta`.
+   */
+  multipart?: {
+    /**
+     * Disable multipart entirely, keeping every file on a single PUT.
+     *
+     * Files above the provider's 5 GiB single-PUT ceiling will then fail, so
+     * this is only sensible when large uploads are not expected.
+     * @default true
+     */
+    enabled?: boolean;
+    /**
+     * Size at or above which a file is split into parts.
+     * @default 104857600 (100 MiB)
+     */
+    threshold?: number;
+    /**
+     * Uniform part size, in bytes. Clamped into the provider-safe range and
+     * raised if it would exceed the 10,000-part cap.
+     * @default 5242880 (5 MiB)
+     */
+    partSize?: number;
+    /**
+     * How many parts to transfer at once.
+     * @default 4
+     */
+    concurrency?: number;
+    /**
+     * Attempts per part, including the first.
+     * @default 3
+     */
+    maxAttempts?: number;
+  };
+
+  /**
    * Maximum accepted request body size, in bytes.
    *
    * Bounds a denial-of-service vector: without a limit, a hostile client can

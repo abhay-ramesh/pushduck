@@ -167,8 +167,109 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
         return json({ success: true, results }, 200, identity);
       }
 
+      // Multipart operations. Each authorises independently — the session
+      // token identifies the object, the route middleware identifies the
+      // caller, and both are required.
+      if (action === "multipart-init") {
+        const { file, metadata } = body as {
+          file: { name: string; size: number; type: string };
+          metadata?: unknown;
+        };
+
+        if (!file || typeof file.size !== "number") {
+          throw new UploadError(
+            "BAD_REQUEST",
+            "`file` with name, size and type is required to start a multipart upload"
+          );
+        }
+
+        return json(
+          await router.initMultipartUpload(routeName, request, file, metadata),
+          200,
+          identity
+        );
+      }
+
+      if (action === "multipart-sign") {
+        const { session, partNumbers } = body as {
+          session: unknown;
+          partNumbers: number[];
+        };
+
+        if (!Array.isArray(partNumbers)) {
+          throw new UploadError("BAD_REQUEST", "`partNumbers` must be an array");
+        }
+
+        return json(
+          await router.signMultipartParts(routeName, request, {
+            session,
+            partNumbers,
+          }),
+          200,
+          identity
+        );
+      }
+
+      if (action === "multipart-complete") {
+        const { session, parts, file, metadata } = body as {
+          session: unknown;
+          parts: Array<{ partNumber: number; etag: string }>;
+          file: { name: string; size: number; type: string };
+          metadata?: unknown;
+        };
+
+        if (!Array.isArray(parts)) {
+          throw new UploadError("BAD_REQUEST", "`parts` must be an array");
+        }
+
+        return json(
+          await router.completeMultipartUpload(routeName, request, {
+            session,
+            parts,
+            file,
+            metadata,
+          }),
+          200,
+          identity
+        );
+      }
+
+      if (action === "multipart-abort") {
+        const { session } = body as { session: unknown };
+        return json(
+          await router.abortMultipartUpload(routeName, request, { session }),
+          200,
+          identity
+        );
+      }
+
+      if (action === "multipart-parts") {
+        const { session } = body as { session: unknown };
+        return json(
+          {
+            success: true,
+            parts: await router.listMultipartParts(routeName, request, {
+              session,
+            }),
+          },
+          200,
+          identity
+        );
+      }
+
       throw new UploadError("BAD_REQUEST", `Unknown action: ${action}`, {
-        meta: { action, supportedActions: ["presign", "complete"] },
+        meta: {
+          action,
+          supportedActions: [
+            "presign",
+            "complete",
+            "multipart-init",
+            "multipart-sign",
+            "multipart-complete",
+            "multipart-abort",
+            "multipart-parts",
+          ],
+        },
       });
     } catch (error) {
       return fail(normalizeServerError(error), request, identity);

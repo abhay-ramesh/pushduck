@@ -844,6 +844,58 @@ function preparePresignHeaders(
   return { signed, unsigned };
 }
 
+/**
+ * Builds the S3 **API** URL for a key, using this config's endpoint style.
+ *
+ * Exposed so the multipart operations construct URLs identically to every
+ * other signed request — a second implementation would drift on path-style vs
+ * virtual-hosted and produce signatures over the wrong host.
+ *
+ * @internal
+ */
+export function buildApiUrlFor(key: string, uploadConfig: UploadConfig): string {
+  return buildApiUrl(key, getS3CompatibleConfig(uploadConfig.provider));
+}
+
+/**
+ * Presigns a request that carries extra query parameters.
+ *
+ * Multipart part uploads are `PUT ?partNumber=N&uploadId=X`, and those
+ * parameters are part of the canonical request — they must be present *before*
+ * signing, or the provider computes a different signature and rejects the PUT.
+ *
+ * @internal
+ */
+export async function presignApiRequestWithQuery(
+  uploadConfig: UploadConfig,
+  options: {
+    key: string;
+    method: "GET" | "PUT";
+    expiresIn: number;
+    query?: Record<string, string>;
+    headers?: Record<string, string>;
+  }
+): Promise<string> {
+  const awsClient = createS3Client(uploadConfig);
+  const config = getS3CompatibleConfig(uploadConfig.provider);
+
+  const url = new URL(buildApiUrl(options.key, config));
+  for (const [name, value] of Object.entries(options.query ?? {})) {
+    url.searchParams.set(name, value);
+  }
+  url.searchParams.set("X-Amz-Expires", options.expiresIn.toString());
+
+  const signedRequest = await awsClient.sign(
+    new Request(url.toString(), {
+      method: options.method,
+      headers: options.headers,
+    }),
+    { aws: { signQuery: true } }
+  );
+
+  return signedRequest.url;
+}
+
 export async function generatePresignedUploadUrl(
   uploadConfig: UploadConfig,
   options: PresignedUrlOptions
