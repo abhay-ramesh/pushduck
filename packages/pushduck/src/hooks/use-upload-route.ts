@@ -235,6 +235,12 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
   const uploadFiles = useCallback(
     async (files: UploadInput[], metadata?: unknown) => {
       await engine.upload(files, metadata);
+      // The beta contract: resolve with the completed files, so callers can
+      // await results directly instead of watching `files` state. Errors
+      // still report through state — this never rejects.
+      return engine
+        .getSnapshot()
+        .files.filter((f) => f.status === "success") as S3UploadedFile[];
     },
     [engine]
   );
@@ -283,3 +289,33 @@ export function useUploadRoute<TRouter extends S3Router<any>>(
  * working; the implementations are shared with every other framework binding.
  */
 export { formatETA, formatUploadSpeed };
+
+/**
+ * Hook for uploading files to a typed route.
+ * Preferred over `useUploadRoute` — hooks should look like hooks.
+ *
+ * @example
+ * ```typescript
+ * const { uploadFiles, files, isUploading } = useUpload<AppRouter>('imageUpload', {
+ *   onComplete: (results) => console.log('done', results),
+ * });
+ *
+ * const results = await uploadFiles(selectedFiles);
+ * ```
+ */
+export function useUpload<TRouter extends S3Router<any>>(
+  routeName: RouterRouteNames<TRouter>,
+  config?: UploadRouteConfig
+): S3RouteUploadResult;
+
+export function useUpload(
+  routeName: string,
+  config?: UploadRouteConfig
+): S3RouteUploadResult;
+
+export function useUpload<TRouter extends S3Router<any>>(
+  routeName: RouterRouteNames<TRouter> | string,
+  config?: UploadRouteConfig
+): S3RouteUploadResult {
+  return useUploadRoute(routeName as string, config);
+}

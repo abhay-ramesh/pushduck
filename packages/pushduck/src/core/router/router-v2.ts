@@ -162,10 +162,25 @@ export interface S3LifecycleContext<T = any> {
   file: S3FileMetadata;
   /** Processed metadata from middleware */
   metadata: T;
-  /** Public URL of the uploaded file (available after upload) */
-  url?: string;
-  /** Storage key/path of the uploaded file */
+  /**
+   * Permanent storage path (e.g. 'uploads/user123/photo.jpg').
+   * Store this in your database — it never expires.
+   */
+  storagePath?: string;
+  /**
+   * Public URL of the uploaded file. Never expires if bucket has public access.
+   * Store this in your database.
+   */
+  publicUrl?: string;
+  /**
+   * Temporary presigned download URL — expires in ~1 hour.
+   * Use for immediate display only. Do NOT store in your database.
+   */
+  presignedUrl?: string;
+  /** @deprecated Use `storagePath` instead. */
   key?: string;
+  /** @deprecated Use `publicUrl` or `presignedUrl` instead. */
+  url?: string;
 }
 
 /**
@@ -417,8 +432,8 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
    * ```
    */
   paths(paths: S3RoutePathConfig<TMetadata>): this {
-    this.config.paths = { ...this.config.paths, ...paths };
-    return this;
+    const newConfig = { ...this.config, paths: { ...this.config.paths, ...paths } };
+    return new S3Route(this.schema, newConfig) as this;
   }
 
   /**
@@ -491,23 +506,26 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
 
     if (typeof secondsOrConfig === "number") {
       assertRange("expiresIn", secondsOrConfig);
-      this.config.expiresIn = secondsOrConfig;
-      return this;
+      return new S3Route(this.schema, {
+        ...this.config,
+        expiresIn: secondsOrConfig,
+      }) as this;
     }
 
     const { upload, download } = secondsOrConfig;
+    const newConfig = { ...this.config };
 
     if (upload !== undefined) {
       assertRange("expiresIn.upload", upload);
-      this.config.expiresIn = upload;
+      newConfig.expiresIn = upload;
     }
 
     if (download !== undefined) {
       assertRange("expiresIn.download", download);
-      this.config.downloadExpiresIn = download;
+      newConfig.downloadExpiresIn = download;
     }
 
-    return this;
+    return new S3Route(this.schema, newConfig) as this;
   }
 
   /**
@@ -538,8 +556,8 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
    * ```
    */
   onUploadStart(hook: S3LifecycleHook<TMetadata>): this {
-    this.config.onUploadStart = hook;
-    return this;
+    console.warn('⚠️ pushduck: .onUploadStart() is deprecated. Use .onStart() instead.');
+    return this.onStart(hook);
   }
 
   /**
@@ -548,34 +566,85 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
    *
    * @param hook - Function to execute on upload progress
    * @returns This route instance for chaining
-   *
-   * @example Progress Tracking
-   * ```typescript
-   * const route = s3.file().onUploadProgress(async ({ file, metadata, progress }) => {
-   *   await updateUploadProgress(metadata.uploadId, {
-   *     fileName: file.name,
-   *     progress,
-   *     status: progress === 100 ? 'completing' : 'uploading',
-   *   });
-   * });
-   * ```
-   *
-   * @example Real-time Updates
-   * ```typescript
-   * const route = s3.file().onUploadProgress(async ({ file, metadata, progress }) => {
-   *   await sendProgressUpdate(metadata.userId, {
-   *     fileName: file.name,
-   *     percentComplete: progress,
-   *   });
-   * });
-   * ```
+   * @deprecated Use `.onProgress()` instead.
    */
   onUploadProgress(
     hook: (
       ctx: S3LifecycleContext<TMetadata> & { progress: number }
     ) => Promise<void> | void
   ): this {
-    this.config.onUploadProgress = hook;
+    console.warn('⚠️ pushduck: .onUploadProgress() is deprecated. Use .onProgress() instead.');
+    return this.onProgress(hook);
+  }
+
+  /**
+   * Adds a hook that executes when file upload completes successfully.
+   * Ideal for database updates, post-processing, and success notifications.
+   *
+   * @param hook - Function to execute on upload completion
+   * @returns This route instance for chaining
+   * @deprecated Use `.onComplete()` instead.
+   */
+  onUploadComplete(hook: S3LifecycleHook<TMetadata>): this {
+    console.warn('⚠️ pushduck: .onUploadComplete() is deprecated. Use .onComplete() instead.');
+    return this.onComplete(hook);
+  }
+
+  /**
+   * Adds a hook that executes when file upload fails.
+   * Essential for error logging, cleanup, and user notifications.
+   *
+   * @param hook - Function to execute on upload error
+   * @returns This route instance for chaining
+   * @deprecated Use `.onError()` instead.
+   */
+  onUploadError(
+    hook: (
+      ctx: S3LifecycleContext<TMetadata> & { error: Error }
+    ) => Promise<void> | void
+  ): this {
+    console.warn('⚠️ pushduck: .onUploadError() is deprecated. Use .onError() instead.');
+    return this.onError(hook);
+  }
+
+  /**
+   * Adds a hook that executes when file upload starts.
+   * Useful for logging, initializing progress tracking, or sending notifications.
+   *
+   * @param hook - Function to execute on upload start
+   * @returns This route instance for chaining
+   *
+   * @example
+   * ```typescript
+   * upload.file().onStart(async ({ file, metadata }) => {
+   *   await logUploadEvent('start', file.name, metadata.userId);
+   * });
+   * ```
+   */
+  onStart(hook: S3LifecycleHook<TMetadata>): this {
+    this.config.onStart = hook;
+    return this;
+  }
+
+  /**
+   * Adds a hook that executes during file upload progress.
+   *
+   * @param hook - Function to execute on upload progress
+   * @returns This route instance for chaining
+   *
+   * @example
+   * ```typescript
+   * upload.file().onProgress(async ({ file, metadata, progress }) => {
+   *   await updateUploadProgress(metadata.uploadId, { progress });
+   * });
+   * ```
+   */
+  onProgress(
+    hook: (
+      ctx: S3LifecycleContext<TMetadata> & { progress: number }
+    ) => Promise<void> | void
+  ): this {
+    this.config.onProgress = hook;
     return this;
   }
 
@@ -586,100 +655,37 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
    * @param hook - Function to execute on upload completion
    * @returns This route instance for chaining
    *
-   * @example Database Update
+   * @example
    * ```typescript
-   * const route = s3.file().onUploadComplete(async ({ file, url, key, metadata }) => {
-   *   await db.files.create({
-   *     name: file.name,
-   *     size: file.size,
-   *     type: file.type,
-   *     url: url,
-   *     key: key,
-   *     uploadedBy: metadata.userId,
-   *     uploadedAt: new Date(),
-   *   });
-   * });
-   * ```
-   *
-   * @example Post-processing
-   * ```typescript
-   * const route = s3.image().onUploadComplete(async ({ file, key, metadata }) => {
-   *   // Generate thumbnails for images
-   *   await generateThumbnails(key, {
-   *     sizes: [100, 300, 600],
-   *     userId: metadata.userId,
-   *   });
-   * });
-   * ```
-   *
-   * @example Notification System
-   * ```typescript
-   * const route = s3.file().onUploadComplete(async ({ file, url, metadata }) => {
-   *   await sendNotification({
-   *     userId: metadata.userId,
-   *     type: 'upload_success',
-   *     message: `File "${file.name}" uploaded successfully`,
-   *     fileUrl: url,
-   *   });
+   * upload.file().onComplete(async ({ file, url, key, metadata }) => {
+   *   await db.files.create({ name: file.name, url, uploadedBy: metadata.userId });
    * });
    * ```
    */
-  onUploadComplete(hook: S3LifecycleHook<TMetadata>): this {
-    this.config.onUploadComplete = hook;
+  onComplete(hook: S3LifecycleHook<TMetadata>): this {
+    this.config.onComplete = hook;
     return this;
   }
 
   /**
    * Adds a hook that executes when file upload fails.
-   * Essential for error logging, cleanup, and user notifications.
    *
    * @param hook - Function to execute on upload error
    * @returns This route instance for chaining
    *
-   * @example Error Logging
+   * @example
    * ```typescript
-   * const route = s3.file().onUploadError(async ({ file, error, metadata }) => {
-   *   console.error(`Upload failed: ${file.name}`, error);
-   *   await logUploadError({
-   *     fileName: file.name,
-   *     error: error.message,
-   *     stack: error.stack,
-   *     userId: metadata.userId,
-   *     timestamp: new Date(),
-   *   });
-   * });
-   * ```
-   *
-   * @example Cleanup and Retry
-   * ```typescript
-   * const route = s3.file().onUploadError(async ({ file, error, metadata }) => {
-   *   // Clean up any partial uploads
-   *   await cleanupPartialUpload(file.name, metadata.uploadId);
-   *
-   *   // Queue for retry if appropriate
-   *   if (isRetryableError(error)) {
-   *     await queueUploadRetry(file.name, metadata);
-   *   }
-   * });
-   * ```
-   *
-   * @example User Notification
-   * ```typescript
-   * const route = s3.file().onUploadError(async ({ file, error, metadata }) => {
-   *   await sendNotification({
-   *     userId: metadata.userId,
-   *     type: 'upload_error',
-   *     message: `Failed to upload "${file.name}": ${error.message}`,
-   *   });
+   * upload.file().onError(async ({ file, error, metadata }) => {
+   *   await logUploadError({ fileName: file.name, error: error.message });
    * });
    * ```
    */
-  onUploadError(
+  onError(
     hook: (
       ctx: S3LifecycleContext<TMetadata> & { error: Error }
     ) => Promise<void> | void
   ): this {
-    this.config.onUploadError = hook;
+    this.config.onError = hook;
     return this;
   }
 
@@ -727,14 +733,26 @@ interface S3RouteConfig<TMetadata = any> {
    */
   requireCompletionToken?: boolean;
   /** Hook for upload start events */
-  onUploadStart?: S3LifecycleHook<TMetadata>;
+  onStart?: S3LifecycleHook<TMetadata>;
   /** Hook for upload progress events */
-  onUploadProgress?: (
+  onProgress?: (
     ctx: S3LifecycleContext<TMetadata> & { progress: number }
   ) => Promise<void> | void;
   /** Hook for upload completion events */
-  onUploadComplete?: S3LifecycleHook<TMetadata>;
+  onComplete?: S3LifecycleHook<TMetadata>;
   /** Hook for upload error events */
+  onError?: (
+    ctx: S3LifecycleContext<TMetadata> & { error: Error }
+  ) => Promise<void> | void;
+  /** @deprecated Use onStart */
+  onUploadStart?: S3LifecycleHook<TMetadata>;
+  /** @deprecated Use onProgress */
+  onUploadProgress?: (
+    ctx: S3LifecycleContext<TMetadata> & { progress: number }
+  ) => Promise<void> | void;
+  /** @deprecated Use onComplete */
+  onUploadComplete?: S3LifecycleHook<TMetadata>;
+  /** @deprecated Use onError */
   onUploadError?: (
     ctx: S3LifecycleContext<TMetadata> & { error: Error }
   ) => Promise<void> | void;
@@ -1083,9 +1101,10 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           );
         }
 
-        // 3. Call onUploadStart hook
-        if (routeConfig.onUploadStart) {
-          await routeConfig.onUploadStart({ file, metadata: fileMetadata });
+        // 3. Call onStart hook (supports both new and deprecated name)
+        const onStartHook = routeConfig.onStart || routeConfig.onUploadStart;
+        if (onStartHook) {
+          await onStartHook({ file, metadata: fileMetadata });
         }
 
         // 4. Generate hierarchical file key
@@ -1154,9 +1173,10 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
       } catch (error) {
         const err = normalizeServerError(error);
 
-        // Call onUploadError hook with enriched metadata
-        if (routeConfig.onUploadError) {
-          await routeConfig.onUploadError({
+        // Call onError hook (supports both new and deprecated name)
+        const onErrorHook = routeConfig.onError || routeConfig.onUploadError;
+        if (onErrorHook) {
+          await onErrorHook({
             file,
             metadata: fileMetadata,
             error: err,
@@ -1554,11 +1574,16 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           routeConfig.downloadExpiresIn ?? 3600
         );
 
-        // Call onUploadComplete hook
-        if (routeConfig.onUploadComplete) {
-          await routeConfig.onUploadComplete({
+        // Call onComplete hook (supports both new and deprecated name)
+        const onCompleteHook = routeConfig.onComplete || routeConfig.onUploadComplete;
+        if (onCompleteHook) {
+          await onCompleteHook({
             file: completion.file,
             metadata: (trustedMetadata || {}) as Record<string, unknown>,
+            storagePath: completion.key,
+            publicUrl: url,
+            presignedUrl,
+            // deprecated aliases
             url,
             key: completion.key,
           });
@@ -1567,7 +1592,9 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         results.push({
           success: true,
           key: completion.key,
+          storagePath: completion.key,
           url,
+          publicUrl: url,
           presignedUrl,
           file: completion.file,
         });
@@ -1577,9 +1604,10 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
             ? error
             : new Error("Upload completion failed");
 
-        // Call onUploadError hook
-        if (routeConfig.onUploadError) {
-          await routeConfig.onUploadError({
+        // Call onError hook (supports both new and deprecated name)
+        const onErrorHook = routeConfig.onError || routeConfig.onUploadError;
+        if (onErrorHook) {
+          await onErrorHook({
             file: completion.file,
             metadata: (trustedMetadata || {}) as Record<string, unknown>,
             error: err,
@@ -1631,31 +1659,23 @@ export interface UploadCompletion {
 
 export interface CompletionResponse {
   success: boolean;
+  /** Permanent storage path — store this in your database. */
+  storagePath?: string;
+  /** Public URL — store this in your database. */
+  publicUrl?: string;
+  /** Temporary presigned download URL — expires in ~1 hour, do not store. */
+  presignedUrl?: string;
+  /** @deprecated Use `storagePath` instead. */
   key: string;
   /**
    * The object's permanent public URL — your `customDomain` when one is
-   * configured, otherwise the provider URL.
-   *
-   * **Use this for public buckets.** It is unsigned, never expires and keeps
+   * configured, otherwise the provider URL. Unsigned, never expires, keeps
    * CDN caching intact.
+   *
+   * @deprecated Use `publicUrl` (same value) for public buckets, or
+   * `presignedUrl` for private ones.
    */
   url?: string;
-  /**
-   * A temporary signed URL for reading the object, for **private** buckets.
-   *
-   * Expires after the route's `.expiresIn({ download })`, defaulting to one
-   * hour. Independent of the upload window. Always addressed to the provider's
-   * S3 API endpoint, never to `customDomain` — a custom domain is a read-only
-   * CDN front and cannot serve a presigned request. Cloudflare documents this
-   * for R2 explicitly.
-   *
-   * Intended for immediate use. **Persist the `key`, not this URL** — a stored
-   * URL expires while the record still points at it. Mint a fresh one on
-   * demand with `storage.download.presignedUrl(key, ttl)`.
-   *
-   * If your bucket is public, prefer {@link CompletionResponse.url}.
-   */
-  presignedUrl?: string;
   file?: S3FileMetadata;
   error?: string;
 }
