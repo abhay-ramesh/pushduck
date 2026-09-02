@@ -84,7 +84,7 @@ describe("conformance suite", () => {
   it("loads every fixture file", () => {
     // Guards the glob: a renamed directory would otherwise make the whole
     // suite vacuously pass with zero cases.
-    expect(fixtures.length).toBeGreaterThanOrEqual(20);
+    expect(fixtures.length).toBeGreaterThanOrEqual(23);
   });
 
   it.each(fixtures.map((fixture) => [fixture.name, fixture] as const))(
