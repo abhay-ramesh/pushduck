@@ -315,3 +315,111 @@ describe.skipIf(!available)("MinIO end-to-end", () => {
     expect(await stored.text()).toBe("readable");
   });
 });
+
+describe.skipIf(!available)("Unicode object keys against real storage", () => {
+  /**
+   * The key fix is only worth anything if a Unicode key actually round-trips.
+   * A presigned URL puts the key in the path, where it must be percent-encoded
+   * *and* signed consistently — encode it in one place and not the other and
+   * the signature fails. No unit test can catch that; only a real server can.
+   */
+  it("uploads and reads back a file with a CJK name", async () => {
+    const { s3, config } = createUploadConfig()
+      .provider("minio", {
+        endpoint: MINIO_ENDPOINT,
+        bucket: BUCKET,
+        accessKeyId: "minioadmin",
+        secretAccessKey: "minioadmin",
+        region: "us-east-1",
+        useSSL: false,
+      })
+      .build();
+
+    const storage = createStorage(config);
+    const router = s3.createRouter({ doc: s3.file().maxFileSize("5MB") });
+
+    const bytes = new Uint8Array([1, 2, 3, 4, 5]);
+    const name = `文档-${Date.now()}.pdf`;
+
+    const response = await router.handler(
+      new Request("http://localhost/api/upload?route=doc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: [{ name, size: bytes.length, type: "application/pdf" }],
+        }),
+      })
+    );
+
+    const { results } = await response.json();
+    const presigned = results[0];
+
+    // The key keeps the original characters rather than collapsing to `.pdf`.
+    expect(presigned.key).toContain("文档");
+
+    const put = await fetch(presigned.presignedUrl, {
+      method: "PUT",
+      body: bytes,
+      headers: presigned.requiredHeaders ?? {},
+    });
+    expect(put.status, await put.text().catch(() => "")).toBe(200);
+
+    const downloadUrl = await storage.download.presignedUrl(presigned.key, 120);
+    const read = await fetch(downloadUrl);
+    expect(read.status).toBe(200);
+    expect(new Uint8Array(await read.arrayBuffer())).toEqual(bytes);
+  }, 30_000);
+
+  it("stores two differently-named CJK files as two objects", async () => {
+    // The data-loss case, proven against a real bucket: these used to share a
+    // key, so the second upload replaced the first.
+    const { s3, config } = createUploadConfig()
+      .provider("minio", {
+        endpoint: MINIO_ENDPOINT,
+        bucket: BUCKET,
+        accessKeyId: "minioadmin",
+        secretAccessKey: "minioadmin",
+        region: "us-east-1",
+        useSSL: false,
+      })
+      .build();
+
+    const storage = createStorage(config);
+    const router = s3.createRouter({ doc: s3.file().maxFileSize("5MB") });
+    const stamp = Date.now();
+
+    const keys: string[] = [];
+    for (const [index, name] of [`文档-${stamp}.pdf`, `写真-${stamp}.pdf`].entries()) {
+      const response = await router.handler(
+        new Request("http://localhost/api/upload?route=doc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            files: [{ name, size: 1, type: "application/pdf" }],
+          }),
+        })
+      );
+      const { results } = await response.json();
+      keys.push(results[0].key);
+
+      const put = await fetch(results[0].presignedUrl, {
+        method: "PUT",
+        body: new Uint8Array([index]),
+        headers: results[0].requiredHeaders ?? {},
+      });
+      expect(put.status).toBe(200);
+    }
+
+    expect(keys[0]).not.toBe(keys[1]);
+
+    // Both objects exist, and each holds its own byte.
+    for (const [index, key] of keys.entries()) {
+      const url = await storage.download.presignedUrl(key, 120);
+      const read = await fetch(url);
+      expect(read.status).toBe(200);
+      expect(new Uint8Array(await read.arrayBuffer())).toEqual(
+        new Uint8Array([index])
+      );
+    }
+  }, 30_000);
+});
