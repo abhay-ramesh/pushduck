@@ -59,9 +59,9 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 If you experience or witness unacceptable behavior, or have any other concerns, please report it by contacting the community leaders at:
 
-- **Email**: [conduct@pushduck.dev](mailto:conduct@pushduck.dev)
+- **Email**: [conduct@pushduck.org](mailto:conduct@pushduck.org)
 - **GitHub**: Create a private issue or contact maintainers directly
-- **Alternative contact**: [hello@pushduck.dev](mailto:hello@pushduck.dev)
+- **Alternative contact**: [hello@pushduck.org](mailto:hello@pushduck.org)
 
 ### What to Include
 
@@ -166,7 +166,7 @@ This Code of Conduct is a living document that may be updated as our community g
 ### Feedback Channels
 
 - **GitHub Discussions**: Share ideas for improvement
-- **Email**: [conduct@pushduck.dev](mailto:conduct@pushduck.dev)
+- **Email**: [conduct@pushduck.org](mailto:conduct@pushduck.org)
 - **Community surveys**: Periodic feedback collection
 
 ## 📚 Resources
