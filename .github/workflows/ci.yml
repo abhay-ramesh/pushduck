@@ -17,30 +17,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    # A real S3-compatible server for the integration suite. Without it the
-    # SigV4 signing path is only ever checked against our own expectations of
-    # the algorithm — a self-consistently wrong signature passes every unit
-    # test and fails in a user's bucket.
-    services:
-      minio:
-        image: bitnami/minio:latest
-        ports:
-          - 9010:9000
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-          MINIO_DEFAULT_BUCKETS: test-uploads
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      # A real S3-compatible server for the integration suite. Without it the
+      # SigV4 signing path is only ever checked against our own expectations of
+      # the algorithm — a self-consistently wrong signature passes every unit
+      # test and fails in a user's bucket. The same script developers use
+      # locally; a service container can't run the official minio/minio image
+      # because services accept no command, and the Bitnami image that could
+      # was withdrawn from Docker Hub.
+      - name: 🪣 Start MinIO
+        run: ./packages/pushduck/scripts/minio.sh start
 
       - name: 🏗️ Setup project
         uses: ./.github/actions/setup
