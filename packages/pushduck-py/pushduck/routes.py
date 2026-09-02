@@ -59,11 +59,11 @@ from .errors import UploadError
 
 TUser = TypeVar("TUser")
 
-#: The principal of a route that does not authenticate anyone. Spelled as a
-#: type rather than ``None`` so ``Route[Anonymous]`` reads as a decision and
+#: The user type of a route that authenticates nobody. Spelled as a type
+#: rather than ``None`` so ``Route[Anonymous]`` reads as a decision and
 #: ``ctx.user`` still has a name a reader can look up.
 class Anonymous:
-    """No authenticated principal. ``ctx.user`` is ``None``."""
+    """No authenticated user. ``ctx.user`` is ``None``."""
 
     __slots__ = ()
 
@@ -93,15 +93,16 @@ class Context(Generic[TUser]):
     request: Any
     #: The route this upload is for.
     route: str
-    #: Whatever ``principal`` returned, or ``None`` on an anonymous route.
+    #: Whatever the ``user`` channel returned, or ``None`` on an anonymous route.
     user: TUser
     #: What the client sent. Untrusted, always. Never merged into ``metadata``.
     client_metadata: Mapping[str, Any] = field(default_factory=dict)
     #: What the server vouches for. Starts empty; only ``metadata`` fills it.
     metadata: Dict[str, Any] = field(default_factory=dict)
-    #: The resolved object key. Populated before ``metadata`` runs, so metadata
-    #: can reference it; ``None`` earlier in the lifecycle.
-    key: Optional[str] = None
+    #: The resolved storage path (the S3 object key). Populated before
+    #: ``metadata`` runs, so metadata can reference it; ``None`` earlier in the
+    #: lifecycle.
+    storage_path: Optional[str] = None
 
 
 # ─── channel signatures ──────────────────────────────────────────────────────
@@ -112,10 +113,10 @@ class Context(Generic[TUser]):
 MaybeAwaitable = Union[None, Awaitable[None]]
 
 Authorize = Callable[[Any], MaybeAwaitable]
-Principal = Callable[[Any], Any]
+UserResolver = Callable[[Any], Any]
 Around = Callable[["Context[Any]"], AsyncIterator[None]]
 Validate = Callable[["Context[Any]", FileMeta], MaybeAwaitable]
-Key = Callable[["Context[Any]", FileMeta], Union[str, Awaitable[str]]]
+StoragePath = Callable[["Context[Any]", FileMeta], Union[str, Awaitable[str]]]
 Metadata = Callable[
     ["Context[Any]", FileMeta], Union[Mapping[str, Any], Awaitable[Mapping[str, Any]]]
 ]
@@ -127,11 +128,11 @@ OnError = Callable[["Context[Any]", Optional[FileMeta], BaseException], MaybeAwa
 class Route:
     """One named upload endpoint.
 
-    Deliberately *not* generic in the principal, though ``Context`` is. Making
+    Deliberately *not* generic in the user type, though ``Context`` is. Making
     ``Route`` generic reads well and costs more than it returns: mypy cannot
-    infer the parameter from a route that has no ``principal``, so every
+    infer the parameter from a route that has no ``user`` channel, so every
     construction site — including the common one with no authentication at all
-    — reports ``Need type annotation``. A hook that wants a typed principal
+    — reports ``Need type annotation``. A hook that wants a typed user
     annotates its own parameter instead::
 
         def tenant_key(ctx: Context[User], file: FileMeta) -> str:
@@ -147,8 +148,8 @@ class Route:
         Route(
             schema=image(max_size="5MB"),
             authorize=[require_session],
-            principal=load_user,
-            key=lambda ctx, f: f"{ctx.user.tenant}/{f.name}",
+            user=load_user,
+            storage_path=lambda ctx, f: f"{ctx.user.tenant}/{f.name}",
             metadata=lambda ctx, f: {"owner_id": ctx.user.id},
             on_complete=[record_upload],
         )
@@ -157,7 +158,7 @@ class Route:
     derives one from another and stays exhaustive when a channel is added
     later::
 
-        tenant = Route(authorize=[require_session], key=tenant_key)
+        tenant = Route(authorize=[require_session], storage_path=tenant_key)
         avatar = replace(tenant, schema=image(max_size="5MB"))
     """
 
@@ -172,7 +173,7 @@ class Route:
     authorize: Sequence[Authorize] = ()
 
     #: Runs once per request. Its return value *is* ``ctx.user``.
-    principal: Optional[Principal] = None
+    user: Optional[UserResolver] = None
 
     #: Async generators that bracket the whole request — one ``yield`` each,
     #: with everything downstream running at the yield. The only channel that
@@ -185,11 +186,11 @@ class Route:
     #: same exception raised from ``authorize`` is a request-level status.
     validate: Sequence[Validate] = ()
 
-    #: Runs per file. Its return value is a key *fragment*, not the key: the
-    #: library rejects traversal, re-sanitises every segment and appends the
-    #: disambiguator. Django moved exactly this validation into ``Storage.save``
+    #: Runs per file. Its return value is a *fragment* of the storage path,
+    #: never the whole path: the library rejects traversal, re-sanitises every
+    #: segment and appends the disambiguator. Django moved exactly this validation into ``Storage.save``
     #: after CVE-2024-39330, so that no override could bypass it.
-    key: Optional[Key] = None
+    storage_path: Optional[StoragePath] = None
 
     #: Runs per file. Its return value *is* ``ctx.metadata``. The client's
     #: metadata is never merged in.
@@ -214,7 +215,7 @@ class Route:
         for name in ("authorize", "validate", "on_complete", "on_error"):
             object.__setattr__(self, name, tuple(_as_async(fn) for fn in getattr(self, name)))
 
-        for name in ("principal", "key", "metadata"):
+        for name in ("user", "storage_path", "metadata"):
             fn = getattr(self, name)
             if fn is not None:
                 object.__setattr__(self, name, _as_async(fn))

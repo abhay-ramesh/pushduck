@@ -40,8 +40,8 @@ def _body() -> None:
     router.add("imageUpload", Route(
         schema=image(max_size="5MB"),
         authorize=[require_session],
-        principal=load_user,
-        key=lambda ctx, f: f"{ctx.user.tenant}/{f.name}",
+        user=load_user,
+        storage_path=lambda ctx, f: f"{ctx.user.tenant}/{f.name}",
         metadata=lambda ctx, f: {"user_id": ctx.user.id},
         on_complete=[record_upload],
     ))
@@ -65,18 +65,18 @@ def _body() -> None:
             json.dumps({"files":[{"name":name,"size":10,"type":"image/png"}]}).encode())))
         return resp.status, json.loads(resp.body)
 
-    st, body = presign(Route(schema=image(), principal=load_user, key=tenant_key), "写真 photo.png")
+    st, body = presign(Route(schema=image(), user=load_user, storage_path=tenant_key), "写真 photo.png")
     assert st == 200, body
     got = body["results"][0]["key"]
     assert got == "acme/写真_photo.png", f"docs claim acme/写真_photo.png, got {got!r}"
 
 
-    st, body = presign(Route(schema=image(), key=lambda ctx,f: "../../etc/passwd"), "a.png")
+    st, body = presign(Route(schema=image(), storage_path=lambda ctx,f: "../../etc/passwd"), "a.png")
     assert st == 500 and body["code"] == "CONFIG_INVALID", body
 
 
     # --- snippet 4: replace()
-    tenant = Route(authorize=[require_session], principal=load_user, key=tenant_key)
+    tenant = Route(authorize=[require_session], user=load_user, storage_path=tenant_key)
     r3 = Router(config)
     r3.add("avatar",   replace(tenant, schema=image(max_size="5MB")))
     r3.add("document", replace(tenant, schema=file(max_size="50MB")))
@@ -88,11 +88,11 @@ def _body() -> None:
 
     # --- snippet 6: describe(), and the exact output the docs print
     r5 = Router(config)
-    r5.add("avatar", Route(schema=image(), authorize=[require_session], principal=load_user,
-                           key=tenant_key, metadata=lambda c,f: {}, on_complete=[record_upload]))
+    r5.add("avatar", Route(schema=image(), authorize=[require_session], user=load_user,
+                           storage_path=tenant_key, metadata=lambda c,f: {}, on_complete=[record_upload]))
     r5.add("public", Route(schema=file()))
     described = r5.describe()
 
-    assert "authorize(1) principal key metadata on_complete(1)" in described, described
+    assert "authorize(1) user storage_path metadata on_complete(1)" in described, described
     assert "schema only" in described, described
 

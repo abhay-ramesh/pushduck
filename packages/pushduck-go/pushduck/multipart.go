@@ -5,7 +5,7 @@ package pushduck
 // A multipart upload spans four requests, and the last three have to name the
 // object they act on. If the client sent `{key, uploadId}` directly, anyone
 // could sign parts for — or abort — someone else's upload by guessing or
-// observing that pair. Route middleware authenticates the *caller*; nothing
+// observing that pair. Route metadata hooks authenticate the *caller*; nothing
 // would tie the caller to the object.
 //
 // So `init` returns an opaque token binding the key, upload id and route under
@@ -79,10 +79,10 @@ func (router *Router) verifySession(token string) (multipartSession, error) {
 	return session, nil
 }
 
-// authorizeSession verifies the token *and* re-runs the route's middleware.
+// authorizeSession verifies the token *and* re-runs the route's metadata hooks.
 //
 // Both are required. The token proves which object is being acted on; the
-// middleware proves the caller is still allowed to act. Checking only the token
+// hooks prove the caller is still allowed to act. Checking only the token
 // would let a revoked user finish an upload they started.
 func (router *Router) authorizeSession(
 	r *http.Request, routeName string, route Route, token string,
@@ -96,8 +96,8 @@ func (router *Router) authorizeSession(
 		return multipartSession{}, NewError("FORBIDDEN", "Invalid or expired multipart session")
 	}
 
-	for _, middleware := range route.Middleware {
-		if _, err := middleware(r, FileMeta{Name: session.Key}); err != nil {
+	for _, hook := range route.Metadata {
+		if _, err := hook(r, FileMeta{Name: session.Key}); err != nil {
 			return multipartSession{}, err
 		}
 	}
@@ -181,14 +181,14 @@ func (router *Router) multipartInit(
 			"`file` with name, size and type is required to start a multipart upload")
 	}
 
-	// Middleware and validation run here exactly as they do for a single PUT,
+	// Metadata hooks and validation run here exactly as they do for a single PUT,
 	// so a multipart upload cannot bypass a route's constraints.
 	metadata := map[string]any{}
 	for key, value := range request.Metadata {
 		metadata[key] = value
 	}
-	for _, middleware := range route.Middleware {
-		produced, err := middleware(r, request.File)
+	for _, hook := range route.Metadata {
+		produced, err := hook(r, request.File)
 		if err != nil {
 			return err
 		}

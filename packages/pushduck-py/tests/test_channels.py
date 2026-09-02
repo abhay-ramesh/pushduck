@@ -134,10 +134,10 @@ def test_authorize_return_value_is_ignored():
     assert body_of(response)["results"][0]["metadata"] == {}
 
 
-# ─── principal produces ctx.user ─────────────────────────────────────────────
+# ─── user produces ctx.user ─────────────────────────────────────────────
 
 
-def test_principal_becomes_ctx_user():
+def test_user_channel_becomes_ctx_user():
     class User:
         id = "u_42"
         tenant = "acme"
@@ -147,8 +147,8 @@ def test_principal_becomes_ctx_user():
         "avatar",
         Route(
             schema=image(),
-            principal=lambda request: User(),
-            key=lambda ctx, f: f"{ctx.user.tenant}/{f.name}",
+            user=lambda request: User(),
+            storage_path=lambda ctx, f: f"{ctx.user.tenant}/{f.name}",
             metadata=lambda ctx, f: {"owner_id": ctx.user.id},
         ),
     )
@@ -217,7 +217,7 @@ def test_key_channel_cannot_escape(fragment):
     """Django moved this validation into `Storage.save()` after CVE-2024-39330
     precisely so that no override could bypass it."""
     router = Router(CONFIG)
-    router.add("avatar", Route(schema=image(), key=lambda ctx, f: fragment))
+    router.add("avatar", Route(schema=image(), storage_path=lambda ctx, f: fragment))
 
     response = run(router, presign_request([{"name": "a.png", "size": 10, "type": "image/png"}]))
 
@@ -234,7 +234,7 @@ def test_key_channel_output_is_re_sanitised():
     """Without this, the non-Latin filename handling protects only the default
     key and is bypassed by every application that supplies its own."""
     router = Router(CONFIG)
-    router.add("avatar", Route(schema=image(), key=lambda ctx, f: f"tenant/{f.name}"))
+    router.add("avatar", Route(schema=image(), storage_path=lambda ctx, f: f"tenant/{f.name}"))
 
     result = body_of(run(router, presign_request(
         [{"name": "写真 photo.png", "size": 10, "type": "image/png"}]
@@ -303,7 +303,7 @@ def test_around_brackets_the_request():
         Route(
             schema=image(),
             around=[outer, inner],
-            key=lambda ctx, f: order.append("body") or f.name,
+            storage_path=lambda ctx, f: order.append("body") or f.name,
         ),
     )
 
@@ -331,7 +331,7 @@ def test_around_exits_on_failure():
         raise RuntimeError("handler blew up")
 
     router = Router(CONFIG)
-    router.add("avatar", Route(schema=image(), around=[transaction], key=explode))
+    router.add("avatar", Route(schema=image(), around=[transaction], storage_path=explode))
 
     response = run(router, presign_request([{"name": "a.png", "size": 10, "type": "image/png"}]))
 
@@ -385,7 +385,7 @@ def test_on_complete_receives_server_metadata():
 
 def test_replace_derives_a_route():
     """Composition needs no API because a route is a value."""
-    tenant = Route(authorize=[lambda r: None], key=lambda ctx, f: f"t/{f.name}")
+    tenant = Route(authorize=[lambda r: None], storage_path=lambda ctx, f: f"t/{f.name}")
     avatar = replace(tenant, schema=image(max_size="5MB"))
 
     assert avatar.authorize == tenant.authorize
@@ -408,13 +408,13 @@ def test_router_defaults_prepend_rather_than_replace():
 
 def test_describe_lists_channels():
     router = Router(CONFIG)
-    router.add("avatar", Route(schema=image(), authorize=[lambda r: None], key=lambda c, f: "k"))
+    router.add("avatar", Route(schema=image(), authorize=[lambda r: None], storage_path=lambda c, f: "k"))
     router.add("public", Route(schema=file_schema()))
 
     described = router.describe()
 
     assert "authorize(1)" in described
-    assert "key" in described
+    assert "storage_path" in described
     assert "schema only" in described
 
 
@@ -456,7 +456,7 @@ def test_an_unknown_route_name_is_not_reflected_into_a_header():
 def test_sync_and_async_channels_interoperate():
     """Flask users write `def`; FastAPI users write `async def`. Both, in one
     route, resolved once at registration."""
-    async def async_principal(request):
+    async def resolve_user_async(request):
         return {"id": "u_1"}
 
     def sync_metadata(ctx, f):
@@ -464,7 +464,7 @@ def test_sync_and_async_channels_interoperate():
 
     router = Router(CONFIG)
     router.add("avatar", Route(
-        schema=image(), principal=async_principal, metadata=sync_metadata
+        schema=image(), user=resolve_user_async, metadata=sync_metadata
     ))
 
     result = body_of(run(router, presign_request(

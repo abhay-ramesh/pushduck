@@ -17,7 +17,7 @@ config := pushduck.Config{
 router := pushduck.NewRouter(config, pushduck.Routes{
     "imageUpload": pushduck.Image(
         pushduck.MaxSize("5MB"),
-        pushduck.WithMiddleware(requireUser),
+        pushduck.WithMetadata(requireUser),
         pushduck.OnComplete(saveToDatabase),
     ),
 })
@@ -82,7 +82,7 @@ the conformance fixtures deliberately match them by shape and cannot:
 
 ## Status
 
-Implemented: introspection, presign, complete, middleware, RFC 9457 errors,
+Implemented: introspection, presign, complete, metadata hooks, RFC 9457 errors,
 completion tokens, per-file validation, SigV4 with temporary credentials,
 S3-compatible endpoints with path-style addressing, and **multipart uploads** —
 init, sign, complete, abort and list, with HMAC session tokens.

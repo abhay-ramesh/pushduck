@@ -42,8 +42,8 @@ router = Router(config)
 router.add("imageUpload", Route(
     schema=image(max_size="5MB"),
     authorize=[require_session],                       # raise to reject
-    principal=load_user,                               # becomes ctx.user
-    key=lambda ctx, f: f"{ctx.user.tenant}/{f.name}",  # a fragment, not the key
+    user=load_user,                                    # becomes ctx.user
+    storage_path=lambda ctx, f: f"{ctx.user.tenant}/{f.name}",  # a fragment, not the whole path
     metadata=lambda ctx, f: {"user_id": ctx.user.id},  # the upload's metadata
     on_complete=[record_upload],
 ))
@@ -59,10 +59,10 @@ router.add("documentUpload", Route(
 | Channel | Runs | What it does |
 | --- | --- | --- |
 | `authorize` | once per request | Raise to reject the request. The return value is **ignored**. |
-| `principal` | once per request | Its return value **is** `ctx.user`. |
+| `user` | once per request | Its return value **is** `ctx.user`. |
 | `around` | once per request | `async def f(ctx): ... yield ...` — wraps everything below. |
 | `validate` | per file | Raise to fail **that file**; the rest of the batch continues. |
-| `key` | per file | Returns a key *fragment*. pushduck sanitises it. |
+| `storage_path` | per file | Returns a path *fragment*. pushduck sanitises it. |
 | `metadata` | per file | Its return value **is** the upload's metadata. |
 | `on_complete` | per file | After an upload is confirmed. |
 | `on_error` | on failure | Observational. |
@@ -86,16 +86,16 @@ express by returning nothing.
 
 ### Keys are sanitised, always
 
-The `key` channel returns a fragment. pushduck rejects `..` segments, absolute
+The `storage_path` channel returns a fragment. pushduck rejects `..` segments, absolute
 paths and URL delimiters, then re-sanitises every segment before signing:
 
 ```python
-key=lambda ctx, f: f"{ctx.user.tenant}/{f.name}"
+storage_path=lambda ctx, f: f"{ctx.user.tenant}/{f.name}"
 # "acme/写真 photo.png"  ->  "acme/写真_photo.png"
 # "../../etc/passwd"    ->  CONFIG_INVALID, refused
 ```
 
-This is deliberate and not adjustable. A key hook that is trusted verbatim is
+This is deliberate and not adjustable. A path hook that is trusted verbatim is
 how CVE-2024-39330 (Django) and CVE-2026-34750 (Payload CMS) happened; both
 were fixed by moving the check somewhere an override cannot reach.
 
@@ -107,7 +107,7 @@ and stays correct when a channel is added later:
 ```python
 from dataclasses import replace
 
-tenant = Route(authorize=[require_session], principal=load_user, key=tenant_key)
+tenant = Route(authorize=[require_session], user=load_user, storage_path=tenant_key)
 
 router.add("avatar",   replace(tenant, schema=image(max_size="5MB")))
 router.add("document", replace(tenant, schema=file(max_size="50MB")))
@@ -124,7 +124,7 @@ router = Router(config, defaults=Route(authorize=[require_session]))
 
 ```python
 print(router.describe())
-#   avatar    authorize(1) principal key metadata on_complete(1)
+#   avatar    authorize(1) user storage_path metadata on_complete(1)
 #   public    schema only
 ```
 

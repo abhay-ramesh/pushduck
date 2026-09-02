@@ -53,11 +53,11 @@ func main() {
 		"fileUpload":  pushduck.File(pushduck.MaxSize("50MB")),
 		"privateUpload": pushduck.File(
 			pushduck.MaxSize("5MB"),
-			pushduck.WithMiddleware(requireAuth),
+			pushduck.WithMetadata(requireAuth),
 		),
 		"strictUpload": pushduck.File(
 			pushduck.MaxSize("5MB"),
-			pushduck.WithMiddleware(strictAuth),
+			pushduck.WithMetadata(strictAuth),
 		),
 	})
 

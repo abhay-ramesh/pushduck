@@ -38,7 +38,7 @@ config := pushduck.Config{
 router := pushduck.NewRouter(config, pushduck.Routes{
     "imageUpload": pushduck.Image(
         pushduck.MaxSize("5MB"),
-        pushduck.WithMiddleware(requireUser),
+        pushduck.WithMetadata(requireUser),
         pushduck.OnComplete(saveToDatabase),
     ),
     "documentUpload": pushduck.File(
@@ -48,7 +48,7 @@ router := pushduck.NewRouter(config, pushduck.Routes{
 })
 ```
 
-Middleware authenticates the request and returns the upload's metadata:
+A metadata hook authenticates the request and returns the upload's metadata:
 
 ```go
 func requireUser(r *http.Request, file pushduck.FileMeta) (map[string]any, error) {
