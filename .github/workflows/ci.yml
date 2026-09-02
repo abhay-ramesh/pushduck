@@ -141,7 +141,11 @@ jobs:
     needs: build
     strategy:
       matrix:
-        node: ["18", "20", "22"]
+        # 18 is EOL (April 2025) and vitest 8 needs util.styleText, which
+        # arrived in Node 20.12 — the suite cannot start on 18. The library's
+        # engines claim is unchanged; this is a toolchain floor, not a
+        # runtime one.
+        node: ["20", "22"]
 
     steps:
       - name: 📥 Checkout
