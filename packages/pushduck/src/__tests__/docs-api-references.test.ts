@@ -154,3 +154,43 @@ describe("docs reference only real pushduck APIs", () => {
     expect(violations).toEqual([]);
   });
 });
+
+describe("the protocol spec matches the implementation", () => {
+  it("documents every error code, with the status the code actually maps to", async () => {
+    // A spec that drifts from the code is worse than no spec: a Go or Python
+    // implementer would build to it and produce a server that disagrees.
+    const { UPLOAD_ERROR_CODES } = await import("../core/errors");
+    const spec = readFileSync(join(DOCS, "protocol.mdx"), "utf8");
+
+    for (const [code, def] of Object.entries(UPLOAD_ERROR_CODES)) {
+      if (code === "UPLOAD_CANCELLED") continue; // client-side only, never on the wire
+
+      const row = spec
+        .split("\n")
+        .find((line) => line.includes(`\`${code}\``) && line.includes("|"));
+
+      expect(row, `${code} is missing from the protocol spec`).toBeDefined();
+      expect(row, `${code} has the wrong status in the spec`).toContain(
+        String(def.status)
+      );
+    }
+  });
+
+  it("documents the protocol version the code reports", async () => {
+    const { PROTOCOL_VERSION } = await import("../core/protocol");
+    const spec = readFileSync(join(DOCS, "protocol.mdx"), "utf8");
+
+    expect(spec).toContain(`"protocolVersion": ${PROTOCOL_VERSION}`);
+  });
+
+  it("documents the response headers the handler actually sets", async () => {
+    const { HEADER_ROUTE, HEADER_ACTION, HEADER_PROTOCOL } = await import(
+      "../core/protocol"
+    );
+    const spec = readFileSync(join(DOCS, "protocol.mdx"), "utf8");
+
+    for (const header of [HEADER_ROUTE, HEADER_ACTION, HEADER_PROTOCOL]) {
+      expect(spec, `${header} missing from the spec`).toContain(header);
+    }
+  });
+});

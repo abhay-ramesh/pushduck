@@ -6,6 +6,11 @@ import {
   UploadError,
   type ProblemDetails,
 } from "../errors";
+import {
+  PROTOCOL_VERSION,
+  withTelemetryHeaders,
+  type RequestIdentity,
+} from "../protocol";
 import type { S3Router, S3RouterDefinition } from "../router/router-v2";
 import { logger } from "../utils/logger";
 
@@ -40,7 +45,11 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
    * Centralised so every failure path — validation, routing, middleware,
    * storage — produces an identically shaped body.
    */
-  function fail(error: UploadError, request: Request): Response {
+  function fail(
+    error: UploadError,
+    request: Request,
+    identity: RequestIdentity
+  ): Response {
     const instance = new URL(request.url).pathname + new URL(request.url).search;
 
     const withInstance = error.instance
@@ -72,17 +81,26 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
       ? applyFormatter(uploadConfig.errorFormatter, withInstance, problem, request)
       : problem;
 
-    return new Response(JSON.stringify(shaped), {
-      status: shaped.status ?? withInstance.status,
-      headers: { "Content-Type": PROBLEM_JSON_MEDIA_TYPE },
-    });
+    return withTelemetryHeaders(
+      new Response(JSON.stringify(shaped), {
+        status: shaped.status ?? withInstance.status,
+        headers: { "Content-Type": PROBLEM_JSON_MEDIA_TYPE },
+      }),
+      identity,
+      PROTOCOL_VERSION
+    );
   }
 
   async function POST(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const identity: RequestIdentity = {
+      route: url.searchParams.get("route") ?? undefined,
+      action: url.searchParams.get("action") || "presign",
+    };
+
     try {
-      const url = new URL(request.url);
-      const routeName = url.searchParams.get("route");
-      const action = url.searchParams.get("action") || "presign";
+      const routeName = identity.route;
+      const action = identity.action;
 
       if (!routeName) {
         throw new UploadError(
@@ -127,7 +145,7 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
           metadata
         );
 
-        return json({ success: true, results });
+        return json({ success: true, results }, 200, identity);
       }
 
       if (action === "complete") {
@@ -146,40 +164,56 @@ export function createUniversalHandler<TRoutes extends S3RouterDefinition>(
           completions
         );
 
-        return json({ success: true, results });
+        return json({ success: true, results }, 200, identity);
       }
 
       throw new UploadError("BAD_REQUEST", `Unknown action: ${action}`, {
         meta: { action, supportedActions: ["presign", "complete"] },
       });
     } catch (error) {
-      return fail(normalizeServerError(error), request);
+      return fail(normalizeServerError(error), request, identity);
     }
   }
 
   async function GET(request: Request): Promise<Response> {
+    const identity: RequestIdentity = { action: "introspect" };
+
     try {
-      // Route information for debugging and introspection.
       const routes = router.getRouteNames();
 
-      return json({
-        success: true,
-        routes: routes.map((name) => ({ name, type: "s3-upload" })),
-      });
+      return json(
+        {
+          success: true,
+          // Advertised so a client, a conformance runner, or a synthetic check
+          // can negotiate without parsing an upload response.
+          protocolVersion: PROTOCOL_VERSION,
+          routes: routes.map((name) => ({ name, type: "s3-upload" })),
+        },
+        200,
+        identity
+      );
     } catch (error) {
-      return fail(normalizeServerError(error), request);
+      return fail(normalizeServerError(error), request, identity);
     }
   }
 
   return { GET, POST };
 }
 
-/** Successful JSON response. Failures go through {@link toProblemResponse}. */
-function json(payload: unknown, status = 200): Response {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+/** Successful JSON response, carrying the identity headers. */
+function json(
+  payload: unknown,
+  status = 200,
+  identity: RequestIdentity = { action: "unknown" }
+): Response {
+  return withTelemetryHeaders(
+    new Response(JSON.stringify(payload), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    }),
+    identity,
+    PROTOCOL_VERSION
+  );
 }
 
 /**
