@@ -1,13 +1,13 @@
 """Configuration, routes and validation.
 
 The TypeScript package uses a fluent builder because TypeScript's inference
-carries types through each link of the chain. Go uses structs with functional
-options because that is what a Go developer reads without explanation.
+carries types through each link of the chain. Go and Python both use a struct
+of named, independently-optional fields, because that is the one shape in which
+a misspelled channel fails loudly in both languages.
 
-Python's equivalent is dataclasses and decorators. A route is declared with
-``@router.route(...)`` and its middleware *is* the decorated function — there is
-no separate middleware concept to learn, because a Python developer already
-expects a decorated handler to run on every request.
+This module holds the parts that are not lifecycle: credentials, the file
+descriptor a client sends, and the size/type schema. The channels live in
+``routes.py``.
 """
 
 from __future__ import annotations
@@ -119,24 +119,20 @@ def format_size(size: int) -> str:
 
 
 @dataclass
-class Route:
-    """One named upload endpoint."""
+class Schema:
+    """Size and type constraints for a route.
+
+    Separate from :class:`~pushduck.routes.Route` because the two answer
+    different questions. A schema says what a file may be; a route says who may
+    upload it and what happens around it. Keeping them one object was what made
+    `image(...)` and "the thing holding your auth handler" the same type.
+    """
 
     max_size: Optional[int] = None
     allow_types: Sequence[str] = ()
-    #: The decorated function. Runs on every operation for this route and may
-    #: raise to reject; whatever it returns becomes the upload's metadata.
-    handler: Optional[Callable[..., object]] = None
-    #: Whether the handler takes ``(request, file)`` rather than ``(request)``.
-    #: Resolved once at registration, so an unsupported signature fails at
-    #: import time rather than on a user's first upload.
-    handler_wants_file: bool = False
-    #: Reject a completion presenting no token. Off by default so clients older
-    #: than the token keep working.
-    require_completion_token: bool = False
 
     def validate(self, file: FileMeta) -> Optional[str]:
-        """Return a message when the file violates this route's constraints.
+        """Return a message when the file violates this schema.
 
         A message rather than an exception, because a constraint violation is a
         *per-file* outcome reported inside a 200 — not a request failure. It is
@@ -162,21 +158,19 @@ class Route:
         return f"File type {file.type} is not allowed"
 
 
-def image(max_size: "str | int | None" = None, **kwargs: object) -> Route:
-    """A route restricted to images."""
-    return file(max_size=max_size, allow_types=("image/*",), **kwargs)  # type: ignore[arg-type]
+def image(max_size: "str | int | None" = None) -> Schema:
+    """A schema restricted to images."""
+    return file(max_size=max_size, allow_types=("image/*",))
 
 
 def file(  # noqa: A001 - reads naturally at the call site
     max_size: "str | int | None" = None,
     allow_types: Sequence[str] = (),
-    require_completion_token: bool = False,
-) -> Route:
-    """A route with no type restriction unless ``allow_types`` is given."""
-    return Route(
+) -> Schema:
+    """A schema with no type restriction unless ``allow_types`` is given."""
+    return Schema(
         max_size=parse_size(max_size) if max_size is not None else None,
         allow_types=tuple(allow_types),
-        require_completion_token=require_completion_token,
     )
 
 

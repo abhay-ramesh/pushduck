@@ -22,9 +22,12 @@ protocol is JSON over HTTP, so nothing is dragged into your application.
 
 ## Defining routes
 
+A route is a value. Every field is a point where your application participates,
+and every one is optional.
+
 ```python title="upload.py"
 import os
-from pushduck import Router, UploadConfig, image, file
+from pushduck import Router, Route, UploadConfig, image, file
 
 config = UploadConfig(
     bucket=os.environ["AWS_S3_BUCKET"],
@@ -36,20 +39,97 @@ config = UploadConfig(
 
 router = Router(config)
 
-@router.route("imageUpload", image(max_size="5MB"))
-async def image_upload(request):
-    user = await authenticate(request)
-    return {"user_id": user.id}          # becomes the upload's metadata
+router.add("imageUpload", Route(
+    schema=image(max_size="5MB"),
+    authorize=[require_session],                       # raise to reject
+    principal=load_user,                               # becomes ctx.user
+    key=lambda ctx, f: f"{ctx.user.tenant}/{f.name}",  # a fragment, not the key
+    metadata=lambda ctx, f: {"user_id": ctx.user.id},  # the upload's metadata
+    on_complete=[record_upload],
+))
 
-@router.route("documentUpload", file(max_size="50MB", allow_types=["application/pdf"]))
-def document_upload(request):            # sync handlers work too
-    return {"tenant": current_tenant()}
+router.add("documentUpload", Route(
+    schema=file(max_size="50MB", allow_types=["application/pdf"]),
+    metadata=lambda ctx, f: {"tenant": current_tenant()},   # sync is fine too
+))
 ```
 
-The decorated function **is** the middleware. Raise to reject the request;
-whatever you return becomes the upload's metadata. There is no separate
-middleware concept because a decorated handler already runs on every request —
-that is what a Python developer expects.
+### The channels
+
+| Channel | Runs | What it does |
+| --- | --- | --- |
+| `authorize` | once per request | Raise to reject the request. The return value is **ignored**. |
+| `principal` | once per request | Its return value **is** `ctx.user`. |
+| `around` | once per request | `async def f(ctx): ... yield ...` — wraps everything below. |
+| `validate` | per file | Raise to fail **that file**; the rest of the batch continues. |
+| `key` | per file | Returns a key *fragment*. pushduck sanitises it. |
+| `metadata` | per file | Its return value **is** the upload's metadata. |
+| `on_complete` | per file | After an upload is confirmed. |
+| `on_error` | on failure | Observational. |
+
+Channels that produce a value take one callable. Channels that veto, wrap or
+observe take a list, applied in order. Sync and async are both accepted
+everywhere, resolved once when the route is registered.
+
+Each value-producing channel is named after the value it produces. That is why
+"authenticate, but publish no metadata" has an obvious spelling — a route with
+`authorize` and no `metadata` — rather than being something you have to
+express by returning nothing.
+
+<Callout type="warn">
+  **`ctx.metadata` starts empty, and the client's payload is never merged into
+  it.** What the caller sent is available as `ctx.client_metadata`, under a name
+  that reads as a warning. A route with no `metadata` channel publishes `{}`.
+  To forward what the client sent, say so:
+  `metadata=lambda ctx, f: dict(ctx.client_metadata)`.
+</Callout>
+
+### Keys are sanitised, always
+
+The `key` channel returns a fragment. pushduck rejects `..` segments, absolute
+paths and URL delimiters, then re-sanitises every segment before signing:
+
+```python
+key=lambda ctx, f: f"{ctx.user.tenant}/{f.name}"
+# "acme/写真 photo.png"  ->  "acme/写真_photo.png"
+# "../../etc/passwd"    ->  CONFIG_INVALID, refused
+```
+
+This is deliberate and not adjustable. A key hook that is trusted verbatim is
+how CVE-2024-39330 (Django) and CVE-2026-34750 (Payload CMS) happened; both
+were fixed by moving the check somewhere an override cannot reach.
+
+### Sharing behaviour between routes
+
+A route is a plain dataclass, so `dataclasses.replace` derives one from another
+and stays correct when a channel is added later:
+
+```python
+from dataclasses import replace
+
+tenant = Route(authorize=[require_session], principal=load_user, key=tenant_key)
+
+router.add("avatar",   replace(tenant, schema=image(max_size="5MB")))
+router.add("document", replace(tenant, schema=file(max_size="50MB")))
+```
+
+For behaviour every route shares, give the router defaults. They **prepend** to
+each route's own channels rather than replacing them:
+
+```python
+router = Router(config, defaults=Route(authorize=[require_session]))
+```
+
+### Seeing what is registered
+
+```python
+print(router.describe())
+#   avatar    authorize(1) principal key metadata on_complete(1)
+#   public    schema only
+```
+
+Worth printing at boot. A route that has quietly lost its authentication is
+otherwise invisible until someone notices the uploads.
 
 <Callout type="warn">
   Raise `UploadError` to control the status. Any other exception becomes a 500

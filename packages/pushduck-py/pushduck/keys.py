@@ -82,7 +82,7 @@ def generate_key(original_name: str) -> str:
 
     name = "".join(out)
 
-    collapsed = []
+    collapsed: list[str] = []
     for char in name:
         if char == "_" and collapsed and collapsed[-1] == "_":
             continue
@@ -106,3 +106,85 @@ def generate_key(original_name: str) -> str:
         name = f"file-{_fingerprint(original_name)}"
 
     return name
+
+
+# ─── the chokepoint ──────────────────────────────────────────────────────────
+
+#: S3's hard limit. The `key` channel returns a fragment; the library is what
+#: guarantees the result is a legal key, so the check belongs here.
+MAX_TOTAL_KEY_BYTES = 1024
+
+_REJECTED_CHARS = frozenset("?#%")
+
+
+def resolve_key(fragment: str, original_name: str) -> str:
+    """Turn a ``key`` channel's return value into an object key.
+
+    The channel returns a *fragment*. This function owns the result: it refuses
+    anything that cannot be made safe, and re-sanitises every segment of what
+    is left through :func:`generate_key`.
+
+    Both halves matter. Refusing traversal is the obvious one. Re-sanitising is
+    the half that is easy to skip and expensive to skip: without it, the
+    non-Latin filename handling above applies only to the *default* key, and is
+    bypassed entirely the moment an application supplies its own — so
+    ``文档.pdf`` and ``写真.pdf`` would start colliding again for exactly the
+    users who customised their keys.
+
+    Django arrived at the same arrangement the hard way. CVE-2024-39330 was a
+    ``Storage`` subclass overriding ``generate_filename`` without replicating
+    the parent's validation; the fix moved the checks into ``Storage.save`` so
+    that no override can bypass them. Rails (CVE-2026-33173) and Uppy — which
+    renamed its old default ``unsafeGetKey`` — both relocated the guarantee
+    rather than documenting the hazard.
+
+    Raises ``CONFIG_INVALID`` rather than a 4xx: a key hook returning ``..`` is
+    a bug in the application, not a malformed request from its caller.
+    """
+    from .errors import UploadError
+
+    def reject(why: str) -> "UploadError":
+        return UploadError(
+            "CONFIG_INVALID",
+            f"the `key` channel returned {fragment!r}, which {why}. "
+            "Return a path fragment; pushduck adds the prefix and sanitises it.",
+        )
+
+    if not isinstance(fragment, str):
+        raise UploadError(
+            "CONFIG_INVALID",
+            f"the `key` channel returned {type(fragment).__name__}, expected a string",
+        )
+
+    if not fragment:
+        raise reject("is empty")
+
+    if fragment.startswith("/"):
+        # An absolute-looking key is not an error in S3 — it creates an object
+        # whose name begins with a slash, which is almost never intended and
+        # breaks every URL built by concatenation.
+        raise reject("is absolute")
+
+    for char in fragment:
+        if char in _REJECTED_CHARS:
+            raise reject(f"contains {char!r}, which changes how the key parses in a URL")
+        if _is_dangerous(char):
+            # Stripped silently by `generate_key` for a *filename*, because
+            # there the alternative is rejecting the user's upload. In a key the
+            # application chose, silently returning something other than what
+            # was asked for is the worse failure.
+            raise reject(f"contains U+{ord(char):04X}, a control or bidi character")
+
+    segments = fragment.split("/")
+    for segment in segments:
+        if segment in ("", ".", ".."):
+            raise reject("contains an empty, '.' or '..' segment")
+
+    # Each segment goes through the same sanitiser the default path uses, so a
+    # custom key cannot opt out of the Unicode handling above.
+    resolved = "/".join(generate_key(segment) for segment in segments)
+
+    if len(resolved.encode("utf-8")) > MAX_TOTAL_KEY_BYTES:
+        raise reject(f"exceeds S3's {MAX_TOTAL_KEY_BYTES}-byte key limit once sanitised")
+
+    return resolved
