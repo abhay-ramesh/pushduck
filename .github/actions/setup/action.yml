@@ -5,7 +5,10 @@ inputs:
   node-version:
     description: "Node.js version to use"
     required: false
-    default: "20"
+    # The default toolchain runs lint/build; rolldown 1.2+ needs
+    # Promise.withResolvers (Node 22), and Node 20 is EOL since April 2026.
+    # Runtime compatibility with 20 is still tested by the explicit matrix.
+    default: "22"
 
 runs:
   using: "composite"
