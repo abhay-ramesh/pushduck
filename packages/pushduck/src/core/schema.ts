@@ -1192,18 +1192,20 @@ export class S3FileSchema extends S3Schema<File, File> {
    * file to a record and grant access to it.
    *
    * Presign always issues the token, and completion always verifies one that is
-   * present. This makes it mandatory, which closes the gap completely but
-   * rejects clients older than the version that started sending it — including,
-   * during a rolling deploy, the previous build of the same application. Turn
-   * it on once every client is known to be current.
+   * present. Requiring it is the default, so this method exists mainly to turn
+   * the requirement **off** for a deployment that still serves clients older
+   * than 0.7.0 — during a rolling deploy, the previous build of the same
+   * application. Those clients can then complete, but they still receive no
+   * presigned download URL: that signature is issued against proof, and proof
+   * is what an untokened completion lacks.
    *
    * @example
    * ```typescript
-   * const documents = s3.file().requireCompletionToken();
+   * const documents = s3.file().requireCompletionToken(false); // opt out
    * ```
    */
-  requireCompletionToken(): S3Route<any, any> {
-    return new S3Route(this).requireCompletionToken();
+  requireCompletionToken(required = true): S3Route<any, any> {
+    return new S3Route(this).requireCompletionToken(required);
   }
 
   // Helper methods

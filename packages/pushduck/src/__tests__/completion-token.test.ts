@@ -210,11 +210,17 @@ describe("a token that is present is verified", () => {
   });
 });
 
-describe("compatibility with clients that send no token", () => {
-  it("still completes when no token is supplied", async () => {
-    // The wire protocol is frozen at v1. A server that rejected these would
-    // break every client not yet upgraded — including the previous version of
-    // the same app during a rolling deploy.
+describe("an untokened completion is refused by default", () => {
+  it("rejects it, and does not fire the hook", async () => {
+    /**
+     * This assertion is inverted from the one it replaces.
+     *
+     * Tolerating an absent token was chosen for rolling deploys, and the cost
+     * was not understood at the time: a completion names its own key, so
+     * anyone who could reach the endpoint could assert that an arbitrary
+     * object had been uploaded — firing `onComplete` for a key they never
+     * touched, and writing whatever that hook writes.
+     */
     const { router, onUploadComplete } = build();
     const issued = await presign(router, "alice");
 
@@ -224,8 +230,111 @@ describe("compatibility with clients that send no token", () => {
       metadata: {},
     });
 
+    expect(response.status).toBe(403);
+    expect(onUploadComplete).not.toHaveBeenCalled();
+  });
+
+  it("refuses a key the caller never presigned — the read oracle", async () => {
+    /**
+     * The regression test for the whole bug. A route with no middleware was
+     * unauthenticated, `requireCompletionToken` defaulted to false, and
+     * `completion.key` is client-supplied — so this request was answered with
+     * a working signed GET URL for someone else's object.
+     */
+    const { router, onUploadComplete } = build();
+
+    const response = await complete(router, "alice", {
+      key: "private/other-tenant/tax-return.pdf",
+      file: FILE,
+      metadata: {},
+    });
+
+    expect(response.status).toBe(403);
+    expect(onUploadComplete).not.toHaveBeenCalled();
+    expect(await response.text()).not.toContain("X-Amz-Signature");
+  });
+
+  it("still completes when a deployment opts out for older clients", async () => {
+    const { s3 } = createUploadConfig()
+      .provider("aws", {
+        bucket: "test-bucket",
+        region: "us-east-1",
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+      })
+      .build();
+
+    const onUploadComplete = vi.fn();
+    const router = s3.createRouter({
+      imageUpload: s3
+        .image()
+        .maxFileSize("5MB")
+        .requireCompletionToken(false)
+        .onUploadComplete(onUploadComplete),
+    });
+
+    const response = await router.handler(
+      new Request(
+        "http://localhost/api/upload?route=imageUpload&action=complete",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            completions: [{ key: "uploads/x.jpg", file: FILE, metadata: {} }],
+          }),
+        }
+      )
+    );
+
     expect(response.status).toBe(200);
     expect(onUploadComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it("opting out buys completion, never a signature", async () => {
+    /**
+     * The second layer. If the opt-out also restored the presigned download
+     * URL it would restore the read oracle with it, and the escape hatch for
+     * old clients would be an escape hatch for everyone.
+     */
+    const { s3 } = createUploadConfig()
+      .provider("aws", {
+        bucket: "test-bucket",
+        region: "us-east-1",
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+      })
+      .build();
+
+    const onUploadComplete = vi.fn();
+    const router = s3.createRouter({
+      imageUpload: s3
+        .image()
+        .maxFileSize("5MB")
+        .requireCompletionToken(false)
+        .onUploadComplete(onUploadComplete),
+    });
+
+    const response = await router.handler(
+      new Request(
+        "http://localhost/api/upload?route=imageUpload&action=complete",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            completions: [
+              { key: "private/other-tenant/tax.pdf", file: FILE, metadata: {} },
+            ],
+          }),
+        }
+      )
+    );
+
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.results[0].presignedUrl).toBeUndefined();
+    expect(JSON.stringify(body)).not.toContain("X-Amz-Signature");
+    expect(onUploadComplete.mock.calls[0][0].presignedUrl).toBeUndefined();
   });
 
   it("rejects an untokened completion once the route requires one", async () => {

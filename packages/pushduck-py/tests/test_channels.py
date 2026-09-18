@@ -360,6 +360,13 @@ def test_on_complete_receives_server_metadata():
         ),
     )
 
+    # Presign first: completion requires the token presign issues, because a
+    # completion names its own key and an untokened one is a caller claiming an
+    # object they never uploaded.
+    issued = body_of(run(router, presign_request(
+        [{"name": "me.png", "size": 10, "type": "image/png"}]
+    )))["results"][0]
+
     request = Request(
         method="POST",
         path="/api/upload",
@@ -367,7 +374,8 @@ def test_on_complete_receives_server_metadata():
         headers={},
         body=json.dumps({
             "completions": [{
-                "key": "avatars/me.png",
+                "key": issued["key"],
+                "completionToken": issued["completionToken"],
                 "file": {"name": "me.png", "size": 10, "type": "image/png"},
                 "metadata": {"owner": "attacker"},
             }]
@@ -377,7 +385,7 @@ def test_on_complete_receives_server_metadata():
     response = run(router, request)
 
     assert response.status == 200
-    assert seen == [("avatars/me.png", {"owner": "u_42"})], "client metadata must not win"
+    assert seen == [(issued["key"], {"owner": "u_42"})], "client metadata must not win"
 
 
 # ─── composition and introspection ───────────────────────────────────────────
@@ -472,3 +480,62 @@ def test_sync_and_async_channels_interoperate():
     )))["results"][0]
 
     assert result["metadata"] == {"owner": "u_1"}
+
+
+def test_an_untokened_completion_is_refused():
+    """A completion names its own key.
+
+    Tolerating an absent token let anyone who could reach the endpoint assert
+    that an arbitrary object had been uploaded, firing `on_complete` for a key
+    they never touched — and `on_complete` is where applications insert the row
+    and grant access to it.
+    """
+    fired = []
+
+    router = Router(CONFIG)
+    router.add("avatar", Route(schema=image(), on_complete=[lambda ctx, done: fired.append(done.key)]))
+
+    response = run(router, Request(
+        method="POST",
+        path="/api/upload",
+        query={"route": "avatar", "action": "complete"},
+        headers={},
+        body=json.dumps({
+            "completions": [{
+                "key": "private/other-tenant/tax.pdf",
+                "file": {"name": "tax.pdf", "size": 10, "type": "application/pdf"},
+                "metadata": {},
+            }]
+        }).encode(),
+    ))
+
+    assert response.status == 403
+    assert fired == [], "the hook ran for a key that was never presigned"
+
+
+def test_a_deployment_can_opt_out_for_older_clients():
+    fired = []
+
+    router = Router(CONFIG)
+    router.add("avatar", Route(
+        schema=image(),
+        require_completion_token=False,
+        on_complete=[lambda ctx, done: fired.append(done.key)],
+    ))
+
+    response = run(router, Request(
+        method="POST",
+        path="/api/upload",
+        query={"route": "avatar", "action": "complete"},
+        headers={},
+        body=json.dumps({
+            "completions": [{
+                "key": "uploads/photo.png",
+                "file": {"name": "photo.png", "size": 10, "type": "image/png"},
+                "metadata": {},
+            }]
+        }).encode(),
+    ))
+
+    assert response.status == 200
+    assert fired == ["uploads/photo.png"]

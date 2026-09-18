@@ -87,9 +87,14 @@ type Route struct {
 	AllowTypes []string
 	Metadata   []MetadataHook
 	OnComplete CompleteHook
-	// RequireCompletionToken rejects a completion that presents no token.
-	// Off by default so clients older than the token still work.
-	RequireCompletionToken bool
+	// AllowUntokenedCompletion tolerates a completion that presents no token.
+	//
+	// Inverted deliberately so the zero value is the safe one. A completion
+	// names its own key, so tolerating an absent token lets anyone who can
+	// reach the endpoint assert that an arbitrary object was uploaded and fire
+	// OnComplete for a key they never touched. Set this only while a
+	// deployment still serves clients older than the token.
+	AllowUntokenedCompletion bool
 }
 
 // RouteOption configures a Route.
@@ -126,9 +131,12 @@ func OnComplete(hook CompleteHook) RouteOption {
 	return func(route *Route) { route.OnComplete = hook }
 }
 
-// RequireCompletionToken makes the presign-issued token mandatory.
-func RequireCompletionToken() RouteOption {
-	return func(route *Route) { route.RequireCompletionToken = true }
+// AllowUntokenedCompletion accepts completions that carry no token.
+//
+// The opposite of the default, and a downgrade: use it only for a rolling
+// deploy that still serves clients older than the token.
+func AllowUntokenedCompletion() RouteOption {
+	return func(route *Route) { route.AllowUntokenedCompletion = true }
 }
 
 // NewRoute builds a route from options.

@@ -476,16 +476,22 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
    * otherwise a stored URL expires while the record still points at it.
    */
   /**
-   * Require a completion to present the token issued at presign.
+   * Whether a completion must present the token issued at presign.
    *
-   * See the note on the schema-level method: presign always issues the token
-   * and completion always verifies one that is present, so this only changes
-   * whether an *absent* token is tolerated. Enabling it closes the remaining
-   * gap — an authenticated caller completing against someone else's key — at
-   * the cost of rejecting clients older than the version that began sending it.
+   * **On by default.** Presign always issues the token and the current client
+   * always returns it, so the only callers without one are clients older than
+   * the token and callers who never presigned at all — and the second group is
+   * the whole problem. A completion names its own key, so tolerating an absent
+   * token means anyone who can reach the endpoint can assert that an arbitrary
+   * object was uploaded, firing `onComplete` for a key they never touched.
+   *
+   * Pass `false` only while a deployment still serves clients older than 0.7.0,
+   * and understand what it buys them: they can complete, but they still get no
+   * presigned download URL, because that signature is issued on proof and
+   * proof is exactly what an untokened completion lacks.
    */
-  requireCompletionToken(): this {
-    this.config.requireCompletionToken = true;
+  requireCompletionToken(required = true): this {
+    this.config.requireCompletionToken = required;
     return this;
   }
 
@@ -726,10 +732,12 @@ interface S3RouteConfig<TMetadata = any> {
    */
   downloadExpiresIn?: number;
   /**
-   * Reject a completion that carries no token. @default false
+   * Reject a completion that carries no token. @default true
    *
-   * Off by default because the wire protocol is frozen at v1 and a server that
-   * demanded a new field would reject every client not yet upgraded.
+   * Defaulted on because a default that means "allow" is how this class of bug
+   * reaches production — it is the shape behind DRF's `AllowAny`, Active
+   * Storage's unauthenticated direct-upload endpoint, and django-s3direct's
+   * optional `auth` key. Set it to `false` deliberately, never by omission.
    */
   requireCompletionToken?: boolean;
   /** Hook for upload start events */
@@ -1161,9 +1169,9 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           /**
            * Binds this key to this route, so completion can verify that the
            * caller is finishing an upload the server actually authorised
-           * rather than naming someone else's object. Additive: a client that
-           * ignores it still works, and `requireCompletionToken()` makes it
-           * mandatory once every client is known to send it.
+           * rather than naming someone else's object. Issued unconditionally,
+           * and required at completion unless a route opts out with
+           * `requireCompletionToken(false)` for older clients.
            */
           completionToken: await signCompletion(
             multipartSessionSecret(uploadConfig),
@@ -1505,22 +1513,50 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
      * public routes are unaffected.
      */
     const middlewareChain = routeConfig.middleware || [];
-    const authorized: unknown[] = [];
+
+    /**
+     * Per completion: the trusted metadata, and whether its key was *proved*.
+     *
+     * The two are separate authorities and were previously conflated. The
+     * middleware chain authenticates the **caller**; the completion token
+     * authenticates the **object**. A caller can be perfectly legitimate and
+     * still be naming a key that belongs to someone else.
+     */
+    const authorized: Array<{ metadata: unknown; verified: boolean }> = [];
 
     for (const completion of completions) {
       /**
        * Verify the key against the token presign issued for it.
        *
-       * Middleware authenticates the *caller*; this authenticates the
-       * *object*. Without it an authenticated user can complete against a key
-       * belonging to someone else — and default keys are predictable enough
-       * that guessing one is not much of an obstacle.
-       *
-       * Verified whenever a token is present, so an upgraded client is
-       * protected immediately. Whether an *absent* token is tolerated is the
-       * route's decision: rejecting by default would break every client older
-       * than the version that began sending one.
+       * Absent-token handling now defaults to rejection. Presign issues the
+       * token unconditionally and the client returns it unconditionally, so in
+       * a single-version deployment the only callers without one are callers
+       * who never presigned — which is precisely the request this check
+       * exists to refuse. A completion names its own key, so tolerating it
+       * meant anyone who could reach the endpoint could assert that an
+       * arbitrary object had been uploaded and fire `onComplete` for it.
        */
+      /**
+       * Caller first, then object.
+       *
+       * The order is load-bearing for the status code, not just for style. An
+       * anonymous caller has neither a session nor a token, and "sign in" is
+       * the accurate, actionable answer — 401. Checking the token first would
+       * answer "your token is missing", a 403 that tells a logged-out user to
+       * fix something they cannot fix and hides the real reason.
+       */
+      let fileMetadata: unknown = completion.metadata || {};
+
+      for (const middleware of middlewareChain) {
+        fileMetadata = await middleware({
+          req,
+          file: completion.file,
+          metadata: fileMetadata as Record<string, unknown>,
+        });
+      }
+
+      let verified = false;
+
       if (completion.completionToken !== undefined) {
         const claim = await verifyCompletion(
           multipartSessionSecret(this.config),
@@ -1534,7 +1570,9 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
             { meta: { reason: "completion-token-mismatch" } }
           );
         }
-      } else if (routeConfig.requireCompletionToken) {
+
+        verified = true;
+      } else if (routeConfig.requireCompletionToken !== false) {
         throw new UploadError(
           "FORBIDDEN",
           "This route requires the completion token issued at presign",
@@ -1542,37 +1580,42 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         );
       }
 
-      let fileMetadata: unknown = completion.metadata || {};
-
-      for (const middleware of middlewareChain) {
-        fileMetadata = await middleware({
-          req,
-          file: completion.file,
-          metadata: fileMetadata as Record<string, unknown>,
-        });
-      }
-
-      authorized.push(fileMetadata);
+      authorized.push({ metadata: fileMetadata, verified });
     }
 
     for (const [index, completion] of completions.entries()) {
       // The chain's output, not the client's claim.
-      const trustedMetadata = authorized[index];
+      const { metadata: trustedMetadata, verified } = authorized[index];
 
       try {
         // Get file URL
         const url = getFileUrl(this.config, completion.key);
 
-        // Download expiry is independent of the upload window: an upload
-        // window is typically minutes, a download link hours. Reusing
-        // `expiresIn` here would silently shorten download URLs for any route
-        // that tightened its upload window, and `expiresIn` is documented as
-        // the upload expiry. Set this with `.expiresIn({ download })`.
-        const presignedUrl = await generatePresignedDownloadUrl(
-          this.config,
-          completion.key,
-          routeConfig.downloadExpiresIn ?? 3600
-        );
+        /**
+         * A presigned download URL is a *read capability* on the named object,
+         * issued only against proof that this caller presigned that key.
+         *
+         * This is the second layer, and it holds even where the first is
+         * switched off: a deployment that sets `requireCompletionToken(false)`
+         * for older clients buys them the ability to complete, not a signing
+         * oracle. Without it, opting out would reopen the whole hole —
+         * `completion.key` is client-supplied, so an untokened request naming
+         * `private/other-tenant/tax.pdf` would have been answered with a
+         * working signed GET URL for it.
+         *
+         * Download expiry is independent of the upload window: an upload
+         * window is typically minutes, a download link hours. Reusing
+         * `expiresIn` here would silently shorten download URLs for any route
+         * that tightened its upload window, and `expiresIn` is documented as
+         * the upload expiry. Set this with `.expiresIn({ download })`.
+         */
+        const presignedUrl = verified
+          ? await generatePresignedDownloadUrl(
+              this.config,
+              completion.key,
+              routeConfig.downloadExpiresIn ?? 3600
+            )
+          : undefined;
 
         // Call onComplete hook (supports both new and deprecated name)
         const onCompleteHook = routeConfig.onComplete || routeConfig.onUploadComplete;

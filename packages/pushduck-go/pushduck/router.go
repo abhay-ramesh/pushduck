@@ -267,20 +267,12 @@ func (router *Router) complete(
 	trusted := make([]map[string]any, 0, len(request.Completions))
 
 	for _, entry := range request.Completions {
-		if entry.CompletionToken != "" {
-			key, route_, err := router.verifyCompletion(entry.CompletionToken)
-			if err != nil {
-				return err
-			}
-			if key != entry.Key || route_ != routeName {
-				return NewError("FORBIDDEN",
-					"This completion does not match the upload it was issued for")
-			}
-		} else if route.RequireCompletionToken {
-			return NewError("FORBIDDEN",
-				"This route requires the completion token issued at presign")
-		}
-
+		// Caller first, then object.
+		//
+		// The order decides the status code. An anonymous caller has neither a
+		// session nor a token, and "sign in" is the accurate, actionable answer
+		// — 401. Checking the token first answers "your token is missing", a
+		// 403 that tells a logged-out user to fix something they cannot fix.
 		metadata := map[string]any{}
 		for key, value := range entry.Metadata {
 			metadata[key] = value
@@ -294,6 +286,20 @@ func (router *Router) complete(
 			// As at presign: nil means "no metadata", never "keep the
 			// client's".
 			metadata = produced
+		}
+
+		if entry.CompletionToken != "" {
+			key, route_, err := router.verifyCompletion(entry.CompletionToken)
+			if err != nil {
+				return err
+			}
+			if key != entry.Key || route_ != routeName {
+				return NewError("FORBIDDEN",
+					"This completion does not match the upload it was issued for")
+			}
+		} else if !route.AllowUntokenedCompletion {
+			return NewError("FORBIDDEN",
+				"This route requires the completion token issued at presign")
 		}
 
 		if metadata == nil {
