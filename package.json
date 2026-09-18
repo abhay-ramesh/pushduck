@@ -23,7 +23,9 @@
     "release:manual": "node scripts/release-methods.js",
     "release:ui": "node scripts/release-methods.js",
     "conformance": "tsx conformance/runner/cli.ts",
-    "conformance:serve": "tsx conformance/reference-server.ts"
+    "conformance:serve": "tsx conformance/reference-server.ts",
+    "release-notes": "node scripts/release-notes.mjs",
+    "test:release-notes": "node --test scripts/release-notes.test.mjs"
   },
   "devDependencies": {
     "eslint": "^9.39.5",
