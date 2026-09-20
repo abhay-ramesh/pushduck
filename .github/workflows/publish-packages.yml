@@ -176,7 +176,14 @@ jobs:
       - name: 📦 Setup NPM registry
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Must match the toolchain default in .github/actions/setup. This step
+          # exists to point npm at the registry, but re-running setup-node also
+          # re-selects the Node version — silently downgrading the job. The
+          # publish then fires `prepublishOnly: pnpm build`, and tsdown needs
+          # `Promise.withResolvers`, which does not exist before Node 22. The
+          # result was a release that authenticated, built everything correctly
+          # in an earlier job, and then failed rebuilding it during publish.
+          node-version: "22"
           registry-url: "https://registry.npmjs.org"
           always-auth: true
 
