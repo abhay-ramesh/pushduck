@@ -85,19 +85,36 @@ jobs:
       - name: 📝 Generate release notes
         id: notes
         run: |
-          echo "Generating automatic release notes"
-          # Generate release notes from commits since last tag
+          # Grouped by Conventional Commit type, breaking changes first, chore
+          # and CI omitted. A flat `git log` list is fine for a handful of
+          # patches and unreadable at the scale this project releases — the run
+          # that prompted this had 49 commits.
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          PREAMBLE_ARGS=""
+          if [ -f .github/RELEASE_NOTES_NEXT.md ]; then
+            # A squash merge collapses a branch into one commit, so a breaking
+            # change made inside one is absent from the history the generator
+            # reads. This file is where a human puts what the log cannot know.
+            PREAMBLE_ARGS="--preamble .github/RELEASE_NOTES_NEXT.md"
+            echo "Using hand-written preamble from .github/RELEASE_NOTES_NEXT.md"
+          fi
+
           if [ -n "$LAST_TAG" ]; then
-            NOTES=$(git log $LAST_TAG..HEAD --pretty=format:"- %s (%h)" --no-merges)
+            echo "Generating release notes for $LAST_TAG..HEAD"
+            NOTES=$(node scripts/release-notes.mjs $PREAMBLE_ARGS "$LAST_TAG" HEAD)
           else
+            echo "No previous tag; falling back to the last 10 commits"
             NOTES=$(git log --pretty=format:"- %s (%h)" --no-merges -10)
           fi
 
-          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-          echo "## What's Changed" >> $GITHUB_OUTPUT
-          echo "$NOTES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "release_notes<<RELEASE_NOTES_EOF"
+            echo "## What's Changed"
+            echo ""
+            echo "$NOTES"
+            echo "RELEASE_NOTES_EOF"
+          } >> $GITHUB_OUTPUT
 
   test-and-build:
     name: 🧪 Test & Validate

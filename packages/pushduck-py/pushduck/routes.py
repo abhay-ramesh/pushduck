@@ -203,9 +203,15 @@ class Route:
     #: response the caller already earned.
     on_error: Sequence[OnError] = ()
 
-    #: Reject a completion presenting no token. Off by default so clients older
-    #: than the token keep working.
-    require_completion_token: bool = False
+    #: Reject a completion presenting no token. **On by default.**
+    #:
+    #: A completion names its own key, so tolerating an absent token lets anyone
+    #: who can reach the endpoint assert that an arbitrary object was uploaded
+    #: and fire ``on_complete`` for a key they never touched. Presign issues the
+    #: token unconditionally and the client returns it, so this costs a correct
+    #: client nothing. Set it to ``False`` only while a deployment still serves
+    #: clients older than the token.
+    require_completion_token: bool = True
 
     def __post_init__(self) -> None:
         # Resolved once, here, rather than sniffed on every request. Sniffing

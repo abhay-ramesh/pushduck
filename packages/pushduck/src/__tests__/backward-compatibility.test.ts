@@ -149,6 +149,24 @@ describe("Legacy Functionality Tests", () => {
       });
 
       const handlers = testRouter.handlers;
+
+      // Presign first: completion requires the token presign issues, so a
+      // hand-written key is refused before any response body is produced and
+      // this test would be asserting the shape of a problem document.
+      const issue = await handlers.POST(
+        new Request(
+          "http://localhost:3000/api/upload?route=imageUpload&action=presign",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              files: [{ name: "test.png", size: 1024, type: "image/png" }],
+            }),
+          }
+        )
+      );
+      const [issued] = (await issue.json()).results;
+
       const completionRequest = new Request(
         "http://localhost:3000/api/upload?route=imageUpload&action=complete",
         {
@@ -157,7 +175,8 @@ describe("Legacy Functionality Tests", () => {
           body: JSON.stringify({
             completions: [
               {
-                key: "test-key",
+                key: issued.key,
+                completionToken: issued.completionToken,
                 file: { name: "test.png", size: 1024, type: "image/png" },
                 metadata: { userId: "test-user" },
               },

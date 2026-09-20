@@ -114,12 +114,19 @@ describe("presigned download URLs (#168)", () => {
       config
     );
 
+    const [issued] = await router.generatePresignedUrls(
+      "plain" as never,
+      new Request("http://localhost"),
+      [{ name: "b.jpg", size: 1024, type: "image/jpeg" }]
+    );
+
     const [result] = await router.handleUploadComplete(
       "plain",
       new Request("http://localhost"),
       [
         {
-          key: "uploads/b.jpg",
+          key: issued.key,
+          completionToken: issued.completionToken,
           file: { name: "b.jpg", size: 1024, type: "image/jpeg" },
           metadata: {},
         } as never,
@@ -140,15 +147,28 @@ describe("expiresIn: upload and download lifetimes", () => {
     resetS3Client();
   });
 
+  /**
+   * Presign, then complete with the token presign issued.
+   *
+   * A completion is only answered with a presigned download URL when it proves
+   * it presigned the key, so a hand-written completion now yields no URL at all
+   * and these expiry assertions would have nothing to read.
+   */
   const completionFor = async (route: unknown, name: string) => {
     const { config } = createUploadConfig().provider("aws", baseProvider).build();
     const router = createS3RouterWithConfig({ [name]: route } as never, config);
+    const [issued] = await router.generatePresignedUrls(
+      name as never,
+      new Request("http://localhost"),
+      [{ name: "a.jpg", size: 1024, type: "image/jpeg" }]
+    );
     const [result] = await router.handleUploadComplete(
       name as never,
       new Request("http://localhost"),
       [
         {
-          key: "uploads/a.jpg",
+          key: issued.key,
+          completionToken: issued.completionToken,
           file: { name: "a.jpg", size: 1024, type: "image/jpeg" },
           metadata: {},
         } as never,

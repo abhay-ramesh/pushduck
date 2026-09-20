@@ -54,6 +54,38 @@ function buildRouter(onUploadComplete = vi.fn()) {
 
 const FILE = { name: "photo.jpg", size: 1000, type: "image/jpeg" };
 
+/**
+ * Presign the way a real client does, and keep the token it was handed.
+ *
+ * Completion requires that token by default, so a test that hand-writes a key
+ * is not exercising a shortcut — it is impersonating a caller who never
+ * presigned, which is the request the server now refuses. Tests about
+ * *middleware* authorization have to get past *object* authorization first.
+ */
+async function presigned(
+  router: { handler: (request: Request) => Promise<Response> },
+  count = 1
+): Promise<Array<{ key: string; completionToken: string }>> {
+  const response = await router.handler(
+    new Request("http://localhost/api/upload?route=imageUpload&action=presign", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        authorization: "Bearer valid-token",
+      },
+      body: JSON.stringify({
+        files: Array.from({ length: count }, () => FILE),
+      }),
+    })
+  );
+
+  const body = await response.json();
+  return body.results.map((result: { key: string; completionToken: string }) => ({
+    key: result.key,
+    completionToken: result.completionToken,
+  }));
+}
+
 function completeRequest(
   body: unknown,
   headers: Record<string, string> = {}
@@ -92,13 +124,12 @@ describe("completion requires authorization", () => {
 
   it("runs the completion hook for an authenticated caller", async () => {
     const { router, onUploadComplete } = buildRouter();
+    const [issued] = await presigned(router);
 
     const response = await router.handler(
       completeRequest(
         {
-          completions: [
-            { key: "uploads/real-user/photo.jpg", file: FILE, metadata: {} },
-          ],
+          completions: [{ ...issued, file: FILE, metadata: {} }],
         },
         { authorization: "Bearer valid-token" }
       )
@@ -113,14 +144,17 @@ describe("completion requires authorization", () => {
     // applications put rate limits, quota checks and audit logging, and it must
     // observe this call like any other.
     const { router, middleware } = buildRouter();
+    const issued = await presigned(router, 2);
+    middleware.mockClear(); // presign ran it too; this test is about completion
 
     await router.handler(
       completeRequest(
         {
-          completions: [
-            { key: "uploads/real-user/a.jpg", file: FILE, metadata: {} },
-            { key: "uploads/real-user/b.jpg", file: FILE, metadata: {} },
-          ],
+          completions: issued.map((entry) => ({
+            ...entry,
+            file: FILE,
+            metadata: {},
+          })),
         },
         { authorization: "Bearer valid-token" }
       )
@@ -134,13 +168,14 @@ describe("completion requires authorization", () => {
     // The middleware's output is authoritative, exactly as it is at presign.
     const onUploadComplete = vi.fn();
     const { router } = buildRouter(onUploadComplete);
+    const [issued] = await presigned(router);
 
     await router.handler(
       completeRequest(
         {
           completions: [
             {
-              key: "uploads/real-user/photo.jpg",
+              ...issued,
               file: FILE,
               metadata: { userId: "someone-else", role: "admin" },
             },
@@ -189,10 +224,15 @@ describe("completion requires authorization", () => {
 });
 
 describe("routes without middleware still complete", () => {
-  it("does not require authorization where the route requires none", async () => {
-    // A route with no middleware is explicitly public. Rejecting here would
-    // break every such deployment, so the fix must gate on the route's own
-    // chain rather than inventing a requirement.
+  it("completes without a caller, but not without a token", async () => {
+    /**
+     * A route with no middleware is explicitly public — nobody has to sign in.
+     * That is a statement about the *caller*, not about the *object*: the route
+     * still issues a completion token at presign and the client still returns
+     * it, so requiring it costs a public route nothing and is the only thing
+     * standing between "public upload route" and "anyone can claim any key in
+     * the bucket was just uploaded".
+     */
     const { s3 } = createUploadConfig()
       .provider("aws", {
         bucket: "test-bucket",
@@ -207,22 +247,44 @@ describe("routes without middleware still complete", () => {
       publicUpload: s3.image().maxFileSize("5MB").onUploadComplete(onUploadComplete),
     });
 
-    const response = await router.handler(
+    const complete = (completions: unknown[]) =>
+      router.handler(
+        new Request(
+          "http://localhost/api/upload?route=publicUpload&action=complete",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ completions }),
+          }
+        )
+      );
+
+    // No credentials anywhere, and it works — because it presigned first.
+    const issue = await router.handler(
       new Request(
-        "http://localhost/api/upload?route=publicUpload&action=complete",
+        "http://localhost/api/upload?route=publicUpload&action=presign",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            completions: [
-              { key: "uploads/photo.jpg", file: FILE, metadata: {} },
-            ],
-          }),
+          body: JSON.stringify({ files: [FILE] }),
         }
       )
     );
+    const [issued] = (await issue.json()).results;
 
-    expect(response.status).toBe(200);
+    const accepted = await complete([
+      { key: issued.key, completionToken: issued.completionToken, file: FILE, metadata: {} },
+    ]);
+
+    expect(accepted.status).toBe(200);
+    expect(onUploadComplete).toHaveBeenCalledTimes(1);
+
+    // The same public route refuses a key that was never presigned.
+    const refused = await complete([
+      { key: "uploads/someone-elses.jpg", file: FILE, metadata: {} },
+    ]);
+
+    expect(refused.status).toBe(403);
     expect(onUploadComplete).toHaveBeenCalledTimes(1);
   });
 });

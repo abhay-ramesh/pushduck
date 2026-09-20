@@ -12,10 +12,18 @@
 #
 # Ports 9010/9011 are used instead of the defaults so this cannot collide with a
 # MinIO the developer is already running for their own project.
+#
+# The image comes from quay.io, not Docker Hub. MinIO withdrew minio/minio from
+# Docker Hub in September 2026 — an anonymous pull now fails with "pull access
+# denied ... may require 'docker login'", which read as a typo'd image name and
+# was in fact a registry withdrawal. quay.io/minio/minio is MinIO's own
+# registry and the source its current documentation points at.
 
 set -euo pipefail
 
 CONTAINER="pushduck-minio"
+# Overridable so a mirror or a pinned digest can be substituted without a patch.
+MINIO_IMAGE="${MINIO_IMAGE:-quay.io/minio/minio}"
 API_PORT="${MINIO_API_PORT:-9010}"
 CONSOLE_PORT="${MINIO_CONSOLE_PORT:-9011}"
 BUCKET="${MINIO_BUCKET:-test-uploads}"
@@ -50,7 +58,7 @@ start() {
     -p "${CONSOLE_PORT}:9001" \
     -e MINIO_ROOT_USER=minioadmin \
     -e MINIO_ROOT_PASSWORD=minioadmin \
-    minio/minio server /data --console-address ":9001" >/dev/null
+    "$MINIO_IMAGE" server /data --console-address ":9001" >/dev/null
 
   echo -n "Waiting for readiness"
   for _ in $(seq 1 60); do

@@ -1,0 +1,35 @@
+[
+  {
+    "name": "a completion naming a key it never presigned is refused",
+    "spec": "3. Complete",
+    "why": "A completion names its own key. If an absent token is tolerated, anyone who can reach the endpoint can assert that an arbitrary object was uploaded \u2014 firing the route's completion hook for a key they never touched, which is where applications insert the database row and grant access to the file. The TypeScript server additionally answered such a request with a presigned GET URL for the named key, making it an unauthenticated read oracle over the whole bucket.",
+    "request": {
+      "query": {
+        "route": "fileUpload",
+        "action": "complete"
+      },
+      "body": {
+        "completions": [
+          {
+            "key": "private/other-tenant/tax-return.pdf",
+            "file": {
+              "name": "a.bin",
+              "size": 10,
+              "type": "application/octet-stream"
+            },
+            "metadata": {}
+          }
+        ]
+      }
+    },
+    "expect": {
+      "status": 403,
+      "body": {
+        "code": "FORBIDDEN",
+        "presignedUrl": {
+          "$absent": true
+        }
+      }
+    }
+  }
+]
