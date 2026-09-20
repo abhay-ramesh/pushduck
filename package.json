@@ -30,6 +30,7 @@
   "devDependencies": {
     "eslint": "^9.39.5",
     "prettier": "^3.9.6",
+    "tsx": "^4.23.13",
     "turbo": "^2.10.12"
   },
   "packageManager": "pnpm@10.18.3",

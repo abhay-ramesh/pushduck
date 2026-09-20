@@ -14,6 +14,9 @@ importers:
       prettier:
         specifier: ^3.9.6
         version: 3.9.6
+      tsx:
+        specifier: ^4.23.13
+        version: 4.23.13
       turbo:
         specifier: ^2.10.12
         version: 2.10.12
@@ -46,7 +49,7 @@ importers:
         version: 11.17.2
       next:
         specifier: 15.5.9
-        version: 15.5.9(@opentelemetry/api@1.9.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 15.5.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -125,7 +128,7 @@ importers:
     dependencies:
       next:
         specifier: 15.5.9
-        version: 15.5.9(@opentelemetry/api@1.9.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 15.5.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       pushduck:
         specifier: workspace:*
         version: link:../../packages/pushduck
@@ -329,7 +332,7 @@ importers:
         version: 4.13.5
       next:
         specifier: 15.5.9
-        version: 15.5.9(@opentelemetry/api@1.9.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 15.5.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       prettier:
         specifier: ^3.9.6
         version: 3.9.6
@@ -2529,6 +2532,7 @@ packages:
   '@smithy/node-http-handler@4.12.0':
     resolution: {integrity: sha512-0mq1pHadfyXCYCqm2cNpbjNIT+fbaUpNxewZb/YNr2L0IrEVMOb8gM/Fl4K6XvHCW3uSNDFwPl/+iKm0bx9jYg==}
     engines: {node: '>=18.0.0'}
+    deprecated: Depreacted due to a memory leak issue https://github.com/smithy-lang/smithy-typescript/issues/2258
 
   '@smithy/signature-v4@5.7.3':
     resolution: {integrity: sha512-7ImGm+FkHRLcBaRttIAMZ6bzJZWb2cJGoYjq46F2UjycujWzrL9GEN9h4w7eQyXJYnltrUhxbbieBAIRrdqpow==}
@@ -11735,7 +11739,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.18
       lucide-react: 0.564.0(react@19.2.8)
-      next: 15.5.9(@opentelemetry/api@1.9.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next: 15.5.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
     transitivePeerDependencies:
@@ -11761,7 +11765,7 @@ snapshots:
       unist-util-visit: 5.1.0
       zod: 4.5.4
     optionalDependencies:
-      next: 15.5.9(@opentelemetry/api@1.9.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next: 15.5.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react: 19.2.8
       vite: 7.1.9(@types/node@24.10.0)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.13)
     transitivePeerDependencies:
@@ -11791,7 +11795,7 @@ snapshots:
       tailwind-merge: 3.6.0
     optionalDependencies:
       '@types/react': 19.2.18
-      next: 15.5.9(@opentelemetry/api@1.9.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next: 15.5.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       tailwindcss: 4.3.3
     transitivePeerDependencies:
       - '@mixedbread/sdk'
@@ -13132,7 +13136,7 @@ snapshots:
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
 
-  next@15.5.9(@opentelemetry/api@1.9.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+  next@15.5.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@next/env': 15.5.9
       '@swc/helpers': 0.5.15
@@ -13140,7 +13144,7 @@ snapshots:
       postcss: 8.4.31
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
-      styled-jsx: 5.1.6(react@19.2.8)
+      styled-jsx: 5.1.6(@babel/core@7.29.7)(react@19.2.8)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.5.7
       '@next/swc-darwin-x64': 15.5.7
@@ -14317,10 +14321,12 @@ snapshots:
     dependencies:
       inline-style-parser: 0.2.7
 
-  styled-jsx@5.1.6(react@19.2.8):
+  styled-jsx@5.1.6(@babel/core@7.29.7)(react@19.2.8):
     dependencies:
       client-only: 0.0.1
       react: 19.2.8
+    optionalDependencies:
+      '@babel/core': 7.29.7
 
   stylis@4.4.0: {}
 
