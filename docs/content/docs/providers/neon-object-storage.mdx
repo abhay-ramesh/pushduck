@@ -1,0 +1,244 @@
+---
+title: Neon Object Storage
+description: Upload files to Neon Object Storage, the S3-compatible storage built into your Neon project. Covers buckets, credentials, CORS, branch endpoints, public and private access, and large files.
+icon: neon
+---
+
+## Using Neon Object Storage
+
+[Neon Object Storage](https://neon.com/docs/storage/overview) is S3-compatible object storage built into your Neon project. Buckets live on a branch and branch with your database, so a preview branch gets its own copy-on-write view of every uploaded file.
+
+Pushduck signs uploads on your server and the browser sends files straight to Neon. Your Neon credential never leaves the server.
+
+## Why Choose Neon Object Storage?
+
+- **Branches with your data**: Each branch has its own view of every bucket. Test uploads and deletes on a preview branch without touching production files.
+- **Copy-on-write**: A new branch inherits its parent's objects at the moment it was created, with nothing copied.
+- **One backend**: Files sit next to the Postgres rows that reference them, under one project and one credential system.
+- **S3 compatible**: Presigned `PUT`, `GET`, multipart uploads and CORS all work with pushduck's standard flow.
+- **Simple pricing**: Free plans include 5 GB per project. Paid plans meter stored volume only, with no per-request charge, and egress shares the project's [network transfer allowance](https://neon.com/docs/introduction/plans#object-storage).
+
+## 1. Create a Bucket
+
+Create a bucket on the branch your app uses. With the [Neon CLI](https://neon.com/docs/cli):
+
+```bash
+neon buckets create user-uploads
+```
+
+Buckets are `private` by default. For files that anyone may read, such as avatars or public assets, create a `public_read` bucket instead:
+
+```bash
+neon buckets create public-assets --access-level public_read
+```
+
+You can also create buckets from the **Object storage** tab in the Neon Console, or with the Neon API. See [Buckets](https://neon.com/docs/storage/buckets).
+
+<Callout type="info">
+  **Access is set per bucket, not per file.** Neon does not support S3 ACLs, so pushduck never sends `x-amz-acl` to Neon, even when `acl` is configured. Choose `private` or `public_read` when you create the bucket.
+</Callout>
+
+## 2. Create a Credential
+
+Pushduck signs requests with a Neon credential. Give it both storage scopes: `storage:write` to upload and delete, and `storage:read` for presigned downloads, listing and metadata.
+
+```bash
+neon credentials create --name pushduck --scope storage:read --scope storage:write
+```
+
+The credential maps directly to S3 access keys:
+
+| Neon credential field  | Pushduck option   | Environment variable    |
+| ---------------------- | ----------------- | ----------------------- |
+| `token_id`             | `accessKeyId`     | `AWS_ACCESS_KEY_ID`     |
+| `s3_secret_access_key` | `secretAccessKey` | `AWS_SECRET_ACCESS_KEY` |
+
+The secret is shown once, so store it right away.
+
+A credential belongs to the branch it was created on and also works on every branch descended from it. One created on `main` signs uploads for every preview branch forked from `main`. See [Object storage authentication](https://neon.com/docs/storage/authentication).
+
+## 3. Configure Your App
+
+### Environment Variables
+
+`neon env pull` writes the branch's storage endpoint, region and credential for local development:
+
+```bash
+neon env pull --file .env.local --service object-storage
+```
+
+Add the bucket name yourself. Your `.env.local` should end up with:
+
+```bash
+# Neon Object Storage
+AWS_ENDPOINT_URL_S3=https://br-cool-darkness-a1b2c3d4.storage.c-6.us-east-2.aws.neon.tech
+AWS_REGION=us-east-2
+AWS_ACCESS_KEY_ID=nak_live_...
+AWS_SECRET_ACCESS_KEY=nsk_live_...
+NEON_STORAGE_BUCKET=user-uploads
+```
+
+Inside [Neon Functions](https://neon.com/docs/compute/functions/environment-variables), the four `AWS_*` variables are injected automatically for the function's branch.
+
+<Callout type="warn">
+  Never expose these variables to the browser. Do not prefix them with `NEXT_PUBLIC_`, `VITE_` or `PUBLIC_`.
+</Callout>
+
+### Upload Configuration
+
+```typescript
+// lib/upload.ts
+import { createUploadConfig } from "pushduck/server";
+
+export const { upload, storage } = createUploadConfig()
+  .provider("neonStorage", {
+    endpoint: process.env.AWS_ENDPOINT_URL_S3!,
+    bucket: process.env.NEON_STORAGE_BUCKET!,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    region: process.env.AWS_REGION, // Optional: read from the endpoint when omitted
+  })
+  .defaults({
+    maxFileSize: "10MB",
+  })
+  .build();
+```
+
+| Option            | Required | Description                                                                                   |
+| ----------------- | -------- | --------------------------------------------------------------------------------------------- |
+| `endpoint`        | Yes      | The branch storage endpoint. Must be `https://`.                                              |
+| `bucket`          | Yes      | A bucket on that branch.                                                                      |
+| `accessKeyId`     | Yes      | The credential `token_id` (`nak_live_...`).                                                   |
+| `secretAccessKey` | Yes      | The credential `s3_secret_access_key` (`nsk_live_...`).                                       |
+| `region`          | No       | Signing region. Read from the endpoint hostname, so `...us-east-2.aws.neon.tech` signs as `us-east-2`. |
+| `customDomain`    | No       | A CDN or proxy in front of a `public_read` bucket, used for public file URLs only.           |
+
+<Callout type="info">
+  **Path-style only.** Neon does not serve virtual-hosted URLs (`bucket.br-....neon.tech`). The provider always addresses `{endpoint}/{bucket}/{key}`, so there is no `forcePathStyle` option to set.
+</Callout>
+
+Your routes, client hooks and components need no Neon-specific changes. See [Quick Start](/docs/quick-start) for the rest of the setup.
+
+## 4. Configure CORS
+
+Because the browser uploads directly to Neon, the bucket must allow your app's origin. Neon supports the S3 `PutBucketCors` operation, so you can apply rules with any S3 client pointed at your branch endpoint.
+
+Save this as `cors.json`:
+
+```json
+{
+  "CORSRules": [
+    {
+      "AllowedOrigins": ["http://localhost:3000", "https://yourdomain.com"],
+      "AllowedMethods": ["GET", "PUT", "HEAD"],
+      "AllowedHeaders": ["*"],
+      "ExposeHeaders": ["ETag"],
+      "MaxAgeSeconds": 3600
+    }
+  ]
+}
+```
+
+Then apply it with the AWS CLI:
+
+```bash
+aws s3api put-bucket-cors \
+  --bucket user-uploads \
+  --cors-configuration file://cors.json \
+  --endpoint-url "$AWS_ENDPOINT_URL_S3"
+```
+
+- `PUT` is how pushduck uploads each file, and each multipart part.
+- `ETag` must be exposed for [large file uploads](#large-files): the client reads each part's ETag to complete the upload.
+- Avoid `"*"` in `AllowedOrigins` in production unless public cross-origin access is intentional.
+
+For CORS concepts and debugging, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).
+
+## 5. Test Your Setup
+
+```bash
+npx @pushduck/cli@latest test
+```
+
+The CLI detects the `AWS_ENDPOINT_URL_S3` and `NEON_STORAGE_BUCKET` variables and checks that the bucket is reachable. You can also check from your server:
+
+```typescript
+const result = await storage.validation.connection();
+```
+
+## Reading Uploaded Files
+
+Store the returned `key` in your database, then serve the file according to the bucket's access level.
+
+### Private buckets
+
+Generate a short-lived presigned URL on the server:
+
+```typescript
+const url = await storage.download.presignedUrl(file.key, 3600); // 1 hour
+```
+
+The plain object URL returns `403` for a private bucket.
+
+### Public buckets
+
+Objects in a `public_read` bucket are served at `{endpoint}/{bucket}/{key}` without a credential:
+
+```typescript
+const url = storage.download.url(file.key);
+// https://br-....storage.c-6.us-east-2.aws.neon.tech/public-assets/avatars/me.png
+```
+
+Set `customDomain` to hand out URLs on a CDN or proxy you run in front of the bucket. Uploads and presigned URLs always use the branch endpoint.
+
+## Branches
+
+Each Neon branch has its own storage endpoint and its own view of every bucket.
+
+- Uploads to a child branch are only visible on that branch and its descendants.
+- The parent branch never sees objects uploaded to a child branch.
+- A new branch inherits the parent's objects at the moment it was created, without copying data.
+
+To upload to a preview branch, point `endpoint` at that branch's storage endpoint. A credential created on the parent also works on the child, so per-branch preview deployments only need a different `AWS_ENDPOINT_URL_S3`.
+
+Because objects branch with your database, a key stored in a branch's Postgres tables resolves to that same branch's view of the bucket.
+
+## Large Files
+
+Neon supports multipart uploads, and pushduck uses them automatically above the multipart threshold. See [Large Files](/docs/guides/large-files) for the client options.
+
+<Callout type="warn">
+  Neon Object Storage currently caps objects at **5 GiB**, whether they are uploaded in one request or in parts. A larger multipart upload transfers every part and is then rejected at completion, so set `maxFileSize` at or below `5GB` on Neon routes.
+</Callout>
+
+## Storage API
+
+The full [Storage API](/docs/api/storage/storage-instance) works against Neon: listing, metadata, existence checks, server-side uploads and deletes.
+
+```typescript
+const files = await storage.list.files({ prefix: "avatars/" });
+const info = await storage.metadata.getInfo("avatars/me.png");
+await storage.delete.files(["avatars/old.png", "avatars/older.png"]);
+```
+
+Deletes are soft deletes on the current branch: an object deleted on a preview branch stays on its parent.
+
+## Common Issues
+
+**`403 SignatureDoesNotMatch`** → The secret is wrong, or `region` does not match the region in the endpoint hostname. Remove `region` to let pushduck read it from the endpoint. Neon secrets cannot be retrieved after creation, so rotate the credential if it is lost.
+
+**`403 InvalidAccessKeyId`** → `accessKeyId` is wrong or the credential was revoked. Use the credential's `token_id`.
+
+**`403 AccessDenied`** → The credential lacks a scope (`storage:write` to upload, `storage:read` to download or list), or the endpoint belongs to a branch outside the credential's lineage.
+
+**`404 NoSuchBucket`** → The bucket does not exist on the branch behind `endpoint`. Buckets created on a child branch are not visible to its parent.
+
+**`501 NotImplemented`** → An S3 operation Neon does not support, such as an ACL write. Pushduck never sends `x-amz-acl` to Neon; if you see this from your own code, set access on the bucket instead.
+
+**Browser request blocked by CORS** → Check the bucket's CORS rules include your origin and the `PUT` method, and that `ETag` is exposed for multipart uploads.
+
+**`503 SlowDown`** → Neon throttled the request during heavy use. Multipart parts are retried automatically with backoff; for single-request uploads and your own calls, back off and retry.
+
+---
+
+**Next:** [Upload Your First Image](/docs/guides/image-uploads) or read the [Neon Object Storage docs](https://neon.com/docs/storage/overview)

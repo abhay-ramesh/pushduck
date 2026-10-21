@@ -84,6 +84,19 @@ Pushduck supports multiple cloud storage providers through a unified S3-compatib
   </Card>
   
   <Card 
+    title="Neon Object Storage" 
+    description="S3-compatible storage that branches with your Postgres database"
+    href="/docs/providers/neon-object-storage"
+  >
+    **Best for**: Apps on Neon, preview environments
+    
+    • Branches with your data  
+    • Copy-on-write forks  
+    • One backend and credential  
+    • S3 compatible
+  </Card>
+  
+  <Card 
     title="S3-Compatible (Generic)" 
     description="Use any S3-compatible storage service"
     href="/docs/providers/s3-compatible"
@@ -133,6 +146,7 @@ const uploadRouter = createS3Router({
 | **DigitalOcean Spaces** | Flat-rate | Included quota | Yes | Predictable costs |
 | **Google Cloud** | Pay-per-use | Yes | Separate service | AI/ML integration |
 | **MinIO** | Self-hosted | None | Self-managed | Data sovereignty |
+| **Neon Object Storage** | Pay-per-use | Shared project allowance | No | Apps on Neon, per-branch previews |
 
 ## Need Help Choosing?
 
@@ -142,6 +156,7 @@ const uploadRouter = createS3Router({
   - **High traffic?** → Cloudflare R2 (no egress fees)
   - **Enterprise?** → AWS S3 (full ecosystem)
   - **Self-hosted?** → MinIO (complete control)
+  - **Already on Neon?** → Neon Object Storage (files branch with your database)
 </Callout>
 
 ## Next Steps

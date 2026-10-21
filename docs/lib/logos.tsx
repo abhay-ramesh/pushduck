@@ -238,6 +238,22 @@ export const providerIcons: Record<string, React.ReactNode> = {
       className="size-4"
     />
   ),
+  neon: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 31.3 31.6"
+      width={16}
+      height={16}
+      className="size-4"
+      role="img"
+      aria-label="Neon"
+    >
+      <path
+        fill="#34D59A"
+        d="M31.3,0v31.6l-12.2-10.6v10.6H0V0h31.3ZM3.8,27.7h11.4v-15.2l12.2,10.8V3.8H3.8s0,23.9,0,23.9Z"
+      />
+    </svg>
+  ),
   wasabi: (
     <img
       src="https://cdn.document360.io/bef0a1ea-7768-4d5a-b520-c4fe2f7fafad/Images/Documentation/wasabi_symbol.png"

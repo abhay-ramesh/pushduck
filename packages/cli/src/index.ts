@@ -19,7 +19,7 @@ program
   .description("Initialize S3 upload configuration in your Next.js project")
   .option(
     "--provider <type>",
-    "Skip provider selection (aws|cloudflare-r2|digitalocean|minio|gcs)"
+    "Skip provider selection (aws|cloudflare-r2|digitalocean|minio|neon|gcs)"
   )
   .option("--skip-examples", "Don't generate example components")
   .option("--skip-bucket", "Don't create S3 bucket automatically")

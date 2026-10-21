@@ -208,6 +208,12 @@ const providers = [
     url: "https://min.io",
   },
   {
+    name: "Neon Object Storage",
+    icon: "/neon.svg",
+    description: "Storage that branches with Postgres",
+    url: "https://neon.com/docs/storage/overview",
+  },
+  {
     name: "Wasabi",
     icon: "https://cdn.document360.io/bef0a1ea-7768-4d5a-b520-c4fe2f7fafad/Images/Documentation/wasabi_symbol.png",
     description: "Hot cloud storage, predictable pricing",
@@ -245,7 +251,7 @@ const features = [
     icon: Cloud,
     title: "5+ Storage Providers",
     description:
-      "AWS S3, Cloudflare R2, DigitalOcean Spaces, Google Cloud, MinIO, Wasabi, Backblaze - switch anytime",
+      "AWS S3, Cloudflare R2, DigitalOcean Spaces, Google Cloud, MinIO, Neon, Wasabi, Backblaze - switch anytime",
     color: "text-green-500",
   },
   {
