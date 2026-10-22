@@ -605,6 +605,28 @@ const PROVIDER_SPECS = {
 } as const;
 
 /**
+ * The URL MinIO requests go to.
+ *
+ * MinIO is often configured the way `mc alias` and the docker images present
+ * it — `localhost:9000`, or a host plus `useSSL` and `port` — rather than as a
+ * URL. A full URL is used as written; anything else is assembled from
+ * `useSSL` (default `http`) and `port`.
+ *
+ * @internal
+ */
+export function getMinioEndpoint(config: MinIOConfig): string {
+  const endpoint = config.endpoint.replace(/\/+$/, "");
+
+  if (/^https?:\/\//.test(endpoint)) {
+    return endpoint;
+  }
+
+  const port =
+    config.port && !/:\d+$/.test(endpoint) ? `:${config.port}` : "";
+  return `${config.useSSL ? "https" : "http"}://${endpoint}${port}`;
+}
+
+/**
  * Reads the signing region out of a Neon branch storage endpoint.
  *
  * Branch endpoints carry their region in the hostname
@@ -920,11 +942,8 @@ export function getProviderEndpoint(config: ProviderConfig): string {
       return (
         config.endpoint || `https://${config.region}.digitaloceanspaces.com`
       );
-    case "minio": {
-      const protocol = config.useSSL !== false ? "https" : "http";
-      const port = config.port ? `:${config.port}` : "";
-      return `${protocol}://${config.endpoint}${port}`;
-    }
+    case "minio":
+      return getMinioEndpoint(config);
     case "neon-storage":
       return config.endpoint;
     case "gcs":

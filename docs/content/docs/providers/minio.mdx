@@ -212,17 +212,16 @@ export const { s3,  } = createUploadConfig()
     endpoint: process.env.AWS_ENDPOINT_URL!,
     region: process.env.AWS_REGION!,
     bucket: process.env.S3_BUCKET_NAME!,
-    // Force path-style URLs for MinIO
-    forcePathStyle: true,
     // Optional: Custom domain for public files
     customDomain: process.env.MINIO_CUSTOM_DOMAIN,
   })
   .defaults({
     maxFileSize: "100MB", // MinIO handles large files well
-    acl: "public-read",
   })
   .build();
 ```
+
+`endpoint` can be a full URL (`http://localhost:9000`) or a host the way `mc alias` shows it (`localhost:9000`). Without a scheme it is reached over `http`; set `useSSL: true` for `https`, and `port` if the host leaves it out. Requests are always path-style, and MinIO has no per-object ACLs — make a bucket public with `mc anonymous set download`.
 
 ## 🧪 Test Your Setup
 
