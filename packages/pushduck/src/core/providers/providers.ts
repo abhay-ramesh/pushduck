@@ -592,11 +592,14 @@ const PROVIDER_SPECS = {
       "region",
       "customDomain",
       "acl",
+      "forcePathStyle",
     ],
     defaults: {
       region: "us-east-1",
       acl: "private",
-      forcePathStyle: true, // Most S3-compatible providers need path-style access
+      // Most S3-compatible services want the bucket in the path; virtual-hosted
+      // ones (Backblaze B2, Wasabi) set forcePathStyle: false.
+      forcePathStyle: true,
     },
   },
 } as const;
@@ -760,6 +763,21 @@ export function validateProviderConfig(config: ProviderConfig): {
   // Common validations
   if (!config.bucket) {
     errors.push("Bucket name is required");
+  }
+
+  // "" is how an omitted option is stored. Anything else that is not a
+  // boolean is most often `process.env.X` passed through unconverted: the
+  // string "false" is truthy, so it would select path-style on one provider
+  // and its opposite on another.
+  const { forcePathStyle } = config as { forcePathStyle?: unknown };
+  if (
+    forcePathStyle !== undefined &&
+    forcePathStyle !== "" &&
+    typeof forcePathStyle !== "boolean"
+  ) {
+    errors.push(
+      `forcePathStyle must be true or false, got ${JSON.stringify(forcePathStyle)} — convert environment strings, e.g. process.env.S3_FORCE_PATH_STYLE === "true"`
+    );
   }
 
   // Provider-specific validations
