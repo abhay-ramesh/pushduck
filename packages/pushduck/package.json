@@ -230,6 +230,8 @@
     "digitalocean-spaces",
     "google-cloud-storage",
     "minio",
+    "neon",
+    "neon-object-storage",
     "presigned-urls",
     "nextjs",
     "remix",

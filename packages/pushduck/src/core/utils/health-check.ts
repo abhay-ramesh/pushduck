@@ -354,6 +354,12 @@ export class HealthChecker {
         }
         break;
 
+      case "neon-storage":
+        if (!config.provider.endpoint) {
+          errors.push("Neon Object Storage endpoint is required");
+        }
+        break;
+
       case "s3-compatible":
         if (!config.provider.endpoint) {
           errors.push("S3-compatible endpoint is required");

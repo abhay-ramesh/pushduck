@@ -203,6 +203,16 @@ function getS3CompatibleConfig(
         forcePathStyle: true, // MinIO requires path-style
       };
 
+    case "neon-storage":
+      return {
+        ...baseConfig,
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+        region: config.region, // Read from the endpoint hostname, e.g. "us-east-2"
+        endpoint: config.endpoint, // e.g., "https://br-....storage.c-6.us-east-2.aws.neon.tech"
+        forcePathStyle: true, // Neon only supports path-style addressing
+      };
+
     // ========================================
     // TIER 2: Enterprise/Hyperscale Providers
     // ========================================
@@ -373,7 +383,7 @@ function getS3CompatibleConfig(
     default:
       throw new Error(
         `Unsupported provider: ${(config as any).provider}. ` +
-          `Supported providers: aws, cloudflare-r2, digitalocean-spaces, minio. ` +
+          `Supported providers: aws, cloudflare-r2, digitalocean-spaces, minio, neon-storage. ` +
           `Coming soon: wasabi, backblaze-b2, azure-blob, ibm-cloud, oracle-oci, storj-dcs, telnyx-storage, tigris-data, cloudian-hyperstore. ` +
           `For other providers, use "s3-compatible" with a custom endpoint.`
       );
@@ -459,7 +469,7 @@ export function createS3Client(uploadConfig?: UploadConfig): AwsClient {
 
   // Add service and endpoint configuration based on provider
   if (config.endpoint) {
-    // For S3-compatible providers (R2, Spaces, MinIO)
+    // For S3-compatible providers (R2, Spaces, MinIO, Neon)
     clientConfig.service = "s3";
 
     // Only R2 needs region override for signing
@@ -797,7 +807,11 @@ export async function generatePresignedDownloadUrl(
  *
  */
 /** Providers where x-amz-acl causes a 400/501 error — use bucket-level access settings instead */
-const ACL_UNSUPPORTED_PROVIDERS = new Set(["cloudflare-r2", "minio"]);
+const ACL_UNSUPPORTED_PROVIDERS = new Set([
+  "cloudflare-r2",
+  "minio",
+  "neon-storage",
+]);
 
 /**
  * Prepares headers for a direct server-side S3 upload (PUT via aws4fetch).

@@ -6,6 +6,7 @@
         "digitalocean-spaces",
         "google-cloud",
         "minio",
+        "neon-object-storage",
         "s3-compatible"
     ]
 }

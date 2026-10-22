@@ -5,7 +5,7 @@
  * with environment-based configuration, type-safe initialization, and automatic endpoint resolution.
  *
  * The provider system supports multiple tiers of cloud storage services:
- * - **Tier 1**: Fully supported with comprehensive testing (AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO)
+ * - **Tier 1**: Fully supported with comprehensive testing (AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, Neon Object Storage)
  * - **Tier 2**: Enterprise/Hyperscale providers (Azure Blob, IBM Cloud, Oracle OCI)
  * - **Tier 3**: Cost-optimized providers (Wasabi, Backblaze B2, Storj DCS)
  * - **Tier 4**: Performance/Specialized providers (Telnyx, Tigris, Cloudian)
@@ -48,6 +48,17 @@
  * });
  * ```
  *
+ * @example Neon Object Storage Configuration
+ * ```typescript
+ * const neonConfig = createProvider('neonStorage', {
+ *   endpoint: process.env.AWS_ENDPOINT_URL_S3,
+ *   bucket: 'user-uploads',
+ *   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+ *   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+ *   // region is read from the endpoint hostname
+ * });
+ * ```
+ *
  * @example Environment Variable Setup
  * ```bash
  * # AWS S3
@@ -76,8 +87,9 @@ import { logger } from "../utils/logger";
 
 /**
  * Valid S3 ACL values for controlling object access.
- * Note: Cloudflare R2 and MinIO do not support per-object ACLs — use bucket-level
- * access settings instead. Setting `acl` has no effect on those providers.
+ * Note: Cloudflare R2, MinIO and Neon Object Storage do not support per-object
+ * ACLs — use bucket-level access settings instead. Setting `acl` has no effect
+ * on those providers.
  */
 export type S3AclValue =
   | "private"
@@ -104,7 +116,8 @@ export interface BaseProviderConfig {
   bucket: string;
   /**
    * S3 ACL for uploaded objects.
-   * Not supported on Cloudflare R2 or MinIO — ignored on those providers.
+   * Not supported on Cloudflare R2, MinIO or Neon Object Storage — ignored on
+   * those providers.
    */
   acl?: S3AclValue;
   /** Custom domain for file URLs (e.g., 'cdn.example.com') */
@@ -316,6 +329,44 @@ export interface MinIOConfig extends BaseProviderConfig {
   sessionToken?: string;
 }
 
+/**
+ * Configuration for Neon Object Storage.
+ * S3-compatible storage built into a Neon project. Buckets belong to a branch
+ * and branch with the database, so every branch has its own endpoint and its
+ * own copy-on-write view of each bucket.
+ *
+ * @interface NeonStorageConfig
+ * @extends BaseProviderConfig
+ *
+ * @example Basic Configuration
+ * ```typescript
+ * const neonConfig: NeonStorageConfig = {
+ *   provider: 'neon-storage',
+ *   endpoint: 'https://br-cool-darkness-a1b2c3d4.storage.c-6.us-east-2.aws.neon.tech',
+ *   bucket: 'user-uploads',
+ *   accessKeyId: process.env.AWS_ACCESS_KEY_ID!, // nak_live_...
+ *   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!, // nsk_live_...
+ * };
+ * ```
+ */
+export interface NeonStorageConfig extends BaseProviderConfig {
+  provider: "neon-storage";
+  /**
+   * The branch storage endpoint, exposed as `AWS_ENDPOINT_URL_S3` by
+   * `neon env pull` and inside Neon Functions.
+   */
+  endpoint: string;
+  /** The Neon credential `token_id` (`nak_live_...`) */
+  accessKeyId: string;
+  /** The Neon credential `s3_secret_access_key` (`nsk_live_...`) */
+  secretAccessKey: string;
+  /**
+   * Signing region. Read from the endpoint hostname when omitted — a
+   * `...us-east-2.aws.neon.tech` endpoint signs as `us-east-2`.
+   */
+  region: string;
+}
+
 // ========================================
 // TIER 2: Enterprise/Hyperscale Providers
 // ========================================
@@ -423,6 +474,7 @@ export type ProviderConfig =
   | CloudflareR2Config
   | DigitalOceanSpacesConfig
   | MinIOConfig
+  | NeonStorageConfig
   // Tier 2: Enterprise/Hyperscale
   | AzureBlobConfig
   | IBMCloudConfig
@@ -616,6 +668,32 @@ const PROVIDER_SPECS = {
     }),
   },
 
+  neonStorage: {
+    provider: "neon-storage",
+    configKeys: {
+      endpoint: ["AWS_ENDPOINT_URL_S3", "NEON_STORAGE_ENDPOINT"],
+      bucket: ["NEON_STORAGE_BUCKET"],
+      accessKeyId: ["AWS_ACCESS_KEY_ID", "NEON_STORAGE_ACCESS_KEY_ID"],
+      secretAccessKey: [
+        "AWS_SECRET_ACCESS_KEY",
+        "NEON_STORAGE_SECRET_ACCESS_KEY",
+      ],
+      region: ["AWS_REGION", "NEON_STORAGE_REGION"],
+      customDomain: ["NEON_STORAGE_CUSTOM_DOMAIN"],
+      acl: [],
+    },
+    defaults: {
+      acl: "private",
+    },
+    customLogic: (
+      _config: unknown,
+      computed: { endpoint: string; region: string }
+    ) => ({
+      endpoint: computed.endpoint.replace(/\/+$/, ""),
+      region: computed.region || getNeonStorageRegion(computed.endpoint) || "",
+    }),
+  },
+
   gcs: {
     provider: "gcs",
     configKeys: {
@@ -655,6 +733,26 @@ const PROVIDER_SPECS = {
   },
 } as const;
 
+/**
+ * Reads the signing region out of a Neon branch storage endpoint.
+ *
+ * Branch endpoints carry their region in the hostname
+ * (`br-....storage.c-6.us-east-2.aws.neon.tech`), so asking for it separately
+ * only creates a way to get it wrong: a mismatched region fails every request
+ * with `SignatureDoesNotMatch`, which names the signature rather than the
+ * region.
+ *
+ * @internal
+ */
+export function getNeonStorageRegion(endpoint: string): string | undefined {
+  try {
+    const { hostname } = new URL(endpoint);
+    return /\.([a-z]{2}-[a-z]+-\d+)\.aws\.neon\.tech$/.exec(hostname)?.[1];
+  } catch {
+    return undefined;
+  }
+}
+
 // ========================================
 // Generic Provider Creator (New API)
 // ========================================
@@ -676,6 +774,7 @@ export type ProviderConfigMap = {
   cloudflareR2: Partial<Omit<CloudflareR2Config, "provider">>;
   digitalOceanSpaces: Partial<Omit<DigitalOceanSpacesConfig, "provider">>;
   minio: Partial<Omit<MinIOConfig, "provider">>;
+  neonStorage: Partial<Omit<NeonStorageConfig, "provider">>;
   gcs: Partial<Omit<GoogleCloudStorageConfig, "provider">>;
   s3Compatible: Partial<Omit<S3CompatibleConfig, "provider">>;
 };
@@ -850,6 +949,22 @@ export function validateProviderConfig(config: ProviderConfig): {
         errors.push("MinIO Secret Access Key is required");
       break;
 
+    case "neon-storage":
+      if (!config.endpoint) {
+        errors.push("Neon Object Storage endpoint is required");
+      } else if (!/^https:\/\//.test(config.endpoint)) {
+        errors.push("Neon Object Storage endpoint must be an https:// URL");
+      }
+      if (!config.accessKeyId)
+        errors.push("Neon Object Storage Access Key ID is required");
+      if (!config.secretAccessKey)
+        errors.push("Neon Object Storage Secret Access Key is required");
+      if (!config.region)
+        errors.push(
+          "Neon Object Storage region is required when it cannot be read from the endpoint"
+        );
+      break;
+
     case "gcs":
       if (!config.projectId) errors.push("Google Cloud Project ID is required");
       if (!config.keyFilename && !config.credentials) {
@@ -883,6 +998,7 @@ function getProviderDisplayName(provider: ProviderConfig["provider"]): string {
     "cloudflare-r2": "Cloudflare R2",
     "digitalocean-spaces": "DigitalOcean Spaces",
     minio: "MinIO",
+    "neon-storage": "Neon Object Storage",
     // Tier 2: Enterprise/Hyperscale
     "azure-blob": "Azure Blob Storage",
     "ibm-cloud": "IBM Cloud Object Storage",
@@ -974,6 +1090,8 @@ export function getProviderEndpoint(config: ProviderConfig): string {
       const port = config.port ? `:${config.port}` : "";
       return `${protocol}://${config.endpoint}${port}`;
     }
+    case "neon-storage":
+      return config.endpoint;
     case "gcs":
       return "https://storage.googleapis.com";
     case "s3-compatible":

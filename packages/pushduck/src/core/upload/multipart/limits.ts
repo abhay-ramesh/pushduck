@@ -13,6 +13,7 @@
  * | GCS (XML)   | 5 MiB    | 5 GiB    | 10,000    | no                     |
  * | DO Spaces   | 5 MiB    | 5 GiB    | 10,000    | no                     |
  * | MinIO       | 5 MiB    | 5 GiB    | 10,000    | no                     |
+ * | Neon Object Storage        | 5 MiB    | 5 GiB    | 10,000    | no                     |
  *
  * \* Backblaze specifies 5,000,000 bytes (decimal), which 5 MiB (5,242,880)
  * satisfies — so a single 5 MiB floor is safe everywhere.
@@ -39,6 +40,10 @@
  * - **DigitalOcean Spaces** caps presigned `PUT` through its *CDN* endpoint at
  *   7.91 MiB. Parts larger than that fail if a CDN endpoint is used for
  *   upload, which is why the default part size stays at the 5 MiB floor.
+ * - **Neon Object Storage** caps the *assembled* object at 5 GiB, multipart
+ *   or not. A larger multipart upload transfers every part and is then
+ *   rejected at completion with `EntityTooLarge`, so set `maxFileSize` at or
+ *   below 5 GiB on Neon routes.
  * - Abandoned uploads are auto-aborted after 7 days on R2 and 30 days on
  *   Spaces. AWS has no default — a lifecycle rule is required, or the parts
  *   are billed indefinitely.
@@ -47,6 +52,7 @@
  * @see https://developers.cloudflare.com/r2/objects/multipart-objects/
  * @see https://docs.digitalocean.com/products/spaces/details/limits/
  * @see https://cloud.google.com/storage/docs/multipart-uploads
+ * @see https://neon.com/docs/storage/overview#limits
  */
 
 /** One mebibyte, in bytes. Multipart limits are specified in binary units. */

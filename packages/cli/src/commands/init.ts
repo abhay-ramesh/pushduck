@@ -49,6 +49,11 @@ function getCORSLinks(provider: ProviderType): {
         corsSetup: `${baseUrl}/docs/guides/security/cors-and-acl`,
         providerDocs: `${baseUrl}/docs/providers/minio`,
       };
+    case "neon":
+      return {
+        corsSetup: `${baseUrl}/docs/providers/neon-object-storage#configure-cors`,
+        providerDocs: `${baseUrl}/docs/providers/neon-object-storage`,
+      };
     case "gcs":
       return {
         corsSetup: `${baseUrl}/docs/guides/security/cors-and-acl`,
