@@ -159,10 +159,6 @@ function getS3CompatibleConfig(
   };
 
   switch (config.provider) {
-    // ========================================
-    // TIER 1: Currently Supported Providers
-    // ========================================
-
     case "aws":
       return {
         ...baseConfig,
@@ -214,144 +210,6 @@ function getS3CompatibleConfig(
       };
 
     // ========================================
-    // TIER 2: Enterprise/Hyperscale Providers
-    // ========================================
-
-    case "azure-blob":
-      throw new Error(
-        "Azure Blob Storage support coming soon. Azure uses a different authentication model that requires additional implementation."
-      );
-    // TODO: Implement Azure Blob Storage
-    // return {
-    //   ...baseConfig,
-    //   accessKeyId: config.accessKeyId,
-    //   secretAccessKey: config.secretAccessKey,
-    //   region: config.region || "us-east-1",
-    //   endpoint: config.endpoint, // e.g., "https://account.blob.core.windows.net"
-    //   forcePathStyle: true,
-    // };
-
-    case "ibm-cloud":
-      throw new Error(
-        "IBM Cloud Object Storage support coming soon. Requires IBM-specific endpoint configuration."
-      );
-    // TODO: Implement IBM Cloud Object Storage
-    // return {
-    //   ...baseConfig,
-    //   accessKeyId: config.accessKeyId,
-    //   secretAccessKey: config.secretAccessKey,
-    //   region: config.region || "us-south",
-    //   endpoint: config.endpoint, // e.g., "https://s3.us-south.cloud-object-storage.appdomain.cloud"
-    //   forcePathStyle: false,
-    // };
-
-    case "oracle-oci":
-      throw new Error(
-        "Oracle Cloud Infrastructure Object Storage support coming soon."
-      );
-    // TODO: Implement Oracle OCI Object Storage
-    // return {
-    //   ...baseConfig,
-    //   accessKeyId: config.accessKeyId,
-    //   secretAccessKey: config.secretAccessKey,
-    //   region: config.region || "us-ashburn-1",
-    //   endpoint: config.endpoint, // e.g., "https://namespace.compat.objectstorage.region.oraclecloud.com"
-    //   forcePathStyle: false,
-    // };
-
-    // ========================================
-    // TIER 3: Cost-Optimized Providers
-    // ========================================
-
-    case "wasabi":
-      throw new Error(
-        "Wasabi Hot Cloud Storage support coming soon. Single-tier storage with no egress fees."
-      );
-    // TODO: Implement Wasabi
-    // return {
-    //   ...baseConfig,
-    //   accessKeyId: config.accessKeyId,
-    //   secretAccessKey: config.secretAccessKey,
-    //   region: config.region || "us-east-1",
-    //   endpoint: config.endpoint || "https://s3.wasabisys.com", // Default endpoint
-    //   forcePathStyle: true,
-    // };
-
-    case "backblaze-b2":
-      throw new Error(
-        "Backblaze B2 support coming soon. Competitive pricing with free Cloudflare egress."
-      );
-    // TODO: Implement Backblaze B2
-    // return {
-    //   ...baseConfig,
-    //   accessKeyId: config.accessKeyId,
-    //   secretAccessKey: config.secretAccessKey,
-    //   region: config.region || "us-west-000",
-    //   endpoint: config.endpoint, // e.g., "https://s3.us-west-000.backblazeb2.com"
-    //   forcePathStyle: false,
-    // };
-
-    case "storj-dcs":
-      throw new Error(
-        "Storj DCS (Decentralized Cloud Storage) support coming soon. End-to-end encrypted, decentralized storage."
-      );
-    // TODO: Implement Storj DCS
-    // return {
-    //   ...baseConfig,
-    //   accessKeyId: config.accessKeyId,
-    //   secretAccessKey: config.secretAccessKey,
-    //   region: config.region || "global",
-    //   endpoint: config.endpoint || "https://gateway.storjshare.io",
-    //   forcePathStyle: true,
-    // };
-
-    // ========================================
-    // TIER 4: Performance/Specialized Providers
-    // ========================================
-
-    case "telnyx-storage":
-      throw new Error(
-        "Telnyx Storage support coming soon. Global edge network with private backbone."
-      );
-    // TODO: Implement Telnyx Storage
-    // return {
-    //   ...baseConfig,
-    //   accessKeyId: config.accessKeyId,
-    //   secretAccessKey: config.secretAccessKey,
-    //   region: config.region || "us-east-1",
-    //   endpoint: config.endpoint, // Telnyx-specific endpoint
-    //   forcePathStyle: true,
-    // };
-
-    case "tigris-data":
-      throw new Error(
-        "Tigris Data support coming soon. Globally distributed storage with single endpoint."
-      );
-    // TODO: Implement Tigris Data
-    // return {
-    //   ...baseConfig,
-    //   accessKeyId: config.accessKeyId,
-    //   secretAccessKey: config.secretAccessKey,
-    //   region: "auto", // Tigris uses "auto" region
-    //   endpoint: config.endpoint, // e.g., "https://fly.storage.tigris.dev"
-    //   forcePathStyle: true,
-    // };
-
-    case "cloudian-hyperstore":
-      throw new Error(
-        "Cloudian HyperStore support coming soon. On-premises and hybrid cloud object storage."
-      );
-    // TODO: Implement Cloudian HyperStore
-    // return {
-    //   ...baseConfig,
-    //   accessKeyId: config.accessKeyId,
-    //   secretAccessKey: config.secretAccessKey,
-    //   region: config.region || "us-east-1",
-    //   endpoint: config.endpoint, // Customer-specific endpoint
-    //   forcePathStyle: true,
-    // };
-
-    // ========================================
     // Special Cases
     // ========================================
 
@@ -384,7 +242,6 @@ function getS3CompatibleConfig(
       throw new Error(
         `Unsupported provider: ${(config as any).provider}. ` +
           `Supported providers: aws, cloudflare-r2, digitalocean-spaces, minio, neon-storage. ` +
-          `Coming soon: wasabi, backblaze-b2, azure-blob, ibm-cloud, oracle-oci, storj-dcs, telnyx-storage, tigris-data, cloudian-hyperstore. ` +
           `For other providers, use "s3-compatible" with a custom endpoint.`
       );
   }
