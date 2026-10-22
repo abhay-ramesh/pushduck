@@ -850,28 +850,24 @@ function generateHierarchicalPath<TMetadata>(
 // ========================================
 
 /**
- * Secret used to sign multipart session tokens.
+ * Secret used to sign multipart session and completion tokens.
  *
- * Reuses a credential the server already holds rather than introducing another
- * one to configure and rotate. Not every provider config carries
- * `secretAccessKey` — GCS uses a service account — so this falls back rather
- * than assuming a shape.
+ * Reuses the provider's secret access key rather than introducing another
+ * credential to configure and rotate. It must be the *secret*: the access key
+ * ID is public — it is in the `X-Amz-Credential` of every presigned URL — so a
+ * token keyed with it could be minted by anyone who has seen one upload.
  */
 function multipartSessionSecret(config: UploadConfig): string {
-  const provider = config.provider as unknown as Record<string, unknown>;
+  const { secretAccessKey } = config.provider as { secretAccessKey?: unknown };
 
-  const secret =
-    (typeof provider.secretAccessKey === "string" && provider.secretAccessKey) ||
-    (typeof provider.accessKeyId === "string" && provider.accessKeyId);
-
-  if (!secret) {
+  if (typeof secretAccessKey !== "string" || !secretAccessKey) {
     throw new UploadError(
       "CONFIG_INVALID",
-      "Multipart uploads need a provider credential to sign session tokens"
+      "Signing upload tokens needs the provider's secretAccessKey"
     );
   }
 
-  return secret;
+  return secretAccessKey;
 }
 
 export type S3RouterDefinition = Record<string, S3Route<any, any>>;
