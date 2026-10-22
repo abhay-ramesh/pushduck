@@ -5,15 +5,15 @@
  * change the design rather than merely the numbers. These were read from each
  * provider's own documentation, not assumed from AWS:
  *
- * | Provider    | Min part | Max part | Max parts | Uniform parts required |
- * |-------------|----------|----------|-----------|------------------------|
- * | AWS S3      | 5 MiB    | 5 GiB    | 10,000    | no                     |
- * | Cloudflare R2 | 5 MiB  | 5 GiB    | 10,000    | **yes**                |
- * | Backblaze B2  | 5 MB*  | 5 GiB    | 10,000    | yes (all but last)     |
- * | GCS (XML)   | 5 MiB    | 5 GiB    | 10,000    | no                     |
- * | DO Spaces   | 5 MiB    | 5 GiB    | 10,000    | no                     |
- * | MinIO       | 5 MiB    | 5 GiB    | 10,000    | no                     |
- * | Neon Object Storage        | 5 MiB    | 5 GiB    | 10,000    | no                     |
+ * | Provider            | Min part | Max part | Max parts | Uniform parts required |
+ * |---------------------|----------|----------|-----------|------------------------|
+ * | AWS S3              | 5 MiB    | 5 GiB    | 10,000    | no                     |
+ * | Cloudflare R2       | 5 MiB    | 5 GiB    | 10,000    | **yes**                |
+ * | Backblaze B2        | 5 MB*    | 5 GiB    | 10,000    | yes (all but last)     |
+ * | GCS (XML)           | 5 MiB    | 5 GiB    | 10,000    | no                     |
+ * | DO Spaces           | 5 MiB    | 5 GiB    | 10,000    | no                     |
+ * | MinIO               | 5 MiB    | 5 GiB    | 10,000    | no                     |
+ * | Neon Object Storage | 5 MiB    | 5 GiB    | 10,000    | no                     |
  *
  * \* Backblaze specifies 5,000,000 bytes (decimal), which 5 MiB (5,242,880)
  * satisfies — so a single 5 MiB floor is safe everywhere.
