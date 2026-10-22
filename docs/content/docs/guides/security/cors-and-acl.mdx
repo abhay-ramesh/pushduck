@@ -165,6 +165,19 @@ Or via MinIO Console:
 2. Navigate to Anonymous → Access Rules
 3. Configure CORS policy
 
+#### Neon Object Storage
+
+Neon supports `PutBucketCors`, so the AWS S3 JSON above works as-is against your branch endpoint:
+
+```bash
+aws s3api put-bucket-cors \
+  --bucket your-bucket \
+  --cors-configuration file://cors-config.json \
+  --endpoint-url "$AWS_ENDPOINT_URL_S3"
+```
+
+Neon does not support ACLs. Set a bucket's access level (`private` or `public_read`) when you create it; pushduck never sends `x-amz-acl` to Neon. See [Neon Object Storage](/docs/providers/neon-object-storage#4-configure-cors).
+
 ### Advanced CORS Configurations
 
 #### Multiple Environment Setup

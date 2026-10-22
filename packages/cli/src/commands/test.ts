@@ -28,6 +28,7 @@ export async function testCommand(options: TestOptions = {}) {
       "cloudflare-r2",
       "digitalocean",
       "minio",
+      "neon",
       "gcs",
     ] as const;
     let foundCredentials = false;

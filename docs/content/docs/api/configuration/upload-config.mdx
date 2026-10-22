@@ -95,6 +95,20 @@ createUploadConfig().provider("minio",{
 })
 ```
 
+### Neon Object Storage
+
+```typescript
+createUploadConfig().provider("neonStorage", {
+  endpoint: process.env.AWS_ENDPOINT_URL_S3!, // Branch storage endpoint
+  bucket: process.env.NEON_STORAGE_BUCKET!,
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  // region is read from the endpoint hostname
+})
+```
+
+Neon only supports path-style addressing and bucket-level access, so `forcePathStyle` and `acl` do not apply. See [Neon Object Storage](/docs/providers/neon-object-storage).
+
 ### S3-Compatible (Generic)
 
 For any S3-compatible storage service not explicitly supported:
@@ -294,6 +308,11 @@ DO_SPACES_REGION=nyc3
 DO_SPACES_BUCKET=your-space
 DO_SPACES_ACCESS_KEY_ID=your_key
 DO_SPACES_SECRET_ACCESS_KEY=your_secret
+
+# Neon Object Storage (alternative, written by `neon env pull`)
+AWS_ENDPOINT_URL_S3=https://br-....storage.c-6.us-east-2.aws.neon.tech
+AWS_REGION=us-east-2
+NEON_STORAGE_BUCKET=your-bucket
 
 # Custom Domains (Optional)
 S3_CUSTOM_DOMAIN=https://cdn.yourdomain.com

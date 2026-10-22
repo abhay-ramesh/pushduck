@@ -303,6 +303,19 @@ describe("no signing path ever uses a custom domain", () => {
           })
           .build(),
     },
+    {
+      name: "neonStorage",
+      build: () =>
+        createUploadConfig()
+          .provider("neonStorage", {
+            ...baseProvider,
+            endpoint:
+              "https://br-a1b2c3d4.storage.c-6.us-east-2.aws.neon.tech",
+            region: "us-east-2",
+            customDomain: CUSTOM_DOMAIN,
+          })
+          .build(),
+    },
   ] as const;
 
   for (const provider of providers) {

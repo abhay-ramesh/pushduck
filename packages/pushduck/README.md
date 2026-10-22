@@ -22,7 +22,7 @@
 - **Lifecycle Callbacks**: Complete upload lifecycle with `onStart`, `onProgress`, `onSuccess`, and `onError`
 - **Error Handling**: Robust error handling with retry mechanisms
 - **Cancellation**: Cancel uploads with AbortController support
-- **Multi-Provider**: AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, and more
+- **Multi-Provider**: AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, Neon Object Storage, and more
 - **Security**: Private/public bucket support with presigned URLs
 - **Validation**: Built-in file type, size, and custom validation
 - **Modern**: Built for React 18+ and Next.js App Router
@@ -281,6 +281,18 @@ createUploadConfig().provider("minio", {
 })
 ```
 
+#### Neon Object Storage
+
+```typescript
+createUploadConfig().provider("neonStorage", {
+  endpoint: process.env.AWS_ENDPOINT_URL_S3!, // Branch storage endpoint
+  bucket: process.env.NEON_STORAGE_BUCKET!,
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  // region is read from the endpoint hostname
+})
+```
+
 ### Advanced Configuration
 
 #### File Validation & Defaults
@@ -511,6 +523,12 @@ DO_SPACES_SECRET_ACCESS_KEY=your_secret_key
 # MinIO
 MINIO_ACCESS_KEY_ID=your_access_key
 MINIO_SECRET_ACCESS_KEY=your_secret_key
+
+# Neon Object Storage (written by `neon env pull`)
+AWS_ENDPOINT_URL_S3=https://br-....storage.c-6.us-east-2.aws.neon.tech
+AWS_ACCESS_KEY_ID=nak_live_...
+AWS_SECRET_ACCESS_KEY=nsk_live_...
+NEON_STORAGE_BUCKET=your_bucket
 ```
 
 ## Migration Guide

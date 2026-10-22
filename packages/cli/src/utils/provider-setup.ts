@@ -13,6 +13,7 @@ export type ProviderType =
   | "cloudflare-r2"
   | "digitalocean"
   | "minio"
+  | "neon"
   | "gcs";
 
 export interface ProviderConfig {
@@ -117,6 +118,39 @@ const PROVIDER_INFO = {
       { name: "us-east-1", value: "us-east-1", description: "Default region" },
     ],
   },
+  neon: {
+    name: "Neon",
+    description: "Branchable storage built into Postgres",
+    envVars: [
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SECRET_ACCESS_KEY",
+      "AWS_ENDPOINT_URL_S3",
+      "AWS_REGION",
+      "NEON_STORAGE_BUCKET",
+    ],
+    regions: [
+      {
+        name: "us-east-2 (Ohio)",
+        value: "us-east-2",
+        description: "AWS US East (Ohio)",
+      },
+      {
+        name: "us-east-1 (N. Virginia)",
+        value: "us-east-1",
+        description: "AWS US East (N. Virginia)",
+      },
+      {
+        name: "eu-central-1 (Frankfurt)",
+        value: "eu-central-1",
+        description: "AWS Europe (Frankfurt)",
+      },
+      {
+        name: "ap-southeast-1 (Singapore)",
+        value: "ap-southeast-1",
+        description: "AWS Asia Pacific (Singapore)",
+      },
+    ],
+  },
   gcs: {
     name: "Google Cloud Storage",
     description: "Advanced features, ML integration",
@@ -217,6 +251,15 @@ export async function detectExistingCredentials(
       credentials.region = process.env.MINIO_REGION || "us-east-1";
       break;
 
+    case "neon":
+      // The variables `neon env pull` writes for the linked branch
+      credentials.accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+      credentials.secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+      credentials.endpoint = process.env.AWS_ENDPOINT_URL_S3;
+      credentials.region = process.env.AWS_REGION;
+      credentials.bucket = process.env.NEON_STORAGE_BUCKET;
+      break;
+
     case "gcs":
       credentials.accessKeyId = process.env.GCS_ACCESS_KEY_ID;
       credentials.secretAccessKey = process.env.GCS_SECRET_ACCESS_KEY;
@@ -289,6 +332,18 @@ export async function promptForMissingCredentials(
     });
   }
 
+  if (provider === "neon" && !existing.endpoint) {
+    questions.push({
+      type: "input",
+      name: "endpoint",
+      message: "Neon branch storage endpoint (AWS_ENDPOINT_URL_S3):",
+      validate: (input: string) =>
+        input.startsWith("https://")
+          ? true
+          : "Endpoint must be an https:// URL, e.g. https://br-....storage.c-6.us-east-2.aws.neon.tech",
+    });
+  }
+
   const answers = await inquirer.prompt(questions);
 
   return {
@@ -321,6 +376,9 @@ export async function createS3Bucket(
       case "minio":
         endpoint = `http://${credentials.endpoint}`;
         break;
+      case "neon":
+        endpoint = credentials.endpoint;
+        break;
       case "gcs":
         endpoint = "https://storage.googleapis.com";
         break;
@@ -334,7 +392,7 @@ export async function createS3Bucket(
         secretAccessKey: credentials.secretAccessKey,
       },
       endpoint,
-      forcePathStyle: provider === "minio", // MinIO requires path-style
+      forcePathStyle: provider === "minio" || provider === "neon", // MinIO and Neon require path-style
     });
 
     // Check if bucket already exists
@@ -412,6 +470,9 @@ export async function testConnection(
       case "minio":
         endpoint = `http://${credentials.endpoint}`;
         break;
+      case "neon":
+        endpoint = credentials.endpoint;
+        break;
       case "gcs":
         endpoint = "https://storage.googleapis.com";
         break;
@@ -424,7 +485,7 @@ export async function testConnection(
         secretAccessKey: credentials.secretAccessKey,
       },
       endpoint,
-      forcePathStyle: provider === "minio",
+      forcePathStyle: provider === "minio" || provider === "neon",
     });
 
     await s3Client.send(new HeadBucketCommand({ Bucket: credentials.bucket }));
@@ -472,6 +533,14 @@ export function generateEnvVariables(
       env["MINIO_ENDPOINT"] = credentials.endpoint || "";
       env["MINIO_BUCKET"] = credentials.bucket;
       env["MINIO_REGION"] = credentials.region;
+      break;
+
+    case "neon":
+      env["AWS_ACCESS_KEY_ID"] = credentials.accessKeyId;
+      env["AWS_SECRET_ACCESS_KEY"] = credentials.secretAccessKey;
+      env["AWS_ENDPOINT_URL_S3"] = credentials.endpoint || "";
+      env["AWS_REGION"] = credentials.region;
+      env["NEON_STORAGE_BUCKET"] = credentials.bucket;
       break;
 
     case "gcs":

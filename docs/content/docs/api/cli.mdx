@@ -44,7 +44,7 @@ The CLI will automatically:
   
   <Card title="Provider Setup" description="Configures your chosen cloud storage provider">
     - AWS S3, Cloudflare R2, DigitalOcean Spaces
-    - Google Cloud Storage, MinIO
+    - Google Cloud Storage, MinIO, Neon Object Storage
     - Automatic bucket creation
     - CORS configuration
   </Card>
@@ -71,7 +71,7 @@ npx @pushduck/cli@latest init [options]
 
 **Options:**
 
-- `--provider <type>` - Skip provider selection (aws|cloudflare-r2|digitalocean|minio|gcs)
+- `--provider <type>` - Skip provider selection (aws|cloudflare-r2|digitalocean|minio|neon|gcs)
 - `--skip-examples` - Don't generate example components
 - `--skip-bucket` - Don't create S3 bucket automatically
 - `--api-path <path>` - Custom API route path (default: `/api/upload`)
@@ -163,6 +163,7 @@ npx @pushduck/cli@latest test
   DigitalOcean Spaces (simple, affordable)
   Google Cloud Storage (enterprise-grade)
   MinIO (self-hosted, open source)
+  Neon Object Storage (branchable storage)
   Custom S3-compatible endpoint
 ```
 
@@ -361,7 +362,7 @@ NEXTAUTH_URL=http://localhost:3000
 
 ## Provider-Specific Setup
 
-<Tabs items={["Cloudflare R2", "AWS S3", "DigitalOcean", "MinIO"]}>
+<Tabs items={["Cloudflare R2", "AWS S3", "DigitalOcean", "MinIO", "Neon Object Storage"]}>
   <Tab value="Cloudflare R2">
     ```bash
     npx @pushduck/cli@latest init --provider cloudflare-r2
@@ -422,6 +423,25 @@ NEXTAUTH_URL=http://localhost:3000
     - Sets up bucket policies
     - Validates server connectivity
     - Configures development-friendly settings
+  </Tab>
+
+  <Tab value="Neon Object Storage">
+    ```bash
+    npx @pushduck/cli@latest init --provider neon
+    ```
+    
+    **Required Environment Variables** (`neon env pull --service object-storage` writes the first four):
+    - `AWS_ACCESS_KEY_ID` (credential `token_id`)
+    - `AWS_SECRET_ACCESS_KEY` (credential `s3_secret_access_key`)
+    - `AWS_ENDPOINT_URL_S3` (branch storage endpoint)
+    - `AWS_REGION`
+    - `NEON_STORAGE_BUCKET`
+    
+    **What the CLI does:**
+    - Configures the branch storage endpoint with path-style addressing
+    - Creates the bucket on the branch if it does not exist
+    - Applies CORS rules for browser uploads
+    - Validates the credential against the bucket
   </Tab>
 </Tabs>
 

@@ -519,6 +519,7 @@ export type {
   DigitalOceanSpacesConfig,
   GoogleCloudStorageConfig,
   MinIOConfig,
+  NeonStorageConfig,
   ProviderConfig,
   ProviderType,
 } from "./core/providers";

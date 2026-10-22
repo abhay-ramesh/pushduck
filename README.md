@@ -38,7 +38,7 @@ Upload files directly to S3-compatible storage with just 3 lines of code. No hea
 - **Fast** - Optimized bundles with tree-shaking support
 - **Lightweight** - No heavy AWS SDK bloat, minimal dependencies
 - **Type Safe** - Full TypeScript support with intelligent inference
-- **Multi-Provider** - AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO
+- **Multi-Provider** - AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, Neon Object Storage
 - **Framework Agnostic** - Next.js, Express, Fastify, and more
 - **Modern React** - Hooks and utilities for easy integration
 - **Secure** - Presigned URLs, CORS handling, file validation
@@ -178,7 +178,7 @@ const recentFiles = await storage.list.byDate(new Date("2024-01-01"));
 - **[Philosophy & Scope](https://pushduck.org/docs/philosophy)** - What we do (and don't do)
 - **[API Reference](https://pushduck.org/docs/api)** - Full API documentation
 - **[Examples](https://pushduck.org/docs/examples)** - Real-world examples
-- **[Providers](https://pushduck.org/docs/providers)** - S3, R2, Spaces, MinIO
+- **[Providers](https://pushduck.org/docs/providers)** - S3, R2, Spaces, MinIO, Neon Object Storage
 - **[Security](https://pushduck.org/docs/guides/security)** - Security best practices
 
 ## Why Pushduck?
@@ -350,6 +350,16 @@ const { s3: minioS3 } = createUploadConfig()
     secretAccessKey: process.env.MINIO_SECRET_ACCESS_KEY!,
     bucket: process.env.MINIO_BUCKET_NAME!,
     useSSL: false,
+  })
+  .build();
+
+// Neon Object Storage (S3-compatible, branches with your database)
+const { upload: neonUpload } = createUploadConfig()
+  .provider("neonStorage", {
+    endpoint: process.env.AWS_ENDPOINT_URL_S3!,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    bucket: process.env.NEON_STORAGE_BUCKET!,
   })
   .build();
 ```
