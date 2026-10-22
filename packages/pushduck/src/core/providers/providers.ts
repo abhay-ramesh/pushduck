@@ -592,11 +592,14 @@ const PROVIDER_SPECS = {
       "region",
       "customDomain",
       "acl",
+      "forcePathStyle",
     ],
     defaults: {
       region: "us-east-1",
       acl: "private",
-      forcePathStyle: true, // Most S3-compatible providers need path-style access
+      // Most S3-compatible services want the bucket in the path; virtual-hosted
+      // ones (Backblaze B2, Wasabi) set forcePathStyle: false.
+      forcePathStyle: true,
     },
   },
 } as const;
