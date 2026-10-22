@@ -1,4 +1,5 @@
 import {
+    BucketLocationConstraint,
     CreateBucketCommand,
     HeadBucketCommand,
     PutBucketCorsCommand,
@@ -356,6 +357,30 @@ export async function promptForMissingCredentials(
   };
 }
 
+/**
+ * `us-east-1` is S3's default and must not be sent as a LocationConstraint,
+ * and the SDK types the field as the closed set of AWS region names. Region
+ * names outside that set (R2's `auto`, Spaces' `nyc3`, ...) select the
+ * provider's default, which these services derive from the endpoint, so the
+ * constraint is omitted for them too.
+ */
+function toCreateBucketConfiguration(
+  region: string
+): { LocationConstraint: BucketLocationConstraint } | undefined {
+  if (region === "us-east-1" || !isBucketLocationConstraint(region)) {
+    return undefined;
+  }
+  return { LocationConstraint: region };
+}
+
+function isBucketLocationConstraint(
+  region: string
+): region is BucketLocationConstraint {
+  return (Object.values(BucketLocationConstraint) as string[]).includes(
+    region
+  );
+}
+
 export async function createS3Bucket(
   credentials: ProviderCredentials,
   provider: ProviderType
@@ -410,12 +435,9 @@ export async function createS3Bucket(
     await s3Client.send(
       new CreateBucketCommand({
         Bucket: credentials.bucket,
-        CreateBucketConfiguration:
-          credentials.region !== "us-east-1"
-            ? {
-                LocationConstraint: credentials.region,
-              }
-            : undefined,
+        CreateBucketConfiguration: toCreateBucketConfiguration(
+          credentials.region
+        ),
       })
     );
 
