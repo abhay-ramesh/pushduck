@@ -56,592 +56,92 @@
  */
 
 import { logger } from "../utils/logger";
+import { aws } from "./aws";
+import { cloudflareR2 } from "./cloudflare-r2";
+import {
+  checkProviderConfig,
+  type ProviderDefinition,
+  type StorageTarget,
+} from "./define";
+import { digitalOceanSpaces } from "./digitalocean-spaces";
+import { minio } from "./minio";
+import { neonStorage } from "./neon-storage";
+import { s3Compatible } from "./s3-compatible";
+
+export type { AWSProviderConfig } from "./aws";
+export type { CloudflareR2Config } from "./cloudflare-r2";
+export type {
+  BaseProviderConfig,
+  ProviderDefinition,
+  S3AclValue,
+  StorageTarget,
+} from "./define";
+export type { DigitalOceanSpacesConfig } from "./digitalocean-spaces";
+export type { MinIOConfig } from "./minio";
+export { getNeonStorageRegion, type NeonStorageConfig } from "./neon-storage";
+export type { S3CompatibleConfig } from "./s3-compatible";
 
 // ========================================
-// Provider Types
-// ========================================
-
-/**
- * Valid S3 ACL values for controlling object access.
- * Note: Cloudflare R2, MinIO and Neon Object Storage do not support per-object
- * ACLs — use bucket-level access settings instead. Setting `acl` has no effect
- * on those providers.
- */
-export type S3AclValue =
-  | "private"
-  | "public-read"
-  | "public-read-write"
-  | "authenticated-read"
-  | "bucket-owner-read"
-  | "bucket-owner-full-control"
-  | "log-delivery-write"
-  | (string & {});
-
-/**
- * Base configuration interface for all cloud storage providers.
- * Contains common properties shared across all provider implementations.
- *
- * @interface BaseProviderConfig
- */
-export interface BaseProviderConfig {
-  /** Provider identifier string */
-  provider: string;
-  /** Geographic region for the storage service */
-  region?: string;
-  /** Name of the storage bucket/container */
-  bucket: string;
-  /**
-   * S3 ACL for uploaded objects.
-   * Not supported on Cloudflare R2, MinIO or Neon Object Storage — ignored on
-   * those providers.
-   */
-  acl?: S3AclValue;
-  /** Custom domain for file URLs (e.g., 'cdn.example.com') */
-  customDomain?: string;
-  /** Force path-style URLs instead of virtual-hosted style */
-  forcePathStyle?: boolean;
-}
-
-// ========================================
-// Supported Providers
+// Registry
 // ========================================
 
 /**
- * Configuration for Amazon Web Services S3.
- * The most widely used object storage service with global availability.
+ * Every supported provider, keyed by the name passed to `.provider()`.
  *
- * @interface AWSProviderConfig
- * @extends BaseProviderConfig
- *
- * @example Basic Configuration
- * ```typescript
- * const awsConfig: AWSProviderConfig = {
- *   provider: 'aws',
- *   bucket: 'my-app-uploads',
- *   region: 'us-east-1',
- *   accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
- *   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
- * };
- * ```
- *
- * @example With Custom Domain
- * ```typescript
- * const awsWithCDN: AWSProviderConfig = {
- *   provider: 'aws',
- *   bucket: 'my-uploads',
- *   region: 'us-east-1',
- *   accessKeyId: 'AKIA...',
- *   secretAccessKey: 'secret...',
- *   customDomain: 'cdn.myapp.com',
- *   acl: 'public-read',
- * };
- * ```
+ * To add a provider, write its definition (see `define.ts` and any sibling
+ * file) and list it here. The config types, `createProvider`, validation, the
+ * storage client and the health check all follow from this object.
  */
-export interface AWSProviderConfig extends BaseProviderConfig {
-  provider: "aws";
-  /** AWS Access Key ID */
-  accessKeyId: string;
-  /** AWS Secret Access Key */
-  secretAccessKey: string;
-  /** AWS region (required) */
-  region: string;
-  /** AWS Session Token for temporary credentials */
-  sessionToken?: string;
-}
-
-/**
- * Configuration for Cloudflare R2 object storage.
- * S3-compatible storage with zero egress fees and global distribution.
- *
- * @interface CloudflareR2Config
- * @extends BaseProviderConfig
- *
- * @example Basic Configuration
- * ```typescript
- * const r2Config: CloudflareR2Config = {
- *   provider: 'cloudflare-r2',
- *   bucket: 'my-r2-bucket',
- *   accountId: 'your-cloudflare-account-id',
- *   accessKeyId: 'your-r2-access-key',
- *   secretAccessKey: 'your-r2-secret-key',
- * };
- * ```
- *
- * @example With Custom Domain
- * ```typescript
- * const r2WithDomain: CloudflareR2Config = {
- *   provider: 'cloudflare-r2',
- *   bucket: 'assets',
- *   accountId: 'abc123',
- *   accessKeyId: 'key123',
- *   secretAccessKey: 'secret123',
- *   customDomain: 'assets.myapp.com',
- * };
- * ```
- */
-export interface CloudflareR2Config extends BaseProviderConfig {
-  provider: "cloudflare-r2";
-  /** Cloudflare Account ID */
-  accountId: string;
-  /** R2 Access Key ID */
-  accessKeyId: string;
-  /** R2 Secret Access Key */
-  secretAccessKey: string;
-  /** Region (typically 'auto' for R2) */
-  region?: "auto";
-  /** Custom endpoint (auto-generated from accountId if not provided) */
-  endpoint?: string;
-  /**
-   * Session token for temporary credentials.
-   *
-   * Set when credentials come from STS rather than a static key pair. SigV4
-   * signs it as `X-Amz-Security-Token`; without it the provider rejects the
-   * signature.
-   */
-  sessionToken?: string;
-}
-
-/**
- * Configuration for DigitalOcean Spaces object storage.
- * S3-compatible storage service integrated with DigitalOcean's ecosystem.
- *
- * @interface DigitalOceanSpacesConfig
- * @extends BaseProviderConfig
- *
- * @example Basic Configuration
- * ```typescript
- * const spacesConfig: DigitalOceanSpacesConfig = {
- *   provider: 'digitalocean-spaces',
- *   bucket: 'my-space',
- *   region: 'nyc3',
- *   accessKeyId: 'your-spaces-key',
- *   secretAccessKey: 'your-spaces-secret',
- * };
- * ```
- *
- * @example Available Regions
- * ```typescript
- * const regions = ['nyc3', 'ams3', 'sgp1', 'sfo3', 'fra1'];
- * const spacesConfig: DigitalOceanSpacesConfig = {
- *   provider: 'digitalocean-spaces',
- *   bucket: 'global-assets',
- *   region: 'fra1', // Frankfurt
- *   accessKeyId: process.env.DO_SPACES_ACCESS_KEY_ID!,
- *   secretAccessKey: process.env.DO_SPACES_SECRET_ACCESS_KEY!,
- * };
- * ```
- */
-export interface DigitalOceanSpacesConfig extends BaseProviderConfig {
-  provider: "digitalocean-spaces";
-  /** Spaces Access Key ID */
-  accessKeyId: string;
-  /** Spaces Secret Access Key */
-  secretAccessKey: string;
-  /** DigitalOcean region */
-  region: string;
-  /** Custom endpoint (auto-generated from region if not provided) */
-  endpoint?: string;
-  /**
-   * Session token for temporary credentials.
-   *
-   * Set when credentials come from STS rather than a static key pair. SigV4
-   * signs it as `X-Amz-Security-Token`; without it the provider rejects the
-   * signature.
-   */
-  sessionToken?: string;
-}
-
-/**
- * Configuration for MinIO object storage.
- * Self-hosted S3-compatible storage for on-premises or private cloud deployments.
- *
- * @interface MinIOConfig
- * @extends BaseProviderConfig
- *
- * @example Local Development
- * ```typescript
- * const minioConfig: MinIOConfig = {
- *   provider: 'minio',
- *   endpoint: 'http://localhost:9000',
- *   bucket: 'uploads',
- *   accessKeyId: 'minioadmin',
- *   secretAccessKey: 'minioadmin',
- *   useSSL: false,
- * };
- * ```
- *
- * @example Production Setup
- * ```typescript
- * const minioProduction: MinIOConfig = {
- *   provider: 'minio',
- *   endpoint: 'https://minio.mycompany.com',
- *   bucket: 'production-uploads',
- *   accessKeyId: process.env.MINIO_ACCESS_KEY!,
- *   secretAccessKey: process.env.MINIO_SECRET_KEY!,
- *   useSSL: true,
- *   port: 9000,
- * };
- * ```
- */
-export interface MinIOConfig extends BaseProviderConfig {
-  provider: "minio";
-  /** MinIO server endpoint URL */
-  endpoint: string;
-  /** MinIO access key */
-  accessKeyId: string;
-  /** MinIO secret key */
-  secretAccessKey: string;
-  /** Whether to use SSL/TLS */
-  useSSL?: boolean;
-  /** Custom port (default: 9000) */
-  port?: number;
-  /**
-   * Session token for temporary credentials.
-   *
-   * Set when credentials come from STS rather than a static key pair. SigV4
-   * signs it as `X-Amz-Security-Token`; without it the provider rejects the
-   * signature.
-   */
-  sessionToken?: string;
-}
-
-/**
- * Configuration for Neon Object Storage.
- * S3-compatible storage built into a Neon project. Buckets belong to a branch
- * and branch with the database, so every branch has its own endpoint and its
- * own copy-on-write view of each bucket.
- *
- * @interface NeonStorageConfig
- * @extends BaseProviderConfig
- *
- * @example Basic Configuration
- * ```typescript
- * const neonConfig: NeonStorageConfig = {
- *   provider: 'neon-storage',
- *   endpoint: 'https://br-cool-darkness-a1b2c3d4.storage.c-6.us-east-2.aws.neon.tech',
- *   bucket: 'user-uploads',
- *   accessKeyId: process.env.AWS_ACCESS_KEY_ID!, // nak_live_...
- *   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!, // nsk_live_...
- * };
- * ```
- */
-export interface NeonStorageConfig extends BaseProviderConfig {
-  provider: "neon-storage";
-  /**
-   * The branch storage endpoint, exposed as `AWS_ENDPOINT_URL_S3` by
-   * `neon env pull` and inside Neon Functions.
-   */
-  endpoint: string;
-  /** The Neon credential `token_id` (`nak_live_...`) */
-  accessKeyId: string;
-  /** The Neon credential `s3_secret_access_key` (`nsk_live_...`) */
-  secretAccessKey: string;
-  /**
-   * Signing region. Read from the endpoint hostname when omitted — a
-   * `...us-east-2.aws.neon.tech` endpoint signs as `us-east-2`.
-   */
-  region: string;
-}
-
-/**
- * Configuration for any other S3-compatible service — Backblaze B2, Wasabi,
- * Google Cloud Storage through its XML API with HMAC keys, and so on.
- */
-export interface S3CompatibleConfig extends BaseProviderConfig {
-  provider: "s3-compatible";
-  accessKeyId: string;
-  secretAccessKey: string;
-  endpoint: string; // Required for generic S3-compatible providers
-}
-
-// ========================================
-// Union Type for All Providers
-// ========================================
-
-export type ProviderConfig =
-  | AWSProviderConfig
-  | CloudflareR2Config
-  | DigitalOceanSpacesConfig
-  | MinIOConfig
-  | NeonStorageConfig
-  | S3CompatibleConfig;
-
-// ========================================
-// DRY Provider Factory System
-// ========================================
-
-interface ProviderSpec {
-  readonly provider: string;
-  /** The options this provider accepts. Anything else is reported and dropped. */
-  readonly fields: readonly string[];
-  readonly defaults: Record<string, any>;
-  readonly customLogic?: (config: any, computed: any) => any;
-}
-
-/**
- * Generic provider configuration builder
- * Validates required configuration fields
- */
-function createProviderBuilder<T extends ProviderConfig>(
-  spec: ProviderSpec
-): (config?: Partial<T>) => T {
-  return (config: Partial<T> = {}): T => {
-    const result: any = { provider: spec.provider };
-
-    // Use ?? (nullish coalescing) so that false, 0, and "" are preserved.
-    for (const key of spec.fields) {
-      result[key] = config[key as keyof T] ?? spec.defaults[key] ?? "";
-    }
-
-    // Apply custom logic if provided
-    if (spec.customLogic) {
-      Object.assign(result, spec.customLogic(config, result));
-    }
-
-    /**
-     * Report anything the caller supplied that did not survive.
-     *
-     * Only listed keys are copied, and everything else is discarded — which is
-     * how `sessionToken` came to be declared, documented, read from the
-     * environment and then lost before signing. The resolution behaviour is
-     * deliberately unchanged, because copying arbitrary keys into a provider
-     * config would defeat validation. What changes is that it is no longer
-     * silent: a typo, an option from a newer version, or a key copied from a
-     * sibling provider now says so instead of being ignored.
-     *
-     * Compared against the *final* result rather than `fields`, so options
-     * a provider computes for itself — MinIO's `useSSL` and `port` — do not
-     * produce a warning nobody should act on.
-     */
-    const dropped = Object.keys(config).filter(
-      (key) => config[key as keyof T] !== undefined && !(key in result)
-    );
-
-    if (dropped.length > 0) {
-      logger.warn(
-        `Ignored unrecognised ${spec.provider} provider option${dropped.length > 1 ? "s" : ""}: ${dropped.join(", ")}`,
-        { provider: spec.provider, ignored: dropped }
-      );
-    }
-
-    // Validate the final configuration
-    const validation = validateProviderConfig(result);
-    if (!validation.valid) {
-      throw new Error(
-        `Provider validation failed: ${validation.errors.join(", ")}`
-      );
-    }
-
-    return result as T;
-  };
-}
-
-// ========================================
-// Provider Specifications (DRY)
-// ========================================
-
-const PROVIDER_SPECS = {
-  aws: {
-    provider: "aws",
-    fields: [
-      "region",
-      "bucket",
-      "accessKeyId",
-      "secretAccessKey",
-      "sessionToken",
-      "acl",
-      "customDomain",
-      "forcePathStyle",
-    ],
-    defaults: {
-      region: "us-east-1",
-      acl: "private",
-    },
-  },
-
-  cloudflareR2: {
-    provider: "cloudflare-r2",
-    fields: [
-      "accountId",
-      "bucket",
-      "accessKeyId",
-      "secretAccessKey",
-      "sessionToken",
-      "endpoint",
-      "customDomain",
-      "acl",
-    ],
-    defaults: {
-      region: "auto",
-      acl: "private",
-    },
-    customLogic: (config: any, computed: any) => ({
-      endpoint:
-        computed.endpoint ||
-        (computed.accountId
-          ? `https://${computed.accountId}.r2.cloudflarestorage.com`
-          : ""),
-    }),
-  },
-
-  digitalOceanSpaces: {
-    provider: "digitalocean-spaces",
-    fields: [
-      "region",
-      "bucket",
-      "accessKeyId",
-      "secretAccessKey",
-      "sessionToken",
-      "endpoint",
-      "customDomain",
-      "acl",
-    ],
-    defaults: {
-      region: "nyc3",
-      acl: "private",
-    },
-    customLogic: (config: any, computed: any) => ({
-      endpoint:
-        computed.endpoint ||
-        `https://${computed.region}.digitaloceanspaces.com`,
-    }),
-  },
-
-  minio: {
-    provider: "minio",
-    fields: [
-      "endpoint",
-      "bucket",
-      "accessKeyId",
-      "secretAccessKey",
-      "sessionToken",
-      "region",
-      "customDomain",
-      "acl",
-    ],
-    defaults: {
-      endpoint: "localhost:9000",
-      region: "us-east-1",
-      acl: "private",
-    },
-    customLogic: (config: any, computed: any) => ({
-      useSSL: config.useSSL ?? false,
-      port: config.port ? Number(config.port) : undefined,
-    }),
-  },
-
-  neonStorage: {
-    provider: "neon-storage",
-    fields: [
-      "endpoint",
-      "bucket",
-      "accessKeyId",
-      "secretAccessKey",
-      "region",
-      "customDomain",
-      "acl",
-    ],
-    defaults: {
-      acl: "private",
-    },
-    customLogic: (
-      _config: unknown,
-      computed: { endpoint: string; region: string }
-    ) => ({
-      endpoint: computed.endpoint.replace(/\/+$/, ""),
-      region: computed.region || getNeonStorageRegion(computed.endpoint) || "",
-    }),
-  },
-
-  s3Compatible: {
-    provider: "s3-compatible",
-    fields: [
-      "endpoint",
-      "bucket",
-      "accessKeyId",
-      "secretAccessKey",
-      "sessionToken",
-      "region",
-      "customDomain",
-      "acl",
-      "forcePathStyle",
-    ],
-    defaults: {
-      region: "us-east-1",
-      acl: "private",
-      // Most S3-compatible services want the bucket in the path; virtual-hosted
-      // ones (Backblaze B2, Wasabi) set forcePathStyle: false.
-      forcePathStyle: true,
-    },
-  },
+export const PROVIDERS = {
+  aws,
+  cloudflareR2,
+  digitalOceanSpaces,
+  minio,
+  neonStorage,
+  s3Compatible,
 } as const;
 
-/**
- * The URL MinIO requests go to.
- *
- * MinIO is often configured the way `mc alias` and the docker images present
- * it — `localhost:9000`, or a host plus `useSSL` and `port` — rather than as a
- * URL. A full URL is used as written; anything else is assembled from
- * `useSSL` (default `http`) and `port`.
- *
- * @internal
- */
-export function getMinioEndpoint(config: MinIOConfig): string {
-  const endpoint = config.endpoint.replace(/\/+$/, "");
+type ConfigOf<D> = D extends ProviderDefinition<infer C> ? C : never;
 
-  if (/^https?:\/\//.test(endpoint)) {
-    return endpoint;
-  }
+/** A provider name accepted by `createProvider` and `.provider()`. */
+export type ProviderType = keyof typeof PROVIDERS;
 
-  const port =
-    config.port && !/:\d+$/.test(endpoint) ? `:${config.port}` : "";
-  return `${config.useSSL ? "https" : "http"}://${endpoint}${port}`;
-}
+/** A resolved provider config, discriminated by `provider`. */
+export type ProviderConfig = ConfigOf<(typeof PROVIDERS)[ProviderType]>;
 
 /**
- * Reads the signing region out of a Neon branch storage endpoint.
- *
- * Branch endpoints carry their region in the hostname
- * (`br-....storage.c-6.us-east-2.aws.neon.tech`), so asking for it separately
- * only creates a way to get it wrong: a mismatched region fails every request
- * with `SignatureDoesNotMatch`, which names the signature rather than the
- * region.
- *
- * @internal
- */
-export function getNeonStorageRegion(endpoint: string): string | undefined {
-  try {
-    const { hostname } = new URL(endpoint);
-    return /\.([a-z]{2}-[a-z]+-\d+)\.aws\.neon\.tech$/.exec(hostname)?.[1];
-  } catch {
-    return undefined;
-  }
-}
-
-// ========================================
-// Generic Provider Creator (New API)
-// ========================================
-
-// Extract provider names as literal types from the const object
-type ProviderSpecsType = typeof PROVIDER_SPECS;
-export type ProviderType = keyof ProviderSpecsType;
-
-// ========================================
-// Type-Safe Provider Configuration Mapping
-// ========================================
-
-/**
- * Maps each provider type to its corresponding configuration interface
- * This enables type-safe provider configuration in createUploadConfig().provider()
+ * The options each provider accepts, as passed to
+ * `createUploadConfig().provider(type, options)`.
  */
 export type ProviderConfigMap = {
-  aws: Partial<Omit<AWSProviderConfig, "provider">>;
-  cloudflareR2: Partial<Omit<CloudflareR2Config, "provider">>;
-  digitalOceanSpaces: Partial<Omit<DigitalOceanSpacesConfig, "provider">>;
-  minio: Partial<Omit<MinIOConfig, "provider">>;
-  neonStorage: Partial<Omit<NeonStorageConfig, "provider">>;
-  s3Compatible: Partial<Omit<S3CompatibleConfig, "provider">>;
+  [K in ProviderType]: Partial<
+    Omit<ConfigOf<(typeof PROVIDERS)[K]>, "provider">
+  >;
 };
+
+type AnyDefinition = ProviderDefinition<ProviderConfig>;
+
+const BY_ID = new Map<string, AnyDefinition>(
+  Object.values(PROVIDERS).map((definition) => [
+    definition.id,
+    definition as unknown as AnyDefinition,
+  ])
+);
+
+/**
+ * The definition behind a resolved config, looked up by its `provider` id.
+ *
+ * @internal
+ */
+export function providerDefinition(
+  config: Pick<ProviderConfig, "provider">
+): AnyDefinition | undefined {
+  return BY_ID.get(config.provider);
+}
+
+// ========================================
+// Creating a provider config
+// ========================================
 
 /**
  * Creates a validated provider configuration from explicit options.
@@ -675,253 +175,151 @@ export type ProviderConfigMap = {
  * });
  * ```
  *
- * @throws {Error} When a required option is missing or invalid
+ * @throws {Error} When the type is unknown or an option is missing or invalid
  */
 export function createProvider<T extends ProviderType>(
   type: T,
   config: ProviderConfigMap[T] = {} as ProviderConfigMap[T]
 ): ProviderConfig {
-  const spec = PROVIDER_SPECS[type];
-  if (!spec) {
+  if (!Object.hasOwn(PROVIDERS, type)) {
     throw new Error(`Unknown provider type: ${type}`);
   }
 
-  return createProviderBuilder(spec)(config as any);
+  const definition = PROVIDERS[type] as unknown as AnyDefinition;
+  const input = config as Record<string, unknown>;
+  const defaults = (definition.defaults ?? {}) as Record<string, unknown>;
+  const result: Record<string, unknown> = { provider: definition.id };
+
+  // ?? rather than || so that false, 0 and "" are preserved.
+  for (const key of definition.fields) {
+    result[key] = input[key] ?? defaults[key] ?? "";
+  }
+
+  // One object throughout: derive and validation see the same config.
+  const resolved = result as unknown as ProviderConfig;
+
+  if (definition.derive) {
+    Object.assign(
+      resolved,
+      definition.derive(resolved, input as Partial<ProviderConfig>)
+    );
+  }
+
+  /**
+   * Report anything the caller supplied that did not survive.
+   *
+   * Only listed fields are copied, and everything else is discarded — which is
+   * how `sessionToken` came to be declared, documented and then lost before
+   * signing. Copying arbitrary keys into a provider config would defeat
+   * validation, so unknown keys are still dropped; what matters is that it is
+   * not silent: a typo, an option from a newer version, or a key copied from a
+   * sibling provider says so instead of being ignored.
+   *
+   * Compared against the *final* result rather than `fields`, so options a
+   * provider derives for itself — MinIO's `useSSL` and `port` — do not
+   * produce a warning nobody should act on.
+   */
+  const dropped = Object.keys(input).filter(
+    (key) => input[key] !== undefined && !(key in result)
+  );
+
+  if (dropped.length > 0) {
+    logger.warn(
+      `Ignored unrecognised ${definition.id} provider option${dropped.length > 1 ? "s" : ""}: ${dropped.join(", ")}`,
+      { provider: definition.id, ignored: dropped }
+    );
+  }
+
+  const validation = validateProviderConfig(resolved);
+  if (!validation.valid) {
+    throw new Error(
+      `Provider validation failed: ${validation.errors.join(", ")}`
+    );
+  }
+
+  return resolved;
 }
 
 // ========================================
-// Provider Configuration Validation
+// Validation
 // ========================================
 
 /**
- * Validates a provider configuration and returns detailed error information.
- * This function checks for required fields, validates endpoints, and ensures
- * the configuration is complete and correct.
+ * Validates a provider configuration and returns every problem found.
+ *
+ * `createProvider` runs this before returning, so it matters for configs
+ * assembled by hand or changed afterwards.
  *
  * @param config - The provider configuration to validate
  * @returns Validation result with success status and error details
  *
- * @example Validating AWS Configuration
+ * @example
  * ```typescript
- * const awsConfig = createProvider('aws', {
- *   bucket: 'my-uploads',
- *   region: 'us-east-1',
- *   accessKeyId: 'AKIA...',
- *   secretAccessKey: 'secret...',
- * });
- *
- * const validation = validateProviderConfig(awsConfig);
- * if (!validation.valid) {
- *   console.error('Configuration errors:', validation.errors);
- *   // ["Missing required field: accessKeyId", "Invalid region format"]
- * }
- * ```
- *
- * @example Handling Validation Errors
- * ```typescript
- * const config = createProvider('cloudflareR2', {
- *   bucket: 'test-bucket',
- *   // Missing accountId, accessKeyId, secretAccessKey
- * });
- *
  * const { valid, errors } = validateProviderConfig(config);
  * if (!valid) {
  *   throw new Error(`Provider configuration invalid: ${errors.join(', ')}`);
  * }
  * ```
- *
- * @example Validation in Setup
- * ```typescript
- * function setupStorage(providerConfig: ProviderConfig) {
- *   const validation = validateProviderConfig(providerConfig);
- *
- *   if (!validation.valid) {
- *     console.error('❌ Storage configuration errors:');
- *     validation.errors.forEach(error => console.error(`  - ${error}`));
- *     process.exit(1);
- *   }
- *
- *   console.log('Storage configuration valid');
- *   return createStorageClient(providerConfig);
- * }
- * ```
- *
  */
 export function validateProviderConfig(config: ProviderConfig): {
   valid: boolean;
   errors: string[];
 } {
-  const errors: string[] = [];
+  const definition = providerDefinition(config);
 
-  // Common validations
-  if (!config.bucket) {
-    errors.push("Bucket name is required");
-  }
+  const errors = definition
+    ? checkProviderConfig(definition, config)
+    : [`Unknown provider: ${config.provider}`];
 
-  // "" is how an omitted option is stored. Anything else that is not a
-  // boolean is most often `process.env.X` passed through unconverted: the
-  // string "false" is truthy, so it would select path-style on one provider
-  // and its opposite on another.
-  const { forcePathStyle } = config as { forcePathStyle?: unknown };
-  if (
-    forcePathStyle !== undefined &&
-    forcePathStyle !== "" &&
-    typeof forcePathStyle !== "boolean"
-  ) {
-    errors.push(
-      `forcePathStyle must be true or false, got ${JSON.stringify(forcePathStyle)} — convert environment strings, e.g. process.env.S3_FORCE_PATH_STYLE === "true"`
-    );
-  }
-
-  // Provider-specific validations
-  switch (config.provider) {
-    case "aws":
-      if (!config.accessKeyId) errors.push("AWS Access Key ID is required");
-      if (!config.secretAccessKey)
-        errors.push("AWS Secret Access Key is required");
-      if (!config.region) errors.push("AWS Region is required");
-      break;
-
-    case "cloudflare-r2":
-      if (!config.accountId) errors.push("Cloudflare Account ID is required");
-      if (!config.accessKeyId) errors.push("R2 Access Key ID is required");
-      if (!config.secretAccessKey)
-        errors.push("R2 Secret Access Key is required");
-      break;
-
-    case "digitalocean-spaces":
-      if (!config.accessKeyId)
-        errors.push("DigitalOcean Spaces Access Key ID is required");
-      if (!config.secretAccessKey)
-        errors.push("DigitalOcean Spaces Secret Access Key is required");
-      if (!config.region) errors.push("DigitalOcean Spaces Region is required");
-      break;
-
-    case "minio":
-      if (!config.endpoint) errors.push("MinIO Endpoint is required");
-      if (!config.accessKeyId) errors.push("MinIO Access Key ID is required");
-      if (!config.secretAccessKey)
-        errors.push("MinIO Secret Access Key is required");
-      break;
-
-    case "neon-storage":
-      if (!config.endpoint) {
-        errors.push("Neon Object Storage endpoint is required");
-      } else if (!/^https:\/\//.test(config.endpoint)) {
-        errors.push("Neon Object Storage endpoint must be an https:// URL");
-      }
-      if (!config.accessKeyId)
-        errors.push("Neon Object Storage Access Key ID is required");
-      if (!config.secretAccessKey)
-        errors.push("Neon Object Storage Secret Access Key is required");
-      if (!config.region) {
-        errors.push(
-          "Neon Object Storage region is required when it cannot be read from the endpoint"
-        );
-      } else {
-        // An explicit region always wins, and signing with any region but the
-        // endpoint's fails every request with SignatureDoesNotMatch, which
-        // does not mention the region.
-        const endpointRegion = getNeonStorageRegion(config.endpoint);
-        if (endpointRegion && config.region !== endpointRegion) {
-          errors.push(
-            `Neon Object Storage region "${config.region}" does not match the endpoint's region "${endpointRegion}" — remove region to use the endpoint's`
-          );
-        }
-      }
-      break;
-
-    case "s3-compatible":
-      if (!config.endpoint) errors.push("S3-compatible endpoint is required");
-      if (!config.accessKeyId) errors.push("Access Key ID is required");
-      if (!config.secretAccessKey) errors.push("Secret Access Key is required");
-      break;
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-  };
+  return { valid: errors.length === 0, errors };
 }
 
 // ========================================
-// Provider Configuration Helpers
+// Addressing
 // ========================================
 
 /**
- * Generates the appropriate endpoint URL for a given provider configuration.
- * This function handles automatic endpoint generation for known providers and
- * validates custom endpoints for self-hosted or specialized providers.
+ * Resolves a provider config to where its requests go and how they are
+ * signed — the one shape the storage client works with.
  *
- * @param config - The provider configuration
- * @returns The complete endpoint URL for the provider
+ * @internal
+ * @throws {Error} For a config whose `provider` is not registered
+ */
+export function toStorageTarget(config: ProviderConfig): StorageTarget {
+  const definition = providerDefinition(config);
+
+  if (!definition) {
+    throw new Error(
+      `Unsupported provider: ${config.provider}. ` +
+        `Supported providers: ${[...BY_ID.keys()].join(", ")}. ` +
+        `For other services, use "s3-compatible" with a custom endpoint.`
+    );
+  }
+
+  return {
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
+    // An empty string is treated as absent: a shell that exported
+    // AWS_SESSION_TOKEN and later cleared it leaves "", and signing a blank
+    // token fails where sending none succeeds.
+    sessionToken:
+      (config as { sessionToken?: string }).sessionToken || undefined,
+    bucket: config.bucket,
+    acl: config.acl,
+    customDomain: config.customDomain,
+    supportsAcl: definition.supportsAcl,
+    ...definition.addressing(config),
+  };
+}
+
+/**
+ * The API endpoint requests for this config are sent to.
  *
- * @example AWS S3 Endpoint
- * ```typescript
- * const awsConfig = createProvider('aws', {
- *   bucket: 'my-uploads',
- *   region: 'us-west-2',
- * });
- *
- * const endpoint = getProviderEndpoint(awsConfig);
- * // Returns: "https://s3.us-west-2.amazonaws.com"
- * ```
- *
- * @example Cloudflare R2 Endpoint
- * ```typescript
- * const r2Config = createProvider('cloudflareR2', {
- *   bucket: 'my-bucket',
- *   accountId: 'abc123def456',
- * });
- *
- * const endpoint = getProviderEndpoint(r2Config);
- * // Returns: "https://abc123def456.r2.cloudflarestorage.com"
- * ```
- *
- * @example DigitalOcean Spaces Endpoint
- * ```typescript
- * const spacesConfig = createProvider('digitalOceanSpaces', {
- *   bucket: 'my-space',
- *   region: 'nyc3',
- * });
- *
- * const endpoint = getProviderEndpoint(spacesConfig);
- * // Returns: "https://nyc3.digitaloceanspaces.com"
- * ```
- *
- * @example MinIO Custom Endpoint
- * ```typescript
- * const minioConfig = createProvider('minio', {
- *   endpoint: 'https://minio.mycompany.com:9000',
- *   bucket: 'uploads',
- * });
- *
- * const endpoint = getProviderEndpoint(minioConfig);
- * // Returns: "https://minio.mycompany.com:9000"
- * ```
- *
- * @throws {Error} When endpoint cannot be determined or is invalid
+ * @deprecated Will be removed in the next minor release. It only ever
+ * reported the endpoint — use your config's `endpoint`, or
+ * `https://s3.<region>.amazonaws.com` for AWS.
  */
 export function getProviderEndpoint(config: ProviderConfig): string {
-  switch (config.provider) {
-    case "aws":
-      return `https://s3.${config.region}.amazonaws.com`;
-    case "cloudflare-r2":
-      return (
-        config.endpoint ||
-        `https://${config.accountId}.r2.cloudflarestorage.com`
-      );
-    case "digitalocean-spaces":
-      return (
-        config.endpoint || `https://${config.region}.digitaloceanspaces.com`
-      );
-    case "minio":
-      return getMinioEndpoint(config);
-    case "neon-storage":
-      return config.endpoint;
-    case "s3-compatible":
-      return config.endpoint;
-    default:
-      return "";
-  }
+  const target = toStorageTarget(config);
+  return target.endpoint ?? `https://s3.${target.region}.amazonaws.com`;
 }
