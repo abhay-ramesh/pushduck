@@ -807,8 +807,6 @@ function getProviderConfigKey(provider: ProviderType): string {
       return "minio";
     case "neon":
       return "neonStorage";
-    case "gcs":
-      return "gcs";
     default:
       return provider;
   }
@@ -826,8 +824,6 @@ function getProviderEnvVars(provider: ProviderType): string {
       return "endpoint: process.env.MINIO_ENDPOINT!,\n      bucket: process.env.MINIO_BUCKET!,\n      accessKeyId: process.env.MINIO_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.MINIO_SECRET_ACCESS_KEY!,\n      region: process.env.MINIO_REGION!,";
     case "neon":
       return "endpoint: process.env.AWS_ENDPOINT_URL_S3!,\n      bucket: process.env.NEON_STORAGE_BUCKET!,\n      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,\n      region: process.env.AWS_REGION!,";
-    case "gcs":
-      return "projectId: process.env.GCS_PROJECT_ID!,\n      bucket: process.env.GCS_BUCKET!,\n      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS!,\n      region: process.env.GCS_REGION!,";
     default:
       return "";
   }

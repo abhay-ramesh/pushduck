@@ -156,7 +156,7 @@ This is a deliberate tradeoff. Progress is more valuable than transport flexibil
 
 Pushduck supports **AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, and Neon Object Storage** — all of which speak the S3 API. It does **not** support:
 
-- Google Cloud Storage (different API surface)
+- Google Cloud Storage's native JSON API (use its S3-compatible XML API with HMAC keys instead — see [Google Cloud Storage](/docs/providers/google-cloud))
 - Azure Blob Storage (different API surface)
 - Backblaze B2 native API (use their S3-compatible endpoint instead)
 - Local filesystem / on-disk storage

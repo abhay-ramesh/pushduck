@@ -14,8 +14,7 @@ export type ProviderType =
   | "cloudflare-r2"
   | "digitalocean"
   | "minio"
-  | "neon"
-  | "gcs";
+  | "neon";
 
 export interface ProviderConfig {
   type: ProviderType;
@@ -152,24 +151,6 @@ const PROVIDER_INFO = {
       },
     ],
   },
-  gcs: {
-    name: "Google Cloud Storage",
-    description: "Advanced features, ML integration",
-    envVars: [
-      "GCS_ACCESS_KEY_ID",
-      "GCS_SECRET_ACCESS_KEY",
-      "GCS_PROJECT_ID",
-      "GCS_BUCKET",
-    ],
-    regions: [
-      { name: "us-central1", value: "us-central1", description: "US Central" },
-      {
-        name: "europe-west1",
-        value: "europe-west1",
-        description: "Europe West",
-      },
-    ],
-  },
 };
 
 export async function selectProvider(
@@ -259,13 +240,6 @@ export async function detectExistingCredentials(
       credentials.endpoint = process.env.AWS_ENDPOINT_URL_S3;
       credentials.region = process.env.AWS_REGION;
       credentials.bucket = process.env.NEON_STORAGE_BUCKET;
-      break;
-
-    case "gcs":
-      credentials.accessKeyId = process.env.GCS_ACCESS_KEY_ID;
-      credentials.secretAccessKey = process.env.GCS_SECRET_ACCESS_KEY;
-      credentials.region = process.env.GCS_REGION || "us-central1";
-      credentials.bucket = process.env.GCS_BUCKET;
       break;
   }
 
@@ -404,9 +378,6 @@ export async function createS3Bucket(
       case "neon":
         endpoint = credentials.endpoint;
         break;
-      case "gcs":
-        endpoint = "https://storage.googleapis.com";
-        break;
       // AWS S3 uses default endpoint
     }
 
@@ -495,9 +466,6 @@ export async function testConnection(
       case "neon":
         endpoint = credentials.endpoint;
         break;
-      case "gcs":
-        endpoint = "https://storage.googleapis.com";
-        break;
     }
 
     const s3Client = new S3Client({
@@ -563,13 +531,6 @@ export function generateEnvVariables(
       env["AWS_ENDPOINT_URL_S3"] = credentials.endpoint || "";
       env["AWS_REGION"] = credentials.region;
       env["NEON_STORAGE_BUCKET"] = credentials.bucket;
-      break;
-
-    case "gcs":
-      env["GCS_ACCESS_KEY_ID"] = credentials.accessKeyId;
-      env["GCS_SECRET_ACCESS_KEY"] = credentials.secretAccessKey;
-      env["GCS_REGION"] = credentials.region;
-      env["GCS_BUCKET"] = credentials.bucket;
       break;
   }
 

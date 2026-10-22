@@ -29,7 +29,6 @@ export async function testCommand(options: TestOptions = {}) {
       "digitalocean",
       "minio",
       "neon",
-      "gcs",
     ] as const;
     let foundCredentials = false;
 

@@ -517,7 +517,6 @@ export type {
   BaseProviderConfig,
   CloudflareR2Config,
   DigitalOceanSpacesConfig,
-  GoogleCloudStorageConfig,
   MinIOConfig,
   NeonStorageConfig,
   ProviderConfig,
