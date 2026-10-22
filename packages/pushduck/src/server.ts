@@ -521,6 +521,7 @@ export type {
   NeonStorageConfig,
   ProviderConfig,
   ProviderType,
+  S3CompatibleConfig,
 } from "./core/providers";
 
 // Upload configuration types

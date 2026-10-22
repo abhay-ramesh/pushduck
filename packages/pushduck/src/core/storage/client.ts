@@ -55,8 +55,9 @@
 import { AwsClient } from "aws4fetch";
 import type { UploadConfig } from "../config";
 import {
-  getMinioEndpoint,
+  toStorageTarget,
   type ProviderConfig,
+  type StorageTarget,
 } from "../providers/providers";
 import { createConfigError, createS3Error } from "../types/errors";
 import { logger } from "../utils/logger";
@@ -67,178 +68,22 @@ import { md5Base64 } from "../utils/md5";
 // ========================================
 
 /**
- * S3-compatible configuration interface for internal use.
- * Normalizes different provider configurations into a common format.
+ * A provider's {@link StorageTarget} plus the client's debug flag.
  *
- * @interface S3CompatibleConfig
  * @internal
  */
-interface S3CompatibleConfig {
-  /** AWS access key ID */
-  accessKeyId: string;
-  /** AWS secret access key */
-  secretAccessKey: string;
-  /** AWS region (or equivalent for other providers) */
-  region: string;
-  /** S3 bucket name */
-  bucket: string;
-  /**
-   * Session token for temporary credentials.
-   *
-   * Present whenever credentials come from STS rather than a static IAM user:
-   * an ECS task role, a Lambda execution role, EKS IRSA, or an OIDC
-   * `AssumeRole`. SigV4 requires it to travel with the request, so dropping it
-   * here makes every such deployment fail with a 403 that names the signature
-   * rather than the missing token.
-   */
-  sessionToken?: string;
-  /** Custom endpoint URL for S3-compatible providers */
-  endpoint?: string;
-  /** Whether to use path-style URLs (required for some providers) */
-  forcePathStyle?: boolean;
-  /** Default ACL for uploaded objects */
-  acl?: string;
-  /** Custom domain for public URLs */
-  customDomain?: string;
-  /** Enable debug logging */
-  debug?: boolean;
-}
+type ClientTarget = StorageTarget & { debug: boolean };
 
 /**
- * Extracts S3-compatible configuration from provider config.
- * This function normalizes different provider configurations into a common format
- * that can be used with the aws4fetch client.
- *
- * @param config - Provider configuration object
- * @returns Normalized S3-compatible configuration
- * @throws {Error} For unsupported providers
+ * Resolves the provider config to the target every request is built from.
  *
  * @internal
- *
- * @example
- * ```typescript
- * const awsConfig = getS3CompatibleConfig({
- *   provider: "aws",
- *   bucket: "my-bucket",
- *   region: "us-east-1",
- *   accessKeyId: "...",
- *   secretAccessKey: "...",
- * });
- *
- * const r2Config = getS3CompatibleConfig({
- *   provider: "cloudflare-r2",
- *   bucket: "my-bucket",
- *   region: "auto",
- *   endpoint: "https://abc123.r2.cloudflarestorage.com",
- *   accessKeyId: "...",
- *   secretAccessKey: "...",
- * });
- * ```
  */
-function getS3CompatibleConfig(
+function resolveTarget(
   config: ProviderConfig,
   options: { debug?: boolean } = {}
-): S3CompatibleConfig {
-  // Read defensively and set on the *base*, so every provider inherits it via
-  // the `...baseConfig` spread below. Adding it per-case is how it came to be
-  // supported on paper and dropped in practice: the field is declared on the
-  // AWS config, but S3-compatible providers issue temporary credentials too
-  // (MinIO via AssumeRoleWithWebIdentity, Spaces and R2 via their own flows),
-  // and each new provider case would have to remember it.
-  //
-  // An empty string is treated as absent: a shell that exported
-  // AWS_SESSION_TOKEN and later cleared it leaves `""`, and signing a blank
-  // token fails where sending none succeeds.
-  const sessionToken =
-    (config as { sessionToken?: string }).sessionToken || undefined;
-
-  const baseConfig = {
-    sessionToken,
-    bucket: config.bucket,
-    acl: config.acl,
-    customDomain: config.customDomain,
-    forcePathStyle: config.forcePathStyle,
-    debug: options.debug ?? false,
-  };
-
-  switch (config.provider) {
-    case "aws":
-      return {
-        ...baseConfig,
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-        region: config.region,
-        forcePathStyle: config.forcePathStyle, // Pass through forcePathStyle option
-        // No endpoint - uses AWS default
-      };
-
-    case "cloudflare-r2":
-      return {
-        ...baseConfig,
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-        region: config.region || "auto", // R2 uses "auto" and aws4fetch handles this correctly
-        endpoint: config.endpoint, // e.g., "https://abc123.r2.cloudflarestorage.com"
-        forcePathStyle: true, // R2 requires path-style
-      };
-
-    case "digitalocean-spaces":
-      return {
-        ...baseConfig,
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-        region: config.region || "us-east-1", // Spaces needs AWS region for signing
-        endpoint: config.endpoint, // e.g., "https://nyc3.digitaloceanspaces.com"
-        forcePathStyle: false, // Spaces uses virtual hosted-style
-      };
-
-    case "minio":
-      return {
-        ...baseConfig,
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-        region: config.region || "us-east-1",
-        endpoint: getMinioEndpoint(config), // "localhost:9000" → "http://localhost:9000"
-        forcePathStyle: true, // MinIO requires path-style
-      };
-
-    case "neon-storage":
-      return {
-        ...baseConfig,
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-        region: config.region, // Read from the endpoint hostname, e.g. "us-east-2"
-        endpoint: config.endpoint, // e.g., "https://br-....storage.c-6.us-east-2.aws.neon.tech"
-        forcePathStyle: true, // Neon only supports path-style addressing
-      };
-
-    // ========================================
-    // Generic S3-Compatible Provider
-    // ========================================
-
-    case "s3-compatible":
-      // Generic fallback for any S3-compatible provider
-      if (!config.endpoint) {
-        throw new Error(
-          "Generic S3-compatible provider requires an endpoint URL."
-        );
-      }
-      return {
-        ...baseConfig,
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-        region: config.region || "us-east-1",
-        endpoint: config.endpoint,
-        forcePathStyle: config.forcePathStyle ?? true, // Default to path-style for generic providers
-      };
-
-    default:
-      throw new Error(
-        `Unsupported provider: ${(config as any).provider}. ` +
-          `Supported providers: aws, cloudflare-r2, digitalocean-spaces, minio, neon-storage. ` +
-          `For other providers, use "s3-compatible" with a custom endpoint.`
-      );
-  }
+): ClientTarget {
+  return { ...toStorageTarget(config), debug: options.debug ?? false };
 }
 
 // ========================================
@@ -288,7 +133,7 @@ export function createS3Client(uploadConfig?: UploadConfig): AwsClient {
     throw new Error("UploadConfig is required");
   }
 
-  const config = getS3CompatibleConfig(uploadConfig.provider, {
+  const config = resolveTarget(uploadConfig.provider, {
     debug: uploadConfig.debug,
   });
 
@@ -318,23 +163,11 @@ export function createS3Client(uploadConfig?: UploadConfig): AwsClient {
     clientConfig.sessionToken = config.sessionToken;
   }
 
-  // Add service and endpoint configuration based on provider
+  // aws4fetch infers the service from an amazonaws.com host; any other
+  // endpoint has to name it. The target's region is already the one to sign
+  // with — each provider decides it.
   if (config.endpoint) {
-    // For S3-compatible providers (R2, Spaces, MinIO, Neon)
     clientConfig.service = "s3";
-
-    // Only R2 needs region override for signing
-    if (uploadConfig.provider.provider === "cloudflare-r2") {
-      // R2 works with "auto" region
-      clientConfig.region = config.region;
-    } else {
-      // DigitalOcean Spaces and MinIO need standard AWS regions for signing
-      clientConfig.region =
-        config.region === "auto" ? "us-east-1" : config.region;
-    }
-  } else {
-    // Standard AWS S3 - no service needed
-    clientConfig.region = config.region;
   }
 
   awsClientInstance = new AwsClient(clientConfig);
@@ -372,7 +205,7 @@ export function resetS3Client(): void {
  *
  * Use {@link buildCdnUrl} for URLs handed to end users.
  */
-function buildApiUrl(key: string, config: S3CompatibleConfig): string {
+function buildApiUrl(key: string, config: ClientTarget): string {
   if (config.endpoint) {
     // Custom endpoint (MinIO, R2, etc.)
     const baseUrl = config.endpoint.replace(/\/$/, "");
@@ -416,7 +249,7 @@ async function presignApiRequest(
   }
 ): Promise<string> {
   const awsClient = createS3Client(uploadConfig);
-  const config = getS3CompatibleConfig(uploadConfig.provider);
+  const config = resolveTarget(uploadConfig.provider);
 
   // Always the API endpoint. A custom domain cannot serve the S3 API, and
   // `host` is part of the SigV4 canonical request so it cannot be swapped
@@ -446,7 +279,7 @@ async function presignApiRequest(
  *
  * Use {@link buildApiUrl} for anything that talks to the provider.
  */
-function buildCdnUrl(key: string, config: S3CompatibleConfig): string {
+function buildCdnUrl(key: string, config: ClientTarget): string {
   // If custom domain is configured, use it for public URLs
   if (config.customDomain) {
     const baseUrl = config.customDomain.replace(/\/$/, "");
@@ -580,7 +413,7 @@ export async function generatePresignedDownloadUrl(
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
-  const config = getS3CompatibleConfig(uploadConfig.provider);
+  const config = resolveTarget(uploadConfig.provider);
 
   try {
     const signedUrl = await presignApiRequest(uploadConfig, {
@@ -657,13 +490,6 @@ export async function generatePresignedDownloadUrl(
  * ```
  *
  */
-/** Providers where x-amz-acl causes a 400/501 error — use bucket-level access settings instead */
-const ACL_UNSUPPORTED_PROVIDERS = new Set([
-  "cloudflare-r2",
-  "minio",
-  "neon-storage",
-]);
-
 /**
  * Prepares headers for a direct server-side S3 upload (PUT via aws4fetch).
  * All headers are set directly on the request — no signature split needed.
@@ -678,14 +504,18 @@ function prepareS3UploadHeaders(
   }
 ): Record<string, string> {
   const headers: Record<string, string> = {};
-  const { provider, acl: providerAcl } = uploadConfig.provider;
+  const { supportsAcl, acl: providerAcl } = toStorageTarget(
+    uploadConfig.provider
+  );
 
   if (options.contentType) {
     headers["Content-Type"] = options.contentType;
   }
 
+  // Providers without per-object ACLs answer x-amz-acl with 400/501; they
+  // use bucket-level access settings instead.
   const acl = uploadConfig.defaults?.acl ?? providerAcl;
-  if (acl && !ACL_UNSUPPORTED_PROVIDERS.has(provider)) {
+  if (acl && supportsAcl) {
     headers["x-amz-acl"] = acl;
   }
 
@@ -719,13 +549,15 @@ function preparePresignHeaders(
     metadata?: Record<string, string>;
   }
 ): { signed: Record<string, string>; unsigned: Record<string, string> } {
-  const { provider, acl: providerAcl } = uploadConfig.provider;
+  const { supportsAcl, acl: providerAcl } = toStorageTarget(
+    uploadConfig.provider
+  );
   const signed: Record<string, string> = {};
   const unsigned: Record<string, string> = {};
 
   // ACL must be signed — AWS SigV4 will not apply it unless it is in SignedHeaders
   const acl = uploadConfig.defaults?.acl ?? providerAcl;
-  if (acl && !ACL_UNSUPPORTED_PROVIDERS.has(provider)) {
+  if (acl && supportsAcl) {
     signed["x-amz-acl"] = acl;
   }
 
@@ -751,7 +583,7 @@ function preparePresignHeaders(
  * @internal
  */
 export function buildApiUrlFor(key: string, uploadConfig: UploadConfig): string {
-  return buildApiUrl(key, getS3CompatibleConfig(uploadConfig.provider));
+  return buildApiUrl(key, resolveTarget(uploadConfig.provider));
 }
 
 /**
@@ -774,7 +606,7 @@ export async function presignApiRequestWithQuery(
   }
 ): Promise<string> {
   const awsClient = createS3Client(uploadConfig);
-  const config = getS3CompatibleConfig(uploadConfig.provider);
+  const config = resolveTarget(uploadConfig.provider);
 
   const url = new URL(buildApiUrl(options.key, config));
   for (const [name, value] of Object.entries(options.query ?? {})) {
@@ -797,7 +629,7 @@ export async function generatePresignedUploadUrl(
   uploadConfig: UploadConfig,
   options: PresignedUrlOptions
 ): Promise<PresignedUrlResult> {
-  const config = getS3CompatibleConfig(uploadConfig.provider);
+  const config = resolveTarget(uploadConfig.provider);
   const expiresIn = options.expiresIn ?? 3600; // 1 hour default
 
   try {
@@ -896,7 +728,7 @@ export async function checkFileExists(
   key: string
 ): Promise<boolean> {
   const awsClient = createS3Client(uploadConfig);
-  const config = getS3CompatibleConfig(uploadConfig.provider);
+  const config = resolveTarget(uploadConfig.provider);
 
   try {
     const s3Url = buildApiUrl(key, config);
@@ -917,7 +749,7 @@ export async function checkFileExists(
  * Gets the public URL for a file
  */
 export function getFileUrl(uploadConfig: UploadConfig, key: string): string {
-  const config = getS3CompatibleConfig(uploadConfig.provider);
+  const config = resolveTarget(uploadConfig.provider);
   return buildCdnUrl(key, config);
 }
 
@@ -1121,7 +953,7 @@ export async function uploadFileToS3(
   } = {}
 ): Promise<string> {
   const awsClient = createS3Client(uploadConfig);
-  const config = getS3CompatibleConfig(uploadConfig.provider);
+  const config = resolveTarget(uploadConfig.provider);
 
   try {
     const s3Url = buildApiUrl(key, config);
@@ -1221,7 +1053,7 @@ export async function validateS3Connection(
 }> {
   try {
     const awsClient = createS3Client(uploadConfig);
-    const config = getS3CompatibleConfig(uploadConfig.provider);
+    const config = resolveTarget(uploadConfig.provider);
 
     // Try to check if bucket exists by making a HEAD request to bucket root
     const bucketUrl = config.endpoint
@@ -1298,7 +1130,7 @@ export async function listFilesPaginated(
   options: PaginatedListOptions = {}
 ): Promise<ListFilesResult> {
   const awsClient = createS3Client(uploadConfig);
-  const config = getS3CompatibleConfig(uploadConfig.provider);
+  const config = resolveTarget(uploadConfig.provider);
 
   const {
     prefix = "",
@@ -1446,7 +1278,7 @@ export async function listDirectories(
   prefix: string = ""
 ): Promise<string[]> {
   const awsClient = createS3Client(uploadConfig);
-  const config = getS3CompatibleConfig(uploadConfig.provider);
+  const config = resolveTarget(uploadConfig.provider);
 
   try {
     // Build list objects URL with delimiter to get common prefixes
@@ -1543,7 +1375,7 @@ export async function getFileInfo(
   key: string
 ): Promise<FileInfo> {
   const awsClient = createS3Client(uploadConfig);
-  const config = getS3CompatibleConfig(uploadConfig.provider);
+  const config = resolveTarget(uploadConfig.provider);
 
   try {
     const s3Url = buildApiUrl(key, config);
@@ -1679,7 +1511,7 @@ export async function setFileMetadata(
   metadata: Record<string, string>
 ): Promise<void> {
   const awsClient = createS3Client(uploadConfig);
-  const config = getS3CompatibleConfig(uploadConfig.provider);
+  const config = resolveTarget(uploadConfig.provider);
 
   try {
     // First get current file info
@@ -1863,7 +1695,7 @@ export async function validateFiles(
  */
 function parseListObjectsResponse(
   xmlText: string,
-  config: S3CompatibleConfig,
+  config: ClientTarget,
   uploadConfig: UploadConfig,
   includeMetadata: boolean
 ): FileInfo[] {
@@ -1970,7 +1802,7 @@ export async function deleteFile(
   const config = uploadConfig.provider;
 
   try {
-    const s3Config = getS3CompatibleConfig(config);
+    const s3Config = resolveTarget(config);
     const url = buildApiUrl(key, s3Config);
 
     const response = await awsClient.fetch(url, {
@@ -2035,7 +1867,7 @@ export async function deleteFiles(
   const config = uploadConfig.provider;
 
   try {
-    const s3Config = getS3CompatibleConfig(config);
+    const s3Config = resolveTarget(config);
 
     // S3 batch delete supports up to 1000 objects per request
     const batchSize = 1000;
@@ -2140,7 +1972,7 @@ export async function deleteFilesByPrefix(
  */
 async function deleteBatch(
   awsClient: AwsClient,
-  config: S3CompatibleConfig,
+  config: ClientTarget,
   keys: string[]
 ): Promise<DeleteFilesResult> {
   // Create XML payload for batch delete
