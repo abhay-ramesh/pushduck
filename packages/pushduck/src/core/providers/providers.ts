@@ -765,6 +765,21 @@ export function validateProviderConfig(config: ProviderConfig): {
     errors.push("Bucket name is required");
   }
 
+  // "" is how an omitted option is stored. Anything else that is not a
+  // boolean is most often `process.env.X` passed through unconverted: the
+  // string "false" is truthy, so it would select path-style on one provider
+  // and its opposite on another.
+  const { forcePathStyle } = config as { forcePathStyle?: unknown };
+  if (
+    forcePathStyle !== undefined &&
+    forcePathStyle !== "" &&
+    typeof forcePathStyle !== "boolean"
+  ) {
+    errors.push(
+      `forcePathStyle must be true or false, got ${JSON.stringify(forcePathStyle)} — convert environment strings, e.g. process.env.S3_FORCE_PATH_STYLE === "true"`
+    );
+  }
+
   // Provider-specific validations
   switch (config.provider) {
     case "aws":

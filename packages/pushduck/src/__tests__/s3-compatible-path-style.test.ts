@@ -40,6 +40,20 @@ describe("s3Compatible addressing", () => {
     expect(url.pathname).toBe("/a.png");
   });
 
+  it.each(["false", "true", 0, 1])(
+    "rejects forcePathStyle: %o instead of guessing what it means",
+    (value) => {
+      // `forcePathStyle: process.env.S3_FORCE_PATH_STYLE` hands over the
+      // string "false", which is truthy: it silently went path-style here and
+      // would go path-style on AWS too, the opposite of what was written.
+      expect(() =>
+        createUploadConfig()
+          .provider("s3Compatible", { ...BASE, forcePathStyle: value } as never)
+          .build()
+      ).toThrow(/forcePathStyle must be true or false/);
+    }
+  );
+
   it("stays path-style by default", async () => {
     const url = await uploadUrl({});
 
