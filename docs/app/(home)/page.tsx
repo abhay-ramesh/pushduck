@@ -203,7 +203,7 @@ const providers = [
   },
   {
     name: "MinIO",
-    icon: "https://blog.min.io/content/images/2019/05/minio-publication-icon-7.png",
+    icon: "/minio.svg",
     description: "Self-hosted S3 compatibility",
     url: "https://min.io",
   },
