@@ -33,7 +33,7 @@ npx @pushduck/cli@latest init [options]
 
 **Options:**
 
-- `--provider <type>` - Skip provider selection (aws|cloudflare-r2|digitalocean|minio|gcs)
+- `--provider <type>` - Skip provider selection (aws|cloudflare-r2|digitalocean|minio|neon)
 - `--skip-examples` - Don't generate example components
 - `--skip-bucket` - Don't create S3 bucket automatically  
 - `--api-path <path>` - Custom API route path (default: `/api/upload`)
@@ -184,7 +184,6 @@ The CLI supports all major S3-compatible providers:
 - **AWS S3** - The original and most feature-complete
 - **Cloudflare R2** - Global edge network, S3-compatible
 - **DigitalOcean Spaces** - Simple and affordable
-- **Google Cloud Storage** - Enterprise-grade with global reach
 - **MinIO** - Self-hosted, open source S3 alternative
 
 ### Provider-Specific Setup

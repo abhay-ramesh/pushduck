@@ -44,7 +44,7 @@ The CLI will automatically:
   
   <Card title="Provider Setup" description="Configures your chosen cloud storage provider">
     - AWS S3, Cloudflare R2, DigitalOcean Spaces
-    - Google Cloud Storage, MinIO, Neon Object Storage
+    - MinIO, Neon Object Storage
     - Automatic bucket creation
     - CORS configuration
   </Card>
@@ -71,7 +71,7 @@ npx @pushduck/cli@latest init [options]
 
 **Options:**
 
-- `--provider <type>` - Skip provider selection (aws|cloudflare-r2|digitalocean|minio|neon|gcs)
+- `--provider <type>` - Skip provider selection (aws|cloudflare-r2|digitalocean|minio|neon)
 - `--skip-examples` - Don't generate example components
 - `--skip-bucket` - Don't create S3 bucket automatically
 - `--api-path <path>` - Custom API route path (default: `/api/upload`)
@@ -161,7 +161,6 @@ npx @pushduck/cli@latest test
 ❯ Cloudflare R2 (recommended)
   AWS S3 (classic, widely supported)
   DigitalOcean Spaces (simple, affordable)
-  Google Cloud Storage (enterprise-grade)
   MinIO (self-hosted, open source)
   Neon Object Storage (branchable storage)
   Custom S3-compatible endpoint

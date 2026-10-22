@@ -189,14 +189,14 @@ graph TB
     Type --> R2[cloudflareR2<br/>R2]
     Type --> DO[digitalocean<br/>Spaces]
     Type --> MinIO[minio<br/>Self-hosted]
-    Type --> GCS[gcs<br/>Google Cloud]
+    Type --> Neon[neonStorage<br/>Neon]
     Type --> S3Compat[s3Compatible<br/>Generic]
     
     AWS --> Config1[Provider Config]
     R2 --> Config1
     DO --> Config1
     MinIO --> Config1
-    GCS --> Config1
+    Neon --> Config1
     S3Compat --> Config1
     
     Config1 --> Endpoint[Generate Endpoint URL]
@@ -205,13 +205,13 @@ graph TB
     Endpoint --> R2Url[accountId.r2.cloudflarestorage.com]
     Endpoint --> DOUrl[nyc3.digitaloceanspaces.com]
     Endpoint --> MinIOUrl[localhost:9000]
-    Endpoint --> GCSUrl[storage.googleapis.com]
+    Endpoint --> NeonUrl[br-….storage….neon.tech]
     
     AWSUrl --> Signer[aws4fetch<br/>Request Signer]
     R2Url --> Signer
     DOUrl --> Signer
     MinIOUrl --> Signer
-    GCSUrl --> Signer
+    NeonUrl --> Signer
 " />
 
 **Key Insight:** All providers use the same S3-compatible API, so switching is just a configuration change.

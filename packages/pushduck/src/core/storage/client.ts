@@ -213,15 +213,6 @@ function getS3CompatibleConfig(
       };
 
     // ========================================
-    // Special Cases
-    // ========================================
-
-    case "gcs":
-      throw new Error(
-        "Google Cloud Storage is not S3-compatible for authentication. Use Google Cloud Storage client libraries instead, or consider Google Cloud Storage S3 interoperability (limited compatibility)."
-      );
-
-    // ========================================
     // Generic S3-Compatible Provider
     // ========================================
 

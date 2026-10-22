@@ -8,12 +8,11 @@
  * A token keyed with it can be minted by anyone who has seen one upload URL,
  * which turns the completion token's IDOR protection into a formality.
  *
- * The fallback existed for the gcs provider, which carries no secret — and
- * which never worked: it throws at the first signed request. Every working
- * provider requires a secret. In practice a forged token was then stopped one
- * step later, because presigning the download URL also needs the secret — but
- * that was luck, not design. With no secret, signing and verifying must fail
- * loudly rather than quietly downgrade.
+ * The fallback existed for the gcs provider, which carried no secret; that
+ * provider is gone and every remaining one requires a secret. In practice a
+ * forged token was then stopped one step later, because presigning the
+ * download URL also needs the secret — but that was luck, not design. With no
+ * secret, signing and verifying must fail loudly rather than quietly downgrade.
  */
 
 import { describe, expect, it, vi } from "vitest";

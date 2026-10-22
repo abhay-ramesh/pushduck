@@ -343,17 +343,10 @@ export interface NeonStorageConfig extends BaseProviderConfig {
   region: string;
 }
 
-// ========================================
-// Special Cases
-// ========================================
-
-export interface GoogleCloudStorageConfig extends BaseProviderConfig {
-  provider: "gcs";
-  projectId: string;
-  keyFilename?: string;
-  credentials?: object;
-}
-
+/**
+ * Configuration for any other S3-compatible service — Backblaze B2, Wasabi,
+ * Google Cloud Storage through its XML API with HMAC keys, and so on.
+ */
 export interface S3CompatibleConfig extends BaseProviderConfig {
   provider: "s3-compatible";
   accessKeyId: string;
@@ -371,8 +364,6 @@ export type ProviderConfig =
   | DigitalOceanSpacesConfig
   | MinIOConfig
   | NeonStorageConfig
-  // Special Cases
-  | GoogleCloudStorageConfig
   | S3CompatibleConfig;
 
 // ========================================
@@ -562,25 +553,6 @@ const PROVIDER_SPECS = {
     }),
   },
 
-  gcs: {
-    provider: "gcs",
-    fields: [
-      "projectId",
-      "bucket",
-      "keyFilename",
-      "region",
-      "customDomain",
-      "acl",
-    ],
-    defaults: {
-      region: "us-central1",
-      acl: "private",
-    },
-    customLogic: (config: any) => ({
-      credentials: config.credentials,
-    }),
-  },
-
   s3Compatible: {
     provider: "s3-compatible",
     fields: [
@@ -668,7 +640,6 @@ export type ProviderConfigMap = {
   digitalOceanSpaces: Partial<Omit<DigitalOceanSpacesConfig, "provider">>;
   minio: Partial<Omit<MinIOConfig, "provider">>;
   neonStorage: Partial<Omit<NeonStorageConfig, "provider">>;
-  gcs: Partial<Omit<GoogleCloudStorageConfig, "provider">>;
   s3Compatible: Partial<Omit<S3CompatibleConfig, "provider">>;
 };
 
@@ -860,15 +831,6 @@ export function validateProviderConfig(config: ProviderConfig): {
       }
       break;
 
-    case "gcs":
-      if (!config.projectId) errors.push("Google Cloud Project ID is required");
-      if (!config.keyFilename && !config.credentials) {
-        errors.push(
-          "Google Cloud credentials (keyFilename or credentials object) are required"
-        );
-      }
-      break;
-
     case "s3-compatible":
       if (!config.endpoint) errors.push("S3-compatible endpoint is required");
       if (!config.accessKeyId) errors.push("Access Key ID is required");
@@ -957,8 +919,6 @@ export function getProviderEndpoint(config: ProviderConfig): string {
       return getMinioEndpoint(config);
     case "neon-storage":
       return config.endpoint;
-    case "gcs":
-      return "https://storage.googleapis.com";
     case "s3-compatible":
       return config.endpoint;
     default:
