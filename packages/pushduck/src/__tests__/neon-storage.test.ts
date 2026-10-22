@@ -87,6 +87,26 @@ describe("Neon region resolution", () => {
     expect(provider.region).toBe("eu-central-1");
   });
 
+  it("accepts an explicit region that agrees with the endpoint", () => {
+    const provider = createProvider("neonStorage", {
+      ...NEON_BASE,
+      region: "us-east-2",
+    });
+
+    expect(provider.region).toBe("us-east-2");
+  });
+
+  it("rejects an explicit region that contradicts the endpoint", () => {
+    // AWS_REGION left over from another project, or a branch moved between
+    // regions: every request would fail with SignatureDoesNotMatch, which
+    // names the signature rather than the region.
+    expect(() =>
+      createProvider("neonStorage", { ...NEON_BASE, region: "eu-central-1" }),
+    ).toThrow(
+      /region "eu-central-1" does not match the endpoint's region "us-east-2"/,
+    );
+  });
+
   it("signs with the region from the endpoint, not us-east-1", async () => {
     const url = new URL(
       (await generatePresignedUploadUrl(buildConfig(), { key: "a.png" })).url,

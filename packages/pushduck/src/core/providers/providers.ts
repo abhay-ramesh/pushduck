@@ -843,10 +843,21 @@ export function validateProviderConfig(config: ProviderConfig): {
         errors.push("Neon Object Storage Access Key ID is required");
       if (!config.secretAccessKey)
         errors.push("Neon Object Storage Secret Access Key is required");
-      if (!config.region)
+      if (!config.region) {
         errors.push(
           "Neon Object Storage region is required when it cannot be read from the endpoint"
         );
+      } else {
+        // An explicit region always wins, and signing with any region but the
+        // endpoint's fails every request with SignatureDoesNotMatch, which
+        // does not mention the region.
+        const endpointRegion = getNeonStorageRegion(config.endpoint);
+        if (endpointRegion && config.region !== endpointRegion) {
+          errors.push(
+            `Neon Object Storage region "${config.region}" does not match the endpoint's region "${endpointRegion}" — remove region to use the endpoint's`
+          );
+        }
+      }
       break;
 
     case "gcs":
