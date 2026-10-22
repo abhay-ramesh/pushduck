@@ -13,17 +13,21 @@
 # Ports 9010/9011 are used instead of the defaults so this cannot collide with a
 # MinIO the developer is already running for their own project.
 #
-# The image comes from quay.io, not Docker Hub. MinIO withdrew minio/minio from
-# Docker Hub in September 2026 — an anonymous pull now fails with "pull access
-# denied ... may require 'docker login'", which read as a typo'd image name and
-# was in fact a registry withdrawal. quay.io/minio/minio is MinIO's own
-# registry and the source its current documentation points at.
+# The image is Chainguard's, not MinIO's. MinIO withdrew minio/minio from
+# Docker Hub in September 2026, and by October quay.io/minio/minio answered
+# anonymous pulls with "unauthorized" and dl.min.io returned 410 — no first-party
+# distribution is left. cgr.dev/chainguard/minio is built from MinIO's source,
+# rebuilt daily, and pullable without an account.
+#
+# The bucket is created from the host with a SigV4-signed PUT (curl's
+# --aws-sigv4) rather than `docker exec mc`, so a substituted MINIO_IMAGE only
+# has to serve S3 — it need not ship a shell or the mc client.
 
 set -euo pipefail
 
 CONTAINER="pushduck-minio"
 # Overridable so a mirror or a pinned digest can be substituted without a patch.
-MINIO_IMAGE="${MINIO_IMAGE:-quay.io/minio/minio}"
+MINIO_IMAGE="${MINIO_IMAGE:-cgr.dev/chainguard/minio:latest}"
 API_PORT="${MINIO_API_PORT:-9010}"
 CONSOLE_PORT="${MINIO_CONSOLE_PORT:-9011}"
 BUCKET="${MINIO_BUCKET:-test-uploads}"
@@ -61,19 +65,31 @@ start() {
     "$MINIO_IMAGE" server /data --console-address ":9001" >/dev/null
 
   echo -n "Waiting for readiness"
+  local ready=0
   for _ in $(seq 1 60); do
     if curl -sf "http://127.0.0.1:${API_PORT}/minio/health/live" >/dev/null 2>&1; then
+      ready=1
       echo " ok"
       break
     fi
     echo -n "."
     sleep 1
   done
+  if [ "$ready" -ne 1 ]; then
+    echo " timed out" >&2
+    "$DOCKER" logs "$CONTAINER" >&2 || true
+    exit 1
+  fi
 
-  "$DOCKER" exec "$CONTAINER" \
-    mc alias set local http://127.0.0.1:9000 minioadmin minioadmin >/dev/null
-  # `--ignore-existing` keeps this idempotent across restarts.
-  "$DOCKER" exec "$CONTAINER" mc mb --ignore-existing "local/${BUCKET}" >/dev/null
+  # 200 is created; 409 BucketAlreadyOwnedByYou keeps this idempotent.
+  local code
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT \
+    --aws-sigv4 "aws:amz:us-east-1:s3" --user minioadmin:minioadmin \
+    "http://127.0.0.1:${API_PORT}/${BUCKET}")
+  if [ "$code" != "200" ] && [ "$code" != "409" ]; then
+    echo "Creating bucket '${BUCKET}' failed: HTTP ${code}" >&2
+    exit 1
+  fi
 
   echo "Bucket '${BUCKET}' ready. Run: pnpm test"
 }
