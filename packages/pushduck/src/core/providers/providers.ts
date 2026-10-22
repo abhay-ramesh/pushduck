@@ -1,43 +1,38 @@
 /**
- * @fileoverview Cloud Storage Providers System
+ * @fileoverview Cloud Storage Providers
  *
- * This module provides a comprehensive system for configuring different cloud storage providers
- * with environment-based configuration, type-safe initialization, and automatic endpoint resolution.
+ * Each provider turns the options a user passes into a complete, validated
+ * provider config. Supported: AWS S3, Cloudflare R2, DigitalOcean Spaces,
+ * MinIO, Neon Object Storage, and any other S3-compatible service through
+ * `s3Compatible`.
  *
- * The provider system supports multiple tiers of cloud storage services:
- * - **Tier 1**: Fully supported with comprehensive testing (AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, Neon Object Storage)
- * - **Tier 2**: Enterprise/Hyperscale providers (Azure Blob, IBM Cloud, Oracle OCI)
- * - **Tier 3**: Cost-optimized providers (Wasabi, Backblaze B2, Storj DCS)
- * - **Tier 4**: Performance/Specialized providers (Telnyx, Tigris, Cloudian)
+ * Nothing here reads environment variables. Pass every value explicitly —
+ * usually from `process.env` in your own config — so the source of each
+ * setting is visible at the call site.
  *
- * Features:
- * - Environment variable auto-detection with fallbacks
- * - Type-safe configuration with TypeScript inference
- * - Automatic endpoint generation for known providers
- * - Validation and error reporting
- * - Custom domain and ACL support
- *
- * @example Basic AWS S3 Configuration
+ * @example AWS S3
  * ```typescript
  * import { createProvider } from 'pushduck/server';
  *
  * const s3Config = createProvider('aws', {
  *   bucket: 'my-uploads',
  *   region: 'us-east-1',
- *   // Credentials auto-loaded from AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+ *   accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+ *   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
  * });
  * ```
  *
- * @example Cloudflare R2 Configuration
+ * @example Cloudflare R2
  * ```typescript
  * const r2Config = createProvider('cloudflareR2', {
  *   bucket: 'my-r2-bucket',
- *   accountId: 'your-account-id',
- *   // Credentials from CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY
+ *   accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
+ *   accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
+ *   secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
  * });
  * ```
  *
- * @example MinIO Self-hosted Configuration
+ * @example MinIO (self-hosted)
  * ```typescript
  * const minioConfig = createProvider('minio', {
  *   endpoint: 'http://localhost:9000',
@@ -48,35 +43,16 @@
  * });
  * ```
  *
- * @example Neon Object Storage Configuration
+ * @example Neon Object Storage
  * ```typescript
  * const neonConfig = createProvider('neonStorage', {
- *   endpoint: process.env.AWS_ENDPOINT_URL_S3,
+ *   endpoint: process.env.AWS_ENDPOINT_URL_S3!,
  *   bucket: 'user-uploads',
- *   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
- *   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+ *   accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+ *   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
  *   // region is read from the endpoint hostname
  * });
  * ```
- *
- * @example Environment Variable Setup
- * ```bash
- * # AWS S3
- * export AWS_ACCESS_KEY_ID="your-access-key"
- * export AWS_SECRET_ACCESS_KEY="your-secret-key"
- * export AWS_REGION="us-east-1"
- *
- * # Cloudflare R2
- * export CLOUDFLARE_R2_ACCESS_KEY_ID="your-r2-access-key"
- * export CLOUDFLARE_R2_SECRET_ACCESS_KEY="your-r2-secret-key"
- * export CLOUDFLARE_ACCOUNT_ID="your-account-id"
- *
- * # DigitalOcean Spaces
- * export DO_SPACES_ACCESS_KEY_ID="your-spaces-key"
- * export DO_SPACES_SECRET_ACCESS_KEY="your-spaces-secret"
- * export DO_SPACES_REGION="nyc3"
- * ```
- *
  */
 
 import { logger } from "../utils/logger";
@@ -127,7 +103,7 @@ export interface BaseProviderConfig {
 }
 
 // ========================================
-// TIER 1: Currently Supported Providers
+// Supported Providers
 // ========================================
 
 /**
@@ -368,85 +344,6 @@ export interface NeonStorageConfig extends BaseProviderConfig {
 }
 
 // ========================================
-// TIER 2: Enterprise/Hyperscale Providers
-// ========================================
-
-export interface AzureBlobConfig extends BaseProviderConfig {
-  provider: "azure-blob";
-  accountName: string;
-  accessKeyId: string; // Storage Account Key
-  secretAccessKey: string; // Storage Account Key (same as accessKeyId for Azure)
-  endpoint?: string; // Auto-generated from accountName if not provided
-}
-
-export interface IBMCloudConfig extends BaseProviderConfig {
-  provider: "ibm-cloud";
-  accessKeyId: string;
-  secretAccessKey: string;
-  endpoint: string; // IBM-specific endpoint
-  serviceInstanceId?: string;
-}
-
-export interface OracleOCIConfig extends BaseProviderConfig {
-  provider: "oracle-oci";
-  accessKeyId: string;
-  secretAccessKey: string;
-  endpoint: string; // Oracle-specific endpoint
-  namespace?: string;
-}
-
-// ========================================
-// TIER 3: Cost-Optimized Providers
-// ========================================
-
-export interface WasabiConfig extends BaseProviderConfig {
-  provider: "wasabi";
-  accessKeyId: string;
-  secretAccessKey: string;
-  endpoint?: string; // Default: https://s3.wasabisys.com
-}
-
-export interface BackblazeB2Config extends BaseProviderConfig {
-  provider: "backblaze-b2";
-  accessKeyId: string; // Application Key ID
-  secretAccessKey: string; // Application Key
-  endpoint: string; // Region-specific endpoint
-}
-
-export interface StorjDCSConfig extends BaseProviderConfig {
-  provider: "storj-dcs";
-  accessKeyId: string;
-  secretAccessKey: string;
-  endpoint?: string; // Default: https://gateway.storjshare.io
-}
-
-// ========================================
-// TIER 4: Performance/Specialized Providers
-// ========================================
-
-export interface TelnyxStorageConfig extends BaseProviderConfig {
-  provider: "telnyx-storage";
-  accessKeyId: string;
-  secretAccessKey: string;
-  endpoint: string; // Telnyx-specific endpoint
-}
-
-export interface TigrisDataConfig extends BaseProviderConfig {
-  provider: "tigris-data";
-  accessKeyId: string;
-  secretAccessKey: string;
-  endpoint: string; // e.g., https://fly.storage.tigris.dev
-  region?: "auto";
-}
-
-export interface CloudianHyperStoreConfig extends BaseProviderConfig {
-  provider: "cloudian-hyperstore";
-  accessKeyId: string;
-  secretAccessKey: string;
-  endpoint: string; // Customer-specific endpoint
-}
-
-// ========================================
 // Special Cases
 // ========================================
 
@@ -469,24 +366,11 @@ export interface S3CompatibleConfig extends BaseProviderConfig {
 // ========================================
 
 export type ProviderConfig =
-  // Tier 1: Currently Supported
   | AWSProviderConfig
   | CloudflareR2Config
   | DigitalOceanSpacesConfig
   | MinIOConfig
   | NeonStorageConfig
-  // Tier 2: Enterprise/Hyperscale
-  | AzureBlobConfig
-  | IBMCloudConfig
-  | OracleOCIConfig
-  // Tier 3: Cost-Optimized
-  | WasabiConfig
-  | BackblazeB2Config
-  | StorjDCSConfig
-  // Tier 4: Performance/Specialized
-  | TelnyxStorageConfig
-  | TigrisDataConfig
-  | CloudianHyperStoreConfig
   // Special Cases
   | GoogleCloudStorageConfig
   | S3CompatibleConfig;
@@ -495,13 +379,10 @@ export type ProviderConfig =
 // DRY Provider Factory System
 // ========================================
 
-interface ConfigKeyMapping {
-  readonly [key: string]: readonly string[];
-}
-
 interface ProviderSpec {
   readonly provider: string;
-  readonly configKeys: ConfigKeyMapping;
+  /** The options this provider accepts. Anything else is reported and dropped. */
+  readonly fields: readonly string[];
   readonly defaults: Record<string, any>;
   readonly customLogic?: (config: any, computed: any) => any;
 }
@@ -516,9 +397,8 @@ function createProviderBuilder<T extends ProviderConfig>(
   return (config: Partial<T> = {}): T => {
     const result: any = { provider: spec.provider };
 
-    // Only use explicit config and defaults (no env vars).
     // Use ?? (nullish coalescing) so that false, 0, and "" are preserved.
-    for (const [key] of Object.entries(spec.configKeys)) {
+    for (const key of spec.fields) {
       result[key] = config[key as keyof T] ?? spec.defaults[key] ?? "";
     }
 
@@ -538,7 +418,7 @@ function createProviderBuilder<T extends ProviderConfig>(
      * silent: a typo, an option from a newer version, or a key copied from a
      * sibling provider now says so instead of being ignored.
      *
-     * Compared against the *final* result rather than `configKeys`, so options
+     * Compared against the *final* result rather than `fields`, so options
      * a provider computes for itself — MinIO's `useSSL` and `port` — do not
      * produce a warning nobody should act on.
      */
@@ -572,16 +452,16 @@ function createProviderBuilder<T extends ProviderConfig>(
 const PROVIDER_SPECS = {
   aws: {
     provider: "aws",
-    configKeys: {
-      region: ["AWS_REGION", "S3_REGION"],
-      bucket: ["AWS_S3_BUCKET", "S3_BUCKET", "S3_BUCKET_NAME"],
-      accessKeyId: ["AWS_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID"],
-      secretAccessKey: ["AWS_SECRET_ACCESS_KEY", "S3_SECRET_ACCESS_KEY"],
-      sessionToken: ["AWS_SESSION_TOKEN"],
-      acl: ["S3_ACL"],
-      customDomain: ["S3_CUSTOM_DOMAIN"],
-      forcePathStyle: ["S3_FORCE_PATH_STYLE"],
-    },
+    fields: [
+      "region",
+      "bucket",
+      "accessKeyId",
+      "secretAccessKey",
+      "sessionToken",
+      "acl",
+      "customDomain",
+      "forcePathStyle",
+    ],
     defaults: {
       region: "us-east-1",
       acl: "private",
@@ -590,19 +470,16 @@ const PROVIDER_SPECS = {
 
   cloudflareR2: {
     provider: "cloudflare-r2",
-    configKeys: {
-      accountId: ["CLOUDFLARE_ACCOUNT_ID", "R2_ACCOUNT_ID"],
-      bucket: ["CLOUDFLARE_R2_BUCKET", "R2_BUCKET"],
-      accessKeyId: ["CLOUDFLARE_R2_ACCESS_KEY_ID", "R2_ACCESS_KEY_ID"],
-      secretAccessKey: [
-        "CLOUDFLARE_R2_SECRET_ACCESS_KEY",
-        "R2_SECRET_ACCESS_KEY",
-      ],
-      sessionToken: ["CLOUDFLARE_R2_SESSION_TOKEN", "R2_SESSION_TOKEN"],
-      endpoint: ["CLOUDFLARE_R2_ENDPOINT", "R2_ENDPOINT"],
-      customDomain: ["R2_CUSTOM_DOMAIN"],
-      acl: [],
-    },
+    fields: [
+      "accountId",
+      "bucket",
+      "accessKeyId",
+      "secretAccessKey",
+      "sessionToken",
+      "endpoint",
+      "customDomain",
+      "acl",
+    ],
     defaults: {
       region: "auto",
       acl: "private",
@@ -618,22 +495,16 @@ const PROVIDER_SPECS = {
 
   digitalOceanSpaces: {
     provider: "digitalocean-spaces",
-    configKeys: {
-      region: ["DO_SPACES_REGION", "DIGITALOCEAN_SPACES_REGION"],
-      bucket: ["DO_SPACES_BUCKET", "DIGITALOCEAN_SPACES_BUCKET"],
-      accessKeyId: [
-        "DO_SPACES_ACCESS_KEY_ID",
-        "DIGITALOCEAN_SPACES_ACCESS_KEY_ID",
-      ],
-      secretAccessKey: [
-        "DO_SPACES_SECRET_ACCESS_KEY",
-        "DIGITALOCEAN_SPACES_SECRET_ACCESS_KEY",
-      ],
-      sessionToken: ["DO_SPACES_SESSION_TOKEN"],
-      endpoint: ["DO_SPACES_ENDPOINT", "DIGITALOCEAN_SPACES_ENDPOINT"],
-      customDomain: ["DO_SPACES_CUSTOM_DOMAIN"],
-      acl: [],
-    },
+    fields: [
+      "region",
+      "bucket",
+      "accessKeyId",
+      "secretAccessKey",
+      "sessionToken",
+      "endpoint",
+      "customDomain",
+      "acl",
+    ],
     defaults: {
       region: "nyc3",
       acl: "private",
@@ -647,16 +518,16 @@ const PROVIDER_SPECS = {
 
   minio: {
     provider: "minio",
-    configKeys: {
-      endpoint: ["MINIO_ENDPOINT"],
-      bucket: ["MINIO_BUCKET"],
-      accessKeyId: ["MINIO_ACCESS_KEY_ID", "MINIO_ACCESS_KEY"],
-      secretAccessKey: ["MINIO_SECRET_ACCESS_KEY", "MINIO_SECRET_KEY"],
-      sessionToken: ["MINIO_SESSION_TOKEN"],
-      region: ["MINIO_REGION"],
-      customDomain: ["MINIO_CUSTOM_DOMAIN"],
-      acl: [],
-    },
+    fields: [
+      "endpoint",
+      "bucket",
+      "accessKeyId",
+      "secretAccessKey",
+      "sessionToken",
+      "region",
+      "customDomain",
+      "acl",
+    ],
     defaults: {
       endpoint: "localhost:9000",
       region: "us-east-1",
@@ -670,18 +541,15 @@ const PROVIDER_SPECS = {
 
   neonStorage: {
     provider: "neon-storage",
-    configKeys: {
-      endpoint: ["AWS_ENDPOINT_URL_S3", "NEON_STORAGE_ENDPOINT"],
-      bucket: ["NEON_STORAGE_BUCKET"],
-      accessKeyId: ["AWS_ACCESS_KEY_ID", "NEON_STORAGE_ACCESS_KEY_ID"],
-      secretAccessKey: [
-        "AWS_SECRET_ACCESS_KEY",
-        "NEON_STORAGE_SECRET_ACCESS_KEY",
-      ],
-      region: ["AWS_REGION", "NEON_STORAGE_REGION"],
-      customDomain: ["NEON_STORAGE_CUSTOM_DOMAIN"],
-      acl: [],
-    },
+    fields: [
+      "endpoint",
+      "bucket",
+      "accessKeyId",
+      "secretAccessKey",
+      "region",
+      "customDomain",
+      "acl",
+    ],
     defaults: {
       acl: "private",
     },
@@ -696,14 +564,14 @@ const PROVIDER_SPECS = {
 
   gcs: {
     provider: "gcs",
-    configKeys: {
-      projectId: ["GOOGLE_CLOUD_PROJECT_ID", "GCS_PROJECT_ID"],
-      bucket: ["GCS_BUCKET", "GOOGLE_CLOUD_STORAGE_BUCKET"],
-      keyFilename: ["GOOGLE_APPLICATION_CREDENTIALS", "GCS_KEY_FILE"],
-      region: ["GCS_REGION"],
-      customDomain: ["GCS_CUSTOM_DOMAIN"],
-      acl: [],
-    },
+    fields: [
+      "projectId",
+      "bucket",
+      "keyFilename",
+      "region",
+      "customDomain",
+      "acl",
+    ],
     defaults: {
       region: "us-central1",
       acl: "private",
@@ -715,16 +583,16 @@ const PROVIDER_SPECS = {
 
   s3Compatible: {
     provider: "s3-compatible",
-    configKeys: {
-      endpoint: ["S3_ENDPOINT", "S3_COMPATIBLE_ENDPOINT"],
-      bucket: ["S3_BUCKET", "S3_BUCKET_NAME"],
-      accessKeyId: ["S3_ACCESS_KEY_ID", "ACCESS_KEY_ID"],
-      secretAccessKey: ["S3_SECRET_ACCESS_KEY", "SECRET_ACCESS_KEY"],
-      sessionToken: ["S3_SESSION_TOKEN", "AWS_SESSION_TOKEN"],
-      region: ["S3_REGION", "REGION"],
-      customDomain: ["S3_CUSTOM_DOMAIN"],
-      acl: ["S3_ACL"],
-    },
+    fields: [
+      "endpoint",
+      "bucket",
+      "accessKeyId",
+      "secretAccessKey",
+      "sessionToken",
+      "region",
+      "customDomain",
+      "acl",
+    ],
     defaults: {
       region: "us-east-1",
       acl: "private",
@@ -780,58 +648,38 @@ export type ProviderConfigMap = {
 };
 
 /**
- * Type-safe provider configuration function
- * Usage: createProvider("aws", { bucket: "my-bucket", region: "us-west-2" })
- */
-/**
- * Creates a provider configuration with automatic environment variable detection.
- * This is the main factory function for creating type-safe provider configurations
- * with automatic credential loading from environment variables.
+ * Creates a validated provider configuration from explicit options.
+ *
+ * Options a provider can derive are filled in — R2's endpoint from its
+ * account ID, Spaces' endpoint from its region, Neon's region from its
+ * endpoint. Nothing is read from the environment.
  *
  * @template T - The provider type
  * @param type - The provider type identifier
- * @param config - Partial configuration object (missing values loaded from env)
+ * @param config - The provider's options
  * @returns Complete provider configuration
  *
- * @example AWS S3 Provider
+ * @example AWS S3
  * ```typescript
- * // Environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
  * const s3Config = createProvider('aws', {
  *   bucket: 'my-uploads',
- *   // region, accessKeyId, secretAccessKey auto-loaded from env
- * });
- * ```
- *
- * @example Cloudflare R2 Provider
- * ```typescript
- * // Environment variables: CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_ACCOUNT_ID
- * const r2Config = createProvider('cloudflareR2', {
- *   bucket: 'my-r2-bucket',
- *   // accountId, accessKeyId, secretAccessKey auto-loaded from env
- * });
- * ```
- *
- * @example MinIO Provider
- * ```typescript
- * const minioConfig = createProvider('minio', {
- *   endpoint: 'http://localhost:9000',
- *   bucket: 'uploads',
- *   accessKeyId: 'minioadmin',
- *   secretAccessKey: 'minioadmin',
- *   useSSL: false,
+ *   region: 'us-east-1',
+ *   accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+ *   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
  * });
  * ```
  *
  * @example DigitalOcean Spaces
  * ```typescript
- * // Environment variables: DO_SPACES_ACCESS_KEY_ID, DO_SPACES_SECRET_ACCESS_KEY, DO_SPACES_REGION
  * const spacesConfig = createProvider('digitalOceanSpaces', {
  *   bucket: 'my-space',
- *   // region, accessKeyId, secretAccessKey auto-loaded from env
+ *   region: 'nyc3', // endpoint becomes https://nyc3.digitaloceanspaces.com
+ *   accessKeyId: process.env.DO_SPACES_ACCESS_KEY_ID!,
+ *   secretAccessKey: process.env.DO_SPACES_SECRET_ACCESS_KEY!,
  * });
  * ```
  *
- * @throws {Error} When required configuration is missing and not available in environment
+ * @throws {Error} When a required option is missing or invalid
  */
 export function createProvider<T extends ProviderType>(
   type: T,
@@ -844,10 +692,6 @@ export function createProvider<T extends ProviderType>(
 
   return createProviderBuilder(spec)(config as any);
 }
-
-// ========================================
-// Environment Detection
-// ========================================
 
 // ========================================
 // Provider Configuration Validation
@@ -990,33 +834,6 @@ export function validateProviderConfig(config: ProviderConfig): {
 // ========================================
 // Provider Configuration Helpers
 // ========================================
-
-function getProviderDisplayName(provider: ProviderConfig["provider"]): string {
-  const names = {
-    // Tier 1: Currently Supported
-    aws: "Amazon S3",
-    "cloudflare-r2": "Cloudflare R2",
-    "digitalocean-spaces": "DigitalOcean Spaces",
-    minio: "MinIO",
-    "neon-storage": "Neon Object Storage",
-    // Tier 2: Enterprise/Hyperscale
-    "azure-blob": "Azure Blob Storage",
-    "ibm-cloud": "IBM Cloud Object Storage",
-    "oracle-oci": "Oracle Cloud Infrastructure",
-    // Tier 3: Cost-Optimized
-    wasabi: "Wasabi Hot Cloud Storage",
-    "backblaze-b2": "Backblaze B2",
-    "storj-dcs": "Storj DCS",
-    // Tier 4: Performance/Specialized
-    "telnyx-storage": "Telnyx Storage",
-    "tigris-data": "Tigris Data",
-    "cloudian-hyperstore": "Cloudian HyperStore",
-    // Special Cases
-    gcs: "Google Cloud Storage",
-    "s3-compatible": "S3-Compatible Provider",
-  };
-  return names[provider] || provider;
-}
 
 /**
  * Generates the appropriate endpoint URL for a given provider configuration.
