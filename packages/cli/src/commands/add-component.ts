@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import { Command } from "commander";
-import detectPackageManager from "detect-package-manager";
+import { detect as detectPackageManager } from "detect-package-manager";
 import * as fs from "fs/promises";
 import inquirer from "inquirer";
 // Use native fetch for Node.js 18+
@@ -81,6 +81,13 @@ export async function addComponentCommand(componentName?: string) {
         );
         process.exit(1);
       }
+    }
+
+    // The picker above always yields a name, but its answer is untyped, so
+    // guard rather than let `undefined` reach the registry URL and imports.
+    if (!componentName) {
+      console.error(chalk.red("Error: No component was selected."));
+      process.exit(1);
     }
 
     // Fetch the specific component
@@ -165,11 +172,19 @@ export function MyComponent() {
       );
     } catch (error) {
       spinner.fail(`Failed to add ${componentName}`);
-      console.error(chalk.red(`Error: ${error.message}`));
+      console.error(
+        chalk.red(
+          `Error: ${error instanceof Error ? error.message : "Unknown error"}`
+        )
+      );
       process.exit(1);
     }
   } catch (error) {
-    console.error(chalk.red(`Error: ${error.message}`));
+    console.error(
+      chalk.red(
+        `Error: ${error instanceof Error ? error.message : "Unknown error"}`
+      )
+    );
     process.exit(1);
   }
 }
