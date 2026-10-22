@@ -5,6 +5,7 @@
  */
 
 import type { UploadConfig } from "../config/upload-config";
+import { validateProviderConfig } from "../providers/providers";
 import { logger } from "./logger";
 import { metrics } from "./metrics";
 
@@ -87,29 +88,9 @@ export class HealthChecker {
         return;
       }
 
-      // Basic required fields
-      const requiredFields = [
-        "provider",
-        "accessKeyId",
-        "secretAccessKey",
-        "bucket",
-      ];
-      const missingFields = requiredFields.filter(
-        (field) => !config[field as keyof UploadConfig]
-      );
-
-      if (missingFields.length > 0) {
-        this.addCheck(
-          "Configuration",
-          "fail",
-          `Missing required fields: ${missingFields.join(", ")}`,
-          { missingFields }
-        );
-        return;
-      }
-
-      // Provider-specific validation
-      const providerValidation = this.validateProviderConfig(config);
+      // The same validation the provider ran when it was created, so the
+      // health check cannot pass a config that would fail at upload time.
+      const providerValidation = validateProviderConfig(config.provider);
       if (!providerValidation.valid) {
         this.addCheck(
           "Configuration",
@@ -318,62 +299,6 @@ export class HealthChecker {
         performance.now() - startTime
       );
     }
-  }
-
-  /**
-   * Validate provider-specific configuration
-   */
-  private validateProviderConfig(config: UploadConfig): {
-    valid: boolean;
-    errors: string[];
-  } {
-    const errors: string[] = [];
-
-    switch (config.provider.provider) {
-      case "aws":
-        if (!config.provider.region) {
-          errors.push("AWS region is required");
-        }
-        break;
-
-      case "cloudflare-r2":
-        if (!config.provider.endpoint) {
-          errors.push("Cloudflare R2 endpoint is required");
-        }
-        break;
-
-      case "digitalocean-spaces":
-        if (!config.provider.endpoint) {
-          errors.push("DigitalOcean Spaces endpoint is required");
-        }
-        break;
-
-      case "minio":
-        if (!config.provider.endpoint) {
-          errors.push("MinIO endpoint is required");
-        }
-        break;
-
-      case "neon-storage":
-        if (!config.provider.endpoint) {
-          errors.push("Neon Object Storage endpoint is required");
-        }
-        break;
-
-      case "s3-compatible":
-        if (!config.provider.endpoint) {
-          errors.push("S3-compatible endpoint is required");
-        }
-        break;
-
-      default:
-        errors.push(`Unsupported provider: ${config.provider.provider}`);
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors,
-    };
   }
 
   private addCheck(
