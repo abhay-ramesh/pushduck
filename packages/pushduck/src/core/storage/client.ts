@@ -54,7 +54,10 @@
 
 import { AwsClient } from "aws4fetch";
 import type { UploadConfig } from "../config";
-import type { ProviderConfig } from "../providers/providers";
+import {
+  getMinioEndpoint,
+  type ProviderConfig,
+} from "../providers/providers";
 import { createConfigError, createS3Error } from "../types/errors";
 import { logger } from "../utils/logger";
 import { md5Base64 } from "../utils/md5";
@@ -195,7 +198,7 @@ function getS3CompatibleConfig(
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
         region: config.region || "us-east-1",
-        endpoint: config.endpoint, // e.g., "https://play.min.io" or custom
+        endpoint: getMinioEndpoint(config), // "localhost:9000" → "http://localhost:9000"
         forcePathStyle: true, // MinIO requires path-style
       };
 
