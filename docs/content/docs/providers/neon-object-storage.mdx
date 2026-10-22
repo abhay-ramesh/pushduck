@@ -80,6 +80,29 @@ NEON_STORAGE_BUCKET=user-uploads
 
 Inside [Neon Functions](https://neon.com/docs/compute/functions/environment-variables), the four `AWS_*` variables are injected automatically for the function's branch.
 
+The names are AWS-standard because Neon's tooling writes and injects them that way, so AWS SDKs pick them up with no extra setup. Pushduck does not read the environment: it uses only the values you pass to `.provider("neonStorage", {...})`, so you can store them under any names. `NEON_STORAGE_BUCKET` is a name these docs suggest, not one Neon sets; you add it yourself.
+
+<Callout type="warn">
+  **If your app also uses AWS**, Neon's `AWS_*` values replace your real AWS credentials, and `AWS_ENDPOINT_URL_S3` sends every AWS SDK S3 client in the process to Neon instead of AWS. Store Neon's values under your own names and pass them to pushduck explicitly, as shown below. Inside Neon Functions the injected `AWS_*` names stay the defaults; this applies only when the same app also talks to AWS.
+</Callout>
+
+```bash
+# .env.local
+NEON_S3_ENDPOINT=https://br-cool-darkness-a1b2c3d4.storage.c-6.us-east-2.aws.neon.tech
+NEON_S3_ACCESS_KEY_ID=nak_live_...
+NEON_S3_SECRET_ACCESS_KEY=nsk_live_...
+NEON_STORAGE_BUCKET=user-uploads
+```
+
+```typescript
+.provider("neonStorage", {
+  endpoint: process.env.NEON_S3_ENDPOINT!,
+  bucket: process.env.NEON_STORAGE_BUCKET!,
+  accessKeyId: process.env.NEON_S3_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.NEON_S3_SECRET_ACCESS_KEY!,
+})
+```
+
 <Callout type="warn">
   Never expose these variables to the browser. Do not prefix them with `NEXT_PUBLIC_`, `VITE_` or `PUBLIC_`.
 </Callout>
@@ -236,6 +259,8 @@ Deletes are soft deletes on the current branch: an object deleted on a preview b
 **`501 NotImplemented`** → An S3 operation Neon does not support, such as an ACL write. Pushduck never sends `x-amz-acl` to Neon; if you see this from your own code, set access on the bucket instead.
 
 **Browser request blocked by CORS** → Check the bucket's CORS rules include your origin and the `PUT` method, and that `ETag` is exposed for multipart uploads.
+
+**AWS calls in my app now reach Neon, or fail to authenticate** → Neon's `AWS_ENDPOINT_URL_S3` and `AWS_*` credentials are in the same environment as your AWS setup, and AWS SDKs read them automatically. Rename Neon's values (for example `NEON_S3_ENDPOINT`) and pass them to `.provider("neonStorage", {...})`. See [Environment Variables](#environment-variables).
 
 **`503 SlowDown`** → Neon throttled the request during heavy use. Multipart parts are retried automatically with backoff; for single-request uploads and your own calls, back off and retry.
 
