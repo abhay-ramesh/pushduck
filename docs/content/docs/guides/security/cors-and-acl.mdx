@@ -55,8 +55,25 @@ When uploading files directly from the browser to cloud storage, you're making r
 
 #### Setting CORS via AWS CLI
 
+`aws s3api put-bucket-cors` does not accept the bare array above. Wrap the rules in `{"CORSRules": [...]}` and save the result as `cors-config.json`:
+
+```json
+{
+  "CORSRules": [
+    {
+      "AllowedHeaders": ["*"],
+      "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+      "AllowedOrigins": ["https://yourdomain.com", "https://www.yourdomain.com"],
+      "ExposeHeaders": ["ETag", "x-amz-meta-custom-header"],
+      "MaxAgeSeconds": 3000
+    }
+  ]
+}
+```
+
+Then apply it:
+
 ```bash
-# Save the above JSON to cors-config.json
 aws s3api put-bucket-cors \
   --bucket your-bucket-name \
   --cors-configuration file://cors-config.json
@@ -167,7 +184,7 @@ Or via MinIO Console:
 
 #### Neon Object Storage
 
-Neon supports `PutBucketCors`, so the AWS S3 JSON above works as-is against your branch endpoint:
+Neon supports `PutBucketCors`, so the `CORSRules`-wrapped `cors-config.json` from [Setting CORS via AWS CLI](#setting-cors-via-aws-cli) works as-is against your branch endpoint:
 
 ```bash
 aws s3api put-bucket-cors \
