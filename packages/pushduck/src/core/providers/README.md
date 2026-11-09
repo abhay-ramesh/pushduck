@@ -16,7 +16,7 @@ that target. It lives in one `defineProvider` call per file:
 | `digitalocean-spaces.ts` | DigitalOcean Spaces |
 | `minio.ts` | MinIO |
 | `neon-storage.ts` | Neon Object Storage |
-| `gcs.ts` | Google Cloud Storage (service account — cannot sign uploads yet) |
+| `gcs.ts` | Google Cloud Storage (XML API, HMAC key) |
 | `s3-compatible.ts` | Anything else with an S3 API |
 
 `providers.ts` lists them in `PROVIDERS` and derives everything else from that

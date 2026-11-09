@@ -299,27 +299,19 @@ export function toStorageTarget(config: ProviderConfig): StorageTarget {
     );
   }
 
-  // Addressing first: a provider that cannot be reached over the S3 API says
-  // so here, before anything else is read from its config.
-  const addressing = definition.addressing(config);
-  const { accessKeyId, secretAccessKey, sessionToken } = config as {
-    accessKeyId: string;
-    secretAccessKey: string;
-    sessionToken?: string;
-  };
-
   return {
-    accessKeyId,
-    secretAccessKey,
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
     // An empty string is treated as absent: a shell that exported
     // AWS_SESSION_TOKEN and later cleared it leaves "", and signing a blank
     // token fails where sending none succeeds.
-    sessionToken: sessionToken || undefined,
+    sessionToken:
+      (config as { sessionToken?: string }).sessionToken || undefined,
     bucket: config.bucket,
     acl: config.acl,
     customDomain: config.customDomain,
     supportsAcl: definition.supportsAcl,
-    ...addressing,
+    ...definition.addressing(config),
   };
 }
 
