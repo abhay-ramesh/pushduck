@@ -154,9 +154,9 @@ This is a deliberate tradeoff. Progress is more valuable than transport flexibil
 
 ## Storage providers are S3-compatible only
 
-Pushduck supports **AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, and Neon Object Storage** — all of which speak the S3 API. It does **not** support:
+Pushduck supports **AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO, Neon Object Storage, and Google Cloud Storage** (through its S3-compatible XML API) — all of which speak the S3 API. It does **not** support:
 
-- Google Cloud Storage (different API surface)
+- Google Cloud Storage's native JSON API or service-account keys (use an [HMAC key](/docs/providers/google-cloud) instead)
 - Azure Blob Storage (different API surface)
 - Backblaze B2 native API (use their S3-compatible endpoint instead)
 - Local filesystem / on-disk storage

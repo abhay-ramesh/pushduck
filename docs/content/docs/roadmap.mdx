@@ -156,7 +156,7 @@ Raw subscribe-based API without any framework runtime. Targets embedding in any 
 
 ### GCS (native)
 
-Google Cloud Storage via GCS's native REST API, not the S3 interop layer. The S3 interop already works for basic operations, but a native adapter unlocks GCS-specific features (object holds, retention policies, resumable session URIs) that interop doesn't expose.
+Google Cloud Storage via GCS's native REST API, not the S3 interop layer. The `gcs` provider already uploads through the S3-compatible XML API; a native adapter unlocks GCS-specific features (object holds, retention policies, resumable session URIs) that interop doesn't expose.
 
 ### Vercel Blob
 

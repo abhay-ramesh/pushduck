@@ -827,7 +827,7 @@ function getProviderEnvVars(provider: ProviderType): string {
     case "neon":
       return "endpoint: process.env.AWS_ENDPOINT_URL_S3!,\n      bucket: process.env.NEON_STORAGE_BUCKET!,\n      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,\n      region: process.env.AWS_REGION!,";
     case "gcs":
-      return "projectId: process.env.GCS_PROJECT_ID!,\n      bucket: process.env.GCS_BUCKET!,\n      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS!,\n      region: process.env.GCS_REGION!,";
+      return "bucket: process.env.GCS_BUCKET!,\n      accessKeyId: process.env.GCS_ACCESS_KEY_ID!, // HMAC access ID (GOOG…)\n      secretAccessKey: process.env.GCS_SECRET_ACCESS_KEY!,";
     default:
       return "";
   }

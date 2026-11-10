@@ -154,23 +154,3 @@ describe("the registry", () => {
   });
 });
 
-describe("gcs (service account)", () => {
-  it("builds, and then cannot be addressed over the S3 API — as before", () => {
-    const config = createProvider("gcs", {
-      projectId: "p",
-      keyFilename: "./key.json",
-      bucket: "b",
-    });
-
-    expect(config.provider).toBe("gcs");
-    expect(() => toStorageTarget(config)).toThrow(
-      /not S3-compatible for authentication/
-    );
-  });
-
-  it("keeps its validation messages", () => {
-    expect(() => createProvider("gcs", { bucket: "b" })).toThrow(
-      /Google Cloud Project ID is required, Google Cloud credentials \(keyFilename or credentials object\) are required/
-    );
-  });
-});

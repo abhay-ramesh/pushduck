@@ -158,7 +158,6 @@ const PROVIDER_INFO = {
     envVars: [
       "GCS_ACCESS_KEY_ID",
       "GCS_SECRET_ACCESS_KEY",
-      "GCS_PROJECT_ID",
       "GCS_BUCKET",
     ],
     regions: [

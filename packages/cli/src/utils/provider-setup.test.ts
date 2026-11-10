@@ -265,6 +265,15 @@ describe("generateEnvVariables", () => {
     });
   });
 
+  it("gcs writes an HMAC key, not a service-account file", () => {
+    expect(generateEnvVariables(credentials, "gcs")).toEqual({
+      GCS_ACCESS_KEY_ID: "key-id",
+      GCS_SECRET_ACCESS_KEY: "secret",
+      GCS_REGION: "eu-west-1",
+      GCS_BUCKET: "my-bucket",
+    });
+  });
+
   it("cloudflare-r2", () => {
     expect(generateEnvVariables(credentials, "cloudflare-r2")).toEqual({
       CLOUDFLARE_R2_ACCESS_KEY_ID: "key-id",
