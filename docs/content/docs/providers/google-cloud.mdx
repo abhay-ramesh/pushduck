@@ -1,56 +1,127 @@
 ---
 title: Google Cloud Storage
-description: Upload to Google Cloud Storage through its S3-compatible XML API, signed with an HMAC key
+description: Upload to Google Cloud Storage through its S3-compatible XML API. Step-by-step setup in the Console or with gcloud — project, bucket, HMAC key, CORS and a working config.
 icon: gcs
 ---
 
+import { Step, Steps } from "fumadocs-ui/components/steps";
+import { Callout } from "fumadocs-ui/components/callout";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
 ## Using Google Cloud Storage
 
-Google Cloud Storage serves an S3-compatible XML API at `https://storage.googleapis.com`. Pushduck uploads through it with an **HMAC key** — an access ID starting `GOOG` and a secret — so presigned uploads and downloads, multipart uploads and the Storage API all work the same way they do on S3.
+Google Cloud Storage serves an S3-compatible XML API at `https://storage.googleapis.com`. Pushduck uploads through it with an **HMAC key** — an access ID starting `GOOG` and a secret — so presigned uploads and downloads, multipart uploads and the Storage API work the same way they do on S3.
 
 <Callout type="info">
-  Service-account JSON keys do not work here. The XML API's S3-style signatures need an HMAC key; Google's [Simple migration from Amazon S3](https://cloud.google.com/storage/docs/aws-simple-migration) describes the same setup.
+  Service-account JSON key files do **not** work here. You need an HMAC key, created under **Cloud Storage → Settings → Interoperability**. Google's [Simple migration from Amazon S3](https://cloud.google.com/storage/docs/aws-simple-migration) describes the same setup.
 </Callout>
 
 Everything on this page was run against a real bucket: presigned `PUT` and `GET`, a three-part multipart upload, list, metadata and delete, and the router's presign → upload → complete flow behind a CORS preflight.
 
-## 1. Create a Bucket
+## What You Will End Up With
+
+| You get | Looks like | Goes into |
+| --- | --- | --- |
+| Bucket name | `my-app-uploads` | `GCS_BUCKET` |
+| HMAC **Access key** | `GOOG1E…` | `GCS_ACCESS_KEY_ID` |
+| HMAC **Secret** | 40 characters, shown **once** | `GCS_SECRET_ACCESS_KEY` |
+
+## Before You Start
+
+- **A Google Cloud project with billing enabled.** Cloud Storage refuses to create buckets in a project without a billing account, even on the free tier. Check it at [Billing → Linked account](https://console.cloud.google.com/billing/linkedaccount).
+- **The Cloud Storage API enabled** — it usually is. Check at [APIs & Services → Cloud Storage API](https://console.cloud.google.com/apis/library/storage.googleapis.com).
+- **For the command-line steps only:** the [gcloud CLI](https://cloud.google.com/sdk/docs/install), signed in and pointed at your project:
+
+  ```bash
+  gcloud auth login
+  gcloud config set project YOUR_PROJECT_ID
+  ```
+
+<Steps>
+
+<Step>
+
+## Create a Bucket
+
+<Tabs items={['Console', 'gcloud']}>
+<Tab value="Console">
+
+1. Open [Cloud Storage → Buckets → Create](https://console.cloud.google.com/storage/create-bucket).
+2. **Name:** a globally unique name, e.g. `my-app-uploads`.
+3. **Location:** a region near your users, e.g. `us-central1`.
+4. **Storage class:** Standard.
+5. **Access control:** leave **Uniform** selected, and leave **Enforce public access prevention** on unless the files must be publicly readable (see [Public files](#public-files)).
+6. Click **Create**.
+
+</Tab>
+<Tab value="gcloud">
 
 ```bash
-gcloud storage buckets create gs://my-app-uploads --location=us-central1
+gcloud storage buckets create gs://my-app-uploads \
+  --location=us-central1 \
+  --uniform-bucket-level-access
 ```
 
-New buckets use **uniform bucket-level access**: permissions come from IAM, and per-object ACLs are rejected. Pushduck never sends ACLs to GCS, so this works as-is.
+</Tab>
+</Tabs>
 
-## 2. Create an HMAC Key
+**Uniform** access means permissions come from IAM and per-object ACLs are rejected. Pushduck never sends ACLs to Google Cloud Storage, so this is the right setting.
 
-There are two kinds. Use whichever your organization allows.
+</Step>
 
-### Service-account key (recommended)
+<Step>
 
-Scoped to one service account, which you can limit to one bucket:
+## Create an HMAC Key
+
+An HMAC key belongs either to a **service account** (recommended — it can be limited to this one bucket) or to **your own user account** (quickest, but it carries all of your Cloud Storage access).
+
+<Tabs items={['Service account — Console', 'Service account — gcloud', 'User account — Console']}>
+<Tab value="Service account — Console">
+
+1. **Create the service account.** [IAM & Admin → Service Accounts → Create service account](https://console.cloud.google.com/iam-admin/serviceaccounts/create). Name it `pushduck-uploads`, click **Create and continue**, skip the role step, and click **Done**.
+2. **Give it access to the bucket only.** Open your bucket in [Cloud Storage → Buckets](https://console.cloud.google.com/storage/browser) → **Permissions** → **Grant access**. Principal: `pushduck-uploads@YOUR_PROJECT_ID.iam.gserviceaccount.com`. Role: **Storage Object Admin**. Click **Save**.
+3. **Create its HMAC key.** [Cloud Storage → Settings → Interoperability](https://console.cloud.google.com/storage/settings;tab=interoperability) → **Service account HMAC** → **Create a key for a service account** → choose `pushduck-uploads` → **Create key**.
+4. Copy the **Access key** and the **Secret** now. The secret is never shown again.
+
+</Tab>
+<Tab value="Service account — gcloud">
 
 ```bash
 gcloud iam service-accounts create pushduck-uploads
+
 gcloud storage buckets add-iam-policy-binding gs://my-app-uploads \
-  --member="serviceAccount:pushduck-uploads@YOUR_PROJECT.iam.gserviceaccount.com" \
+  --member="serviceAccount:pushduck-uploads@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
   --role="roles/storage.objectAdmin"
-gcloud storage hmac create pushduck-uploads@YOUR_PROJECT.iam.gserviceaccount.com
+
+gcloud storage hmac create \
+  pushduck-uploads@YOUR_PROJECT_ID.iam.gserviceaccount.com
 ```
 
-The output has an `accessId` and a `secret`. The secret is shown once.
+The output contains `accessId` (the access key) and `secret`. The secret is never shown again.
+
+</Tab>
+<Tab value="User account — Console">
+
+1. Open [Cloud Storage → Settings → Interoperability](https://console.cloud.google.com/storage/settings;tab=interoperability).
+2. Scroll to **Access keys for your user account** and click **Create a key**.
+3. Copy the **Access key** and the **Secret**.
+
+This key can do anything your account can do in Cloud Storage, in every project you can access. Use it for development, or when your organization blocks service-account keys.
+
+</Tab>
+</Tabs>
 
 <Callout type="warn">
-  Many organizations enforce the `iam.disableServiceAccountKeyCreation` policy, which blocks this command with `HTTPError 412: Request violates constraint`. Ask an Organization Policy Administrator for an exception on the project, or use a user-account key instead.
+  **`HTTPError 412: Request violates constraint 'constraints/iam.disableServiceAccountKeyCreation'`** — many organizations enforce this policy, which blocks service-account HMAC keys. Either ask an Organization Policy Administrator to allow key creation on this project, or use a user-account key.
 </Callout>
 
-### User-account key
+</Step>
 
-Created in the Console only: **Cloud Storage → Settings → [Interoperability](https://console.cloud.google.com/storage/settings;tab=interoperability) → Access keys for your user account → Create a key**. It carries all of your own Cloud Storage access, so prefer a service-account key where you can.
+<Step>
 
-## 3. Configure CORS
+## Allow Your Site to Upload (CORS)
 
-The browser uploads straight to GCS, so the bucket must allow your origin. Multipart uploads read each part's `ETag`, so expose it:
+The browser uploads straight to Google Cloud Storage, so the bucket must allow your site's origin. Multipart uploads read each part's `ETag`, so it must be exposed. The Console has no CORS editor; use `gcloud` (Cloud Shell works — click the terminal icon at the top of the Console).
 
 ```json title="cors.json"
 [
@@ -67,14 +138,18 @@ The browser uploads straight to GCS, so the bucket must allow your origin. Multi
 gcloud storage buckets update gs://my-app-uploads --cors-file=cors.json
 ```
 
-This is GCS's own CORS format, applied with `gcloud` — not the S3 `CORSRules` format.
+This is Google Cloud Storage's own CORS format — not the S3 `CORSRules` format other providers use.
 
-## 4. Configure Your App
+</Step>
+
+<Step>
+
+## Configure Your App
 
 ```bash title=".env.local"
-GCS_ACCESS_KEY_ID=GOOG...
-GCS_SECRET_ACCESS_KEY=...
 GCS_BUCKET=my-app-uploads
+GCS_ACCESS_KEY_ID=GOOG1E...
+GCS_SECRET_ACCESS_KEY=...
 ```
 
 ```typescript title="lib/upload.ts"
@@ -89,19 +164,48 @@ export const { s3, storage } = createUploadConfig()
   .build();
 ```
 
+That is the whole configuration. The defaults below are what was tested; change them only for a reason.
+
 | Option            | Required | Default                          | Description                                                                 |
 | ----------------- | -------- | -------------------------------- | --------------------------------------------------------------------------- |
 | `bucket`          | Yes      |                                  | The bucket name.                                                            |
-| `accessKeyId`     | Yes      |                                  | HMAC access ID (`GOOG…`).                                                   |
+| `accessKeyId`     | Yes      |                                  | HMAC access key (`GOOG…`).                                                  |
 | `secretAccessKey` | Yes      |                                  | HMAC secret.                                                                |
 | `region`          | No       | `auto`                           | Signing region. `auto` works for every location; the bucket's own location also works. |
 | `endpoint`        | No       | `https://storage.googleapis.com` | The XML API endpoint.                                                       |
 | `forcePathStyle`  | No       | `true`                           | `false` addresses the bucket as `my-app-uploads.storage.googleapis.com`.    |
 | `customDomain`    | No       |                                  | A CDN or load balancer in front of a public bucket, used for public URLs.   |
 
-`acl` is accepted and ignored: GCS controls access with IAM, and uniform-access buckets reject per-object ACLs.
+`acl` is accepted and ignored: Google Cloud Storage controls access with IAM.
+
+<Callout type="warn">
+  Never expose these variables to the browser — do not prefix them with `NEXT_PUBLIC_`, `VITE_` or `PUBLIC_`.
+</Callout>
+
+</Step>
+
+<Step>
+
+## Test Your Setup
+
+From your server code (an API route or a script), list the bucket:
+
+```typescript
+import { storage } from "@/lib/upload";
+
+const files = await storage.list.files({ maxFiles: 1 });
+console.log("Connected to Google Cloud Storage —", files.length, "object(s) listed");
+```
+
+If that prints, signing, the key and bucket access all work. Then upload a file from your app to confirm CORS.
+
+</Step>
+
+</Steps>
 
 ## Reading Uploaded Files
+
+### Private files
 
 Objects are private by default. Hand out short-lived signed URLs:
 
@@ -109,17 +213,37 @@ Objects are private by default. Hand out short-lived signed URLs:
 const url = await storage.download.presignedUrl("avatars/me.png", 3600);
 ```
 
-For public files, grant `allUsers` the **Storage Object Viewer** role on the bucket. Objects are then readable at `https://storage.googleapis.com/my-app-uploads/<key>`, or through a CDN set as `customDomain`.
+### Public files
+
+To serve files without signed URLs:
+
+1. In the bucket's **Permissions** tab, turn off **Public access prevention**.
+2. **Grant access** → principal `allUsers` → role **Storage Object Viewer**.
+
+Objects are then readable at `https://storage.googleapis.com/my-app-uploads/<key>`, or through a CDN set as `customDomain`.
+
+## Rotating or Deleting a Key
+
+HMAC keys do not expire. To rotate one, create a new key, deploy it, then on [Settings → Interoperability](https://console.cloud.google.com/storage/settings;tab=interoperability) set the old key to **Inactive** and delete it. For a service-account key:
+
+```bash
+gcloud storage hmac update ACCESS_ID --deactivate
+gcloud storage hmac delete ACCESS_ID
+```
 
 ## Common Issues
 
 **`Google Cloud Storage needs an HMAC key … not a service-account key`** → The config passes `projectId` or `keyFilename`. Replace them with `accessKeyId` and `secretAccessKey` from an HMAC key.
 
-**`HTTPError 412: Request violates constraint 'constraints/iam.disableServiceAccountKeyCreation'`** → Your organization blocks service-account keys. See [Create an HMAC Key](#2-create-an-hmac-key).
+**Bucket creation fails, or "billing account" errors** → The project has no billing account. Link one under [Billing](https://console.cloud.google.com/billing/linkedaccount).
 
-**`403 SignatureDoesNotMatch`** → The HMAC secret is wrong, or the key was deactivated.
+**`HTTPError 412: Request violates constraint 'constraints/iam.disableServiceAccountKeyCreation'`** → Your organization blocks service-account keys. See [Create an HMAC Key](#create-an-hmac-key).
 
-**`403 AccessDenied`** → The key's account has no role on the bucket.
+**`403 SignatureDoesNotMatch`** → The secret is wrong, or the key was deactivated.
+
+**`403 AccessDenied`** → The key's account has no role on the bucket. Grant **Storage Object Admin** on the bucket.
+
+**`400 Cannot insert legacy ACL for an object when uniform bucket-level access is enabled`** → You are on the generic `s3Compatible` provider, which sends an ACL. Use `.provider("gcs", …)`.
 
 **Browser request blocked by CORS** → Check the bucket's CORS rules include your origin and `PUT`, and expose `ETag` for multipart uploads.
 
