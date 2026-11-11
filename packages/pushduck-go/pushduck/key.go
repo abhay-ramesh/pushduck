@@ -16,6 +16,7 @@ package pushduck
 import (
 	"fmt"
 	"hash/fnv"
+	"net/http"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -155,4 +156,94 @@ func lastRunes(s string, count int) string {
 		return s
 	}
 	return string(runes[len(runes)-count:])
+}
+
+// ─── the chokepoint ─────────────────────────────────────────────────────────
+
+// maxTotalKeyBytes is S3's hard limit. A StoragePath hook returns a fragment;
+// the library is what guarantees the result is a legal key, so the check
+// belongs here rather than in every application's hook.
+const maxTotalKeyBytes = 1024
+
+// objectKey mints the key for one file. Every place that creates an object —
+// single PUT presign and multipart init — goes through here, so the
+// completion token always binds the key the hook chose.
+func (route Route) objectKey(r *http.Request, file FileMeta) (string, error) {
+	if route.StoragePath == nil {
+		return generateKey(file.Name), nil
+	}
+
+	fragment, err := route.StoragePath(r, file)
+	if err != nil {
+		return "", err
+	}
+	return resolveKey(fragment)
+}
+
+// resolveKey turns a StoragePath hook's return value into an object key.
+//
+// Ported from Python's `resolve_key`. It refuses anything that cannot be made
+// safe, then re-sanitises every segment of what is left through generateKey.
+//
+// Both halves matter. Refusing traversal is the obvious one. Re-sanitising is
+// the half that is easy to skip: without it, the non-Latin filename handling
+// above protects only the *default* key, and `文档.pdf` and `写真.pdf` would
+// start colliding again for exactly the deployments that customised their
+// keys.
+//
+// Returns CONFIG_INVALID rather than a 4xx: a hook returning `..` is a bug in
+// the application, not a malformed request from its caller.
+func resolveKey(fragment string) (string, error) {
+	reject := func(why string) error {
+		return NewError("CONFIG_INVALID", fmt.Sprintf(
+			"the StoragePath hook returned %q, which %s. "+
+				"Return a path fragment; pushduck sanitises each segment.",
+			fragment, why,
+		))
+	}
+
+	if fragment == "" {
+		return "", reject("is empty")
+	}
+
+	if strings.HasPrefix(fragment, "/") {
+		// Legal in S3 — it creates an object whose name begins with a slash —
+		// but almost never intended, and it breaks every URL built by
+		// concatenation.
+		return "", reject("is absolute")
+	}
+
+	if !utf8.ValidString(fragment) {
+		return "", reject("is not valid UTF-8")
+	}
+
+	for _, r := range fragment {
+		if r == '?' || r == '#' || r == '%' {
+			return "", reject(fmt.Sprintf("contains %q, which changes how the key parses in a URL", r))
+		}
+		if isDangerous(r) {
+			// Stripped silently by generateKey for a *filename*, because there
+			// the alternative is rejecting the user's upload. In a key the
+			// application chose, silently storing something other than what
+			// was asked for is the worse failure.
+			return "", reject(fmt.Sprintf("contains U+%04X, a control or bidi character", r))
+		}
+	}
+
+	segments := strings.Split(fragment, "/")
+	for index, segment := range segments {
+		if segment == "" || segment == "." || segment == ".." {
+			return "", reject("contains an empty, '.' or '..' segment")
+		}
+		// The same sanitiser the default path uses, so a custom key cannot opt
+		// out of the Unicode handling above.
+		segments[index] = generateKey(segment)
+	}
+
+	resolved := strings.Join(segments, "/")
+	if len(resolved) > maxTotalKeyBytes {
+		return "", reject(fmt.Sprintf("exceeds S3's %d-byte key limit once sanitised", maxTotalKeyBytes))
+	}
+
+	return resolved, nil
 }

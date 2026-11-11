@@ -201,7 +201,10 @@ func (router *Router) multipartInit(
 		return NewError("VALIDATION_FAILED", message)
 	}
 
-	key := generateKey(request.File.Name)
+	key, err := route.objectKey(r, request.File)
+	if err != nil {
+		return err
+	}
 	uploadID, err := router.config.createMultipartUpload(key, request.File.Type)
 	if err != nil {
 		return err
