@@ -265,6 +265,16 @@ describe("generateEnvVariables", () => {
     });
   });
 
+  it("neon writes no AWS_REGION when none was given — it comes from the endpoint", () => {
+    const env = generateEnvVariables(
+      { ...credentials, region: "", endpoint: "https://br-a.storage.c-1.eu-central-1.aws.neon.tech" },
+      "neon"
+    );
+
+    expect(env).not.toHaveProperty("AWS_REGION");
+    expect(env.AWS_ENDPOINT_URL_S3).toBe("https://br-a.storage.c-1.eu-central-1.aws.neon.tech");
+  });
+
   it("gcs writes an HMAC key, not a service-account file", () => {
     expect(generateEnvVariables(credentials, "gcs")).toEqual({
       GCS_ACCESS_KEY_ID: "key-id",
