@@ -327,3 +327,28 @@ describe("architecture: bindings feel like one library", () => {
     }
   );
 });
+
+describe("architecture: pushduck/providers stays a registry", () => {
+  /**
+   * The CLI bundles this entry to resolve endpoints and signing regions. If it
+   * ever reached the router or the storage client, every tool importing the
+   * registry would carry the whole server with it.
+   */
+  it("imports nothing but the provider definitions", () => {
+    const specs = moduleSpecifiersOf(join(SRC, "providers.ts"));
+
+    expect(specs.every((spec) => spec.startsWith("./core/providers/"))).toBe(true);
+  });
+
+  it("whose definitions reach no router, storage client or framework", () => {
+    const dir = join(SRC, "core/providers");
+    const reached = readdirSync(dir)
+      .filter((file) => file.endsWith(".ts"))
+      .flatMap((file) => moduleSpecifiersOf(join(dir, file)));
+
+    const outside = reached.filter(
+      (spec) => !spec.startsWith("./") && spec !== "../utils/logger"
+    );
+    expect(outside).toEqual([]);
+  });
+});

@@ -61,6 +61,16 @@
         "default": "./dist/core.cjs"
       }
     },
+    "./providers": {
+      "import": {
+        "types": "./dist/providers.d.mts",
+        "default": "./dist/providers.mjs"
+      },
+      "require": {
+        "types": "./dist/providers.d.cts",
+        "default": "./dist/providers.cjs"
+      }
+    },
     "./react-native": {
       "import": {
         "types": "./dist/react-native.d.mts",
@@ -163,6 +173,9 @@
       ],
       "core": [
         "./dist/core.d.cts"
+      ],
+      "providers": [
+        "./dist/providers.d.cts"
       ],
       "react-native": [
         "./dist/react-native.d.cts"
