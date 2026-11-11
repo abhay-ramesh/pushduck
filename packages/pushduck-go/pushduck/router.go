@@ -204,7 +204,10 @@ func (router *Router) presign(
 			continue
 		}
 
-		key := generateKey(file.Name)
+		key, err := route.objectKey(r, file)
+		if err != nil {
+			return err
+		}
 		host, path := router.config.objectAddress(key)
 
 		headers := map[string]string{"x-amz-acl": "private"}

@@ -74,6 +74,18 @@ type FileMeta struct {
 // the status; any other error becomes a 500 with its detail withheld.
 type MetadataHook func(r *http.Request, file FileMeta) (map[string]any, error)
 
+// StoragePathHook chooses where a file is stored: it returns a path
+// *fragment*, such as `tenant-42/avatars/photo.jpg`.
+//
+// pushduck owns the result. A fragment that is empty, absolute, contains a
+// `?`, `#`, `%`, a control or bidi character, an empty, `.` or `..` segment,
+// or exceeds S3's 1024-byte limit is refused with CONFIG_INVALID; every
+// remaining segment is sanitised exactly as a default key is, so non-Latin
+// names survive and spaces do not.
+//
+// Returning an error rejects the whole request, as a MetadataHook's does.
+type StoragePathHook func(r *http.Request, file FileMeta) (string, error)
+
 // CompleteHook runs once an upload finishes.
 //
 // This is where an application inserts the database row, attaches the file to
@@ -86,7 +98,11 @@ type Route struct {
 	MaxSize    int64
 	AllowTypes []string
 	Metadata   []MetadataHook
-	OnComplete CompleteHook
+	// StoragePath scopes object keys. Nil keeps the default — the sanitised
+	// filename alone — under which two users uploading `photo.jpg` write the
+	// same object.
+	StoragePath StoragePathHook
+	OnComplete  CompleteHook
 	// AllowUntokenedCompletion tolerates a completion that presents no token.
 	//
 	// Inverted deliberately so the zero value is the safe one. A completion
@@ -124,6 +140,21 @@ func WithMetadata(hooks ...MetadataHook) RouteOption {
 	return func(route *Route) {
 		route.Metadata = append(route.Metadata, hooks...)
 	}
+}
+
+// WithStoragePath sets the hook that chooses each file's object key.
+//
+//	pushduck.WithStoragePath(func(r *http.Request, f pushduck.FileMeta) (string, error) {
+//	    user, err := authenticate(r)
+//	    if err != nil {
+//	        return "", pushduck.NewError("UNAUTHORIZED", "Sign in to upload")
+//	    }
+//	    return user.ID + "/" + f.Name, nil
+//	})
+//
+// It runs after the metadata hooks and validation, once per accepted file.
+func WithStoragePath(hook StoragePathHook) RouteOption {
+	return func(route *Route) { route.StoragePath = hook }
 }
 
 // OnComplete registers the completion hook.
