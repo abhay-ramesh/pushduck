@@ -9,6 +9,9 @@ export default defineConfig({
     // server-side module, so non-React bindings and vanilla consumers pull in
     // neither. Enforced by src/__tests__/architecture.test.ts.
     "src/core.ts",
+    // The provider registry on its own, for tooling such as the CLI: no
+    // framework, router or storage client.
+    "src/providers.ts",
     "src/react-native.ts",
     // Framework bindings. Each is a thin subscription over src/core/upload;
     // the framework itself is an optional peer, so a React-only consumer never
