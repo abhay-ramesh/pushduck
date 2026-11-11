@@ -6,6 +6,13 @@ import {
     S3Client,
 } from "@aws-sdk/client-s3";
 import chalk from "chalk";
+import {
+  createProvider,
+  PROVIDERS,
+  toStorageTarget,
+  type ProviderType as RegistryProviderType,
+  type StorageTarget,
+} from "pushduck/providers";
 import inquirer from "inquirer";
 import ora from "ora";
 
@@ -129,28 +136,10 @@ const PROVIDER_INFO = {
       "AWS_REGION",
       "NEON_STORAGE_BUCKET",
     ],
-    regions: [
-      {
-        name: "us-east-2 (Ohio)",
-        value: "us-east-2",
-        description: "AWS US East (Ohio)",
-      },
-      {
-        name: "us-east-1 (N. Virginia)",
-        value: "us-east-1",
-        description: "AWS US East (N. Virginia)",
-      },
-      {
-        name: "eu-central-1 (Frankfurt)",
-        value: "eu-central-1",
-        description: "AWS Europe (Frankfurt)",
-      },
-      {
-        name: "ap-southeast-1 (Singapore)",
-        value: "ap-southeast-1",
-        description: "AWS Asia Pacific (Singapore)",
-      },
-    ],
+    // No picker: a Neon branch endpoint carries its region, and the library
+    // reads it from there. Asking first — before the endpoint — invited a
+    // guess that contradicts it.
+    regions: [],
   },
   gcs: {
     name: "Google Cloud Storage",
@@ -170,6 +159,65 @@ const PROVIDER_INFO = {
     ],
   },
 };
+
+/**
+ * The library's name for each provider the CLI offers.
+ *
+ * The CLI keeps its own short names (`--provider digitalocean`) for the
+ * prompts and flags; everything about where requests go comes from the same
+ * provider definitions the server uses.
+ */
+const REGISTRY_KEY: Record<ProviderType, RegistryProviderType> = {
+  aws: "aws",
+  "cloudflare-r2": "cloudflareR2",
+  digitalocean: "digitalOceanSpaces",
+  minio: "minio",
+  neon: "neonStorage",
+  gcs: "gcs",
+};
+
+/**
+ * Resolves the collected credentials exactly as the server will — endpoint,
+ * signing region, path style — so a bucket the CLI can reach is one the app
+ * can reach, and an unset region falls back to the provider's own default
+ * (or, for Neon, the region in its endpoint) instead of failing.
+ *
+ * @throws {Error} When the credentials do not make a valid provider config
+ */
+export function resolveTarget(
+  credentials: Partial<ProviderCredentials>,
+  provider: ProviderType
+): StorageTarget {
+  const key = REGISTRY_KEY[provider];
+  const accepted = new Set<string>(PROVIDERS[key].fields);
+
+  // Only the options this provider takes, and only the ones that are set:
+  // an empty region must mean "use the default", not "sign with no region".
+  const options = Object.fromEntries(
+    Object.entries({
+      bucket: credentials.bucket,
+      accessKeyId: credentials.accessKeyId,
+      secretAccessKey: credentials.secretAccessKey,
+      region: credentials.region,
+      endpoint: credentials.endpoint,
+      accountId: credentials.accountId,
+    }).filter(([option, value]) => accepted.has(option) && value)
+  );
+
+  return toStorageTarget(createProvider(key, options as never));
+}
+
+function s3ClientFor(target: StorageTarget): S3Client {
+  return new S3Client({
+    region: target.region,
+    endpoint: target.endpoint,
+    forcePathStyle: target.forcePathStyle === true,
+    credentials: {
+      accessKeyId: target.accessKeyId,
+      secretAccessKey: target.secretAccessKey,
+    },
+  });
+}
 
 export async function selectProvider(
   skipSelection?: ProviderType
@@ -349,7 +397,8 @@ export async function promptForMissingCredentials(
   return {
     accessKeyId: existing.accessKeyId || "",
     secretAccessKey: existing.secretAccessKey || "",
-    region: existing.region || answers.region || providerInfo.regions[0].value,
+    region:
+      existing.region || answers.region || providerInfo.regions[0]?.value || "",
     bucket: existing.bucket || answers.bucket,
     endpoint: existing.endpoint || answers.endpoint,
     accountId: existing.accountId || answers.accountId,
@@ -387,37 +436,8 @@ export async function createS3Bucket(
   const spinner = ora("Creating S3 bucket...").start();
 
   try {
-    let endpoint: string | undefined;
-
-    // Set endpoint based on provider
-    switch (provider) {
-      case "cloudflare-r2":
-        endpoint = `https://${credentials.accountId}.r2.cloudflarestorage.com`;
-        break;
-      case "digitalocean":
-        endpoint = `https://${credentials.region}.digitaloceanspaces.com`;
-        break;
-      case "minio":
-        endpoint = `http://${credentials.endpoint}`;
-        break;
-      case "neon":
-        endpoint = credentials.endpoint;
-        break;
-      case "gcs":
-        endpoint = "https://storage.googleapis.com";
-        break;
-      // AWS S3 uses default endpoint
-    }
-
-    const s3Client = new S3Client({
-      region: credentials.region,
-      credentials: {
-        accessKeyId: credentials.accessKeyId,
-        secretAccessKey: credentials.secretAccessKey,
-      },
-      endpoint,
-      forcePathStyle: provider === "minio" || provider === "neon", // MinIO and Neon require path-style
-    });
+    const target = resolveTarget(credentials, provider);
+    const s3Client = s3ClientFor(target);
 
     // Check if bucket already exists
     try {
@@ -434,9 +454,7 @@ export async function createS3Bucket(
     await s3Client.send(
       new CreateBucketCommand({
         Bucket: credentials.bucket,
-        CreateBucketConfiguration: toCreateBucketConfiguration(
-          credentials.region
-        ),
+        CreateBucketConfiguration: toCreateBucketConfiguration(target.region),
       })
     );
 
@@ -479,35 +497,7 @@ export async function testConnection(
   const spinner = ora("Testing S3 connection...").start();
 
   try {
-    let endpoint: string | undefined;
-
-    switch (provider) {
-      case "cloudflare-r2":
-        endpoint = `https://${credentials.accountId}.r2.cloudflarestorage.com`;
-        break;
-      case "digitalocean":
-        endpoint = `https://${credentials.region}.digitaloceanspaces.com`;
-        break;
-      case "minio":
-        endpoint = `http://${credentials.endpoint}`;
-        break;
-      case "neon":
-        endpoint = credentials.endpoint;
-        break;
-      case "gcs":
-        endpoint = "https://storage.googleapis.com";
-        break;
-    }
-
-    const s3Client = new S3Client({
-      region: credentials.region,
-      credentials: {
-        accessKeyId: credentials.accessKeyId,
-        secretAccessKey: credentials.secretAccessKey,
-      },
-      endpoint,
-      forcePathStyle: provider === "minio" || provider === "neon",
-    });
+    const s3Client = s3ClientFor(resolveTarget(credentials, provider));
 
     await s3Client.send(new HeadBucketCommand({ Bucket: credentials.bucket }));
 
@@ -560,7 +550,8 @@ export function generateEnvVariables(
       env["AWS_ACCESS_KEY_ID"] = credentials.accessKeyId;
       env["AWS_SECRET_ACCESS_KEY"] = credentials.secretAccessKey;
       env["AWS_ENDPOINT_URL_S3"] = credentials.endpoint || "";
-      env["AWS_REGION"] = credentials.region;
+      // Only when it was given: otherwise the region comes from the endpoint.
+      if (credentials.region) env["AWS_REGION"] = credentials.region;
       env["NEON_STORAGE_BUCKET"] = credentials.bucket;
       break;
 
