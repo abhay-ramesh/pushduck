@@ -66,6 +66,31 @@ func requireUser(r *http.Request, file pushduck.FileMeta) (map[string]any, error
   hostnames, credentials and query fragments that nobody vetted for disclosure.
 </Callout>
 
+## Scoping object keys
+
+By default a file's key is its sanitised name, so two users uploading
+`photo.jpg` write the same object. `WithStoragePath` chooses the key — the
+counterpart of TypeScript's `.paths()` and Python's `storage_path`:
+
+```go
+pushduck.Image(
+    pushduck.WithStoragePath(func(r *http.Request, f pushduck.FileMeta) (string, error) {
+        user, err := authenticate(r)
+        if err != nil {
+            return "", pushduck.NewError("UNAUTHORIZED", "Sign in to upload")
+        }
+        return "users/" + user.ID + "/" + f.Name, nil
+    }),
+)
+```
+
+The hook returns a path fragment and pushduck owns the result. A fragment that
+is empty or absolute, contains `?`, `#`, `%`, a control or bidi character, an
+empty, `.` or `..` segment, or exceeds 1024 bytes fails with `CONFIG_INVALID`.
+Every other segment is sanitised exactly like a default key, so non-Latin names
+survive. Single-PUT and multipart uploads both use it, and the completion token
+binds the scoped key.
+
 ## Mounting
 
 `http.Handler` is the interface net/http, chi and gorilla already speak, and
@@ -154,6 +179,7 @@ and reads the bytes back byte-identical.
 | Multipart uploads | yes — init, sign, complete, abort, list |
 | Resume after interruption | yes, verified against real storage |
 | Completion tokens | yes |
+| Key scoping (`WithStoragePath`) | yes |
 | Temporary credentials (STS) | yes |
 | S3-compatible providers | yes — R2, MinIO, Spaces, path-style addressing |
 | Resume across server restarts | no server-side session store yet |

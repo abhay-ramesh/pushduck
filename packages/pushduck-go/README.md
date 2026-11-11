@@ -31,6 +31,31 @@ Your React, Vue, Svelte or Solid frontend needs no changes:
 const upload = createUploadClient({ endpoint: "/api/upload" });
 ```
 
+## Scoping object keys
+
+By default a file's key is its sanitised name, so two users uploading
+`photo.jpg` write the same object. `WithStoragePath` chooses the key instead —
+the Go counterpart of TypeScript's `.paths()` and Python's `storage_path`:
+
+```go
+pushduck.Image(
+    pushduck.WithStoragePath(func(r *http.Request, f pushduck.FileMeta) (string, error) {
+        user, err := authenticate(r)
+        if err != nil {
+            return "", pushduck.NewError("UNAUTHORIZED", "Sign in to upload")
+        }
+        return "users/" + user.ID + "/" + f.Name, nil
+    }),
+)
+```
+
+The hook returns a fragment and pushduck owns the result: it refuses an empty
+or absolute path, `?`, `#`, `%`, control and bidi characters, empty, `.` or
+`..` segments, and anything over 1024 bytes, with `CONFIG_INVALID`; then it
+sanitises every segment exactly as a default key, so non-Latin names survive.
+Single-PUT and multipart uploads both use it, and the completion token binds the
+scoped key.
+
 ## Why there is no adapter package
 
 `http.Handler` is the interface net/http, chi and gorilla already speak, and
@@ -82,7 +107,8 @@ the conformance fixtures deliberately match them by shape and cannot:
 
 ## Status
 
-Implemented: introspection, presign, complete, metadata hooks, RFC 9457 errors,
+Implemented: introspection, presign, complete, metadata hooks, key scoping
+(`WithStoragePath`), RFC 9457 errors,
 completion tokens, per-file validation, SigV4 with temporary credentials,
 S3-compatible endpoints with path-style addressing, and **multipart uploads** —
 init, sign, complete, abort and list, with HMAC session tokens.
