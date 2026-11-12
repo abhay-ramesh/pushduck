@@ -152,6 +152,8 @@ jobs:
     timeout-minutes: 10
     needs: [validate-release, test, build]
     if: ${{ needs.validate-release.outputs.packages_changed == 'true' }}
+    outputs:
+      skipped: ${{ steps.prepublish.outputs.skipped }}
     permissions:
       contents: write # Required for editing releases
       id-token: write # Required for npm trusted publishing (OIDC) and provenance
@@ -198,6 +200,7 @@ jobs:
           npm --version
 
       - name: 🔍 Pre-publish validation
+        id: prepublish
         run: |
           VERSION="${{ needs.validate-release.outputs.version }}"
 
@@ -236,6 +239,7 @@ jobs:
             
             # Allow the workflow to continue but we'll skip actual publishing
             echo "SKIP_PUBLISH=true" >> $GITHUB_ENV
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
           elif [ "$PUSHDUCK_AVAILABLE" = false ] || [ "$CLI_AVAILABLE" = false ]; then
             echo "❌ Partial publication detected. This is an inconsistent state."
             echo "📋 Manual intervention may be required."
@@ -243,6 +247,7 @@ jobs:
           else
             echo "✅ Version $VERSION is available for publishing both packages"
             echo "SKIP_PUBLISH=false" >> $GITHUB_ENV
+            echo "skipped=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: 📤 Publish pushduck package
@@ -374,6 +379,8 @@ jobs:
 
     steps:
       - name: 🎉 Success summary
+        env:
+          SKIPPED: ${{ needs.publish-npm.outputs.skipped }}
         run: |
           VERSION="${{ needs.validate-release.outputs.version }}"
           TAG="${{ github.event.release.tag_name }}"
@@ -382,9 +389,15 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Tests passed**" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Packages built**" >> $GITHUB_STEP_SUMMARY
-          echo "🔏 **Staged on npm: approve on npmjs.com to publish**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 📦 Packages (live after approval)" >> $GITHUB_STEP_SUMMARY
+          if [ "$SKIPPED" = "true" ]; then
+            echo "⏭️ **Already on npm: nothing was staged**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## 📦 Packages" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🔏 **Staged on npm: approve on npmjs.com to publish**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## 📦 Packages (live after approval)" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "- [\`pushduck@$VERSION\`](https://www.npmjs.com/package/pushduck/v/$VERSION)" >> $GITHUB_STEP_SUMMARY
           echo "- [\`@pushduck/cli@$VERSION\`](https://www.npmjs.com/package/@pushduck/cli/v/$VERSION)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
