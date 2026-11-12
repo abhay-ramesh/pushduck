@@ -154,7 +154,7 @@ jobs:
     if: ${{ needs.validate-release.outputs.packages_changed == 'true' }}
     permissions:
       contents: write # Required for editing releases
-      id-token: write # Required for npm provenance
+      id-token: write # Required for npm trusted publishing (OIDC) and provenance
 
     steps:
       - name: 📥 Checkout
@@ -185,21 +185,15 @@ jobs:
           # in an earlier job, and then failed rebuilding it during publish.
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
-          always-auth: true
 
-      - name: 🔐 Verify NPM authentication
+      # Trusted publishing (OIDC): npm exchanges this job's GitHub identity
+      # for a short-lived publish credential. No NPM_TOKEN secret exists or is
+      # needed. The package must list this repo + publish-packages.yml as its
+      # Trusted Publisher on npmjs.com. Requires npm >= 11.5.1.
+      - name: 🔐 Use npm with trusted publishing support
         run: |
-          if [ -z "$NPM_TOKEN" ]; then
-            echo "❌ NPM_TOKEN is not set"
-            exit 1
-          fi
-          echo "✅ NPM token is configured"
-
-          # Test authentication
-          npm whoami
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm install -g npm@11.11.0
+          npm --version
 
       - name: 🔍 Pre-publish validation
         run: |
@@ -266,8 +260,6 @@ jobs:
             echo "📦 Publishing stable version..."
             npm publish --provenance --access public
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: 📤 Publish CLI package
         run: |
@@ -286,8 +278,6 @@ jobs:
             echo "📦 Publishing stable CLI version..."
             npm publish --provenance --access public
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: ✅ Verify publication
         run: |
