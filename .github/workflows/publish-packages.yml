@@ -152,9 +152,11 @@ jobs:
     timeout-minutes: 10
     needs: [validate-release, test, build]
     if: ${{ needs.validate-release.outputs.packages_changed == 'true' }}
+    outputs:
+      skipped: ${{ steps.prepublish.outputs.skipped }}
     permissions:
       contents: write # Required for editing releases
-      id-token: write # Required for npm provenance
+      id-token: write # Required for npm trusted publishing (OIDC) and provenance
 
     steps:
       - name: 📥 Checkout
@@ -185,23 +187,20 @@ jobs:
           # in an earlier job, and then failed rebuilding it during publish.
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
-          always-auth: true
 
-      - name: 🔐 Verify NPM authentication
+      # Trusted publishing (OIDC) + staged publishing: npm exchanges this
+      # job's GitHub identity for a short-lived credential that can only STAGE
+      # a version. Nothing goes public until a maintainer approves it on
+      # npmjs.com with 2FA (`npm stage approve`). No NPM_TOKEN exists. The
+      # package must list this repo + publish-packages.yml as its Trusted
+      # Publisher on npmjs.com. `npm stage` needs npm >= 11.21.
+      - name: 🔐 Use npm with trusted + staged publishing support
         run: |
-          if [ -z "$NPM_TOKEN" ]; then
-            echo "❌ NPM_TOKEN is not set"
-            exit 1
-          fi
-          echo "✅ NPM token is configured"
-
-          # Test authentication
-          npm whoami
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm install -g npm@11.21.2
+          npm --version
 
       - name: 🔍 Pre-publish validation
+        id: prepublish
         run: |
           VERSION="${{ needs.validate-release.outputs.version }}"
 
@@ -240,6 +239,7 @@ jobs:
             
             # Allow the workflow to continue but we'll skip actual publishing
             echo "SKIP_PUBLISH=true" >> $GITHUB_ENV
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
           elif [ "$PUSHDUCK_AVAILABLE" = false ] || [ "$CLI_AVAILABLE" = false ]; then
             echo "❌ Partial publication detected. This is an inconsistent state."
             echo "📋 Manual intervention may be required."
@@ -247,6 +247,7 @@ jobs:
           else
             echo "✅ Version $VERSION is available for publishing both packages"
             echo "SKIP_PUBLISH=false" >> $GITHUB_ENV
+            echo "skipped=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: 📤 Publish pushduck package
@@ -261,13 +262,11 @@ jobs:
           # Publish with provenance and public access
           if [[ "${{ needs.validate-release.outputs.is_prerelease }}" == "true" ]]; then
             echo "📦 Publishing prerelease version..."
-            npm publish --provenance --access public --tag beta
+            npm stage publish --provenance --access public --tag beta
           else
             echo "📦 Publishing stable version..."
-            npm publish --provenance --access public
+            npm stage publish --provenance --access public
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: 📤 Publish CLI package
         run: |
@@ -281,60 +280,25 @@ jobs:
           # Publish with provenance and public access
           if [[ "${{ needs.validate-release.outputs.is_prerelease }}" == "true" ]]; then
             echo "📦 Publishing prerelease CLI version..."
-            npm publish --provenance --access public --tag beta
+            npm stage publish --provenance --access public --tag beta
           else
             echo "📦 Publishing stable CLI version..."
-            npm publish --provenance --access public
+            npm stage publish --provenance --access public
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: ✅ Verify publication
+      - name: 🔏 Approval needed
+        if: env.SKIP_PUBLISH != 'true'
         run: |
           VERSION="${{ needs.validate-release.outputs.version }}"
-
-          # Function to verify package with retries
-          verify_package() {
-            local package_name=$1
-            local max_attempts=5
-            local delay=10
-
-            for attempt in $(seq 1 $max_attempts); do
-              echo "🔍 Attempt $attempt/$max_attempts: Verifying $package_name@$VERSION..."
-              
-              if npm view "$package_name@$VERSION" version 2>/dev/null; then
-                echo "✅ $package_name@$VERSION verified successfully!"
-                return 0
-              else
-                if [ $attempt -lt $max_attempts ]; then
-                  echo "⏳ Package not yet available, waiting ${delay}s before retry..."
-                  sleep $delay
-                else
-                  echo "❌ Failed to verify $package_name@$VERSION after $max_attempts attempts"
-                  echo "🔍 Checking if package exists with different version..."
-                  npm view "$package_name" versions --json 2>/dev/null || echo "Package not found in registry"
-                  return 1
-                fi
-              fi
-            done
-          }
-
-          # Verify both packages
-          echo "🔍 Verifying package publications..."
-
-          if verify_package "pushduck"; then
-            echo "✅ pushduck package verified"
-          else
-            echo "⚠️ pushduck verification failed, but package may have been published"
-          fi
-
-          if verify_package "@pushduck/cli"; then
-            echo "✅ CLI package verified"
-          else
-            echo "⚠️ CLI verification failed, but package may have been published"
-          fi
-
-          echo "📦 Publication process completed. Note: npm registry may take a few minutes to fully propagate."
+          {
+            echo "## 🔏 Staged on npm: approve to publish"
+            echo ""
+            echo "\`pushduck@$VERSION\` and \`@pushduck/cli@$VERSION\` are staged, not public yet."
+            echo "Approve each one with 2FA on npmjs.com, or run \`npm stage list pushduck\` and \`npm stage approve <id>\`."
+            echo ""
+            echo "- https://www.npmjs.com/package/pushduck"
+            echo "- https://www.npmjs.com/package/@pushduck/cli"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 📝 Enhance release notes
         run: |
@@ -415,6 +379,8 @@ jobs:
 
     steps:
       - name: 🎉 Success summary
+        env:
+          SKIPPED: ${{ needs.publish-npm.outputs.skipped }}
         run: |
           VERSION="${{ needs.validate-release.outputs.version }}"
           TAG="${{ github.event.release.tag_name }}"
@@ -423,9 +389,15 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Tests passed**" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Packages built**" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Published to NPM**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 📦 Published Packages" >> $GITHUB_STEP_SUMMARY
+          if [ "$SKIPPED" = "true" ]; then
+            echo "⏭️ **Already on npm: nothing was staged**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## 📦 Packages" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🔏 **Staged on npm: approve on npmjs.com to publish**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## 📦 Packages (live after approval)" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "- [\`pushduck@$VERSION\`](https://www.npmjs.com/package/pushduck/v/$VERSION)" >> $GITHUB_STEP_SUMMARY
           echo "- [\`@pushduck/cli@$VERSION\`](https://www.npmjs.com/package/@pushduck/cli/v/$VERSION)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
