@@ -186,13 +186,15 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
-      # Trusted publishing (OIDC): npm exchanges this job's GitHub identity
-      # for a short-lived publish credential. No NPM_TOKEN secret exists or is
-      # needed. The package must list this repo + publish-packages.yml as its
-      # Trusted Publisher on npmjs.com. Requires npm >= 11.5.1.
-      - name: 🔐 Use npm with trusted publishing support
+      # Trusted publishing (OIDC) + staged publishing: npm exchanges this
+      # job's GitHub identity for a short-lived credential that can only STAGE
+      # a version. Nothing goes public until a maintainer approves it on
+      # npmjs.com with 2FA (`npm stage approve`). No NPM_TOKEN exists. The
+      # package must list this repo + publish-packages.yml as its Trusted
+      # Publisher on npmjs.com. `npm stage` needs npm >= 11.21.
+      - name: 🔐 Use npm with trusted + staged publishing support
         run: |
-          npm install -g npm@11.11.0
+          npm install -g npm@11.21.2
           npm --version
 
       - name: 🔍 Pre-publish validation
@@ -255,10 +257,10 @@ jobs:
           # Publish with provenance and public access
           if [[ "${{ needs.validate-release.outputs.is_prerelease }}" == "true" ]]; then
             echo "📦 Publishing prerelease version..."
-            npm publish --provenance --access public --tag beta
+            npm stage publish --provenance --access public --tag beta
           else
             echo "📦 Publishing stable version..."
-            npm publish --provenance --access public
+            npm stage publish --provenance --access public
           fi
 
       - name: 📤 Publish CLI package
@@ -273,58 +275,25 @@ jobs:
           # Publish with provenance and public access
           if [[ "${{ needs.validate-release.outputs.is_prerelease }}" == "true" ]]; then
             echo "📦 Publishing prerelease CLI version..."
-            npm publish --provenance --access public --tag beta
+            npm stage publish --provenance --access public --tag beta
           else
             echo "📦 Publishing stable CLI version..."
-            npm publish --provenance --access public
+            npm stage publish --provenance --access public
           fi
 
-      - name: ✅ Verify publication
+      - name: 🔏 Approval needed
+        if: env.SKIP_PUBLISH != 'true'
         run: |
           VERSION="${{ needs.validate-release.outputs.version }}"
-
-          # Function to verify package with retries
-          verify_package() {
-            local package_name=$1
-            local max_attempts=5
-            local delay=10
-
-            for attempt in $(seq 1 $max_attempts); do
-              echo "🔍 Attempt $attempt/$max_attempts: Verifying $package_name@$VERSION..."
-              
-              if npm view "$package_name@$VERSION" version 2>/dev/null; then
-                echo "✅ $package_name@$VERSION verified successfully!"
-                return 0
-              else
-                if [ $attempt -lt $max_attempts ]; then
-                  echo "⏳ Package not yet available, waiting ${delay}s before retry..."
-                  sleep $delay
-                else
-                  echo "❌ Failed to verify $package_name@$VERSION after $max_attempts attempts"
-                  echo "🔍 Checking if package exists with different version..."
-                  npm view "$package_name" versions --json 2>/dev/null || echo "Package not found in registry"
-                  return 1
-                fi
-              fi
-            done
-          }
-
-          # Verify both packages
-          echo "🔍 Verifying package publications..."
-
-          if verify_package "pushduck"; then
-            echo "✅ pushduck package verified"
-          else
-            echo "⚠️ pushduck verification failed, but package may have been published"
-          fi
-
-          if verify_package "@pushduck/cli"; then
-            echo "✅ CLI package verified"
-          else
-            echo "⚠️ CLI verification failed, but package may have been published"
-          fi
-
-          echo "📦 Publication process completed. Note: npm registry may take a few minutes to fully propagate."
+          {
+            echo "## 🔏 Staged on npm: approve to publish"
+            echo ""
+            echo "\`pushduck@$VERSION\` and \`@pushduck/cli@$VERSION\` are staged, not public yet."
+            echo "Approve each one with 2FA on npmjs.com, or run \`npm stage list pushduck\` and \`npm stage approve <id>\`."
+            echo ""
+            echo "- https://www.npmjs.com/package/pushduck"
+            echo "- https://www.npmjs.com/package/@pushduck/cli"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 📝 Enhance release notes
         run: |
@@ -413,9 +382,9 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Tests passed**" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Packages built**" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Published to NPM**" >> $GITHUB_STEP_SUMMARY
+          echo "🔏 **Staged on npm: approve on npmjs.com to publish**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 📦 Published Packages" >> $GITHUB_STEP_SUMMARY
+          echo "## 📦 Packages (live after approval)" >> $GITHUB_STEP_SUMMARY
           echo "- [\`pushduck@$VERSION\`](https://www.npmjs.com/package/pushduck/v/$VERSION)" >> $GITHUB_STEP_SUMMARY
           echo "- [\`@pushduck/cli@$VERSION\`](https://www.npmjs.com/package/@pushduck/cli/v/$VERSION)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
