@@ -347,10 +347,10 @@ def test_around_rejects_a_plain_function_at_registration():
 # ─── on_complete ─────────────────────────────────────────────────────────────
 
 
-def test_on_complete_receives_server_metadata():
+def test_on_complete_receives_server_metadata(storage):
     seen = []
 
-    router = Router(CONFIG)
+    router = Router(storage.config())
     router.add(
         "avatar",
         Route(
@@ -366,6 +366,7 @@ def test_on_complete_receives_server_metadata():
     issued = body_of(run(router, presign_request(
         [{"name": "me.png", "size": 10, "type": "image/png"}]
     )))["results"][0]
+    storage.put(issued["key"], 10, "image/png")
 
     request = Request(
         method="POST",
@@ -513,10 +514,11 @@ def test_an_untokened_completion_is_refused():
     assert fired == [], "the hook ran for a key that was never presigned"
 
 
-def test_a_deployment_can_opt_out_for_older_clients():
+def test_a_deployment_can_opt_out_for_older_clients(storage):
     fired = []
+    storage.put("uploads/photo.png", 10, "image/png")
 
-    router = Router(CONFIG)
+    router = Router(storage.config())
     router.add("avatar", Route(
         schema=image(),
         require_completion_token=False,

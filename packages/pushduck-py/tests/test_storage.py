@@ -100,6 +100,40 @@ class SingleObjects(unittest.TestCase):
         self.assertEqual(put(url, headers, b"hi"), 403)
         self.assertEqual(put(url, headers, b"hello"), 200)
 
+    def test_completion_verifies_the_object(self) -> None:
+        completed = []
+        self.router.add("verified", Route(
+            schema=file(max_size="1MB"),
+            on_complete=[lambda ctx, done: completed.append(done)],
+        ))
+        name = f"py-verify-{time.time_ns()}.txt"
+
+        def call(action: str, body: dict) -> dict:
+            response = asyncio.run(self.router.handle(Request(
+                method="POST",
+                path="/api/upload",
+                query={"route": "verified", "action": action},
+                headers={},
+                body=json.dumps(body).encode(),
+            )))
+            return json.loads(response.body)
+
+        declared = {"name": name, "size": 5, "type": "text/plain"}
+        issued = call("presign", {"files": [declared]})["results"][0]
+        completion = {"completions": [{
+            "key": issued["key"], "file": declared, "completionToken": issued["completionToken"],
+        }]}
+
+        early = call("complete", completion)["results"][0]
+        self.assertEqual((early["success"], early["code"]), (False, "NOT_FOUND"))
+
+        self.assertEqual(put(issued["presignedUrl"], issued["requiredHeaders"], b"hello"), 200)
+
+        done = call("complete", completion)["results"][0]
+        self.assertTrue(done["success"], done)
+        self.assertEqual(len(completed), 1)
+        self.assertEqual((completed[0].object.size, completed[0].object.content_type), (5, "text/plain"))
+
     def test_a_refused_credential_is_not_a_missing_object(self) -> None:
         # Read as "missing", completion would refuse every upload as never
         # having arrived, with the real cause invisible.

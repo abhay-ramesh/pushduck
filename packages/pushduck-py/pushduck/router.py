@@ -38,6 +38,7 @@ from .multipart import (
     verify_session,
 )
 from .sign import presign
+from .storage import delete_object, head_object
 
 #: The wire contract this implementation speaks.
 PROTOCOL_VERSION = 1
@@ -633,7 +634,36 @@ class Router:
 
         Nothing about an upload's outcome depends on how large the file was:
         the same observers fire with the same record.
+
+        1. **Observe the object.** Everything the client said about the file
+           was a claim: the browser chooses the Content-Type, and a multipart
+           part's length is not signed. So storage is asked what it holds.
+           Nothing there means the upload never happened; an object that breaks
+           the route's schema — too large, a type it does not accept — is
+           deleted, so the schema holds for what is stored and not only for
+           what was declared.
+        2. **Run** ``on_complete`` with the upload's authoritative record: the
+           metadata sealed at presign and the file as observed.
         """
+        # A 403 here is STORAGE_ACCESS_DENIED: an upload that cannot be
+        # verified is not accepted.
+        stored_object = head_object(self.config, upload.key)
+        if stored_object is None:
+            raise UploadError(
+                "NOT_FOUND", "No object was uploaded to this key — the upload did not finish"
+            )
+
+        stored = FileMeta(
+            name=upload.file.name, size=stored_object.size, type=stored_object.content_type
+        )
+        message = route.schema.validate(stored) if route.schema is not None else None
+        if message:
+            delete_object(self.config, upload.key)
+            raise UploadError(
+                "VALIDATION_FAILED", f"The stored file was rejected and removed: {message}"
+            )
+        upload = _replace(upload, file=stored)
+
         scheme, host, path = self.config.object_address(upload.key)
         url = f"{scheme}://{host}{path}"
 
@@ -648,7 +678,13 @@ class Router:
             await _invoke(
                 observer,
                 scoped,
-                Completion(key=upload.key, file=upload.file, url=url, upload_id=upload.id),
+                Completion(
+                    key=upload.key,
+                    file=upload.file,
+                    url=url,
+                    upload_id=upload.id,
+                    object=stored_object,
+                ),
             )
 
         return {
