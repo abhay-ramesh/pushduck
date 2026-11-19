@@ -123,6 +123,14 @@ export const cloudflareR2 = defineProvider<CloudflareR2Config>({
         ]
       : [],
   supportsAcl: false,
+  cors: {
+    api: "s3",
+    // https://developers.cloudflare.com/r2/api/tokens/ — only "Admin Read &
+    // Write" may "edit bucket configuration"; the "Object Read & Write" token
+    // an app uploads with cannot.
+    permissionHint:
+      'Changing R2 bucket CORS needs an API token with "Admin Read & Write" permission; the "Object Read & Write" token your app uploads with cannot. Use an admin token for this command, or set the rules in the Cloudflare dashboard (R2 → bucket → Settings → CORS Policy).',
+  },
   addressing: (config) => ({
     endpoint: config.endpoint,
     // R2 signs with the literal region "auto".

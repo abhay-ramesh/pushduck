@@ -64,6 +64,15 @@ Region: us-east-1 (or closest to your users)
 **Comprehensive CORS Guide**: For detailed CORS configuration, testing, and troubleshooting, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).
 </Callout>
 
+Run these commands to check and fix CORS with the credentials in `.env.local`:
+
+```bash
+npx @pushduck/cli@latest cors check --origin http://localhost:3000 https://yourdomain.com
+npx @pushduck/cli@latest cors apply --origin http://localhost:3000 https://yourdomain.com
+```
+
+To set the rules by hand instead, use the steps below.
+
 Your web application needs permission to upload files directly to S3.
 
 1. **Open Your Bucket**: Click on your newly created bucket

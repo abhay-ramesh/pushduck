@@ -22,6 +22,8 @@ that target. It lives in one `defineProvider` call per file:
 `providers.ts` lists them in `PROVIDERS` and derives everything else from that
 object: `ProviderType`, `ProviderConfig`, `ProviderConfigMap`,
 `createProvider`, `validateProviderConfig` and `toStorageTarget`.
+`cors.ts` states what bucket CORS must allow for the browser client
+(`corsRequirements`, `corsRule`).
 
 ## Adding a provider
 
@@ -44,6 +46,11 @@ in addressing or ACL support.
    - `supportsAcl` — `false` if the service rejects `x-amz-acl`. Such a
      provider sets no `acl` default: `build()` warns whenever an `acl` is set
      on it, so one there must have come from the user.
+   - `cors` — how bucket CORS is managed: `{ api: "s3" }` when
+     `GetBucketCors`/`PutBucketCors` work (with a `permissionHint` if upload
+     credentials usually cannot change it), or `{ api: "external",
+     instructions }` that print the provider's own steps. `pushduck cors` and
+     `pushduck init` follow it; what the rules must allow is `cors.ts`.
    - `addressing` — the endpoint, signing region and path style. Use
      `awsSigningRegion()` unless the service signs with a non-AWS region the
      way R2 signs with `"auto"`.

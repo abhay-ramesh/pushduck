@@ -398,43 +398,21 @@ export async function initCommand(options: InitOptions = {}) {
       }
     }
 
-    // Step 11: CORS Setup Reminder
-    console.log(chalk.cyan("\n🔒 Important: CORS Configuration"));
-    console.log(chalk.yellow("Have you configured CORS for your bucket?"));
+    // Step 11: CORS — browser uploads go straight to the bucket, so the
+    // bucket must allow the app's origin. Point at the commands that check
+    // and fix it rather than asking whether it was done.
+    console.log(chalk.cyan("\n🔒 Bucket CORS"));
     console.log(
-      chalk.gray("File uploads from browsers require proper CORS settings.")
+      chalk.gray(
+        "Browsers upload straight to the bucket, so it must allow your app's origin."
+      )
     );
-
-    const corsLinks = getCORSLinks(provider);
-    console.log(chalk.cyan("\n📖 Setup guides:"));
-    console.log(`  CORS Setup: ${corsLinks.corsSetup}`);
-    console.log(`  Provider Docs: ${corsLinks.providerDocs}`);
-
-    const { corsConfigured } = await inquirer.prompt([
-      {
-        type: "confirm",
-        name: "corsConfigured",
-        message: "Have you already configured CORS?",
-        default: false,
-      },
-    ]);
-
-    if (!corsConfigured) {
-      console.log(
-        chalk.yellow("\n⚠ Please configure CORS before testing uploads:")
-      );
-      console.log(chalk.gray("  1. Follow the CORS setup guide above"));
-      console.log(
-        chalk.gray("  2. Test your configuration with: npx @pushduck/cli test")
-      );
-      console.log(
-        chalk.gray("  3. If uploads fail, double-check your CORS settings")
-      );
-    } else {
-      console.log(
-        chalk.green("\n✅ Great! Your CORS configuration should be ready.")
-      );
-    }
+    console.log(chalk.gray("  Check:  ") + "npx @pushduck/cli cors check --origin http://localhost:3000");
+    console.log(chalk.gray("  Fix:    ") + "npx @pushduck/cli cors apply --origin http://localhost:3000");
+    console.log(
+      chalk.gray("  Add your production origin with another --origin. Guide: ") +
+        getCORSLinks(provider).corsSetup
+    );
   } catch (error) {
     console.error(chalk.red("\n❌ Setup failed:"), error);
 

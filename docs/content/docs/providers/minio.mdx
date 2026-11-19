@@ -428,7 +428,7 @@ services:
 
 **Connection refused?** → Check MinIO is running and port 9000 is accessible  
 **Access denied?** → Verify access keys and bucket permissions  
-**CORS errors?** → Set bucket policy to allow your domain. For detailed CORS configuration, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).  
+**CORS errors?** → MinIO's CORS is server-wide, not per bucket. It allows every origin unless `MINIO_API_CORS_ALLOW_ORIGIN` is set, so add your origin there. Run `npx @pushduck/cli@latest cors check --origin <your origin>` to confirm. For detailed CORS configuration, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).  
 **Slow uploads?** → Check network connection and server resources  
 **SSL errors?** → Verify certificate configuration for custom domains
 

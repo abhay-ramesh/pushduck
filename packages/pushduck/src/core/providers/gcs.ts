@@ -1,3 +1,4 @@
+import type { CorsRule } from "./cors";
 import {
   awsSigningRegion,
   defineProvider,
@@ -40,6 +41,41 @@ export interface GoogleCloudStorageConfig extends BaseProviderConfig {
   region?: string;
 }
 
+/**
+ * The rules as GCS CORS JSON, and the gcloud command that applies them.
+ *
+ * GCS has one `responseHeader` list for both directions: it is matched
+ * against the preflight's requested headers and returned as the exposed
+ * headers, so it carries both.
+ */
+function gcloudCorsInstructions(
+  rules: readonly CorsRule[],
+  bucket: string
+): string {
+  const json = rules.map((rule) => ({
+    origin: rule.allowedOrigins,
+    method: rule.allowedMethods,
+    responseHeader: [
+      ...new Set([...rule.allowedHeaders, ...rule.exposeHeaders]),
+    ],
+    maxAgeSeconds: rule.maxAgeSeconds,
+  }));
+
+  return [
+    "Google Cloud Storage bucket CORS is set with gcloud, not the S3 API. Save this as cors.json:",
+    "",
+    JSON.stringify(json, null, 2),
+    "",
+    "then run:",
+    "",
+    `  gcloud storage buckets update gs://${bucket} --cors-file=cors.json`,
+    "",
+    "This replaces the bucket's CORS configuration. To keep rules you already have, merge them in first:",
+    "",
+    `  gcloud storage buckets describe gs://${bucket} --format="default(cors_config)"`,
+  ].join("\n");
+}
+
 export const gcs = defineProvider<GoogleCloudStorageConfig>({
   id: "gcs",
   name: "Google Cloud Storage",
@@ -78,6 +114,10 @@ export const gcs = defineProvider<GoogleCloudStorageConfig>({
   // reject x-amz-acl outright ("Cannot insert legacy ACL"). Access is granted
   // with IAM on the bucket instead.
   supportsAcl: false,
+  // GCS keeps bucket CORS in its own JSON format, set with gcloud or the JSON
+  // API; its XML API takes a different document than S3's PutBucketCors.
+  // https://cloud.google.com/storage/docs/using-cors
+  cors: { api: "external", instructions: gcloudCorsInstructions },
   addressing: (config) => ({
     endpoint: config.endpoint,
     region: awsSigningRegion(config.region || "auto"),

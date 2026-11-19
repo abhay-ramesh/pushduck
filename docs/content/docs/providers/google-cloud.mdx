@@ -138,7 +138,9 @@ The browser uploads straight to Google Cloud Storage, so the bucket must allow y
 gcloud storage buckets update gs://my-app-uploads --cors-file=cors.json
 ```
 
-This is Google Cloud Storage's own CORS format — not the S3 `CORSRules` format other providers use.
+This is Google Cloud Storage's own CORS format, not the S3 `CORSRules` format other providers use.
+
+`npx @pushduck/cli@latest cors check --origin http://localhost:3000` sends the browser's preflight and reports whether each origin passes. `cors apply` prints this JSON and the `gcloud` command for the origins you give it.
 
 </Step>
 

@@ -74,6 +74,7 @@ export const digitalOceanSpaces = defineProvider<DigitalOceanSpacesConfig>({
   }),
   required: ["accessKeyId", "secretAccessKey", "region"],
   supportsAcl: true,
+  cors: { api: "s3" },
   addressing: (config) => ({
     endpoint: config.endpoint,
     region: awsSigningRegion(config.region || "us-east-1"),

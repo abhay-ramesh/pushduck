@@ -5,7 +5,9 @@
  * requests go: the same definitions the server uses, without the server. Built
  * for code that sets pushduck up rather than runs it — the CLI resolves its
  * bucket checks through this, so `pushduck init` and the server can never
- * disagree about an endpoint, a signing region or path-style addressing.
+ * disagree about an endpoint, a signing region or path-style addressing —
+ * and `pushduck cors` checks bucket CORS against `corsRequirements`, the one
+ * statement of what the browser client sends.
  *
  * Free of any framework and of the router and storage client, so importing it
  * pulls in only the provider definitions.
@@ -22,7 +24,12 @@
  */
 
 export {
+  corsRequirements,
+  corsRule,
+  CORS_MAX_AGE_SECONDS,
+  CORS_RULE_ID,
   createProvider,
+  objectApiUrl,
   PROVIDERS,
   toStorageTarget,
   validateProviderConfig,
@@ -31,7 +38,10 @@ export {
 export type {
   AWSProviderConfig,
   BaseProviderConfig,
+  BucketCorsSupport,
   CloudflareR2Config,
+  CorsRequirement,
+  CorsRule,
   R2Jurisdiction,
   DigitalOceanSpacesConfig,
   GoogleCloudStorageConfig,

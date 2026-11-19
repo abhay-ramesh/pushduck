@@ -2,19 +2,22 @@ import {
     BucketLocationConstraint,
     CreateBucketCommand,
     HeadBucketCommand,
-    PutBucketCorsCommand,
     S3Client,
 } from "@aws-sdk/client-s3";
 import chalk from "chalk";
 import {
+  corsRule,
   createProvider,
   PROVIDERS,
   toStorageTarget,
+  type BucketCorsSupport,
   type ProviderType as RegistryProviderType,
   type StorageTarget,
 } from "pushduck/providers";
+import { config as loadEnvFile } from "dotenv";
 import inquirer from "inquirer";
 import ora from "ora";
+import { putBucketCors } from "./cors";
 
 export type ProviderType =
   | "aws"
@@ -214,7 +217,18 @@ export function resolveTarget(
   return toStorageTarget(createProvider(key, options as never));
 }
 
-function s3ClientFor(target: StorageTarget): S3Client {
+/**
+ * The library's definition of this provider — its display name and how its
+ * bucket CORS is managed — so the CLI never branches on a provider's name.
+ */
+export function definitionOf(provider: ProviderType): {
+  name: string;
+  cors: BucketCorsSupport;
+} {
+  return PROVIDERS[REGISTRY_KEY[provider]];
+}
+
+export function s3ClientFor(target: StorageTarget): S3Client {
   return new S3Client({
     region: target.region,
     endpoint: target.endpoint,
@@ -326,6 +340,49 @@ export async function detectExistingCredentials(
   }
 
   return credentials;
+}
+
+/** Every provider the CLI offers, in the order credentials are looked for. */
+export const PROVIDER_TYPES = Object.keys(PROVIDER_INFO) as ProviderType[];
+
+/**
+ * The provider whose credentials are configured, and those credentials.
+ *
+ * Reads the environment, after filling it from `.env.local` and `.env` in the
+ * working directory — the files the generated config tells people to use.
+ * Variables already set win. With `provider`, only that provider is
+ * considered; otherwise the first with a key pair and a bucket.
+ */
+export async function findConfiguredProvider(
+  provider?: ProviderType
+): Promise<
+  { provider: ProviderType; credentials: ProviderCredentials } | undefined
+> {
+  for (const path of [".env.local", ".env"]) {
+    loadEnvFile({ path, quiet: true });
+  }
+
+  for (const candidate of provider ? [provider] : PROVIDER_TYPES) {
+    const credentials = await detectExistingCredentials(candidate);
+    if (
+      credentials.accessKeyId &&
+      credentials.secretAccessKey &&
+      credentials.bucket
+    ) {
+      return {
+        provider: candidate,
+        credentials: {
+          ...credentials,
+          accessKeyId: credentials.accessKeyId,
+          secretAccessKey: credentials.secretAccessKey,
+          bucket: credentials.bucket,
+          region: credentials.region ?? "",
+        },
+      };
+    }
+  }
+
+  return undefined;
 }
 
 export async function promptForMissingCredentials(
@@ -468,29 +525,27 @@ export async function createS3Bucket(
       })
     );
 
-    // Set CORS configuration
-    const corsConfig = {
-      CORSRules: [
-        {
-          AllowedHeaders: ["*"],
-          AllowedMethods: ["GET", "PUT", "POST", "DELETE", "HEAD"],
-          AllowedOrigins: ["*"],
-          ExposeHeaders: ["ETag"],
-          MaxAgeSeconds: 3000,
-        },
-      ],
-    };
-
-    await s3Client.send(
-      new PutBucketCorsCommand({
-        Bucket: credentials.bucket,
-        CORSConfiguration: corsConfig,
-      })
-    );
-
     spinner.succeed("Bucket created successfully");
-    console.log(chalk.green("✓ CORS configuration applied"));
-    console.log(chalk.green("✓ Security settings configured"));
+
+    // The rule the browser client needs, for any origin: a new bucket has no
+    // app origin to name yet. `pushduck cors apply --origin` narrows it.
+    // Providers that keep CORS outside the S3 API say how to set it instead
+    // of failing a bucket that was just created.
+    const { cors } = definitionOf(provider);
+    const rule = corsRule(["*"], target);
+    if (cors.api === "s3") {
+      try {
+        await s3Client.send(putBucketCors(credentials.bucket, [rule]));
+        console.log(chalk.green("✓ CORS configured for browser uploads"));
+      } catch (error) {
+        console.log(chalk.yellow("⚠ Could not set the bucket's CORS rules"));
+        console.log(chalk.gray(`  ${error instanceof Error ? error.message : String(error)}`));
+        if (cors.permissionHint) console.log(chalk.gray(`  ${cors.permissionHint}`));
+      }
+    } else {
+      console.log(chalk.yellow("⚠ Set the bucket's CORS rules yourself:"));
+      console.log(cors.instructions([rule], credentials.bucket));
+    }
 
     return true;
   } catch (error) {

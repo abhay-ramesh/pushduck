@@ -4,6 +4,7 @@ import chalk from "chalk";
 import { Command } from "commander";
 import { addComponentCommand } from "./commands/add-component";
 import { addRouteCommand } from "./commands/add-route";
+import { corsApplyCommand, corsCheckCommand } from "./commands/cors";
 import { initCommand } from "./commands/init";
 import { testCommand } from "./commands/test";
 
@@ -33,6 +34,46 @@ program
   .description("Test your current S3 upload configuration")
   .option("--verbose", "Show detailed test output")
   .action(testCommand);
+
+const PROVIDER_OPTION = [
+  "--provider <type>",
+  "Use this provider's credentials (aws|cloudflare-r2|digitalocean|minio|neon|gcs); detected from the environment by default",
+] as const;
+
+const cors = program
+  .command("cors")
+  .description(
+    "Check or fix the bucket CORS rules browser uploads need"
+  );
+
+cors
+  .command("check")
+  .description(
+    "Report whether browser uploads and downloads from each origin pass the bucket's CORS"
+  )
+  .requiredOption(
+    "--origin <origins...>",
+    "Origins the app is served from, e.g. http://localhost:3000 https://app.example.com"
+  )
+  .option(...PROVIDER_OPTION)
+  .action(async (options) => {
+    process.exitCode = await corsCheckCommand(options);
+  });
+
+cors
+  .command("apply")
+  .description(
+    "Add origins to the bucket's CORS rules, keeping the rules already there"
+  )
+  .requiredOption(
+    "--origin <origins...>",
+    "Origins to allow; one * is allowed, e.g. https://*.example.com"
+  )
+  .option(...PROVIDER_OPTION)
+  .option("-y, --yes", "Apply without asking for confirmation")
+  .action(async (options) => {
+    process.exitCode = await corsApplyCommand(options);
+  });
 
 program
   .command("add-route")

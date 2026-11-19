@@ -144,7 +144,14 @@ Your routes, client hooks and components need no Neon-specific changes. See [Qui
 
 ## 4. Configure CORS
 
-Because the browser uploads directly to Neon, the bucket must allow your app's origin. Neon supports the S3 `PutBucketCors` operation, so you can apply rules with any S3 client pointed at your branch endpoint.
+Because the browser uploads directly to Neon, the bucket must allow your app's origin. Neon supports the S3 `PutBucketCors` operation, so the CLI can check and apply the rules using the variables `neon env pull` wrote:
+
+```bash
+npx @pushduck/cli@latest cors check --origin http://localhost:3000 https://yourdomain.com
+npx @pushduck/cli@latest cors apply --origin http://localhost:3000 https://yourdomain.com
+```
+
+To apply the rules with any S3 client pointed at your branch endpoint instead:
 
 Save this as `cors.json`:
 

@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import { detectProject } from "../utils/project-detector";
 import {
-  detectExistingCredentials,
+  findConfiguredProvider,
   testConnection,
 } from "../utils/provider-setup";
 
@@ -22,46 +22,25 @@ export async function testCommand(options: TestOptions = {}) {
       return;
     }
 
-    // Try to detect provider and credentials
-    const providers = [
-      "aws",
-      "cloudflare-r2",
-      "digitalocean",
-      "minio",
-      "neon",
-      "gcs",
-    ] as const;
-    let foundCredentials = false;
+    const found = await findConfiguredProvider();
 
-    for (const provider of providers) {
-      const credentials = await detectExistingCredentials(provider);
+    if (found) {
+      const { provider, credentials } = found;
+      console.log(chalk.green(`✓ Found ${provider.toUpperCase()} credentials`));
 
-      if (
-        credentials.accessKeyId &&
-        credentials.secretAccessKey &&
-        credentials.bucket
-      ) {
+      const works = await testConnection(credentials, provider);
+
+      if (works) {
+        console.log(chalk.green("✓ Connection test successful"));
         console.log(
-          chalk.green(`✓ Found ${provider.toUpperCase()} credentials`)
+          chalk.green("\nYour upload configuration is working correctly!")
         );
-
-        const works = await testConnection(credentials as any, provider);
-
-        if (works) {
-          console.log(chalk.green("✓ Connection test successful"));
-          console.log(
-            chalk.green("\nYour upload configuration is working correctly!")
-          );
-        } else {
-          console.log(chalk.red("Connection test failed"));
-        }
-
-        foundCredentials = true;
-        break;
+      } else {
+        console.log(chalk.red("Connection test failed"));
       }
     }
 
-    if (!foundCredentials) {
+    if (!found) {
       console.log(
         chalk.yellow("No valid credentials found in environment variables")
       );
