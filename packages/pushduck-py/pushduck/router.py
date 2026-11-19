@@ -425,6 +425,11 @@ class Router:
 
                 scheme, host, path = self.config.object_address(key)
 
+                # The declared size is signed, so storage refuses a body of any
+                # other length and `max_size` holds for the bytes that arrive,
+                # not only for the number the client sent. It is not handed back
+                # in requiredHeaders: a browser sets Content-Length from the
+                # body and will not let script set it.
                 url = presign(
                     access_key_id=self.config.access_key_id,
                     secret_access_key=self.config.secret_access_key,
@@ -434,7 +439,7 @@ class Router:
                     host=host,
                     path=path,
                     region=self.config.region,
-                    headers={"x-amz-acl": "private"},
+                    headers={"x-amz-acl": "private", "content-length": str(file.size)},
                     expires_in=self.config.upload_expiry,
                     now=self.config.now(),
                 )

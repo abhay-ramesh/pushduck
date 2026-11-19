@@ -87,6 +87,19 @@ class SingleObjects(unittest.TestCase):
         # Already gone is the desired end state.
         delete_object(self.config, key)
 
+    def test_a_presigned_put_refuses_any_length_but_the_declared_one(self) -> None:
+        # max_size is checked against the declared size; signing that size is
+        # what makes it hold for the bytes that arrive.
+        issued = self.presign(5)
+        url, headers = issued["presignedUrl"], issued["requiredHeaders"]
+
+        self.assertIn("content-length", url)
+        self.assertNotIn("content-length", {name.lower() for name in headers})
+
+        self.assertEqual(put(url, headers, b"hello, and then some"), 403)
+        self.assertEqual(put(url, headers, b"hi"), 403)
+        self.assertEqual(put(url, headers, b"hello"), 200)
+
     def test_a_refused_credential_is_not_a_missing_object(self) -> None:
         # Read as "missing", completion would refuse every upload as never
         # having arrived, with the real cause invisible.
