@@ -8,9 +8,11 @@ export { createS3Client, resetS3Client } from "./client";
 
 // Types (shared across all APIs)
 export type {
+  CopyFileOptions,
   DeleteByPrefixResult,
   DeleteError,
   DeleteFilesResult,
+  DownloadResponseOptions,
   FileInfo,
   FileInfoResult,
   FileKeyOptions,
@@ -18,9 +20,13 @@ export type {
   ListFilesOptions,
   ListFilesResult,
   PaginatedListOptions,
+  PresignedDownloadOptions,
   PresignedUrlOptions,
   PresignedUrlResult,
   ProgressCallback,
+  StoredObject,
+  UploadFileOptions,
   UploadProgress,
   ValidationRules,
 } from "./client";
+export type { ContentDispositionType } from "./content-disposition";

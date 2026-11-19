@@ -10,9 +10,11 @@ import * as client from "./client";
 
 // Types re-export for convenience
 export type {
+  CopyFileOptions,
   DeleteByPrefixResult,
   DeleteError,
   DeleteFilesResult,
+  DownloadResponseOptions,
   FileInfo,
   FileInfoResult,
   FileKeyOptions,
@@ -20,12 +22,16 @@ export type {
   ListFilesOptions,
   ListFilesResult,
   PaginatedListOptions,
+  PresignedDownloadOptions,
   PresignedUrlOptions,
   PresignedUrlResult,
   ProgressCallback,
+  StoredObject,
+  UploadFileOptions,
   UploadProgress,
   ValidationRules,
 } from "./client";
+export type { ContentDispositionType } from "./content-disposition";
 
 export class StorageInstance {
   private readonly config: UploadConfig;
@@ -100,17 +106,39 @@ export class StorageInstance {
   };
 
   // Download operations - grouped under 'download' namespace
+  //
+  // Two ways to serve a private file: `presignedUrl` hands the client a
+  // signed URL (bytes go straight from storage), `response` streams it
+  // through your server. Both take the same `filename`/`disposition`.
   download = {
-    presignedUrl: (key: string, expiresIn?: number) =>
-      client.generatePresignedDownloadUrl(this.config, key, expiresIn),
+    /** Signed GET URL. A number is the lifetime in seconds. */
+    presignedUrl: (
+      key: string,
+      options?: number | client.PresignedDownloadOptions
+    ) => client.generatePresignedDownloadUrl(this.config, key, options),
 
+    /** Unsigned public URL (custom domain when configured). */
     url: (key: string) => client.getFileUrl(this.config, key),
+
+    /** The object as a stream plus its size, type, etag and date. */
+    get: (key: string) => client.getObject(this.config, key),
+
+    bytes: (key: string) => client.getObjectBytes(this.config, key),
+
+    text: (key: string) => client.getObjectText(this.config, key),
+
+    /** A `Response` streaming the object — return it from a route handler. */
+    response: (key: string, options?: client.DownloadResponseOptions) =>
+      client.getObjectResponse(this.config, key, options),
   };
 
   // Upload operations - grouped under 'upload' namespace
   upload = {
-    file: (file: File | Buffer, key: string, options?: any) =>
-      client.uploadFileToS3(this.config, file, key, options),
+    file: (
+      file: File | Buffer,
+      key: string,
+      options?: client.UploadFileOptions
+    ) => client.uploadFileToS3(this.config, file, key, options),
 
     presignedUrl: (options: client.PresignedUrlOptions) =>
       client.generatePresignedUploadUrl(this.config, options),
@@ -150,8 +178,17 @@ export class StorageInstance {
     ) => client.deleteFilesByPrefix(this.config, prefix, options),
   };
 
-  // Note: Additional utility functions like copyFile, moveFile, getTotalSize, getFileCount
-  // can be added to client.ts as needed
+  // Copy operations - server-side, the bytes never leave the provider
+  copy = {
+    file: (from: string, to: string, options?: client.CopyFileOptions) =>
+      client.copyFile(this.config, from, to, options),
+  };
+
+  // Move operations - copy then delete; not atomic (S3 has no rename)
+  move = {
+    file: (from: string, to: string) =>
+      client.moveFile(this.config, from, to),
+  };
 }
 
 /**
