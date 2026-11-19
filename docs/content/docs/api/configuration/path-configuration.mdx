@@ -157,6 +157,19 @@ for it, so nothing is written.
   metadata.
 </Callout>
 
+## Checking a key a client sends back
+
+When a client later names a key (to delete it, or to get a download link),
+check it against the same prefix with
+[`storage.keys.inScope`](/docs/api/storage/file-operations#ownership-checks):
+
+```typescript
+if (!storage.keys.inScope(key, `users/${user.id}`)) throw new Error("Not found");
+```
+
+It compares whole segments (`users/1` does not contain `users/10/…`) and
+answers `false` for any key with a `..` or empty segment.
+
 ## Reference
 
 ### Route `.paths()`

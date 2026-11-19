@@ -9,7 +9,7 @@ import { s3 } from "@/lib/upload";
 
 // Define upload routes with simple, clear path configuration
 const s3Router = s3.createRouter({
-  // Image uploads: uploads/images/{userId}/{name}-{id}.jpg
+  // Image uploads: uploads/users/{userId}/images/{name}-{id}.jpg
   imageUpload: s3
     .image()
     .maxFileSize("1MB")
@@ -25,8 +25,10 @@ const s3Router = s3.createRouter({
       };
     })
     .paths({
-      // Result: uploads/images/demo-user/photo-k3x9m2a7qp.jpg
-      prefix: ({ metadata }) => `images/${metadata.userId}`,
+      // Owner first, so one prefix covers everything a user uploaded and
+      // storage.keys.inScope(key, `uploads/users/${id}`) can check ownership.
+      // Result: uploads/users/demo-user/images/photo-k3x9m2a7qp.jpg
+      prefix: ({ metadata }) => `users/${metadata.userId}/images`,
       name: "unique",
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
@@ -46,7 +48,7 @@ const s3Router = s3.createRouter({
       console.error(`❌ Image upload failed: ${file.name}`, error);
     }),
 
-  // Document uploads: uploads/documents/{userId}/{name}-{id}.pdf
+  // Document uploads: uploads/users/{userId}/documents/{name}-{id}.pdf
   documentUpload: s3
     .file()
     .maxFileSize("10MB")
@@ -66,15 +68,15 @@ const s3Router = s3.createRouter({
       };
     })
     .paths({
-      // Result: uploads/documents/demo-user/report-k3x9m2a7qp.pdf
-      prefix: ({ metadata }) => `documents/${metadata.userId}`,
+      // Result: uploads/users/demo-user/documents/report-k3x9m2a7qp.pdf
+      prefix: ({ metadata }) => `users/${metadata.userId}/documents`,
       name: "unique",
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
       console.log(`Document uploaded: ${file.name} -> ${url}`);
     }),
 
-  // Date-organized images: uploads/gallery/2024/06/demo-user/{name}-{id}.jpg
+  // Date-organized images: uploads/users/demo-user/gallery/2024/06/{name}-{id}.jpg
   galleryUpload: s3
     .image()
     .maxFileSize("5MB")
@@ -90,7 +92,7 @@ const s3Router = s3.createRouter({
       prefix: ({ metadata }) => {
         const date = new Date();
         const month = String(date.getMonth() + 1).padStart(2, "0");
-        return `gallery/${date.getFullYear()}/${month}/${metadata.userId}`;
+        return `users/${metadata.userId}/gallery/${date.getFullYear()}/${month}`;
       },
       name: "unique",
     })
@@ -98,7 +100,7 @@ const s3Router = s3.createRouter({
       console.log(`Gallery image uploaded: ${file.name} -> ${url}`);
     }),
 
-  // General uploads: uploads/general/{userId}/{name}-{id}.ext
+  // General uploads: uploads/users/{userId}/general/{name}-{id}.ext
   generalUpload: s3
     .file()
     .maxFileSize("20MB")
@@ -109,7 +111,7 @@ const s3Router = s3.createRouter({
         category: "general",
       };
     })
-    .paths({ prefix: ({ metadata }) => `general/${metadata.userId}`, name: "unique" })
+    .paths({ prefix: ({ metadata }) => `users/${metadata.userId}/general`, name: "unique" })
     .onUploadComplete(async ({ file, url, metadata }) => {
       console.log(`General file uploaded: ${file.name} -> ${url}`);
     }),

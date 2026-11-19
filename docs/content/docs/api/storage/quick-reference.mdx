@@ -62,6 +62,11 @@ await storage.upload.file(buffer, 'reports/q3.pdf', {
 })
 ```
 
+### Ownership Check
+```typescript
+storage.keys.inScope(key, `users/${user.id}`) // segment-aware; false on `..` or users/10/…
+```
+
 ### Delete Files
 ```typescript
 await storage.delete.file('old-file.jpg')

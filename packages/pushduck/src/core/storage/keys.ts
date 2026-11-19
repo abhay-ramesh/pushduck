@@ -166,6 +166,39 @@ export function uniqueName(originalName: string): string {
   return dot > 0 ? `${safe.slice(0, dot)}-${id}${safe.slice(dot)}` : `${safe}-${id}`;
 }
 
+/**
+ * Whether `key` lies inside the folder `prefix`: the check behind "may this
+ * user act on this key?", for a key that came back from a client.
+ *
+ * Segment-aware, so `users/1` does not contain `users/10/a.png`, which a
+ * `startsWith` check gets wrong. Each segment of the prefix is sanitised the
+ * way `.paths()` sanitises a computed prefix, so the prefix a route builds
+ * from `metadata` is the one to check against.
+ *
+ * Fails closed. `false` for a key that is not one pushduck would produce
+ * (a `..` segment, an unsanitised segment, anything {@link resolveKey}
+ * refuses), for a key equal to the prefix itself, and for a prefix that
+ * cannot be resolved. That includes a trailing `/`: `users/${id}/` with an
+ * empty `id` must not be read as `users`, which would contain every user.
+ *
+ * @example
+ * ```ts
+ * storage.keys.inScope("users/1/a.png", "users/1");     // true
+ * storage.keys.inScope("users/10/a.png", "users/1");    // false
+ * storage.keys.inScope("users/1/../2/a.png", "users/1"); // false
+ * ```
+ */
+export function inScope(key: string, prefix: string): boolean {
+  let scope: string;
+  try {
+    if (resolveKey(key) !== key) return false;
+    scope = resolveKey(prefix);
+  } catch {
+    return false;
+  }
+  return key.startsWith(`${scope}/`);
+}
+
 /** A lone UTF-16 surrogate: a string that has no UTF-8 encoding. */
 const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
 

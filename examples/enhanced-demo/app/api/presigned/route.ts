@@ -105,13 +105,22 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/** The demo's only user. In a real app, read it from the session. */
+const DEMO_USER = "demo-user";
+
 /**
  * Generate presigned URL for downloading/viewing a file
  * This creates a GET presigned URL, not PUT (which is for uploads)
+ *
+ * The key comes from the client, so check it is inside the caller's folder
+ * before signing it. Without this, any key in the bucket could be read.
  */
 async function generatePresignedDownloadUrl(
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
+  if (!storage.keys.inScope(key, `uploads/users/${DEMO_USER}`)) {
+    throw new Error("File not found");
+  }
   return await storage.download.presignedUrl(key, expiresIn);
 }
