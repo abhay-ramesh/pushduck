@@ -9,9 +9,14 @@
  *     pnpm conformance:serve
  *     pnpm conformance --url http://localhost:4319/api/upload
  *
- * The credentials are deliberately fake. Presigning is pure computation — a
- * signature is derived, not verified with the provider — so the suite needs no
- * bucket and no network.
+ * By default the credentials are fake. Presigning is pure computation — a
+ * signature is derived, not verified with the provider — so most of the suite
+ * needs no bucket and no network. The cases about the stored object need one:
+ *
+ *     CONFORMANCE_STORAGE=http://minioadmin:minioadmin@127.0.0.1:9010/conformance \
+ *       pnpm conformance:serve
+ *     pnpm conformance --url http://localhost:4319/api/upload \
+ *       --storage http://minioadmin:minioadmin@127.0.0.1:9010/conformance
  */
 
 import { createServer } from "node:http";
@@ -20,14 +25,32 @@ import { UploadError } from "../packages/pushduck/src/core/errors";
 
 const PORT = Number(process.env.PORT ?? 4319);
 
-const { s3 } = createUploadConfig()
-  .provider("aws", {
-    bucket: "conformance-bucket",
-    region: "us-east-1",
-    accessKeyId: "conformance-key",
-    secretAccessKey: "conformance-secret",
-  })
-  .build();
+/**
+ * `CONFORMANCE_STORAGE=http://KEY:SECRET@host:port/bucket` backs the server
+ * with a real bucket, for the cases that check what completion does with the
+ * stored object (`--storage` on the runner, with the same URL).
+ */
+const storage = process.env.CONFORMANCE_STORAGE
+  ? new URL(process.env.CONFORMANCE_STORAGE)
+  : undefined;
+
+const { s3 } = (
+  storage
+    ? createUploadConfig().provider("minio", {
+        endpoint: `${storage.protocol}//${storage.host}`,
+        bucket: storage.pathname.replace(/^\/+|\/+$/g, ""),
+        accessKeyId: decodeURIComponent(storage.username),
+        secretAccessKey: decodeURIComponent(storage.password),
+        region: "us-east-1",
+        useSSL: storage.protocol === "https:",
+      })
+    : createUploadConfig().provider("aws", {
+        bucket: "conformance-bucket",
+        region: "us-east-1",
+        accessKeyId: "conformance-key",
+        secretAccessKey: "conformance-secret",
+      })
+).build();
 
 /** Exactly the route surface documented in `conformance/README.md`. */
 const router = s3.createRouter({

@@ -15,6 +15,7 @@ import os
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -31,11 +32,28 @@ from pushduck.router import parse_query  # noqa: E402
 
 PORT = int(os.environ.get("PORT", "4322"))
 
-config = UploadConfig(
-    bucket="conformance-bucket",
-    region="us-east-1",
-    access_key_id="conformance-key",
-    secret_access_key="conformance-secret",
+# Presigning is pure computation, so by default this needs no bucket and no
+# network. CONFORMANCE_STORAGE=http://KEY:SECRET@host:port/bucket backs it with
+# a real bucket, for the cases about the stored object (pass the same URL to the
+# runner as --storage).
+storage = urlsplit(os.environ.get("CONFORMANCE_STORAGE", ""))
+
+config = (
+    UploadConfig(
+        bucket=storage.path.strip("/"),
+        region="us-east-1",
+        access_key_id=unquote(storage.username or ""),
+        secret_access_key=unquote(storage.password or ""),
+        endpoint=f"{storage.scheme}://{storage.netloc.rpartition('@')[2]}",
+        force_path_style=True,
+    )
+    if storage.netloc
+    else UploadConfig(
+        bucket="conformance-bucket",
+        region="us-east-1",
+        access_key_id="conformance-key",
+        secret_access_key="conformance-secret",
+    )
 )
 
 router = Router(config)
