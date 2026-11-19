@@ -498,36 +498,44 @@ const s3Router = s3.createRouter({
 
 ### Performance Tips
 
-<Callout type="warn">
-  **Path Length Limits:** Most S3-compatible services have a 1024-character limit for object keys. Keep your paths reasonable!
-</Callout>
-
 - **Use short, meaningful prefixes** instead of long descriptive names
 - **Avoid deep nesting** beyond 5-6 levels for better performance
 - **Add timestamps yourself** if you want chronological ordering (e.g., `Date.now()`)
 - **Add random IDs yourself** if you need to prevent filename conflicts (e.g., `Math.random().toString(36).substring(2, 8)`)
-- **Sanitize filenames** to prevent special character issues
 
-### Security Considerations
+### Keys are checked, always
+
+Every key a route produces passes through one chokepoint before it is signed:
+the default key, the prefix, and the output of `generateKey`. It is the same
+check the [Python](/docs/integrations/python) and [Go](/docs/integrations/golang)
+servers apply, so a key resolves the same way whichever server answers.
+
+A key is **refused** when it:
+
+- is empty or absolute (starts with `/`)
+- contains `?`, `#` or `%`, which change how a key parses in a URL
+- contains a control character or an invisible bidi or zero-width character
+- has an empty, `.` or `..` segment (`a//b`, `a/./b`, `../b`)
+- is longer than 1024 bytes once sanitised (S3's limit is on bytes, and a CJK
+  character costs three)
+
+Every other key is **re-sanitised segment by segment**, with the same rules as
+the default filename: non-Latin names are kept, other ASCII punctuation becomes
+`_`.
 
 ```typescript
-// ✅ Sanitize user input in paths
-const sanitizePathSegment = (input: string) => {
-  return input.replace(/[^a-zA-Z0-9.-]/g, "_").substring(0, 50);
-};
-
 .paths({
-  generateKey: (ctx) => {
-    const { file, metadata, globalConfig } = ctx;
-    // Sanitize whatever identifier you use from metadata
-    const identifier = (metadata as any)?.organizationId || "default";
-    const safeIdentifier = sanitizePathSegment(identifier);
-    const safeFilename = sanitizePathSegment(file.name);
-    
-    return `${globalConfig.prefix}/orgs/${safeIdentifier}/${Date.now()}/${safeFilename}`;
-  }
+  generateKey: ({ file, metadata }) => `orgs/${metadata.orgName}/${file.name}`,
 })
+// orgName "Acme Corp", file "Q3 report.pdf" → "orgs/Acme_Corp/Q3_report.pdf"
+// orgName "../../admin"                     → refused
 ```
+
+A refused key fails **that file** with `VALIDATION_FAILED` and a message naming
+the key and the rule; the other files in the batch carry on. Nothing is signed
+for it, so nothing is written. You still choose *which* values go into a key:
+the check stops a key escaping its prefix, not a caller naming another user's
+id. Take ids from your auth middleware, not from client metadata.
 
 ## Migration from Legacy Paths
 

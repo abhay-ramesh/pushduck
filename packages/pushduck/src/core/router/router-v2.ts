@@ -95,6 +95,7 @@ import {
   generatePresignedUploadUrl,
   getFileUrl,
 } from "../storage/client";
+import { resolveKey } from "../storage/keys";
 
 // ========================================
 // Core Router Types
@@ -842,9 +843,11 @@ function generateHierarchicalPath<TMetadata>(
     routeName,
   };
 
-  // If route has custom generateKey, use it with full context
+  // If route has custom generateKey, use it with full context. It is an
+  // escape hatch, not an exemption: its output goes through the same
+  // chokepoint as every other key.
   if (routeConfig?.generateKey) {
-    return routeConfig.generateKey(pathContext);
+    return resolveKey(routeConfig.generateKey(pathContext));
   }
 
   // Build hierarchical path: global + route components
@@ -890,7 +893,7 @@ function generateHierarchicalPath<TMetadata>(
   const result = pathParts.join("/").replace(/\/+/g, "/");
   
   // If result is empty or just slashes, return just the filename
-  return result || filePath;
+  return resolveKey(result || filePath);
 }
 
 // ========================================

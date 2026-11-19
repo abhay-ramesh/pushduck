@@ -1,0 +1,220 @@
+{
+  "$comment": "Object-key cases the TypeScript, Python and Go chokepoints (resolveKey / resolve_key / resolveKey) must agree on. 'accept' maps a fragment to the key it resolves to; 'reject' lists fragments every language refuses. 'divergent' records where the languages disagree today: null means rejected, and a null 'ts' means the TypeScript test asserts its own value.",
+  "accept": [
+    {
+      "fragment": "photo.jpg",
+      "key": "photo.jpg"
+    },
+    {
+      "fragment": "users/alice/photo.jpg",
+      "key": "users/alice/photo.jpg"
+    },
+    {
+      "fragment": "tenant/文档.pdf",
+      "key": "tenant/文档.pdf"
+    },
+    {
+      "fragment": "tenant/写真 photo.png",
+      "key": "tenant/写真_photo.png"
+    },
+    {
+      "fragment": "Отчёт 2024/Отчёт.pdf",
+      "key": "Отчёт_2024/Отчёт.pdf"
+    },
+    {
+      "fragment": "café/naïve.txt",
+      "key": "café/naïve.txt"
+    },
+    {
+      "fragment": "emoji 😀.png",
+      "key": "emoji_😀.png"
+    },
+    {
+      "fragment": "my tenant/a b.png",
+      "key": "my_tenant/a_b.png"
+    },
+    {
+      "fragment": "file(1).pdf",
+      "key": "file_1_.pdf"
+    },
+    {
+      "fragment": "a  b__c.png",
+      "key": "a_b_c.png"
+    },
+    {
+      "fragment": "user@example.com/x.png",
+      "key": "user_example.com/x.png"
+    },
+    {
+      "fragment": "a:b/c*d.png",
+      "key": "a_b/c_d.png"
+    },
+    {
+      "fragment": "back\\slash.png",
+      "key": "back_slash.png"
+    },
+    {
+      "fragment": ".hidden/x",
+      "key": ".hidden/x"
+    },
+    {
+      "fragment": "..hidden/x",
+      "key": "..hidden/x"
+    },
+    {
+      "fragment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "fragment": "aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa",
+      "key": "aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa"
+    }
+  ],
+  "reject": [
+    {
+      "fragment": "",
+      "rule": "empty"
+    },
+    {
+      "fragment": "/absolute/key.png",
+      "rule": "absolute"
+    },
+    {
+      "fragment": "/",
+      "rule": "absolute"
+    },
+    {
+      "fragment": "../../etc/passwd",
+      "rule": "segment"
+    },
+    {
+      "fragment": "a/../../../b.png",
+      "rule": "segment"
+    },
+    {
+      "fragment": "../x",
+      "rule": "segment"
+    },
+    {
+      "fragment": "./x",
+      "rule": "segment"
+    },
+    {
+      "fragment": "a/./b.png",
+      "rule": "segment"
+    },
+    {
+      "fragment": ".",
+      "rule": "segment"
+    },
+    {
+      "fragment": "..",
+      "rule": "segment"
+    },
+    {
+      "fragment": "tenant//double.png",
+      "rule": "segment"
+    },
+    {
+      "fragment": "tenant/",
+      "rule": "segment"
+    },
+    {
+      "fragment": "with?query.png",
+      "rule": "url-delimiter"
+    },
+    {
+      "fragment": "with#fragment.png",
+      "rule": "url-delimiter"
+    },
+    {
+      "fragment": "a%2Fb.png",
+      "rule": "url-delimiter"
+    },
+    {
+      "fragment": "a\u0000b.png",
+      "rule": "control"
+    },
+    {
+      "fragment": "a\nb.png",
+      "rule": "control"
+    },
+    {
+      "fragment": "a\tb.png",
+      "rule": "control"
+    },
+    {
+      "fragment": "a\u007fb.png",
+      "rule": "control"
+    },
+    {
+      "fragment": "a\u0085b.png",
+      "rule": "control"
+    },
+    {
+      "fragment": "invoice\u202egnp.exe",
+      "rule": "bidi"
+    },
+    {
+      "fragment": "a\u200bb.png",
+      "rule": "bidi"
+    },
+    {
+      "fragment": "a\u200db.png",
+      "rule": "bidi"
+    },
+    {
+      "fragment": "a\u2066b.png",
+      "rule": "bidi"
+    },
+    {
+      "fragment": "\ufeffa.png",
+      "rule": "bidi"
+    },
+    {
+      "fragment": "aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaa/aaaaa",
+      "rule": "too-long"
+    },
+    {
+      "fragment": "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/b.png",
+      "rule": "too-long"
+    }
+  ],
+  "divergent": [
+    {
+      "fragment": "t/***.png",
+      "ts": null,
+      "python": "t/file-6372f7c8.png",
+      "go": "t/file-6372f7c8.png",
+      "note": "An all-stripped segment gets an FNV-1a fingerprint. TypeScript prints it in base 36, Python and Go in hex. Pre-existing in the default sanitiser."
+    },
+    {
+      "fragment": "a/.../b",
+      "ts": null,
+      "python": "a/file-ac31c19/b",
+      "go": "a/file-ac31c19/b",
+      "note": "Same fingerprint encoding difference."
+    },
+    {
+      "fragment": "a\u00adb.png",
+      "ts": "a\u00adb.png",
+      "python": null,
+      "go": "a\u00adb.png",
+      "note": "U+00AD SOFT HYPHEN is Unicode category Cf. Python rejects every Cf character; TypeScript and Go reject only Cc plus a fixed bidi/zero-width list."
+    },
+    {
+      "fragment": "a\u2060b.png",
+      "ts": "a\u2060b.png",
+      "python": null,
+      "go": "a\u2060b.png",
+      "note": "U+2060 WORD JOINER, category Cf. Same difference."
+    },
+    {
+      "fragment": "a\u061cb.png",
+      "ts": "a\u061cb.png",
+      "python": null,
+      "go": "a\u061cb.png",
+      "note": "U+061C ARABIC LETTER MARK, a bidi control in category Cf. Same difference."
+    }
+  ]
+}
