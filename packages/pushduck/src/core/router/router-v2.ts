@@ -9,7 +9,7 @@
  *
  * The router system provides:
  * - Type-safe route definitions with schema validation
- * - Hierarchical path generation with global and route-level configuration
+ * - Object keys: `{global prefix}/{prefix}/{name}`, checked at one chokepoint
  * - Middleware support for authentication and request processing
  * - Lifecycle hooks for upload events (start, progress, complete, error)
  * - Automatic presigned URL generation and management
@@ -40,9 +40,8 @@
  *       return { userId: user.id, organizationId: user.orgId };
  *     })
  *     .paths({
- *       prefix: 'user-uploads',
- *       generateKey: ({ file, metadata }) =>
- *         `${metadata.organizationId}/${metadata.userId}/${Date.now()}-${file.name}`
+ *       prefix: ({ metadata }) => `orgs/${metadata.organizationId}/users/${metadata.userId}`,
+ *       name: 'unique',
  *     })
  *     .onUploadComplete(async ({ file, url, metadata }) => {
  *       await db.files.create({
@@ -90,12 +89,11 @@ import {
   deleteFile,
   fileExistsWithInfo,
   type FileInfo,
-  generateFileKey,
   generatePresignedDownloadUrl,
   generatePresignedUploadUrl,
   getFileUrl,
 } from "../storage/client";
-import { resolveKey } from "../storage/keys";
+import { resolveKey, sanitizeFilename, uniqueName } from "../storage/keys";
 
 // ========================================
 // Core Router Types
@@ -270,81 +268,80 @@ export type S3LifecycleHook<T = any> = (
 ) => Promise<void> | void;
 
 // ========================================
-// Hierarchical Path Configuration Types
+// Object Key Configuration Types
 // ========================================
 
 /**
- * Context object provided to path generation functions.
- * Contains file information, metadata, and configuration for building file paths.
+ * What a route's `prefix`, `name` and `generateKey` functions receive.
  *
- * @template TMetadata - Type of the metadata object
- * @interface PathContext
+ * `metadata` is the output of the route's middleware chain, typed as such, so
+ * a key built from it needs no cast.
  *
- * @example
- * ```typescript
- * const pathContext: PathContext<{ userId: string, orgId: string }> = {
- *   file: { name: 'document.pdf', type: 'application/pdf' },
- *   metadata: { userId: 'user123', orgId: 'org456' },
- *   globalConfig: { prefix: 'uploads' },
- *   routeName: 'documents',
- * };
- * ```
+ * @template TMetadata - The middleware output type
  */
 export interface PathContext<TMetadata = any> {
-  /** File information */
+  /** The file as the client declared it. */
   file: { name: string; type: string };
   /** Metadata from middleware */
   metadata: TMetadata;
-  /** Global configuration settings */
-  globalConfig: {
-    /** Global path prefix */
-    prefix?: string;
-    /** Global key generation function */
-    generateKey?: (
-      file: { name: string; type: string },
-      metadata: any
-    ) => string;
-  };
+  /** The global `.paths()` configuration from `createUploadConfig()`. */
+  globalConfig: NonNullable<UploadConfig["paths"]>;
   /** Name of the route being processed */
   routeName: string;
 }
 
 /**
- * Configuration for hierarchical path generation at the route level.
- * Allows customization of file storage paths with composition support.
+ * The folder a route's keys live under: a fixed string, or computed per file.
  *
- * @template TMetadata - Type of the metadata object
- * @interface S3RoutePathConfig
+ * Nested under the global prefix. A fixed string may end in `/`; a computed
+ * one must not produce an empty segment: `users/${id}` with an empty `id` is
+ * refused rather than collapsed to `users`, which would drop the scope.
+ */
+export type PathPrefix<TMetadata = any> =
+  | string
+  | ((ctx: PathContext<TMetadata>) => string);
+
+/**
+ * The last part of a key.
  *
- * @example Basic Prefix
+ * - `"original"` (default): the sanitised filename, `Q3 report.pdf` →
+ *   `Q3_report.pdf`. Two uploads of the same name under the same prefix write
+ *   the same object.
+ * - `"unique"`: the sanitised filename with a random 10-character id before
+ *   the extension, `Q3_report-k3x9m2a7qp.pdf`. Never overwrites.
+ * - a function: any relative path; it may contain `/`.
+ */
+export type PathName<TMetadata = any> =
+  | "original"
+  | "unique"
+  | ((ctx: PathContext<TMetadata>) => string);
+
+/**
+ * How a route names its objects.
+ *
+ * A key is `{global prefix}/{prefix}/{name}`, and every key passes through the
+ * same chokepoint, which refuses traversal and re-sanitises each segment.
+ *
+ * @example
  * ```typescript
- * const pathConfig: S3RoutePathConfig = {
- *   prefix: 'user-avatars', // Results in: uploads/user-avatars/filename.jpg
- * };
- * ```
- *
- * @example Dynamic Key Generation
- * ```typescript
- * const pathConfig: S3RoutePathConfig<{ userId: string }> = {
- *   generateKey: ({ file, metadata, routeName }) =>
- *     `${routeName}/${metadata.userId}/${Date.now()}-${file.name}`,
- * };
- * ```
- *
- * @example Suffix Approach
- * ```typescript
- * const pathConfig: S3RoutePathConfig = {
- *   suffix: 'processed', // Results in: uploads/filename.jpg/processed
- * };
+ * .paths({
+ *   prefix: ({ metadata }) => `users/${metadata.userId}`,
+ *   name: 'unique',
+ * })
+ * // → users/42/avatar-k3x9m2a7qp.png
  * ```
  */
 export interface S3RoutePathConfig<TMetadata = any> {
-  /** Route-level prefix that gets nested under global prefix */
-  prefix?: string;
-  /** Custom key generation function with full context */
+  /** Folder for this route's keys, nested under the global prefix. */
+  prefix?: PathPrefix<TMetadata>;
+  /** The last part of the key. @default "original" */
+  name?: PathName<TMetadata>;
+  /**
+   * Escape hatch: returns the **whole** key, ignoring `prefix`, `name` and the
+   * global prefix. Still passes through the key chokepoint. Prefer `prefix`
+   * and `name`.
+   */
   generateKey?: (ctx: PathContext<TMetadata>) => string;
-  /** Simple suffix appended to global paths */
-  suffix?: string;
 }
 
 // ========================================
@@ -381,8 +378,8 @@ export interface S3RoutePathConfig<TMetadata = any> {
  *     return { userId: user.id };
  *   })
  *   .paths({
- *     generateKey: ({ file, metadata }) =>
- *       `users/${metadata.userId}/${file.name}`,
+ *     prefix: ({ metadata }) => `users/${metadata.userId}`,
+ *     name: 'unique',
  *   })
  *   .onUploadStart(async ({ file, metadata }) => {
  *     await logUploadStart(file.name, metadata.userId);
@@ -445,39 +442,25 @@ export class S3Route<TSchema extends S3Schema = S3Schema, TMetadata = any> {
   }
 
   /**
-   * Configures hierarchical path generation for uploaded files.
-   * Paths are composed with global configuration for flexible file organization.
+   * Configures how this route names its objects: `{global prefix}/{prefix}/{name}`.
    *
-   * @param paths - Path configuration options
-   * @returns This route instance for chaining
+   * Call it after `.middleware()` and the functions receive the middleware's
+   * output as `metadata`, typed.
    *
-   * @example Prefix-based Paths
+   * @example Per-user folder, never overwrite
    * ```typescript
-   * const route = s3.file().paths({
-   *   prefix: 'user-documents', // Results in: uploads/user-documents/filename.pdf
-   * });
-   * ```
-   *
-   * @example Dynamic Path Generation
-   * ```typescript
-   * const route = s3.file()
-   *   .middleware(async ({ req }) => ({ userId: getUserId(req) }))
+   * s3.image()
+   *   .middleware(async ({ req }) => ({ userId: await getUserId(req) }))
    *   .paths({
-   *     generateKey: ({ file, metadata, routeName }) =>
-   *       `${routeName}/${metadata.userId}/${new Date().getFullYear()}/${file.name}`,
+   *     prefix: ({ metadata }) => `users/${metadata.userId}`,
+   *     name: 'unique',
    *   });
+   * // → users/42/avatar-k3x9m2a7qp.png
    * ```
    *
-   * @example Organized by Date
+   * @example Fixed folder
    * ```typescript
-   * const route = s3.image().paths({
-   *   generateKey: ({ file }) => {
-   *     const date = new Date();
-   *     const year = date.getFullYear();
-   *     const month = String(date.getMonth() + 1).padStart(2, '0');
-   *     return `images/${year}/${month}/${Date.now()}-${file.name}`;
-   *   },
-   * });
+   * s3.file().paths({ prefix: 'documents' }); // → documents/report.pdf
    * ```
    */
   paths(paths: S3RoutePathConfig<TMetadata>): this {
@@ -816,84 +799,48 @@ interface S3RouteConfig<TMetadata = any> {
 }
 
 // ========================================
-// Hierarchical Path Generation Logic
+// Object Keys
 // ========================================
 
-function generateHierarchicalPath<TMetadata>(
-  file: { name: string; type: string },
-  metadata: TMetadata,
-  routeName: string,
-  routeConfig: S3RoutePathConfig<TMetadata> | undefined,
-  globalConfig:
-    | {
-        prefix?: string;
-        generateKey?: (
-          file: { name: string; type: string },
-          metadata: any
-        ) => string;
-      }
-    | undefined,
-  uploadConfig: UploadConfig
+/** A fixed prefix names a folder, so `uploads/` and `uploads` are the same. */
+function fixedPrefix(prefix: string | undefined): string[] {
+  const trimmed = prefix?.replace(/\/+$/, "");
+  return trimmed ? [trimmed] : [];
+}
+
+/**
+ * The object key for one file: `{global prefix}/{prefix}/{name}`, or the
+ * route's `generateKey`, through {@link resolveKey} either way.
+ */
+function objectKey<TMetadata>(
+  ctx: PathContext<TMetadata>,
+  paths: S3RoutePathConfig<TMetadata> = {}
 ): string {
-  // Build path context for route-level functions
-  const pathContext: PathContext<TMetadata> = {
-    file,
-    metadata,
-    globalConfig: globalConfig || {},
-    routeName,
+  if (paths.generateKey) return resolveKey(paths.generateKey(ctx));
+
+  const { prefix, name } = paths;
+  const { globalConfig } = ctx;
+
+  const nameOf = (): string => {
+    if (typeof name === "function") return name(ctx);
+    if (name === "unique") return uniqueName(ctx.file.name);
+    // The global generateKey predates `name` and is the same thing: the part
+    // of the key below the prefixes.
+    if (!name && globalConfig.generateKey) {
+      return globalConfig.generateKey(ctx.file, ctx.metadata);
+    }
+    return sanitizeFilename(ctx.file.name);
   };
 
-  // If route has custom generateKey, use it with full context. It is an
-  // escape hatch, not an exemption: its output goes through the same
-  // chokepoint as every other key.
-  if (routeConfig?.generateKey) {
-    return resolveKey(routeConfig.generateKey(pathContext));
-  }
-
-  // Build hierarchical path: global + route components
-  const pathParts: string[] = [];
-
-  // 1. Start with global prefix (only if explicitly configured)
-  if (globalConfig?.prefix) {
-    pathParts.push(globalConfig.prefix);
-  }
-
-  // 2. Add route-level prefix (if any)
-  if (routeConfig?.prefix) {
-    pathParts.push(routeConfig.prefix);
-  }
-
-  // 3. Generate the file path
-  let filePath: string;
-
-  if (globalConfig?.generateKey) {
-    // Use global generateKey for the file part
-    filePath = globalConfig.generateKey(file, metadata);
-    // Remove global prefix if it was added by global generateKey to avoid duplication
-    if (globalConfig?.prefix && filePath.startsWith(globalConfig.prefix + "/")) {
-      filePath = filePath.substring(globalConfig.prefix.length + 1);
-    }
-  } else {
-    // Use default generation for the file part (just filename by default)
-    // No assumptions about metadata structure - users control paths via generateKey
-    filePath = generateFileKey(uploadConfig, {
-      originalName: file.name,
-      prefix: "", // Don't add prefix here, we're building it hierarchically
-    });
-  }
-
-  pathParts.push(filePath);
-
-  // 4. Add route-level suffix (if any)
-  if (routeConfig?.suffix) {
-    pathParts.push(routeConfig.suffix);
-  }
-
-  // Join all parts and clean up any double slashes
-  const result = pathParts.join("/").replace(/\/+/g, "/");
-  
-  // If result is empty or just slashes, return just the filename
-  return resolveKey(result || filePath);
+  return resolveKey(
+    [
+      ...fixedPrefix(globalConfig.prefix),
+      // A computed prefix is kept verbatim, even when empty: an empty segment
+      // is refused rather than silently removing the scope it was meant to add.
+      ...(typeof prefix === "function" ? [prefix(ctx)] : fixedPrefix(prefix)),
+      nameOf(),
+    ].join("/")
+  );
 }
 
 // ========================================
@@ -1206,13 +1153,14 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         }
 
         // 4. Generate hierarchical file key
-        const key = generateHierarchicalPath(
-          { name: file.name, type: file.type },
-          fileMetadata,
-          String(routeName),
-          routeConfig.paths,
-          uploadConfig.paths,
-          uploadConfig
+        const key = objectKey(
+          {
+            file: { name: file.name, type: file.type },
+            metadata: fileMetadata,
+            globalConfig: uploadConfig.paths ?? {},
+            routeName: String(routeName),
+          },
+          routeConfig.paths
         );
 
         // Build metadata from user's metadata - no assumptions about structure
@@ -1370,13 +1318,14 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
       await onStartHook({ file, metadata: fileMetadata });
     }
 
-    const key = generateHierarchicalPath(
-      { name: file.name, type: file.type },
-      fileMetadata,
-      String(routeName),
-      routeConfig.paths,
-      uploadConfig.paths,
-      uploadConfig
+    const key = objectKey(
+      {
+        file: { name: file.name, type: file.type },
+        metadata: fileMetadata,
+        globalConfig: uploadConfig.paths ?? {},
+        routeName: String(routeName),
+      },
+      routeConfig.paths
     );
 
     const partSize = choosePartSize(file.size, {

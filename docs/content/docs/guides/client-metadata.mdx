@@ -77,10 +77,8 @@ Client metadata bridges the gap between UI context and server-side processing:
     
     ```typescript
     .paths({
-      generateKey: (ctx) => {
-        // Metadata available in path generation
-        return `users/${ctx.metadata.userId}/albums/${ctx.metadata.albumId}/${ctx.file.name}`;
-      }
+      // Metadata available in path generation
+      prefix: ({ metadata }) => `users/${metadata.userId}/albums/${metadata.albumId}`,
     })
     .onUploadComplete(async ({ metadata, url }) => {
       // Metadata available in lifecycle hooks
@@ -164,10 +162,12 @@ export function WorkspaceFileUpload({ workspace, project }: Props) {
   };
 })
 .paths({
-  generateKey: (ctx) => {
-    const { metadata, file } = ctx;
-    return `workspaces/${metadata.workspaceId}/projects/${metadata.projectId}${metadata.folder}/${file.name}`;
-  }
+  prefix: ({ metadata }) =>
+    [
+      `workspaces/${metadata.workspaceId}/projects/${metadata.projectId}`,
+      // `folder` is "/" or "/a/b": drop its empty parts, keep the scope above
+      ...metadata.folder.split('/').filter(Boolean),
+    ].join('/'),
 })
 ```
 
@@ -241,11 +241,13 @@ export function ProductImageManager({ product }: { product: Product }) {
   };
 })
 .paths({
-  generateKey: (ctx) => {
-    const { metadata, file } = ctx;
-    const variantPath = metadata.variantId ? `/variants/${metadata.variantId}` : '';
-    return `products/${metadata.productId}${variantPath}/${metadata.imageType}/${metadata.sortOrder}-${file.name}`;
-  }
+  prefix: ({ metadata }) =>
+    [
+      'products', metadata.productId,
+      ...(metadata.variantId ? ['variants', metadata.variantId] : []),
+      metadata.imageType,
+    ].join('/'),
+  name: ({ metadata, file }) => `${metadata.sortOrder}-${file.name}`,
 })
 .onUploadComplete(async ({ metadata, url }) => {
   await db.productImages.create({
@@ -329,14 +331,13 @@ export function CMSMediaUpload() {
   };
 })
 .paths({
-  generateKey: (ctx) => {
-    const { metadata, file } = ctx;
+  prefix: ({ metadata }) => {
     const date = new Date(metadata.publishDate);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     
-    return `content/${metadata.contentType}/${year}/${month}/${metadata.category}/${file.name}`;
-  }
+    return `content/${metadata.contentType}/${year}/${month}/${metadata.category}`;
+  },
 })
 ```
 
@@ -653,8 +654,7 @@ uploadFiles(files, {
 
 // Server - organize by metadata
 .paths({
-  generateKey: (ctx) => {
-    const { metadata, file } = ctx;
+  prefix: ({ metadata }) => {
     const date = new Date();
     const year = date.getFullYear();
     const quarter = `Q${Math.ceil((date.getMonth() + 1) / 3)}`;
@@ -668,9 +668,8 @@ uploadFiles(files, {
       quarter,
       metadata.fileClass,
       metadata.projectCode,
-      file.name
     ].join('/');
-  }
+  },
 })
 ```
 

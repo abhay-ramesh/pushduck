@@ -272,17 +272,12 @@ Configure settings that apply to all upload endpoints:
 // ✅ Modern approach with hierarchical paths
 const { s3 } = createUploadConfig()
   .provider("cloudflareR2",{ /* config */ })
-  .paths({
-    prefix: "uploads",
-    generateKey: (file, metadata) => {
-      return `${metadata.userId}/${Date.now()}/${file.name}`;
-    }
-  })
+  .paths({ prefix: "uploads" })
   .build();
 
 const s3Router = s3.createRouter({
-  images: s3.image().paths({ prefix: "images" }),
-  documents: s3.file().paths({ prefix: "documents" })
+  images: s3.image().paths({ prefix: "images", name: "unique" }),
+  documents: s3.file().paths({ prefix: "documents", name: "unique" })
 });
 ```
 

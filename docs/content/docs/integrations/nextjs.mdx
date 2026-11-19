@@ -116,12 +116,7 @@ const { upload } = createUploadConfig()
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
     bucket: process.env.R2_BUCKET,
   }))
-  .paths({
-    prefix: 'uploads',
-    generateKey: (file, metadata) => {
-      return `${metadata.userId}/${Date.now()}/${file.name}`;
-    }
-  })
+  .paths({ prefix: 'uploads' })
   .build();
 
 const uploadRouter = upload.createRouter({
@@ -141,7 +136,8 @@ const uploadRouter = upload.createRouter({
         userId: session.user.id,
         category: "profile"
       };
-    }),
+    })
+    .paths({ prefix: ({ metadata }) => `users/${metadata.userId}`, name: "unique" }),
 
   // Document uploads for authenticated users
   documents: upload
@@ -159,7 +155,8 @@ const uploadRouter = upload.createRouter({
         userId: session.user.id,
         category: "documents"
       };
-    }),
+    })
+    .paths({ prefix: ({ metadata }) => `users/${metadata.userId}`, name: "unique" }),
 
   // Public image uploads (no auth required)
   publicImages: upload
@@ -167,6 +164,7 @@ const uploadRouter = upload.createRouter({
     .maxFileSize("5MB")
     .accept(["image/jpeg", "image/png", "image/webp"])
     // No middleware = publicly accessible
+    .paths({ prefix: "public", name: "unique" })
 });
 
 export type AppUploadRouter = typeof uploadRouter;
@@ -357,14 +355,7 @@ export const { upload, storage, isConfigured } = createUploadConfig()
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
     bucket: process.env.R2_BUCKET,
   }))
-  .paths({
-    prefix: 'uploads',
-    generateKey: (file, metadata) => {
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 8);
-      return `${metadata.userId}/${timestamp}/${randomId}/${file.name}`;
-    }
-  })
+  .paths({ prefix: 'uploads' })
   .build();
 
 export const uploadRouter = upload.createRouter({
@@ -378,7 +369,8 @@ export const uploadRouter = upload.createRouter({
       const session = await getServerSession(authOptions);
       if (!session?.user?.id) throw new Error("Authentication required");
       return { userId: session.user.id, type: "profile" };
-    }),
+    })
+    .paths({ prefix: ({ metadata }) => `users/${metadata.userId}`, name: "unique" }),
 
   // Gallery images - multiple images, authenticated
   gallery: upload
@@ -390,7 +382,8 @@ export const uploadRouter = upload.createRouter({
       const session = await getServerSession(authOptions);
       if (!session?.user?.id) throw new Error("Authentication required");
       return { userId: session.user.id, type: "gallery" };
-    }),
+    })
+    .paths({ prefix: ({ metadata }) => `users/${metadata.userId}`, name: "unique" }),
 
   // Documents - various file types, authenticated
   documents: upload
@@ -407,7 +400,8 @@ export const uploadRouter = upload.createRouter({
       const session = await getServerSession(authOptions);
       if (!session?.user?.id) throw new Error("Authentication required");
       return { userId: session.user.id, type: "documents" };
-    }),
+    })
+    .paths({ prefix: ({ metadata }) => `users/${metadata.userId}`, name: "unique" }),
 
   // Public uploads - no authentication required
   public: upload
@@ -416,6 +410,7 @@ export const uploadRouter = upload.createRouter({
     .maxFiles(1)
     .accept(["image/jpeg", "image/png"])
     // No middleware = public access
+    .paths({ prefix: "public", name: "unique" })
 });
 
 export type AppUploadRouter = typeof uploadRouter;

@@ -1,514 +1,132 @@
 ---
 title: Path Configuration
-description: Complete guide to organizing your uploads with hierarchical path structures and custom file organization
+description: Choose where uploads land with a prefix and a naming strategy. Every key is checked before it is signed.
 ---
 
 import { Callout } from "fumadocs-ui/components/callout";
-import { Card, Cards } from "fumadocs-ui/components/card";
-import { Tab, Tabs } from "fumadocs-ui/components/tabs";
-import { Steps, Step } from "fumadocs-ui/components/steps";
-import { File, Folder, Files } from "fumadocs-ui/components/files";
 import { TypeTable } from "fumadocs-ui/components/type-table";
 
-## Custom Route Paths
+## Object keys
 
-Organize your uploads with hierarchical path structures that provide clean file organization, prevent conflicts, and enable scalable storage patterns.
+An object key is built from three parts:
 
-<Callout type="warning">
-  **Default Behavior:** By default, files are uploaded with just the sanitized filename (e.g., `photo.jpg`). No automatic paths, prefixes, or organization are added. You must explicitly configure paths if you want file organization.
-</Callout>
+```text
+{global prefix} / {route prefix} / {name}
+   uploads      /  users/42      / avatar-k3x9m2a7qp.png
+```
 
-<Callout type="info">
-  **New in v2.0:** The hierarchical path system allows global configuration to provide the foundation while route-level paths extend and nest within it - **no more overrides that lose configuration!**
-</Callout>
+Each part is declared, not hand-assembled. The library joins them, sanitises
+every segment and refuses anything that would escape its folder, so a route
+never has to sanitise a filename or invent a random id itself.
 
-## How Hierarchical Paths Work
-
-The path system works in **layers** that build upon each other:
-
-<Files>
-  <Folder name="uploads" defaultOpen>
-    <Folder name="images" defaultOpen>
-      <Folder name="demo-user">
-        <Folder name="1750450587845">
-          <Folder name="q5vnkwxv2w">
-            <File name="photo.jpg" />
-          </Folder>
-        </Folder>
-      </Folder>
-    </Folder>
-    <Folder name="documents" defaultOpen>
-      <Folder name="demo-user">
-        <Folder name="1750450587846">
-          <Folder name="13gj6df51i1">
-            <File name="report.pdf" />
-          </Folder>
-        </Folder>
-      </Folder>
-    </Folder>
-  </Folder>
-</Files>
-
-**Path Structure:** `{globalPrefix}/{routePrefix}/{globalGenerated}`
-
-- **Global prefix:** `uploads` (foundation for all files)
-- **Route prefix:** `images`, `documents` (category organization)  
-- **Global generated:** `{userId}/{timestamp}/{randomId}/{filename}` (file structure)
-
-## Default Behavior
-
-**Without any path configuration**, files are uploaded with just the sanitized filename:
-
-```typescript
-// No path configuration
-const { s3 } = createUploadConfig()
-  .provider("aws", { /* config */ })
-  .build();
-
+```typescript title="app/api/upload/route.ts"
 const router = s3.createRouter({
-  imageUpload: s3.image().maxFileSize("5MB"),
-});
-```
-
-**Result:** Files are stored as `photo.jpg`, `document.pdf`, etc. (just the filename)
-
-## Basic Path Configuration
-
-### Global Foundation
-
-To organize files, explicitly configure the base structure that all uploads will use:
-
-```typescript title="lib/upload.ts"
-import { createUploadConfig } from "pushduck/server";
-
-const { s3 } = createUploadConfig()
-  .provider("cloudflareR2",{
-    // ... provider config
-  })
-  .paths({
-    // Global prefix - foundation for ALL uploads
-    prefix: "uploads",
-    
-    // Global structure - used when routes don't override
-    // Use whatever metadata structure fits your app
-    generateKey: (file, metadata) => {
-      // Example: Using organizationId from your metadata
-      const orgId = (metadata as any)?.organizationId || "default";
-      
-      // Add timestamp if you want chronological organization
-      const timestamp = Date.now();
-      
-      // Add random ID if you want to prevent filename conflicts
-      const randomId = Math.random().toString(36).substring(2, 8);
-      
-      // Sanitize filename
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-
-      // Return ONLY the file path part (no prefix)
-      // You control what goes in the path - timestamps, random IDs, etc.
-      return `${orgId}/${timestamp}/${randomId}/${sanitizedName}`;
-    },
-  })
-  .build();
-```
-
-### Route-Level Extensions
-
-Extend the global foundation with route-specific organization:
-
-```typescript title="app/api/upload/route.ts"
-import { s3 } from "@/lib/upload";
-
-const s3Router = s3.createRouter({
-  // Images: uploads/images/{orgId}/{timestamp}/{randomId}/photo.jpg
-  imageUpload: s3
-    .image()
-    .maxFileSize("5MB")
-    .paths({
-      prefix: "images", // Nests under global prefix
-    }),
-
-  // Documents: uploads/documents/{orgId}/{timestamp}/{randomId}/report.pdf  
-  documentUpload: s3
-    .file()
-    .maxFileSize("10MB")
-    .paths({
-      prefix: "documents", // Nests under global prefix
-    }),
-
-  // General: uploads/{orgId}/{timestamp}/{randomId}/file.ext
-  generalUpload: s3
-    .file()
-    .maxFileSize("20MB")
-    // No .paths() - uses pure global configuration
-});
-```
-
-<Callout type="success">
-  **✨ Result:** Clean, predictable paths that scale with your application. Global config provides consistency while routes add organization.
-</Callout>
-
-## Advanced Path Patterns
-
-### Custom Route Generation
-
-Override the default structure for specific use cases:
-
-<Tabs items={["Date-Based", "Category-Based", "Project-Based"]} groupId="path-patterns">
-  <Tab value="Date-Based">
-    ```typescript
-    galleryUpload: s3
-      .image()
-      .maxFileSize("5MB")
-      .middleware(async ({ req }) => {
-        // Your metadata structure - could be organizationId, projectId, etc.
-        return { organizationId: await getOrgId(req) };
-      })
-      .paths({
-        generateKey: (ctx) => {
-          const { file, metadata, globalConfig } = ctx;
-          const globalPrefix = globalConfig.prefix || "uploads";
-          const date = new Date();
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const orgId = (metadata as any)?.organizationId || "default";
-          
-          // Custom path: uploads/gallery/2024/06/org-123/photo.jpg
-          return `${globalPrefix}/gallery/${year}/${month}/${orgId}/${file.name}`;
-        },
-      })
-    ```
-    **Result:** `uploads/gallery/2024/06/org-123/photo.jpg`
-  </Tab>
-  
-  <Tab value="Category-Based">
-    ```typescript
-    productUpload: s3
-      .image()
-      .maxFileSize("8MB")
-      .paths({
-        generateKey: (ctx) => {
-          const { file, metadata, globalConfig } = ctx;
-          const globalPrefix = globalConfig.prefix || "uploads";
-          const category = metadata.category || "general";
-          const productId = metadata.productId || "unknown";
-          const timestamp = Date.now();
-          
-          // Custom path: uploads/products/electronics/prod-123/1234567890/image.jpg
-          return `${globalPrefix}/products/${category}/${productId}/${timestamp}/${file.name}`;
-        },
-      })
-    ```
-    **Result:** `uploads/products/electronics/prod-123/1234567890/image.jpg`
-  </Tab>
-  
-  <Tab value="Project-Based">
-    ```typescript
-    projectAssets: s3
-      .image()
-      .maxFileSize("2MB")
-      .middleware(async ({ req }) => {
-        // Your metadata - could be projectId, teamId, workspaceId, etc.
-        return { projectId: await getProjectId(req) };
-      })
-      .paths({
-        generateKey: (ctx) => {
-          const { file, metadata, globalConfig } = ctx;
-          const globalPrefix = globalConfig.prefix || "uploads";
-          const projectId = (metadata as any)?.projectId || "default";
-          const fileType = file.type.split('/')[0]; // image, video, etc.
-          
-          // Custom path: uploads/projects/proj-123/assets/image/logo.jpg
-          return `${globalPrefix}/projects/${projectId}/assets/${fileType}/${file.name}`;
-        },
-      })
-    ```
-    **Result:** `uploads/projects/proj-123/assets/image/logo.jpg`
-  </Tab>
-</Tabs>
-
-### Environment-Based Paths
-
-Organize files by environment for clean separation:
-
-```typescript title="lib/upload.ts"
-const { s3 } = createUploadConfig()
-  .provider("cloudflareR2",{
-    // ... provider config
-  })
-  .paths({
-    // Environment-aware global prefix
-    prefix: process.env.NODE_ENV === "production" ? "prod" : "dev",
-    
-    generateKey: (file, metadata) => {
-      // Use whatever identifier fits your app - organizationId, teamId, etc.
-      const orgId = (metadata as any)?.organizationId || "default";
-      
-      // Add timestamp and random ID yourself if you want them
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 8);
-      
-      return `${orgId}/${timestamp}/${randomId}/${file.name}`;
-    },
-  })
-  .build();
-```
-
-**Result Paths:**
-- **Development:** `dev/images/org123/1234567890/abc123/photo.jpg`
-- **Production:** `prod/images/org123/1234567890/abc123/photo.jpg`
-
-## Path Configuration API
-
-### Global Configuration
-
-<TypeTable
-  type={{
-    prefix: {
-      description: "Base prefix for all uploaded files (optional - no default)",
-      type: "string",
-      default: "undefined (no prefix by default)",
-    },
-    generateKey: {
-      description: "Function to generate the file path structure (optional - defaults to just filename)",
-      type: "(file, metadata) => string",
-    },
-  }}
-/>
-
-```typescript
-.paths({
-  prefix: "uploads",
-  generateKey: (file, metadata) => {
-    // Return the file path structure (without prefix)
-    // Use whatever metadata structure fits your app
-    const identifier = (metadata as any)?.organizationId || "default";
-    return `${identifier}/${Date.now()}/${file.name}`;
-  }
-})
-```
-
-### Route Configuration
-
-<TypeTable
-  type={{
-    prefix: {
-      description: "Route-specific prefix, nested under global prefix",
-      type: "string",
-    },
-    generateKey: {
-      description: "Custom path generation with access to global config",
-      type: "(ctx: PathContext) => string",
-    },
-  }}
-/>
-
-```typescript
-.paths({
-  prefix: "images", // Nested under global prefix
-  generateKey: (ctx) => {
-    const { file, metadata, globalConfig, routeName } = ctx;
-    // Full control with access to global configuration
-    return `${globalConfig.prefix}/custom/${file.name}`;
-  }
-})
-```
-
-### PathContext Reference
-
-When using custom `generateKey` functions at the route level, you receive a context object:
-
-<TypeTable
-  type={{
-    file: {
-      description: "File information object",
-      type: "{ name: string; type: string }",
-    },
-    metadata: {
-      description: "Metadata from middleware chain",
-      type: "TMetadata",
-    },
-    globalConfig: {
-      description: "Global path configuration",
-      type: "{ prefix?: string; generateKey?: Function }",
-    },
-    routeName: {
-      description: "Name of the current route",
-      type: "string",
-    },
-  }}
-/>
-
-## Real-World Examples
-
-### E-commerce Platform
-
-```typescript title="app/api/upload/route.ts"
-const s3Router = s3.createRouter({
-  // Product images: uploads/products/{category}/{productId}/images/photo.jpg
-  productImages: s3
-    .image()
-    .maxFileSize("8MB")
-    .accept(["image/jpeg", "image/png", "image/webp"])
-    .middleware(async ({ req }) => {
-      const { productId, category } = await getProductContext(req);
-      return { productId, category, userId: await getUserId(req) };
-    })
-    .paths({
-      generateKey: (ctx) => {
-        const { file, metadata, globalConfig } = ctx;
-        const { productId, category } = metadata;
-        return `${globalConfig.prefix}/products/${category}/${productId}/images/${file.name}`;
-      },
-    }),
-
-  // User avatars: uploads/users/{userId}/avatar/profile.jpg
-  // Note: This example uses userId, but you can use any metadata structure
-  userAvatar: s3
+  avatar: s3
     .image()
     .maxFileSize("2MB")
-    .accept(["image/jpeg", "image/png", "image/webp"])
     .middleware(async ({ req }) => {
-      // Your metadata structure - could be userId, accountId, memberId, etc.
-      const userId = await getUserId(req);
-      return { userId, type: "avatar" };
+      const user = await requireUser(req);
+      return { userId: user.id };
     })
     .paths({
-      generateKey: (ctx) => {
-        const { file, metadata, globalConfig } = ctx;
-        const userId = (metadata as any)?.userId;
-        return `${globalConfig.prefix}/users/${userId}/avatar/${file.name}`;
-      },
-    }),
-
-  // Order documents: uploads/orders/{orderId}/documents/{timestamp}/receipt.pdf
-  orderDocuments: s3
-    .file()
-    .maxFileSize("10MB")
-    .accept(["application/pdf", "image/*"])
-    .middleware(async ({ req }) => {
-      const { orderId } = await getOrderContext(req);
-      return { orderId, uploadedAt: new Date().toISOString() };
-    })
-    .paths({
-      generateKey: (ctx) => {
-        const { file, metadata, globalConfig } = ctx;
-        const timestamp = Date.now();
-        return `${globalConfig.prefix}/orders/${metadata.orderId}/documents/${timestamp}/${file.name}`;
-      },
+      prefix: ({ metadata }) => `users/${metadata.userId}`, // metadata is typed
+      name: "unique",
     }),
 });
+// "My Avatar.png" → users/42/My_Avatar-k3x9m2a7qp.png
 ```
 
-### Content Management System
+Call `.paths()` after `.middleware()`: the `prefix` and `name` functions then
+receive the middleware's output as `metadata`, typed, with no cast.
 
-```typescript title="app/api/upload/route.ts"
-const s3Router = s3.createRouter({
-  // Media library: uploads/media/{year}/{month}/{type}/filename.ext
-  mediaLibrary: s3
-    .file()
-    .maxFileSize("50MB")
-    .middleware(async ({ req, file }) => {
-      const userId = await getUserId(req);
-      const mediaType = file.type.split('/')[0]; // image, video, audio
-      return { userId, mediaType };
-    })
-    .paths({
-      generateKey: (ctx) => {
-        const { file, metadata, globalConfig } = ctx;
-        const date = new Date();
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const randomId = Math.random().toString(36).substring(2, 8);
-        
-        return `${globalConfig.prefix}/media/${year}/${month}/${metadata.mediaType}/${randomId}-${file.name}`;
-      },
-    }),
+<Callout type="warn">
+  **The default name is the filename.** Without `name: "unique"`, two uploads
+  of `photo.jpg` under the same prefix write the same object, and the second
+  silently replaces the first. Use `"unique"` unless overwriting is what you
+  want, such as a fixed avatar per user.
+</Callout>
 
-  // Page assets: uploads/pages/{pageSlug}/assets/image.jpg
-  pageAssets: s3
-    .image()
-    .maxFileSize("10MB")
-    .middleware(async ({ req }) => {
-      const { pageSlug } = await getPageContext(req);
-      return { pageSlug, userId: await getUserId(req) };
-    })
-    .paths({
-      generateKey: (ctx) => {
-        const { file, metadata, globalConfig } = ctx;
-        return `${globalConfig.prefix}/pages/${metadata.pageSlug}/assets/${file.name}`;
-      },
-    }),
+## `prefix`
 
-  // Temp uploads: uploads/temp/{userId}/{sessionId}/file.ext
-  tempUploads: s3
-    .file()
-    .maxFileSize("20MB")
-    .middleware(async ({ req }) => {
-      const userId = await getUserId(req);
-      const sessionId = req.headers.get('x-session-id') || 'unknown';
-      return { userId, sessionId, temporary: true };
-    })
-    .paths({
-      prefix: "temp", // Simple prefix approach
-    }),
-});
+The folder a route's keys live under, nested below the global prefix.
+
+```typescript
+.paths({ prefix: "documents" })                        // documents/report.pdf
+.paths({ prefix: ({ metadata }) => `orgs/${metadata.orgId}` }) // orgs/7/report.pdf
 ```
 
-## Best Practices
+- A **string** is a fixed folder. `documents` and `documents/` are the same.
+- A **function** is computed per file. Each segment it returns is sanitised
+  (`Acme Corp` → `Acme_Corp`). It must not produce an empty segment: a prefix
+  of `users/${id}` with an empty `id` is refused, not collapsed to `users`,
+  because collapsing it would quietly put the file outside every user's
+  folder.
 
-### Path Organization
+## `name`
 
-<Cards>
-  <Card title="Use Descriptive Prefixes" description="Make paths self-documenting">
-    ```typescript
-    // ✅ Good
-    .paths({ prefix: "user-avatars" })
-    .paths({ prefix: "product-images" })
-    
-    // ❌ Avoid
-    .paths({ prefix: "imgs" })
-    .paths({ prefix: "files" })
-    ```
-  </Card>
-  
-  <Card title="Include Identifiers" description="Make files traceable">
-    ```typescript
-    // ✅ Good - includes user and timestamp
-    return `${prefix}/users/${userId}/${timestamp}/${file.name}`;
-    
-    // ❌ Avoid - no traceability
-    return `${prefix}/${file.name}`;
-    ```
-  </Card>
-  
-  <Card title="Prevent Conflicts" description="Use unique identifiers when needed">
-    ```typescript
-    // ✅ Good - add timestamp and random ID yourself if you want them
-    const timestamp = Date.now();
-    const randomId = Math.random().toString(36).substring(2, 8);
-    const identifier = metadata.organizationId || "default";
-    return `${prefix}/${identifier}/${timestamp}/${randomId}/${file.name}`;
-    
-    // ✅ Also valid - simple path if conflicts aren't a concern
-    return `${prefix}/${identifier}/${file.name}`;
-    ```
-  </Card>
-</Cards>
+The last part of the key.
 
-### Performance Tips
+| `name` | `Q3 report.pdf` becomes | Use when |
+| --- | --- | --- |
+| `"original"` (default) | `Q3_report.pdf` | The name is meaningful and overwriting is intended |
+| `"unique"` | `Q3_report-k3x9m2a7qp.pdf` | Almost always: no upload replaces another |
+| `(ctx) => string` | whatever you return, sanitised | You need a specific name or extra folders |
 
-- **Use short, meaningful prefixes** instead of long descriptive names
-- **Avoid deep nesting** beyond 5-6 levels for better performance
-- **Add timestamps yourself** if you want chronological ordering (e.g., `Date.now()`)
-- **Add random IDs yourself** if you need to prevent filename conflicts (e.g., `Math.random().toString(36).substring(2, 8)`)
+`"unique"` keeps the sanitised filename readable in a bucket listing and adds a
+random 10-character base32 id before the extension, so the extension stays
+last.
 
-### Keys are checked, always
+```typescript
+.paths({
+  prefix: ({ metadata }) => `products/${metadata.productId}`,
+  name: ({ metadata, file }) => `${metadata.sortOrder}-${file.name}`,
+})
+// products/p_123/2-front.jpg
+```
+
+A `name` function may return a path with `/` in it to add folders below the
+prefix.
+
+## Global prefix
+
+A prefix every route shares, set once on the config:
+
+```typescript title="lib/upload.ts"
+const { s3 } = createUploadConfig()
+  .provider("cloudflareR2", { /* ... */ })
+  .paths({ prefix: "uploads" })
+  .build();
+```
+
+Every route's keys nest below it: `uploads/users/42/avatar-k3x9m2a7qp.png`.
+
+The global `.paths()` also accepts `generateKey: (file, metadata) => string`,
+the part of the key below the prefixes for routes that do not set `name`.
+Return the part below the prefixes only; the prefixes are added for you.
+Prefer a route's `name`, which receives typed metadata.
+
+## `generateKey`: the escape hatch
+
+When a key does not fit `{prefix}/{name}`, a route can return the whole key
+itself. The global and route prefixes are **not** applied.
+
+```typescript
+.paths({
+  generateKey: ({ metadata }) => `products/${metadata.productId}/cover.jpg`,
+})
+```
+
+It is still checked like every other key. `ctx` also carries `routeName` and
+`globalConfig`, the global `.paths()` settings, if you want to build on the
+global prefix.
+
+## Keys are checked, always
 
 Every key a route produces passes through one chokepoint before it is signed:
-the default key, the prefix, and the output of `generateKey`. It is the same
-check the [Python](/docs/integrations/python) and [Go](/docs/integrations/golang)
-servers apply, so a key resolves the same way whichever server answers.
+the default key, the prefix, the name and the output of `generateKey`. It is
+the same check the [Python](/docs/integrations/python) and
+[Go](/docs/integrations/golang) servers apply, so a key resolves the same way
+whichever server answers.
 
 A key is **refused** when it:
 
@@ -524,61 +142,77 @@ the default filename: non-Latin names are kept, other ASCII punctuation becomes
 `_`.
 
 ```typescript
-.paths({
-  generateKey: ({ file, metadata }) => `orgs/${metadata.orgName}/${file.name}`,
-})
+.paths({ prefix: ({ metadata }) => `orgs/${metadata.orgName}` })
 // orgName "Acme Corp", file "Q3 report.pdf" → "orgs/Acme_Corp/Q3_report.pdf"
 // orgName "../../admin"                     → refused
 ```
 
 A refused key fails **that file** with `VALIDATION_FAILED` and a message naming
 the key and the rule; the other files in the batch carry on. Nothing is signed
-for it, so nothing is written. You still choose *which* values go into a key:
-the check stops a key escaping its prefix, not a caller naming another user's
-id. Take ids from your auth middleware, not from client metadata.
-
-## Migration from Legacy Paths
+for it, so nothing is written.
 
 <Callout type="info">
-  **Upgrading from v1.x?** The old `pathPrefix` option still works but is deprecated. Use the new hierarchical system for better organization.
+  The check stops a key escaping its folder. It cannot tell whether the caller
+  may write to that folder. Take ids from your auth middleware, not from client
+  metadata.
 </Callout>
 
-### Before (Legacy)
+## Reference
 
-```typescript
-// Old way - simple prefix only
-export const { POST, GET } = s3Router.handlers;
-```
+### Route `.paths()`
 
-### After (Hierarchical)
+<TypeTable
+  type={{
+    prefix: {
+      description: "Folder for this route's keys, nested under the global prefix",
+      type: "string | (ctx: PathContext) => string",
+    },
+    name: {
+      description: "The last part of the key",
+      type: '"original" | "unique" | (ctx: PathContext) => string',
+      default: '"original"',
+    },
+    generateKey: {
+      description: "Escape hatch: returns the whole key; prefixes are not applied",
+      type: "(ctx: PathContext) => string",
+    },
+  }}
+/>
 
-```typescript
-// New way - hierarchical configuration
-const { s3 } = createUploadConfig()
-  .provider("cloudflareR2",{ /* config */ })
-  .paths({
-    prefix: "uploads",
-    generateKey: (file, metadata) => {
-      // Use whatever metadata structure fits your app
-      const identifier = (metadata as any)?.organizationId || "default";
-      return `${identifier}/${Date.now()}/${file.name}`;
-    }
-  })
-  .build();
+### Global `.paths()`
 
-const s3Router = s3.createRouter({
-  images: s3.image().paths({ prefix: "images" }),
-  documents: s3.file().paths({ prefix: "documents" })
-});
-```
+<TypeTable
+  type={{
+    prefix: {
+      description: "Folder every key lives under",
+      type: "string",
+    },
+    generateKey: {
+      description: "The part of the key below the prefixes, for routes that do not set `name`",
+      type: "(file, metadata) => string",
+    },
+  }}
+/>
 
-**Benefits of upgrading:**
-- ✅ **Better organization** with route-specific prefixes
-- ✅ **No configuration loss** - global settings are preserved
-- ✅ **More flexibility** with custom generation functions
-- ✅ **Type safety** with PathContext
-- ✅ **Scalable patterns** for growing applications
+### `PathContext`
 
-<Callout type="success">
-  **🎉 You're ready!** Your uploads now have clean, organized, and scalable path structures that will grow with your application.
-</Callout> 
+<TypeTable
+  type={{
+    file: {
+      description: "The file as the client declared it",
+      type: "{ name: string; type: string }",
+    },
+    metadata: {
+      description: "Output of the route's middleware, typed",
+      type: "TMetadata",
+    },
+    routeName: {
+      description: "Name of the route",
+      type: "string",
+    },
+    globalConfig: {
+      description: "The global `.paths()` settings",
+      type: "{ prefix?: string; generateKey?: Function }",
+    },
+  }}
+/>

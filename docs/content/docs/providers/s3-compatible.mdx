@@ -298,15 +298,8 @@ export const { s3, config } = createUploadConfig()
     region: process.env.S3_REGION || "us-east-1",
     forcePathStyle: true,
   })
-  .paths({
-    // Organize files by service type
-    prefix: "uploads",
-    generateKey: (file, metadata) => {
-      const date = new Date().toISOString().split('T')[0];
-      const random = Math.random().toString(36).substring(2, 8);
-      return `${date}/${random}/${file.name}`;
-    },
-  })
+  // Routes choose their own folder and `name: "unique"` with `.paths()`
+  .paths({ prefix: "uploads" })
   .security({
     allowedOrigins: [
       process.env.FRONTEND_URL!,

@@ -143,6 +143,29 @@ export function sanitizeFilename(
   return filename;
 }
 
+/** Crockford base32, lowercase: no `i l o u`, and safe on case-insensitive disks. */
+const BASE32 = "0123456789abcdefghjkmnpqrstvwxyz";
+
+/**
+ * The sanitised filename with a random id before its extension:
+ * `Q3 report.pdf` → `Q3_report-k3x9m2a7qp.pdf`.
+ *
+ * Ten base32 characters are 50 random bits: a collision within one prefix is
+ * not a practical concern. The name stays readable in a bucket listing and the
+ * extension stays last, where content-type sniffing and downloads look for it.
+ */
+export function uniqueName(originalName: string): string {
+  const id = Array.from(
+    crypto.getRandomValues(new Uint8Array(10)),
+    (byte) => BASE32[byte & 31]
+  ).join("");
+
+  const safe = sanitizeFilename(originalName);
+  const dot = safe.lastIndexOf(".");
+  // A dot at 0 is a dotfile (`.env`), not an extension.
+  return dot > 0 ? `${safe.slice(0, dot)}-${id}${safe.slice(dot)}` : `${safe}-${id}`;
+}
+
 /** A lone UTF-16 surrogate: a string that has no UTF-8 encoding. */
 const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
 

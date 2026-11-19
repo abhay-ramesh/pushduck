@@ -135,12 +135,7 @@ const { s3, createS3Router } = createUploadConfig()
     bucket: process.env.S3_BUCKET_NAME!,
     accountId: process.env.R2_ACCOUNT_ID!,
   })
-  .paths({
-    prefix: 'uploads',
-    generateKey: (file, metadata) => {
-      return `${metadata.userId}/${Date.now()}/${file.name}`;
-    }
-  })
+  .paths({ prefix: 'uploads' })
   .build();
 
 export const uploadRouter = createS3Router({
@@ -165,13 +160,15 @@ export const uploadRouter = createS3Router({
       } catch (error) {
         throw new Error('Invalid token');
       }
-    }),
+    })
+    .paths({ prefix: ({ metadata }) => `users/${metadata.userId}`, name: "unique" }),
 
   // Public uploads (no auth)
   publicUpload: s3
     .image()
     .maxFileSize("2MB")
     // No middleware = public access
+    .paths({ prefix: "public", name: "unique" })
 });
 
 export type AppUploadRouter = typeof uploadRouter;

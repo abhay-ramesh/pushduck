@@ -9,21 +9,6 @@
 import { createUploadConfig } from "pushduck/server";
 
 // ========================================
-// Types
-// ========================================
-
-interface FileInfo {
-  name: string;
-  type: string;
-  size?: number;
-}
-
-interface UploadMetadata {
-  userId?: string;
-  [key: string]: unknown;
-}
-
-// ========================================
 // Provider Configuration
 // ========================================
 
@@ -44,21 +29,9 @@ const { s3, config, storage } = createUploadConfig()
     acl: "public-read", // Make uploaded files publicly accessible
   })
   .paths({
-    // Global prefix - forms the base for all uploads
+    // Every key lives under "uploads/". Routes add their own folder and
+    // naming with `.paths({ prefix, name })` (see app/api/s3-upload/route.ts).
     prefix: "uploads",
-
-    // Global path structure - used when routes don't have custom generateKey
-    // This creates the default file organization
-    generateKey: (file, metadata) => {
-      const userId = metadata.userId || metadata.user?.id || "anonymous";
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 8);
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-
-      // Return ONLY the file path part (no prefix)
-      // The hierarchical system will add the prefix and route prefix
-      return `${userId}/${timestamp}/${randomId}/${sanitizedName}`;
-    },
   })
   .security({
     allowedOrigins: [
@@ -104,53 +77,20 @@ console.log(
 export { s3, storage };
 
 // ========================================
-// Alternative Path Configuration Examples
+// Path Configuration
 // ========================================
 
-// Example 1: Simple prefix-only configuration
-// .paths({
-//   prefix: "user-uploads"
-// })
-// Result: user-uploads/anonymous/1234567890/abc123/filename.jpg
-
-// Example 2: Date-based organization
-// .paths({
-//   generateKey: (file, metadata) => {
-//     const date = new Date();
-//     const year = date.getFullYear();
-//     const month = String(date.getMonth() + 1).padStart(2, '0');
-//     const day = String(date.getDate()).padStart(2, '0');
-//     const userId = metadata.userId || 'anonymous';
-//     const randomId = Math.random().toString(36).substring(2, 8);
+// A key is {global prefix}/{route prefix}/{name}. Routes declare the rest:
 //
-//     return `uploads/${year}/${month}/${day}/${userId}/${randomId}-${file.name}`;
-//   }
-// })
-// Result: uploads/2024/01/20/user123/abc123-filename.jpg
-
-// Example 3: File type organization
-// .paths({
-//   generateKey: (file, metadata) => {
-//     const fileType = file.type.split('/')[0]; // image, video, application, etc.
-//     const userId = metadata.userId || 'anonymous';
-//     const timestamp = Date.now();
+//   .middleware(async ({ req }) => ({ userId: await getUserId(req) }))
+//   .paths({
+//     prefix: ({ metadata }) => `users/${metadata.userId}`, // typed metadata
+//     name: "unique", // "original" (default) | "unique" | (ctx) => string
+//   })
+//   // → uploads/users/42/photo-k3x9m2a7qp.jpg
 //
-//     return `uploads/${fileType}/${userId}/${timestamp}/${file.name}`;
-//   }
-// })
-// Result: uploads/image/user123/1234567890/photo.jpg
-
-// Example 4: Environment-based paths
-// .paths({
-//   generateKey: (file, metadata) => {
-//     const env = process.env.NODE_ENV || 'development';
-//     const userId = metadata.userId || 'anonymous';
-//     const randomId = Math.random().toString(36).substring(2, 10);
-//
-//     return `${env}/uploads/${userId}/${randomId}/${file.name}`;
-//   }
-// })
-// Result: production/uploads/user123/abc123def/document.pdf
+// Every segment is sanitised and keys that would escape their folder are
+// refused, so routes never sanitise filenames or add random ids themselves.
 
 // ========================================
 // Alternative Provider Configurations
@@ -163,12 +103,7 @@ export { s3, storage };
 //     bucket: "my-s3-bucket",
 //     // accessKeyId and secretAccessKey loaded from AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 //   })
-//   .paths({
-//     prefix: "aws-uploads",
-//     generateKey: (file, metadata) => {
-//       return `aws-uploads/${metadata.userId}/${Date.now()}/${file.name}`;
-//     }
-//   })
+//   .paths({ prefix: "aws-uploads" })
 //   .build();
 
 // For DigitalOcean Spaces:
@@ -191,10 +126,5 @@ export { s3, storage };
 //     useSSL: false,
 //     // accessKeyId and secretAccessKey loaded from MINIO_ACCESS_KEY_ID, MINIO_SECRET_ACCESS_KEY
 //   })
-//   .paths({
-//     generateKey: (file, metadata) => {
-//       // Custom MinIO path structure
-//       return `minio/${metadata.project || 'default'}/${file.name}`;
-//     }
-//   })
+//   .paths({ prefix: "minio" })
 //   .build();

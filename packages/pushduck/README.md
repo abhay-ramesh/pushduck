@@ -62,15 +62,7 @@ export const { upload, storage, isConfigured } = createUploadConfig()
     maxFileSize: '10MB',
     acl: 'public-read',
   })
-  .paths({
-    prefix: 'uploads',
-    generateKey: (file, metadata) => {
-      const userId = metadata.userId || 'anonymous';
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 8);
-      return `${userId}/${timestamp}/${randomId}/${file.name}`;
-    },
-  })
+  .paths({ prefix: 'uploads' })
   .build();
 
 // Create router with your upload routes
@@ -318,18 +310,23 @@ createUploadConfig().provider("neonStorage", {
 
 #### Path Configuration
 
+A key is `{global prefix}/{route prefix}/{name}`. Set the global prefix on the
+config, and the rest on each route, after its middleware so `metadata` is typed:
+
 ```typescript
-.paths({
-  prefix: 'uploads',
-  generateKey: (file, metadata) => {
-    const userId = metadata.userId || 'anonymous';
-    const timestamp = Date.now();
-    const randomId = Math.random().toString(36).substring(2, 8);
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    return `${userId}/${timestamp}/${randomId}/${sanitizedName}`;
-  },
-})
+createUploadConfig().paths({ prefix: 'uploads' });
+
+upload.image()
+  .middleware(async ({ req }) => ({ userId: await getUserId(req) }))
+  .paths({
+    prefix: ({ metadata }) => `users/${metadata.userId}`,
+    name: 'unique', // 'original' (default) | 'unique' | (ctx) => string
+  });
+// → uploads/users/42/photo-k3x9m2a7qp.jpg
 ```
+
+Every segment is sanitised, and a key that would escape its folder (`..`, an
+empty segment, an absolute path) fails that file instead of being signed.
 
 #### Lifecycle Hooks
 
@@ -374,10 +371,9 @@ s3.image().middleware(async ({ file, metadata }) => ({
 }))
 
 // Route-specific paths
-s3.image().paths({
-  prefix: 'avatars',
-  generateKey: (file, metadata) => `user-${metadata.userId}/avatar.${file.name.split('.').pop()}`,
-})
+s3.image()
+  .middleware(async ({ req }) => ({ userId: await getUserId(req) }))
+  .paths({ prefix: ({ metadata }) => `avatars/${metadata.userId}`, name: 'unique' })
 
 // Lifecycle hooks per route
 s3.image().onUploadComplete(async ({ file, url, metadata }) => {

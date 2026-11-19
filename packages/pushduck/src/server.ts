@@ -50,8 +50,8 @@
  *       return { userId: user.id, organizationId: user.orgId };
  *     })
  *     .paths({
- *       generateKey: ({ file, metadata }) =>
- *         `orgs/${metadata.organizationId}/users/${metadata.userId}/${file.name}`
+ *       prefix: ({ metadata }) => `orgs/${metadata.organizationId}/users/${metadata.userId}`,
+ *       name: 'unique',
  *     })
  *     .onUploadComplete(async ({ file, url, metadata }) => {
  *       // Database update
@@ -138,10 +138,7 @@ export {
  *   provider: createProvider('aws', { bucket: 'uploads' }),
  *   maxFileSize: '10MB',
  *   allowedFileTypes: ['image/*', 'application/pdf'],
- *   paths: {
- *     prefix: 'user-uploads',
- *     generateKey: (file, metadata) => `${metadata.userId}/${file.name}`,
- *   },
+ *   paths: { prefix: 'user-uploads' },
  * });
  * ```
  */
@@ -229,8 +226,8 @@ export {
  *       return { userId: user.id, organizationId: user.orgId };
  *     })
  *     .paths({
- *       generateKey: ({ file, metadata }) =>
- *         `orgs/${metadata.organizationId}/users/${metadata.userId}/${file.name}`
+ *       prefix: ({ metadata }) => `orgs/${metadata.organizationId}/users/${metadata.userId}`,
+ *       name: 'unique',
  *     })
  *     .onUploadComplete(async ({ file, url, metadata }) => {
  *       await db.files.create({
@@ -543,12 +540,16 @@ export type {
   InferRouteMetadata,
   InferRouteOutput,
   InferRouterRoutes,
+  PathContext,
+  PathName,
+  PathPrefix,
   S3LifecycleContext,
   S3LifecycleHook,
   S3Middleware,
   S3MiddlewareContext,
   S3RouteContext,
   S3RouterDefinition,
+  S3RoutePathConfig,
 } from "./core/router/router-v2";
 
 // Schema types

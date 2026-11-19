@@ -128,11 +128,7 @@ For production apps, you'll want to add authentication and custom paths:
 ```ts title="app/api/upload/route.ts"
 const { s3 } = createUploadConfig()
   .provider("aws", { /* ... */ })
-  .paths({
-    prefix: 'uploads',
-    generateKey: (file, metadata) => 
-      `${metadata.userId}/${Date.now()}/${file.name}`
-  })
+  .paths({ prefix: 'uploads' })
   .build();
 
 const router = s3.createRouter({
@@ -142,7 +138,8 @@ const router = s3.createRouter({
       const user = await getUser(req);
       if (!user) throw new Error('Unauthorized');
       return { userId: user.id };
-    }),
+    })
+    .paths({ prefix: ({ metadata }) => `users/${metadata.userId}`, name: "unique" }),
 });
 ```
 
