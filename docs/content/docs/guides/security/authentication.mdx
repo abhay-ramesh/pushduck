@@ -143,6 +143,44 @@ const s3Router = s3.createRouter({
 });
 ```
 
+## Middleware Runs on Every Request of an Upload
+
+An upload is several requests: `presign`, then `complete` (and for large files,
+part signing in between). Your middleware runs on **each** of them, always with
+the same `file` and the same client `metadata` that presign received, so a user
+who signs out or loses access mid-upload is refused when they try to finish.
+
+Only the presign run decides the upload's metadata. That value is sealed into
+the upload's receipt and is exactly what `onComplete` receives — the
+completion request cannot change it. Later runs exist to authorise; their
+return value is ignored.
+
+`phase` tells you which request this is, for work that must happen once:
+
+```typescript
+upload.file()
+  .middleware(async ({ req, metadata, phase }) => {
+    const user = await requireUser(req);              // every request
+    await assertMember(user.id, metadata.projectId);  // every request
+
+    if (phase === "presign") {
+      await reserveQuota(user.id);                    // once
+    }
+
+    return { userId: user.id, projectId: metadata.projectId };
+  })
+  .onComplete(async ({ metadata, uploadId }) => {
+    // metadata is what presign returned; uploadId is stable across retries
+    await db.attachments.upsert({ id: uploadId, ...metadata });
+  });
+```
+
+| `phase` | When |
+| --- | --- |
+| `"presign"` | The upload is authorised and its key chosen. The return value becomes the upload's metadata. |
+| `"upload"` | A large file's parts are being signed, listed or aborted. |
+| `"complete"` | The upload is being finished; `onComplete` runs next. |
+
 ## Simple Role Checking
 
 For apps with admins vs regular users:

@@ -234,6 +234,26 @@ A server **MAY** return a `completionToken` from `presign`, binding the issued
 The token is opaque. Its contents, signing algorithm and secret are entirely
 the server's business; a client **MUST** treat it as a string to be echoed.
 
+#### The reference servers' token: a receipt
+
+The TypeScript, Go and Python servers make the token a **receipt** — the
+server's sealed record of what presign authorised: the route, the key, the
+file as declared, the client's `metadata` exactly as received, and what the
+route's handler returned. At completion they:
+
+1. read the receipt back, refusing one that is forged, expired, for another
+   route or for another key (`403`);
+2. authorise the caller by running the handler over the **same** input presign
+   saw — so a caller who has lost access since is refused, and a handler that
+   reads a field it does not return behaves identically on every request;
+3. run the completion hook with the **sealed** metadata. Nothing in the
+   completion request — `metadata`, `file`, `key` — can change what the hook
+   receives.
+
+Multipart sessions are receipts too, carrying the part plan, so every
+multipart call runs the handler over the original input and the final
+assembly finishes through the same completion hook as a single `PUT`.
+
 ## Multipart (OPTIONAL)
 
 A single `PUT` cannot carry more than 5 GB, and on a mobile connection a
