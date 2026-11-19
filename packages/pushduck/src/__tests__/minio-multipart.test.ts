@@ -231,6 +231,35 @@ describe.skipIf(!available)("MinIO multipart", () => {
     expect(firstDifference(actual, expected)).toBeNull();
   }, 90_000);
 
+  it("refuses a part of any size but the one it was signed for", async () => {
+    // Each part URL signs the part's size, so a client cannot push more bytes
+    // through a part than the declared file size accounts for.
+    const { router } = buildStack();
+    const call = (action: string, body: unknown) =>
+      router.handler(
+        new Request(`http://localhost/api/upload?route=bigUpload&action=${action}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+      );
+
+    const file = { name: "sized.bin", size: 5 * MIB + 10, type: "application/octet-stream" };
+    const init = await (await call("multipart-init", { file })).json();
+    const parts = await (
+      await call("multipart-sign", { session: init.session, partNumbers: [1, 2] })
+    ).json();
+    const last = parts[1];
+    expect(last.size).toBe(10);
+
+    const put = (size: number) =>
+      fetch(last.url, { method: "PUT", body: new Uint8Array(size) });
+    expect((await put(5 * MIB)).status).toBe(403);
+    expect((await put(10)).status).toBe(200);
+
+    await call("multipart-abort", { session: init.session });
+  });
+
   it("leaves nothing behind when an upload fails", async () => {
     // Abandoned parts consume storage and are billed until removed, and AWS
     // never expires them on its own.

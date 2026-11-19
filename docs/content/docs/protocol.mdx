@@ -329,6 +329,11 @@ A server **MUST** reject a part number outside the plan implied by the
 session's total size and part size, because signing one would authorise a write
 past the end of the object.
 
+`size` is the exact length of that part, and the client **MUST** `PUT` exactly
+that many bytes. A server **SHOULD** sign `content-length` into each part URL,
+as it does for a single `PUT`, so the parts cannot add up to more than the
+declared file. The reference TypeScript server does.
+
 ### 4c. `multipart-complete`
 
 ```jsonc
