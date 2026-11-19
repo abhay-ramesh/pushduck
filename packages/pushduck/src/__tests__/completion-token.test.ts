@@ -28,10 +28,25 @@
  * from this version on.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createUploadConfig } from "../core/config/upload-config";
 import { UploadError } from "../core/errors";
 import { uploadFiles } from "../core/upload";
+import { installFakeStorage, type FakeStorage } from "./fixtures/fake-storage";
+
+/**
+ * These tests are about tokens and authorisation, not bytes: every key reads
+ * as a stored image, as if the browser's PUT had happened. (Completion verifies
+ * the stored object; see upload-verification.test.ts.)
+ */
+let storage: FakeStorage;
+beforeEach(() => {
+  storage = installFakeStorage({
+    bucket: "test-bucket",
+    assumeUploaded: { size: 1000, contentType: "image/jpeg" },
+  });
+});
+afterEach(() => storage.restore());
 
 const FILE = { name: "photo.jpg", size: 1000, type: "image/jpeg" };
 

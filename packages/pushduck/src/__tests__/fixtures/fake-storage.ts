@@ -48,8 +48,16 @@ export interface FakeStorage {
  *
  * Requests to any other host fall through to a 501, never to the network.
  */
-export function installFakeStorage(options: { bucket: string }): FakeStorage {
-  const { bucket } = options;
+export function installFakeStorage(options: {
+  bucket: string;
+  /**
+   * For tests about tokens and authorisation rather than bytes: every key
+   * reads as an object of this size and type, as if the browser's PUT had
+   * happened. Keys that were actually written still report what was written.
+   */
+  assumeUploaded?: { size: number; contentType: string };
+}): FakeStorage {
+  const { bucket, assumeUploaded } = options;
   const objects = new Map<string, StoredObject>();
   const requests: FakeStorage["requests"] = [];
   /** In-progress multipart uploads: uploadId → key, content type and parts. */
@@ -204,7 +212,14 @@ export function installFakeStorage(options: { bucket: string }): FakeStorage {
         });
       }
       case "HEAD": {
-        const object = objects.get(key);
+        const object =
+          objects.get(key) ??
+          (assumeUploaded && {
+            body: new Uint8Array(assumeUploaded.size),
+            contentType: assumeUploaded.contentType,
+            metadata: {},
+            etag: "assumed",
+          });
         return object
           ? new Response(null, { status: 200, headers: objectHeaders(object) })
           : new Response(null, { status: 404 });

@@ -6,7 +6,7 @@
  * frozen because X-Amz-Date has second granularity and one test compares
  * two signatures produced by separate calls.
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createUploadConfig } from "../core/config/upload-config";
 import { createS3RouterWithConfig } from "../core/router/router-v2";
 import {
@@ -14,6 +14,21 @@ import {
   generatePresignedUploadUrl,
   resetS3Client,
 } from "../core/storage/client";
+import { installFakeStorage, type FakeStorage } from "./fixtures/fake-storage";
+
+/**
+ * These tests are about tokens and authorisation, not bytes: every key reads
+ * as a stored image, as if the browser's PUT had happened. (Completion verifies
+ * the stored object; see upload-verification.test.ts.)
+ */
+let storage: FakeStorage;
+beforeEach(() => {
+  storage = installFakeStorage({
+    bucket: "test-bucket",
+    assumeUploaded: { size: 1000, contentType: "image/jpeg" },
+  });
+});
+afterEach(() => storage.restore());
 
 const baseProvider = {
   bucket: "test-bucket",
