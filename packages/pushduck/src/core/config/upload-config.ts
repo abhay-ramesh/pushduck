@@ -47,6 +47,7 @@
 import {
   createProvider,
   validateProviderConfig,
+  warnIfAclIgnored,
   type ProviderConfig,
   type ProviderConfigMap,
   type ProviderType,
@@ -741,6 +742,12 @@ export class UploadConfigBuilder {
         `Invalid provider configuration: ${validation.errors.join(", ")}`
       );
     }
+
+    // Same precedence the storage client uses when it sends x-amz-acl.
+    warnIfAclIgnored(
+      this.config.provider,
+      this.config.defaults?.acl ?? this.config.provider.acl
+    );
 
     const finalConfig = this.config as UploadConfig;
 

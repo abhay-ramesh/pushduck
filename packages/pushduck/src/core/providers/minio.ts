@@ -91,7 +91,7 @@ export const minio = defineProvider<MinIOConfig>({
     "customDomain",
     "acl",
   ],
-  defaults: { endpoint: "localhost:9000", region: "us-east-1", acl: "private" },
+  defaults: { endpoint: "localhost:9000", region: "us-east-1" },
   derive: (_config, input) => ({
     useSSL: input.useSSL ?? false,
     port: input.port ? Number(input.port) : undefined,

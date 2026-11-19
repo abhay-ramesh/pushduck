@@ -74,7 +74,6 @@ export const neonStorage = defineProvider<NeonStorageConfig>({
     "customDomain",
     "acl",
   ],
-  defaults: { acl: "private" },
   derive: (config) => ({
     endpoint: config.endpoint.replace(/\/+$/, ""),
     region: config.region || getNeonStorageRegion(config.endpoint) || "",

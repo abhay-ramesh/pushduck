@@ -177,10 +177,16 @@ export const { s3,  } = createUploadConfig()
   })
   .defaults({
     maxFileSize: "10MB",
-    acl: "public-read", // For public access
   })
   .build();
 ```
+
+<Callout type="warn">
+**No `acl` on R2.** R2 has no per-object ACLs, so pushduck never sends
+`x-amz-acl` and `acl: "public-read"` does not make files public. Files are
+public when the bucket is (step 2: custom domain or r2.dev). pushduck logs a
+warning when `acl` is set on R2.
+</Callout>
 
 ## 7. Test Your Setup
 

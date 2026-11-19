@@ -176,7 +176,7 @@ That is the whole configuration. The defaults below are what was tested; change 
 | `forcePathStyle`  | No       | `true`                           | `false` addresses the bucket as `my-app-uploads.storage.googleapis.com`.    |
 | `customDomain`    | No       |                                  | A CDN or load balancer in front of a public bucket, used for public URLs.   |
 
-`acl` is accepted and ignored: Google Cloud Storage controls access with IAM.
+`acl` is not sent, and pushduck logs a warning when it is set: Google Cloud Storage controls access with IAM.
 
 <Callout type="warn">
   Never expose these variables to the browser — do not prefix them with `NEXT_PUBLIC_`, `VITE_` or `PUBLIC_`.

@@ -44,8 +44,10 @@ export interface BaseProviderConfig {
   bucket: string;
   /**
    * S3 ACL for uploaded objects.
-   * Ignored by providers without per-object ACLs (Cloudflare R2, MinIO, Neon
-   * Object Storage).
+   *
+   * Not sent to providers without per-object ACLs (Cloudflare R2, MinIO, Neon
+   * Object Storage, Google Cloud Storage). There, access is a bucket setting,
+   * and `build()` warns when `acl` is set.
    */
   acl?: S3AclValue;
   /**
