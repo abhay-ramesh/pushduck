@@ -143,7 +143,10 @@ This distinction is **normative** and easy to get wrong:
 
 - A failure describing **one file** (too large, wrong type, failed validation)
   **MUST** be reported as `results[i].success = false` inside a `200`. One
-  rejected file **MUST NOT** fail the others.
+  rejected file **MUST NOT** fail the others. It carries a human-readable
+  `error` and **SHOULD** carry a `code` from the [code table](#codes); a client
+  branches on `code` and treats a missing or unrecognised one as
+  `VALIDATION_FAILED`.
 - A failure describing **the request** (unauthenticated, forbidden, over
   quota, unknown route, malformed body) **MUST** abort the batch and be
   returned as an error response with the appropriate status.
@@ -214,8 +217,14 @@ Tells the server which objects landed, so it can run post-processing.
 }
 ```
 
-A client **SHOULD** treat a failed `complete` as non-fatal: the bytes are
-already in storage, and reporting the upload as failed would be inaccurate.
+A server **MAY** refuse one file here: a per-file failure inside the `200`,
+like at presign. The reference servers check the stored object and refuse with
+`NOT_FOUND` when nothing was uploaded to the key, or `VALIDATION_FAILED` when
+the object breaks the route's rules (they delete it first).
+
+A client **MUST** report a file as uploaded only once its completion succeeds.
+Completion is where the server records the upload, so a refused file, an error
+response or no answer at all leaves the file failed, whatever storage holds.
 
 ### Completion tokens (OPTIONAL)
 
@@ -541,6 +550,8 @@ them and still conform; a client **MUST** tolerate their absence.
 | `X-Pushduck-*` response headers | every response | Observability only |
 | `completionToken` | `presign` response, `complete` request | Binds a key to its route |
 | `multipart-*` actions | dispatch | Five actions; `400` when unimplemented |
+| Per-file `code` | `presign` and `complete` results | Absent means `VALIDATION_FAILED` |
+| Per-file refusal at `complete` | `complete` response | Stored-object check; see [Complete](#3-complete) |
 
 <Callout type="info">
   **If the URL shape ever changes** — for example moving dispatch into path

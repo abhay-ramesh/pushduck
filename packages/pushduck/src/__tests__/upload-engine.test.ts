@@ -595,19 +595,82 @@ describe("failure handling", () => {
     expect(onError).toHaveBeenCalled();
   });
 
-  it("keeps uploads successful when the completion call fails", async () => {
-    // The bytes are already in storage — a completion failure must not
-    // retroactively turn a successful upload into a failed one.
+  it("fails the file when the server cannot complete it", async () => {
+    // Completion is where the server checks the stored object and runs the
+    // route's hook; until it answers, nothing has recorded the upload.
     const { fetcher } = createTestFetcher({
       presign: { success: true, results: [presignResult()] },
+      complete: { status: 500, code: "INTERNAL_ERROR", detail: "Database down" },
       completeStatus: 500,
+    });
+    const { transport } = createTestTransport();
+    const onSuccess = vi.fn();
+
+    const engine = buildEngine({ fetcher, transport, onSuccess });
+    await engine.upload([makeFile()]);
+
+    const [file] = engine.getSnapshot().files;
+    expect(file.status).toBe("error");
+    expect(file.errorCode).toBe("INTERNAL_ERROR");
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it("fails the file the server refused at completion, with its code", async () => {
+    const { fetcher } = createTestFetcher({
+      presign: { success: true, results: [presignResult()] },
+      complete: {
+        success: true,
+        results: [
+          {
+            success: false,
+            key: "uploads/photo.jpg",
+            code: "NOT_FOUND",
+            error: "No object was uploaded to this key",
+          },
+        ],
+      },
     });
     const { transport } = createTestTransport();
 
     const engine = buildEngine({ fetcher, transport });
     await engine.upload([makeFile()]);
 
-    expect(engine.getSnapshot().files[0].status).toBe("success");
+    const [file] = engine.getSnapshot().files;
+    expect(file.status).toBe("error");
+    expect(file.errorCode).toBe("NOT_FOUND");
+    expect(file.error).toBe("No object was uploaded to this key");
+  });
+
+  it("sends each completion as the protocol defines it", async () => {
+    const { fetcher, requests } = createTestFetcher({
+      presign: { success: true, results: [presignResult({ completionToken: "t" })] },
+    });
+    const { transport } = createTestTransport();
+
+    await buildEngine({ fetcher, transport }).upload([makeFile()]);
+
+    const completion = requests.find((r) => r.url.includes("action=complete"));
+    expect(completion?.body?.completions).toEqual([
+      {
+        key: "uploads/photo.jpg",
+        file: { name: "photo.jpg", size: 1000, type: "image/jpeg" },
+        completionToken: "t",
+      },
+    ]);
+  });
+
+  it("takes a per-file presign rejection's code from the server", async () => {
+    const { fetcher } = createTestFetcher({
+      presign: {
+        success: true,
+        results: [{ success: false, code: "FILE_TOO_LARGE", error: "Too big" }],
+      },
+    });
+
+    const engine = buildEngine({ fetcher });
+    await engine.upload([makeFile()]);
+
+    expect(engine.getSnapshot().files[0].errorCode).toBe("FILE_TOO_LARGE");
   });
 
   it("never rejects, even when the fetcher throws", async () => {
