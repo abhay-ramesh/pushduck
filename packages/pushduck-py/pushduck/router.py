@@ -9,15 +9,13 @@ and a framework nobody has written an adapter for can still be served.
 
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
 import contextlib
 import json
 from dataclasses import dataclass, replace as _replace
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 from urllib.parse import parse_qs, quote
 
+from . import tokens
 from .config import FileMeta, Schema, UploadConfig, choose_part_size
 from .errors import UploadError, as_upload_error, problem_document
 from .keys import generate_key, resolve_key
@@ -684,43 +682,20 @@ class Router:
 
     # ─── completion tokens ───────────────────────────────────────────────────
 
-    def _completion_signature(self, payload: str) -> str:
-        # Same construction as the TypeScript and Go servers, including the
-        # secret prefix, so the three remain interchangeable rather than merely
-        # similar.
-        signature = hmac.new(
-            f"pushduck-multipart:completion:{self.config.secret_access_key}".encode("utf-8"),
-            payload.encode("utf-8"),
-            hashlib.sha256,
-        ).digest()
-        return base64.urlsafe_b64encode(signature).rstrip(b"=").decode("ascii")
-
     def _sign_completion(self, key: str, route: str) -> str:
-        claim = json.dumps({"key": key, "route": route}, separators=(",", ":"))
-        payload = base64.urlsafe_b64encode(claim.encode("utf-8")).rstrip(b"=").decode("ascii")
-        return f"{payload}.{self._completion_signature(payload)}"
+        # Same construction as the TypeScript and Go servers, including the
+        # purpose prefix, so the three remain interchangeable rather than
+        # merely similar.
+        return tokens.seal(
+            self.config.secret_access_key, tokens.COMPLETION, {"key": key, "route": route}
+        )
 
     def _verify_completion(self, token: str) -> Dict[str, Any]:
-        # One message for every failure mode, so a probe learns nothing about
-        # which part was wrong.
-        rejection = UploadError("FORBIDDEN", "Invalid completion token")
-
-        parts = token.split(".")
-        if len(parts) != 2 or not parts[0] or not parts[1]:
-            raise rejection
-
-        if not hmac.compare_digest(parts[1], self._completion_signature(parts[0])):
-            raise rejection
-
-        try:
-            padded = parts[0] + "=" * (-len(parts[0]) % 4)
-            claim = json.loads(base64.urlsafe_b64decode(padded))
-        except (ValueError, UnicodeDecodeError):
-            raise rejection from None
-
+        claim = tokens.unseal(self.config.secret_access_key, tokens.COMPLETION, token)
         if not isinstance(claim, dict) or not claim.get("key"):
-            raise rejection
-
+            # One message for every failure mode, so a probe learns nothing
+            # about which part was wrong.
+            raise UploadError("FORBIDDEN", "Invalid completion token")
         return claim
 
     # ─── helpers ─────────────────────────────────────────────────────────────

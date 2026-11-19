@@ -20,15 +20,12 @@ rather than rediscovered, which is the whole point of having a shared protocol:
 
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
-import json
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ElementTree
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
+from . import tokens
 from .config import UploadConfig
 from .errors import UploadError
 from .sign import presign
@@ -277,15 +274,6 @@ def list_uploaded_parts(
 # ─── session tokens ──────────────────────────────────────────────────────────
 
 
-def _session_signature(secret: str, payload: str) -> str:
-    signature = hmac.new(
-        f"pushduck-multipart:{secret}".encode("utf-8"),
-        payload.encode("utf-8"),
-        hashlib.sha256,
-    ).digest()
-    return base64.urlsafe_b64encode(signature).rstrip(b"=").decode("ascii")
-
-
 def sign_session(secret: str, session: Mapping[str, Any]) -> str:
     """Issue a token binding a key, upload id and route.
 
@@ -294,9 +282,7 @@ def sign_session(secret: str, session: Mapping[str, Any]) -> str:
     user's upload. Middleware authenticates the caller; nothing would tie the
     caller to the object.
     """
-    claim = json.dumps(dict(session), separators=(",", ":"), sort_keys=True)
-    payload = base64.urlsafe_b64encode(claim.encode("utf-8")).rstrip(b"=").decode("ascii")
-    return f"{payload}.{_session_signature(secret, payload)}"
+    return tokens.seal(secret, tokens.SESSION, dict(session))
 
 
 def verify_session(secret: str, token: Any) -> Dict[str, Any]:
@@ -305,23 +291,7 @@ def verify_session(secret: str, token: Any) -> Dict[str, Any]:
     One message for every failure mode, so a probe learns nothing about which
     part was wrong.
     """
-    rejection = UploadError("FORBIDDEN", "Invalid or expired multipart session")
-
-    if not isinstance(token, str):
-        raise rejection
-
-    parts = token.split(".")
-    if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise rejection
-
-    if not hmac.compare_digest(parts[1], _session_signature(secret, parts[0])):
-        raise rejection
-
-    try:
-        padded = parts[0] + "=" * (-len(parts[0]) % 4)
-        session = json.loads(base64.urlsafe_b64decode(padded))
-    except (ValueError, UnicodeDecodeError) as error:
-        raise rejection from error
+    session = tokens.unseal(secret, tokens.SESSION, token)
 
     # A valid signature over a malformed payload must still not proceed.
     if (
@@ -330,6 +300,6 @@ def verify_session(secret: str, token: Any) -> Dict[str, Any]:
         or not session.get("uploadId")
         or int(session.get("partSize") or 0) <= 0
     ):
-        raise rejection
+        raise UploadError("FORBIDDEN", "Invalid or expired multipart session")
 
     return session
