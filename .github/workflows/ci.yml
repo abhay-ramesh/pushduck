@@ -241,7 +241,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.9", "3.x"]
+        python: ["3.9", "3.14"]
 
     steps:
       - name: 📥 Checkout
@@ -250,19 +250,21 @@ jobs:
       - name: 🪣 Start MinIO
         run: ./packages/pushduck/scripts/minio.sh start
 
+      # uv rather than actions/setup-python: the latter has no 3.9 build for
+      # the current ubuntu-latest image, and testing the floor is the point of
+      # the 3.9 leg. uv's standalone builds still cover it.
       - name: 🐍 Setup Python
-        uses: actions/setup-python@v6
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python }}
+          activate-environment: true
 
       # The `test` dependency group includes every framework test_frameworks.py
       # mounts into; each skips when absent, so installing them is what makes
       # those tests run rather than vanish.
       - name: 📥 Install test dependencies
         working-directory: packages/pushduck-py
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install --group test
+        run: uv pip install --group test
 
       - name: 🧪 Tests
         working-directory: packages/pushduck-py
