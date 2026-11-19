@@ -32,6 +32,12 @@ if (!isHealthy) {
    - Ensure your access key has `s3:ListBucket`, `s3:GetObject`, `s3:DeleteObject` permissions
    - For Cloudflare R2, check your API token has the necessary permissions
 
+4. **`exists()` or `download.get()` throws `STORAGE_ACCESS_DENIED` for a file you expect to be missing**:
+   without `s3:ListBucket`, S3 and R2 answer 403 instead of 404 for a key that
+   does not exist. pushduck reports the 403 rather than guessing "missing".
+   Grant `s3:ListBucket` on the bucket and a missing key returns `false` /
+   throws `NOT_FOUND` instead.
+
 ### Empty File Lists
 
 **Problem**: `storage.list.files()` returns empty array but files exist.

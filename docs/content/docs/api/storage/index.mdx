@@ -179,17 +179,59 @@ const downloadUrl = await storage.download.presignedUrl(
 window.open(downloadUrl)
 ```
 
+## Replacing the AWS SDK
+
+The `storage` instance covers the server-side calls apps typically keep
+`@aws-sdk/client-s3` or `aws4fetch` around for, against every provider
+pushduck supports, with no second client to configure:
+
+| AWS SDK | pushduck |
+|---|---|
+| `GetObjectCommand` → `Body` stream | `storage.download.get(key)` → `{ body, size, contentType, etag, lastModified }` |
+| `GetObjectCommand` + `Body.transformToByteArray()` / `transformToString()` | `storage.download.bytes(key)` / `storage.download.text(key)` |
+| A proxy route that pipes `GetObject` and sets headers | `return storage.download.response(key, { filename, cacheControl })` |
+| `getSignedUrl(GetObjectCommand({ ResponseContentDisposition, ResponseContentType }))` | `storage.download.presignedUrl(key, { filename, disposition, contentType, expiresIn })` |
+| `CopyObjectCommand` (`CopySource`, `MetadataDirective: "REPLACE"`) | `storage.copy.file(from, to, { metadata })` |
+| `CopyObjectCommand` + `DeleteObjectCommand` | `storage.move.file(from, to)` |
+| `HeadObjectCommand` (catch `NotFound`) | `storage.validation.exists(key)` / `storage.metadata.getInfo(key)` |
+| `PutObjectCommand` (`ContentType`, `CacheControl`, `Metadata`) | `storage.upload.file(body, key, { contentType, cacheControl, metadata })` |
+| `DeleteObjectCommand` / `DeleteObjectsCommand` | `storage.delete.file(key)` / `storage.delete.files(keys)` |
+| `ListObjectsV2Command` | `storage.list.files()` / `storage.list.paginated()` |
+
+```typescript
+// Before: a second client just to serve a private file under its original name
+const url = await getSignedUrl(s3, new GetObjectCommand({
+  Bucket, Key: doc.key,
+  ResponseContentDisposition: `attachment; filename="${doc.name}"`,
+}), { expiresIn: 300 })
+
+// After: same request, filename encoded safely for any Unicode name
+const url = await storage.download.presignedUrl(doc.key, {
+  filename: doc.name,
+  expiresIn: 300,
+})
+```
+
+<Callout type="info">
+  `exists` returns `false` only for a 404. S3 and R2 answer **403** for a
+  missing object when the credential lacks `s3:ListBucket`, and pushduck throws
+  `STORAGE_ACCESS_DENIED` for that rather than guessing — see
+  [File Existence](/docs/api/storage/file-operations#file-existence).
+</Callout>
+
 ## Storage Instance Structure
 
 The storage instance organizes operations into logical namespaces:
 
 ```typescript
 storage.list.*       // File listing operations
-storage.metadata.*   // File metadata operations  
-storage.download.*   // Download and URL operations
-storage.upload.*     // Upload operations
+storage.metadata.*   // File metadata operations
+storage.download.*   // Read files, serve them, presigned/public URLs
+storage.upload.*     // Server-side uploads and presigned upload URLs
+storage.copy.*       // Server-side copy
+storage.move.*       // Copy + delete
 storage.delete.*     // Delete operations
-storage.validation.* // Validation operations
+storage.validation.* // Existence and validation checks
 ```
 
 ## Error Handling
