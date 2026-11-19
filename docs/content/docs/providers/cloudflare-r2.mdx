@@ -95,11 +95,22 @@ Keep public access disabled - files will only be accessible via presigned URLs.
 5. Click **"Create API token"**
 6. **Save your Access Key ID and Secret Access Key**
 
-## 4. Configure CORS (If Using Custom Domain)
+## 4. Configure CORS
 
 <Callout type="info">
 **Comprehensive CORS Guide**: For detailed CORS configuration, testing, and troubleshooting, see the [CORS & ACL Configuration Guide](/docs/guides/security/cors-and-acl).
 </Callout>
+
+Run these commands to check and fix CORS with the credentials in `.env.local`:
+
+```bash
+npx @pushduck/cli@latest cors check --origin http://localhost:3000 https://yourdomain.com
+npx @pushduck/cli@latest cors apply --origin http://localhost:3000 https://yourdomain.com
+```
+
+Changing R2 bucket CORS requires an API token with **Admin Read & Write** permission. The **Object Read & Write** token your app uploads with can't do it, so run `cors apply` with an admin token or use the dashboard. R2 doesn't allow wildcard ports, so list each dev port you use.
+
+To set the rules by hand instead, use the steps below.
 
 In your R2 bucket settings, add this CORS policy:
 

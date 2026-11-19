@@ -46,7 +46,7 @@ The CLI will automatically:
     - AWS S3, Cloudflare R2, DigitalOcean Spaces
     - Google Cloud Storage, MinIO, Neon Object Storage
     - Automatic bucket creation
-    - CORS configuration
+    - Bucket CORS checked and applied with `pushduck cors`
   </Card>
   
   <Card title="Code Generation" description="Creates production-ready code">
@@ -128,18 +128,91 @@ npx @pushduck/cli@latest test [options]
 
 - `--verbose` - Show detailed test output
 
-Validates your current setup:
+Finds your provider's credentials in the environment, `.env.local` or `.env`, and checks that the bucket is reachable with them:
 
 ```bash
 npx @pushduck/cli@latest test
 
 # Example output:
-# ✅ Environment variables configured
-# ✅ S3 bucket accessible
-# ✅ CORS configuration valid
-# ✅ API routes responding
-# ✅ Types generated correctly
+# ✓ Found MINIO credentials
+# ✔ S3 connection successful
+# ✓ Connection test successful
 ```
+
+Use `cors check` to check the bucket's CORS.
+
+### `cors` - Check and Fix Bucket CORS
+
+Browsers upload straight to the bucket, so the bucket's CORS rules must allow every origin your app is served from. These commands use the same credentials as `test`.
+
+```bash
+npx @pushduck/cli@latest cors check --origin <origins...> [--provider <type>]
+npx @pushduck/cli@latest cors apply --origin <origins...> [--provider <type>] [--yes]
+```
+
+**Options:**
+
+- `--origin <origins...>` - Origins as the browser sends them: `scheme://host[:port]`, no path. Required.
+- `--provider <type>` - Use this provider's credentials (`aws`, `cloudflare-r2`, `digitalocean`, `minio`, `neon`, `gcs`). By default, the first provider with credentials configured is used.
+- `-y, --yes` - (`apply`) Apply without asking.
+
+#### `cors check`
+
+For each origin, `cors check` reports whether a browser upload (`PUT` with the headers pushduck sends), a download (`GET`), and reading the `ETag` that multipart uploads need would work:
+
+```bash
+npx @pushduck/cli@latest cors check --origin http://localhost:3000 http://localhost:51234
+
+# Checking CORS on Cloudflare R2 bucket "uploads"
+#
+# http://localhost:3000
+#   ✓ upload (PUT, content-type)  preflight allowed
+#   ✓ ETag readable after upload  exposed by rule 1
+#   ✓ download (GET)              preflight allowed
+#
+# http://localhost:51234
+#   ✗ upload (PUT, content-type)  preflight rejected (HTTP 403) — no rule allows this origin
+#   ? ETag readable after upload  could not tell — make sure the bucket's CORS exposes it
+#   ✗ download (GET)              preflight rejected (HTTP 403) — no rule allows this origin
+#
+# Browser uploads from some origins will fail.
+# Fix: pushduck cors apply --origin http://localhost:3000 --origin http://localhost:51234
+```
+
+The command reads the bucket's rules with `GetBucketCors` where the provider supports it. It also sends the same preflight `OPTIONS` request a browser sends, so the result is the bucket's own answer, even on providers whose rules can't be read through the S3 API (GCS, MinIO). To see whether `ETag` is exposed, it sends an upload that is bound to fail: it is signed for a credential that doesn't exist, so nothing is written. The command exits with code 1 when any origin would fail, so you can run it in CI.
+
+#### `cors apply`
+
+`cors apply` adds the origins that don't already pass to the bucket's rules. Unrelated rules stay as they are. It shows the change as a diff and asks before writing:
+
+```bash
+npx @pushduck/cli@latest cors apply --origin https://app.example.com
+
+# CORS rules for Cloudflare R2 bucket "uploads":
+#
+#   {
+#     "CORSRules": [
+# +     {
+# +       "ID": "pushduck",
+# +       "AllowedOrigins": [
+# +         "https://app.example.com"
+# +       ],
+# +       "AllowedMethods": [
+# +         "PUT",
+# +         "GET"
+# +       ],
+# ...
+# ? Apply these rules? (y/N)
+```
+
+- Origins go into one rule with the ID `pushduck`. If that rule exists, the command extends it instead of adding another. The rule goes first, because the first rule that matches an origin is the one that applies, including which headers it exposes.
+- A pattern with one `*` is accepted, e.g. `https://*.vercel.app`.
+- Outside a terminal, pass `--yes`. If the rules change while the prompt is open, the command writes nothing and asks you to run it again.
+- **R2**: changing bucket CORS needs an API token with **Admin Read & Write** permission. The upload token can't do it.
+- **GCS**: CORS is set with `gcloud`, so the command prints the JSON and the `gcloud storage buckets update` command.
+- **MinIO**: CORS is server-wide (`MINIO_API_CORS_ALLOW_ORIGIN`), so the command prints the setting to use.
+
+See [CORS & ACL Setup](/docs/guides/security/cors-and-acl) for the rule pushduck needs and why.
 
 ## Interactive Setup Walkthrough
 

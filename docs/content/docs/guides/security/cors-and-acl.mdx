@@ -17,272 +17,123 @@ This guide covers Cross-Origin Resource Sharing (CORS) configuration for file up
 
 ## CORS Configuration
 
-Cross-Origin Resource Sharing (CORS) is essential for allowing your web application to upload files directly to cloud storage from the browser.
+Browsers upload straight to your bucket with a presigned URL, so the **bucket** — not your app — decides whether the upload is allowed. Before the `PUT`, the browser sends a preflight `OPTIONS` request from your page's origin (e.g. `http://localhost:3000`) to the bucket. If no CORS rule allows that origin, the upload fails with a bare network error, and nothing reaches your server.
 
-### Why CORS is Required
+### Check and fix it with the CLI
 
-When uploading files directly from the browser to cloud storage, you're making requests from your domain (e.g., `https://myapp.com`) to a different domain (e.g., `https://mybucket.s3.amazonaws.com`). Browsers block these cross-origin requests by default unless the target server explicitly allows them via CORS headers.
+```bash
+# Will browser uploads from these origins work?
+npx @pushduck/cli@latest cors check --origin http://localhost:3000 https://app.example.com
 
-### Basic CORS Configuration
-
-#### AWS S3 CORS Configuration
-
-```json
-[
-  {
-    "AllowedHeaders": [
-      "*"
-    ],
-    "AllowedMethods": [
-      "GET",
-      "PUT",
-      "POST",
-      "DELETE",
-      "HEAD"
-    ],
-    "AllowedOrigins": [
-      "https://yourdomain.com",
-      "https://www.yourdomain.com"
-    ],
-    "ExposeHeaders": [
-      "ETag",
-      "x-amz-meta-custom-header"
-    ],
-    "MaxAgeSeconds": 3000
-  }
-]
+# Add the ones that don't, keeping the bucket's other rules
+npx @pushduck/cli@latest cors apply --origin http://localhost:3000 https://app.example.com
 ```
 
-#### Setting CORS via AWS CLI
+`cors check` reads the bucket's rules, sends the same preflight a browser would, and reports per origin whether uploads, downloads and reading `ETag` work. It exits non-zero when any origin would fail, so it can run in CI. `cors apply` shows the change as a diff and asks before writing. Both use the credentials `pushduck test` uses, from the environment, `.env.local` or `.env`. See the [CLI reference](/docs/api/cli#cors---check-and-fix-bucket-cors) for details.
 
-`aws s3api put-bucket-cors` does not accept the bare array above. Wrap the rules in `{"CORSRules": [...]}` and save the result as `cors-config.json`:
+Each new origin needs a rule: a dev server on another port, a preview deployment, a custom domain. The usual sign of a missing rule is an app that works on `localhost:3000` and fails on a worktree's random port or in production. Use `cors apply` to add the origin rather than proxying uploads through your server or pinning the dev port.
+
+### The rule pushduck needs
 
 ```json
 {
   "CORSRules": [
     {
-      "AllowedHeaders": ["*"],
-      "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
-      "AllowedOrigins": ["https://yourdomain.com", "https://www.yourdomain.com"],
-      "ExposeHeaders": ["ETag", "x-amz-meta-custom-header"],
-      "MaxAgeSeconds": 3000
+      "ID": "pushduck",
+      "AllowedOrigins": ["http://localhost:3000", "https://app.example.com"],
+      "AllowedMethods": ["PUT", "GET"],
+      "AllowedHeaders": ["content-type", "x-amz-acl"],
+      "ExposeHeaders": ["ETag"],
+      "MaxAgeSeconds": 3600
     }
   ]
 }
 ```
 
-Then apply it:
+This is exactly what the browser client sends:
+
+- **`PUT`** uploads a file, or one part of a multipart upload, to its presigned URL. **`GET`** downloads with `fetch`. Multipart create, complete and abort, deletes and `HEAD` checks all run on your server, so `POST`, `DELETE` and `HEAD` are not needed.
+- **`content-type`** is sent on every upload. **`x-amz-acl`** is sent only on providers that accept ACLs (AWS S3, DigitalOcean Spaces, S3-compatible), because the server signs it into the URL. Leave it out on R2, MinIO, GCS and Neon.
+- **`ETag`** must be exposed: the multipart uploader reads each part's ETag to complete the upload. A rule without it lets small files through and fails every large one.
+
+Rules are matched in order, and only the **first** rule that matches an origin and method applies, including its `ExposeHeaders`. A later rule that exposes `ETag` does not help when an earlier one matches first. That is why `cors apply` puts pushduck's rule first.
+
+An origin is `scheme://host[:port]` with no path and no trailing slash. One `*` is allowed (`https://*.example.com`). On R2, a port cannot be a wildcard, so list each port.
+
+### Setting it by hand
+
+`cors apply` does the following for you; these are the manual steps.
+
+#### AWS S3
+
+Save the JSON above as `cors-config.json`, then:
 
 ```bash
-aws s3api put-bucket-cors \
-  --bucket your-bucket-name \
-  --cors-configuration file://cors-config.json
+aws s3api put-bucket-cors --bucket your-bucket --cors-configuration file://cors-config.json
 ```
 
-#### Setting CORS via AWS Console
-
-1. Go to S3 Console → Your Bucket → Permissions
-2. Scroll to "Cross-origin resource sharing (CORS)"
-3. Click "Edit" and paste your CORS configuration
-4. Save changes
-
-### Development vs Production CORS
-
-#### Development Configuration (Permissive)
-
-```json
-[
-  {
-    "AllowedHeaders": ["*"],
-    "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
-    "AllowedOrigins": [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://127.0.0.1:3000",
-      "https://yourdomain.com"
-    ],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3000
-  }
-]
-```
-
-#### Production Configuration (Restrictive)
-
-```json
-[
-  {
-    "AllowedHeaders": [
-      "Content-Type",
-      "Content-MD5",
-      "Authorization",
-      "x-amz-date",
-      "x-amz-content-sha256"
-    ],
-    "AllowedMethods": ["PUT", "POST"],
-    "AllowedOrigins": [
-      "https://yourdomain.com",
-      "https://www.yourdomain.com"
-    ],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 86400
-  }
-]
-```
-
-### Provider-Specific CORS Setup
+`put-bucket-cors` replaces the whole configuration, so include any rules you already have (`aws s3api get-bucket-cors --bucket your-bucket`). In the console, go to S3, then the bucket, then Permissions, then Cross-origin resource sharing (CORS). The console takes the bare array, without `CORSRules`.
 
 #### Cloudflare R2
 
-```json
-[
-  {
-    "AllowedOrigins": ["https://yourdomain.com"],
-    "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
-    "AllowedHeaders": ["*"],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3600
-  }
-]
-```
-
-Set via Cloudflare Dashboard:
-1. Go to R2 Object Storage → Your Bucket
-2. Navigate to Settings → CORS policy
-3. Add your CORS rules
+R2 implements `GetBucketCors` and `PutBucketCors` on its S3 API ([S3 API compatibility](https://developers.cloudflare.com/r2/api/s3/api/)). Changing bucket configuration requires an API token with **Admin Read & Write** permission. The **Object Read & Write** token your app uploads with can't do it ([R2 API tokens](https://developers.cloudflare.com/r2/api/tokens/)). Run `cors apply` with an admin token, or set the rule in the dashboard (R2, then the bucket, then Settings, then CORS Policy) or with `wrangler r2 bucket cors set`. Changes can take up to 30 seconds to apply ([R2 CORS](https://developers.cloudflare.com/r2/buckets/cors/)).
 
 #### DigitalOcean Spaces
 
+Spaces takes `PutBucketCors`, so `cors apply` works. By hand, use the Spaces settings in the control panel, `s3cmd setcors`, or the AWS CLI command above with `--endpoint-url https://<region>.digitaloceanspaces.com`.
+
+#### Google Cloud Storage
+
+GCS keeps CORS in its own JSON format, set with `gcloud` rather than the S3 API. `cors apply` prints the JSON and the command instead of applying them:
+
 ```json
 [
   {
-    "AllowedOrigins": ["https://yourdomain.com"],
-    "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
-    "AllowedHeaders": ["*"],
-    "ExposeHeaders": ["ETag", "x-amz-meta-*"],
-    "MaxAgeSeconds": 3600
+    "origin": ["http://localhost:3000", "https://app.example.com"],
+    "method": ["PUT", "GET"],
+    "responseHeader": ["content-type", "ETag"],
+    "maxAgeSeconds": 3600
   }
 ]
 ```
 
-Set via DigitalOcean Control Panel:
-1. Go to Spaces → Your Space → Settings
-2. Add CORS configuration
-
-#### MinIO (Self-Hosted)
-
 ```bash
-# Using MinIO Client (mc)
-mc admin config set myminio api cors_allow_origin="https://yourdomain.com"
-mc admin service restart myminio
+gcloud storage buckets update gs://your-bucket --cors-file=cors.json
 ```
 
-Or via MinIO Console:
-1. Access MinIO Console → Buckets → Your Bucket
-2. Navigate to Anonymous → Access Rules
-3. Configure CORS policy
+GCS uses `responseHeader` both for the headers a request may send and for the headers the page may read, so it lists both. The command replaces the bucket's configuration. Check the current one with `gcloud storage buckets describe gs://your-bucket --format="default(cors_config)"`. See [Configure CORS](https://cloud.google.com/storage/docs/using-cors).
+
+#### MinIO (self-hosted)
+
+Open-source MinIO has no per-bucket CORS. It answers `PutBucketCors` with `501 NotImplemented`, and its `GetBucketCors` result does not reflect what it allows. CORS is one server-wide setting that allows every origin by default and exposes `ETag`. To restrict it to your origins:
+
+```bash
+MINIO_API_CORS_ALLOW_ORIGIN="http://localhost:3000,https://app.example.com" minio server /data
+# or, on a running server
+mc admin config set myminio api cors_allow_origin="http://localhost:3000,https://app.example.com"
+```
+
+`cors check` works against MinIO, because it relies on the preflight. `cors apply` prints these commands.
 
 #### Neon Object Storage
 
-Neon supports `PutBucketCors`, so the `CORSRules`-wrapped `cors-config.json` from [Setting CORS via AWS CLI](#setting-cors-via-aws-cli) works as-is against your branch endpoint:
-
-```bash
-aws s3api put-bucket-cors \
-  --bucket your-bucket \
-  --cors-configuration file://cors-config.json \
-  --endpoint-url "$AWS_ENDPOINT_URL_S3"
-```
+Neon supports `GetBucketCors` and `PutBucketCors`, so `cors apply` works. By hand, use the AWS CLI command above with `--endpoint-url "$AWS_ENDPOINT_URL_S3"`.
 
 Neon does not support ACLs. Set a bucket's access level (`private` or `public_read`) when you create it; pushduck never sends `x-amz-acl` to Neon. See [Neon Object Storage](/docs/providers/neon-object-storage#4-configure-cors).
 
-### Advanced CORS Configurations
+### Testing by hand
 
-#### Multiple Environment Setup
-
-```json
-[
-  {
-    "AllowedHeaders": ["*"],
-    "AllowedMethods": ["PUT", "POST"],
-    "AllowedOrigins": [
-      "https://yourdomain.com",
-      "https://staging.yourdomain.com"
-    ],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 86400
-  },
-  {
-    "AllowedHeaders": ["*"],
-    "AllowedMethods": ["GET"],
-    "AllowedOrigins": ["*"],
-    "MaxAgeSeconds": 3600
-  }
-]
-```
-
-#### CDN Integration
-
-When using CloudFront or other CDNs:
-
-```json
-[
-  {
-    "AllowedHeaders": [
-      "Origin",
-      "Access-Control-Request-Method",
-      "Access-Control-Request-Headers"
-    ],
-    "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
-    "AllowedOrigins": [
-      "https://yourdomain.com",
-      "https://d1234567890.cloudfront.net"
-    ],
-    "ExposeHeaders": ["ETag", "x-amz-version-id"],
-    "MaxAgeSeconds": 86400
-  }
-]
-```
-
-### Testing CORS Configuration
-
-#### Browser Developer Tools
-
-1. Open your web app
-2. Try uploading a file
-3. Check Network tab for CORS errors
-4. Look for preflight OPTIONS requests
-
-#### Command Line Testing
+`cors check` sends this preflight for you. To see the raw answer:
 
 ```bash
-# Test preflight request
-curl -X OPTIONS \
-  -H "Origin: https://yourdomain.com" \
+curl -i -X OPTIONS \
+  -H "Origin: http://localhost:3000" \
   -H "Access-Control-Request-Method: PUT" \
-  -H "Access-Control-Request-Headers: Content-Type" \
-  https://yourbucket.s3.amazonaws.com/
-
-# Should return CORS headers if configured correctly
+  -H "Access-Control-Request-Headers: content-type" \
+  https://your-bucket.s3.us-east-1.amazonaws.com/any-key
 ```
 
-#### Programmatic Testing
-
-```javascript
-// Test CORS from browser console
-fetch('https://yourbucket.s3.amazonaws.com/', {
-  method: 'OPTIONS',
-  headers: {
-    'Origin': window.location.origin,
-    'Access-Control-Request-Method': 'PUT'
-  }
-})
-.then(response => {
-  console.log('CORS Headers:', response.headers);
-})
-.catch(error => {
-  console.error('CORS Error:', error);
-});
-```
+An allowed origin gets a 2xx response with `Access-Control-Allow-Origin` set to that origin, and `PUT` and `content-type` in the allow lists. In the browser, a CORS failure shows up as a failed `OPTIONS` request in the Network tab.
 
 ## Understanding ACLs
 
@@ -461,25 +312,15 @@ const uploadConfig = createUploadConfig({
 
 #### Symptom: "CORS policy" errors in browser console
 
-**Solution:**
-1. Check CORS configuration includes your domain
-2. Verify all required methods are allowed
-3. Ensure preflight requests are handled
+Run `npx @pushduck/cli@latest cors check --origin <the page's origin>`. It names what is missing (the origin, `PUT`, or a header), and `cors apply` with the same origins fixes it.
 
-```bash
-# Debug CORS with curl
-curl -X OPTIONS \
-  -H "Origin: https://yourdomain.com" \
-  -H "Access-Control-Request-Method: PUT" \
-  -v https://yourbucket.s3.amazonaws.com/
-```
+#### Symptom: Uploads work locally but fail in production, or on another port
 
-#### Symptom: Uploads work locally but fail in production
+The bucket allows `localhost:3000` but not the other origin. Add it with `cors apply --origin https://app.example.com`. Each port and each preview domain is a separate origin.
 
-**Solution:**
-1. Add production domain to CORS origins
-2. Check for HTTPS vs HTTP mismatches
-3. Verify subdomain configurations
+#### Symptom: Small files upload, large ones fail with a missing ETag
+
+The rule that serves your origin does not expose `ETag`, which multipart uploads read. `cors check` reports this as "ETag readable after upload", and `cors apply` fixes it.
 
 ### ACL Issues
 
@@ -521,9 +362,7 @@ const config = createUploadConfig({
 
 ### Debug Checklist
 
-- [ ] CORS configuration includes all required origins
-- [ ] All HTTP methods needed are allowed
-- [ ] Headers match what your client sends
+- [ ] `pushduck cors check` passes for every origin the app is served from
 - [ ] ACL settings match provider capabilities
 - [ ] Bucket policies don't conflict with ACLs
 - [ ] IAM permissions allow required operations
@@ -534,7 +373,7 @@ const config = createUploadConfig({
 
 | Feature | AWS S3 | Cloudflare R2 | DigitalOcean Spaces | MinIO |
 |---------|---------|---------------|---------------------|-------|
-| CORS | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| Bucket CORS (`PutBucketCors`) | ✅ Yes | ✅ Yes (admin token) | ✅ Yes | ❌ Server-wide only |
 | Canned ACLs | ✅ Yes | ❌ No | ✅ Limited | ❌ No |
 | Custom ACLs | ✅ Yes | ❌ No | ❌ No | ❌ No |
 | Bucket Policies | ✅ Yes | ✅ Yes | ❌ No | ✅ Yes |
