@@ -4,6 +4,11 @@
 //	go run ./cmd/conformance-server
 //	pnpm conformance --url http://localhost:4320/api/upload
 //
+// With a real bucket, for the cases about the stored object:
+//
+//	CONFORMANCE_STORAGE=http://minioadmin:minioadmin@127.0.0.1:9010/conformance go run ./cmd/conformance-server
+//	pnpm conformance --url http://localhost:4320/api/upload --storage http://minioadmin:minioadmin@127.0.0.1:9010/conformance
+//
 // It exposes exactly the route surface `conformance/README.md` requires, so a
 // failure means the implementation disagrees with the protocol rather than
 // that the two servers were configured differently.
@@ -13,7 +18,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/abhay-ramesh/pushduck-go/pushduck"
 )
@@ -24,14 +31,31 @@ func main() {
 		port = "4320"
 	}
 
+	// Presigning is pure computation, so by default this needs no bucket and
+	// no network. CONFORMANCE_STORAGE=http://KEY:SECRET@host:port/bucket backs
+	// it with a real bucket, for the cases about the stored object.
 	config := pushduck.Config{
 		Bucket:          "conformance-bucket",
 		Region:          "us-east-1",
 		AccessKeyID:     "conformance-key",
 		SecretAccessKey: "conformance-secret",
 	}
+	if raw := os.Getenv("CONFORMANCE_STORAGE"); raw != "" {
+		storage, err := url.Parse(raw)
+		if err != nil {
+			log.Fatalf("CONFORMANCE_STORAGE: %v", err)
+		}
+		secret, _ := storage.User.Password()
+		config = pushduck.Config{
+			Bucket:          strings.Trim(storage.Path, "/"),
+			Region:          "us-east-1",
+			AccessKeyID:     storage.User.Username(),
+			SecretAccessKey: secret,
+			Endpoint:        storage.Scheme + "://" + storage.Host,
+			ForcePathStyle:  true,
+		}
+	}
 
-	// Presigning is pure computation, so this needs no bucket and no network.
 	requireAuth := func(r *http.Request, _ pushduck.FileMeta) (map[string]any, error) {
 		if r.Header.Get("Authorization") != "Bearer conformance-token" {
 			return nil, pushduck.NewError("UNAUTHORIZED", "Sign in to upload")

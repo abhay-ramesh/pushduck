@@ -76,6 +76,64 @@ arrays are matched recursively; and these matchers describe the rest:
 Unlisted response keys are ignored, so an implementation may return additional
 fields — that is what makes the protocol extensible without breaking this suite.
 
+## Cases that span several requests
+
+Some rules are only visible across requests: a token earned on one route must
+not complete an upload on another, and a completion must check what the upload
+actually stored. These cases are a list of `steps`. A step can save values from
+its response and use them in a later step:
+
+```json
+"steps": [
+  {
+    "request": { "query": { "route": "fileUpload" }, "body": { "files": [ … ] } },
+    "save": { "key": "results.0.key", "token": "results.0.completionToken" }
+  },
+  {
+    "request": {
+      "query": { "route": "imageUpload", "action": "complete" },
+      "body": { "completions": [{ "key": "${key}", "completionToken": "${token}", … }] }
+    },
+    "expect": { "status": 403 }
+  }
+]
+```
+
+Besides `request`, a step can be:
+
+| Step | Does |
+| --- | --- |
+| `{"upload": {"url", "headers", "size"}}` | `PUT`s `size` bytes to a URL the server issued, as a browser would |
+| `{"store": {"key", "size", "type"}}` | writes an object straight to the bucket, bypassing the server |
+| `{"head": {"key"}}` | asks the bucket whether an object exists |
+
+`store` and `head` need the bucket the server writes to. So do cases that
+check what completion does with a stored object. Such a case says
+`"needs": ["storage"]` and is skipped unless the runner is given that bucket:
+
+```bash
+CONFORMANCE_STORAGE=http://minioadmin:minioadmin@127.0.0.1:9010/test-uploads \
+  go run ./cmd/conformance-server        # or the TypeScript / Python server
+pnpm conformance --url http://localhost:4320/api/upload \
+  --storage http://minioadmin:minioadmin@127.0.0.1:9010/test-uploads
+```
+
+### Tokens the reference servers issue
+
+`completionToken` is opaque to the protocol. The TypeScript, Go and Python
+servers share one token format, the receipt (see `protocol.mdx`). Two values
+build such tokens:
+
+| Value | Becomes |
+| --- | --- |
+| `{"$seal": { …claim }}` | a receipt sealed with the server's secret: `--receipt-secret`, else the `--storage` secret, else `conformance-secret` |
+| `{"$tamper": {"token", "set": { … }}}` | the token's claim with fields replaced, under its original signature |
+
+Every such case still holds for a server with a different token. That server
+has never issued these tokens, so it refuses them with the same `403` the
+case expects. For the reference servers, the case tests the specific rule,
+such as expiry or the signature.
+
 ## Adding a case
 
 Every bug found in any implementation should become a fixture here. That is the
