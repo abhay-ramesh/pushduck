@@ -4,15 +4,21 @@
  * This module provides a builder pattern for configuring pushduck with type-safe
  * provider settings, validation rules, path generation, and lifecycle hooks.
  *
+ * One config serves the whole app: `upload` defines routes, `storage` runs
+ * server-side operations, and both use the same provider. Build it once in a
+ * shared module rather than once per use.
+ *
  * @example Basic AWS Configuration
  * ```typescript
- * const { s3, config } = createUploadConfig()
- *   .provider("aws", {
- *     bucket: "my-bucket",
- *     region: "us-east-1",
- *     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
- *     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
- *   })
+ * export const { upload, storage, isConfigured } = createUploadConfig()
+ *   // A function: read on the first upload or storage call, not at import,
+ *   // so a build without credentials still succeeds.
+ *   .provider("aws", () => ({
+ *     bucket: process.env.AWS_BUCKET,
+ *     region: process.env.AWS_REGION,
+ *     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+ *     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+ *   }))
  *   .defaults({ maxFileSize: '10MB', acl: 'public-read' })
  *   .build();
  * ```
@@ -44,8 +50,10 @@
  *
  */
 
+import { UploadError } from "../errors";
 import {
   createProvider,
+  PROVIDERS,
   validateProviderConfig,
   warnIfAclIgnored,
   type ProviderConfig,
@@ -511,8 +519,25 @@ export class UploadConfigBuilder {
   private config: Partial<UploadConfig> = {};
 
   /**
-   * Sets the storage provider with type-safe configuration.
-   * Supports both direct provider config objects and type-safe provider creation.
+   * Set instead of `config.provider` when the provider options were given as
+   * a function: resolves and validates them on first use. See `.provider()`.
+   */
+  private resolveProvider?: () => ProviderConfig;
+
+  /**
+   * Sets the storage provider.
+   *
+   * Options may be given as a function. It is called the first time an
+   * operation needs storage — a presign, a completion, a `storage` call —
+   * not when the config is built, so importing the module never reads
+   * credentials. That is what lets `next build` (and any other build step that
+   * evaluates route modules) run without them, and it is the recommended form
+   * wherever options come from the environment. Missing or invalid options
+   * then fail that operation with `CONFIG_INVALID`, naming the option, and
+   * `isConfigured()` reports them without throwing.
+   *
+   * Options given as an object are validated immediately, which suits values
+   * known at startup — a fixed local MinIO, a test.
    *
    * @overload
    * @param providerConfig - Complete provider configuration object
@@ -521,8 +546,28 @@ export class UploadConfigBuilder {
    * @overload
    * @template T - The provider type
    * @param type - Provider type string (e.g., "aws", "cloudflareR2")
-   * @param config - Type-safe configuration for the specified provider
+   * @param options - The provider's options, or a function returning them
    * @returns This builder instance for method chaining
+   *
+   * @example Options read on first use (recommended)
+   * ```typescript
+   * builder.provider("aws", () => ({
+   *   bucket: process.env.AWS_BUCKET,
+   *   region: process.env.AWS_REGION,
+   *   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+   *   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+   * }));
+   * ```
+   *
+   * @example Options validated immediately
+   * ```typescript
+   * builder.provider("minio", {
+   *   endpoint: "http://localhost:9000",
+   *   bucket: "dev-uploads",
+   *   accessKeyId: "minioadmin",
+   *   secretAccessKey: "minioadmin",
+   * });
+   * ```
    *
    * @example Direct Provider Config
    * A config object is used as given — not defaulted, derived or normalised
@@ -537,35 +582,31 @@ export class UploadConfigBuilder {
    *   secretAccessKey: "...",
    * });
    * ```
-   *
-   * @example Type-Safe Provider Creation
-   * ```typescript
-   * builder.provider("aws", {
-   *   bucket: "my-bucket",
-   *   region: "us-east-1",
-   *   accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-   *   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-   * });
-   * ```
    */
   provider(providerConfig: ProviderConfig): UploadConfigBuilder;
   provider<T extends ProviderType>(
     type: T,
-    config: ProviderConfigMap[T]
+    options: ProviderConfigMap[T] | (() => ProviderConfigMap[T])
   ): UploadConfigBuilder;
   provider<T extends ProviderType>(
     providerOrType: ProviderConfig | T,
-    config?: ProviderConfigMap[T]
+    options?: ProviderConfigMap[T] | (() => ProviderConfigMap[T])
   ): UploadConfigBuilder {
-    if (typeof providerOrType === "string") {
-      // Type-safe API: provider("aws", { bucket: "...", region: "..." })
-      this.config.provider = createProvider(
-        providerOrType,
-        config as ProviderConfigMap[T]
-      );
-    } else {
+    this.resolveProvider = undefined;
+    delete this.config.provider;
+
+    if (typeof providerOrType !== "string") {
       // Direct config object: provider(configObject)
       this.config.provider = providerOrType;
+    } else if (typeof options === "function") {
+      // Lazy: provider("aws", () => ({ bucket: process.env.BUCKET }))
+      this.resolveProvider = lazyProvider(providerOrType, options);
+    } else {
+      // Eager: provider("aws", { bucket: "...", region: "..." })
+      this.config.provider = createProvider(
+        providerOrType,
+        options as ProviderConfigMap[T]
+      );
     }
     return this;
   }
@@ -735,10 +776,14 @@ export class UploadConfigBuilder {
 
   /**
    * Builds the final configuration and returns configured instances.
-   * Validates the configuration and creates the upload config, storage instance, and S3 builder.
+   * Creates the upload config, storage instance and upload builder.
+   *
+   * Provider options given as an object are validated here; options given as
+   * a function are validated on first use instead, so building never reads
+   * them.
    *
    * @returns Object containing the built configuration and helper instances
-   * @throws {Error} If provider configuration is missing or invalid
+   * @throws {Error} If no provider is set, or eager provider options are invalid
    *
    * @example
    * ```typescript
@@ -758,24 +803,44 @@ export class UploadConfigBuilder {
    * ```
    */
   build(): UploadInitResult {
-    if (!this.config.provider) {
-      throw new Error("Provider configuration is required");
-    }
+    // A copy, so building twice — or configuring the builder further after a
+    // build — never changes a config already handed out.
+    const finalConfig = { ...this.config } as UploadConfig;
 
-    const validation = validateProviderConfig(this.config.provider);
-    if (!validation.valid) {
-      throw new Error(
-        `Invalid provider configuration: ${validation.errors.join(", ")}`
+    if (this.resolveProvider) {
+      // `provider` is read by every operation that talks to storage and by
+      // nothing that merely defines routes or mounts handlers, so reading it
+      // is exactly "first use". A getter keeps that one rule in one place:
+      // the storage client, the router and user code that inspects
+      // `config.provider` all resolve the same way, with nothing to forget.
+      const resolve = this.resolveProvider;
+      let warned = false;
+      Object.defineProperty(finalConfig, "provider", {
+        get: () => {
+          const provider = resolve();
+          if (!warned) {
+            warned = true;
+            warnIfAclIgnored(provider, finalConfig.defaults?.acl ?? provider.acl);
+          }
+          return provider;
+        },
+        enumerable: true,
+      });
+    } else if (!finalConfig.provider) {
+      throw new Error("Provider configuration is required");
+    } else {
+      const validation = validateProviderConfig(finalConfig.provider);
+      if (!validation.valid) {
+        throw new Error(
+          `Invalid provider configuration: ${validation.errors.join(", ")}`
+        );
+      }
+      // Same precedence the storage client uses when it sends x-amz-acl.
+      warnIfAclIgnored(
+        finalConfig.provider,
+        finalConfig.defaults?.acl ?? finalConfig.provider.acl
       );
     }
-
-    // Same precedence the storage client uses when it sends x-amz-acl.
-    warnIfAclIgnored(
-      this.config.provider,
-      this.config.defaults?.acl ?? this.config.provider.acl
-    );
-
-    const finalConfig = this.config as UploadConfig;
 
     // Configure logger and metrics based on config
     if (finalConfig.debug !== undefined) {
@@ -786,9 +851,10 @@ export class UploadConfigBuilder {
       metrics.setEnabled(finalConfig.enableMetrics);
     }
 
-    // Log successful configuration
     logger.info("📦 Upload configuration initialized", {
-      provider: finalConfig.provider.provider,
+      provider: this.resolveProvider
+        ? "resolved on first use"
+        : finalConfig.provider.provider,
     });
 
     // Create storage instance with config
@@ -801,6 +867,14 @@ export class UploadConfigBuilder {
       config: finalConfig,
       storage,
       upload,
+      isConfigured: () => {
+        try {
+          void finalConfig.provider;
+          return true;
+        } catch {
+          return false;
+        }
+      },
       /** @deprecated Use `upload` instead. The `s3` name is misleading when using R2, MinIO, or other providers. */
       get s3() {
         console.warn(
@@ -810,6 +884,53 @@ export class UploadConfigBuilder {
       },
     };
   }
+}
+
+/**
+ * Resolves provider options given as a function, on first call.
+ *
+ * Success is cached: credentials do not change under a running process, and
+ * every request would otherwise re-run validation. Failure is not, so a value
+ * that becomes available later — a secret fetched at startup, a binding that
+ * exists only inside a request — is picked up by the next call instead of the
+ * process having to restart.
+ *
+ * Failures are `CONFIG_INVALID` whatever their source, so a request that hits
+ * one gets a 500 "Upload is misconfigured" rather than an error blamed on
+ * storage, and the message names the missing option for the server log.
+ *
+ * Two requests racing to be first may both resolve; they produce the same
+ * config, so whichever is cached last is as good as the other.
+ */
+function lazyProvider<T extends ProviderType>(
+  type: T,
+  options: () => ProviderConfigMap[T]
+): () => ProviderConfig {
+  // The provider name is in the code, not the environment, so a typo is
+  // reported when the config is written rather than at the first upload.
+  if (!Object.hasOwn(PROVIDERS, type)) {
+    throw new Error(`Unknown provider type: ${type}`);
+  }
+
+  let resolved: ProviderConfig | undefined;
+
+  return () => {
+    if (resolved) return resolved;
+
+    try {
+      resolved = createProvider(type, options());
+    } catch (error) {
+      throw new UploadError(
+        "CONFIG_INVALID",
+        `The ${type} provider is not configured. ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        { cause: error }
+      );
+    }
+
+    return resolved;
+  };
 }
 
 /**
@@ -839,8 +960,30 @@ export class UploadConfigBuilder {
  * ```
  */
 export interface UploadInitResult {
-  /** The complete upload configuration object */
+  /**
+   * The complete upload configuration object.
+   *
+   * When the provider options were given as a function, reading
+   * `config.provider` resolves them, and throws `CONFIG_INVALID` if they are
+   * missing or invalid.
+   */
   config: UploadConfig;
+  /**
+   * Whether the provider options resolve to a valid provider. Never throws.
+   *
+   * Always `true` for options given as an object, which are validated when
+   * the config is built. For options given as a function, this resolves them
+   * — the same validation a request would run — so a route can answer
+   * "storage not configured" itself, or a health endpoint can report it.
+   *
+   * @example
+   * ```typescript
+   * if (!isConfigured()) {
+   *   return new Response("Uploads are not configured", { status: 503 });
+   * }
+   * ```
+   */
+  isConfigured: () => boolean;
   /** Storage instance for file operations (list, delete, info, etc.) */
   storage: StorageInstance;
   /** Provider-neutral upload builder with schema builders and router factory */
@@ -860,13 +1003,13 @@ export interface UploadInitResult {
  *
  * @example Basic AWS Setup
  * ```typescript
- * const { s3, config, storage } = createUploadConfig()
- *   .provider("aws", {
- *     bucket: process.env.AWS_BUCKET_NAME!,
- *     region: process.env.AWS_REGION!,
- *     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
- *     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
- *   })
+ * export const { upload, storage, isConfigured } = createUploadConfig()
+ *   .provider("aws", () => ({
+ *     bucket: process.env.AWS_BUCKET_NAME,
+ *     region: process.env.AWS_REGION,
+ *     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+ *     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+ *   }))
  *   .defaults({
  *     maxFileSize: '10MB',
  *     acl: 'public-read',

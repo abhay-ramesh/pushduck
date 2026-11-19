@@ -10,26 +10,50 @@ The `createUploadConfig()` builder provides a fluent API for configuring your S3
 ## Basic Setup
 
 ```typescript title="lib/upload.ts"
-// lib/upload.ts
 import { createUploadConfig } from 'pushduck/server'
 
-const { storage, s3, config } = createUploadConfig() 
-  .provider("cloudflareR2",{ // [!code highlight]
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: 'auto',
-    endpoint: process.env.AWS_ENDPOINT_URL,
-    bucket: process.env.S3_BUCKET_NAME,
-    accountId: process.env.R2_ACCOUNT_ID, // [!code highlight]
-  })
+export const { upload, storage, isConfigured } = createUploadConfig()
+  .provider("cloudflareR2", () => ({ // [!code highlight]
+    accountId: process.env.R2_ACCOUNT_ID,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    bucket: process.env.R2_BUCKET,
+  }))
   .build()
 
-export { storage, s3 }
+export const router = upload.createRouter({
+  avatar: upload.image().maxFileSize('5MB'),
+})
 ```
+
+Build **one** config and export what it returns. The same object backs your upload routes (`upload.createRouter(...)`) and your server-side file operations (`storage.list.files()`, `storage.delete.file()`, ...), so environment variables are read in exactly one place. There is no need for a second config for `storage`.
+
+## When provider options are read
+
+`.provider()` takes the options either as a function or as an object.
+
+**As a function** (recommended), they are read the first time something needs storage — a presign, a completion, a `storage` call — not when the module is imported. Importing `lib/upload.ts`, defining routes and exporting `router.handlers` never touch them, so `next build` and other build steps that evaluate your route modules succeed on a machine without storage credentials. The result is cached once it validates.
+
+If an option is missing when a request needs it, that request fails with a `500` and code `CONFIG_INVALID` ("Upload is misconfigured"); the error names the missing option in your server log, and in the response when `.debug()` is on. To check up front without throwing — to return your own `503`, or to report it from a health endpoint — call `isConfigured()`:
+
+```typescript title="app/api/upload/[...all]/route.ts"
+import { isConfigured, router } from '@/lib/upload'
+
+export async function POST(request: Request) {
+  if (!isConfigured()) {
+    return Response.json({ error: 'Uploads are not configured' }, { status: 503 })
+  }
+  return router.handlers.POST(request)
+}
+```
+
+**As an object**, they are validated immediately, and `.provider()` throws if one is missing. Use this when the values are known at startup and you want the process to fail fast — a local MinIO, a test.
 
 ## Provider Configuration
 
 The `createUploadConfig().provider()` method provides full TypeScript type safety for provider configurations. When you specify a provider type, TypeScript will automatically infer the correct configuration interface and provide autocomplete and type checking.
+
+Every provider below accepts the same options in either form: wrap the object in `() => ({ ... })` to read it on first use.
 
 ### Features
 

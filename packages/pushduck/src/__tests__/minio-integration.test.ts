@@ -64,15 +64,17 @@ if (!available) {
 }
 
 function buildStack(options: { requireAuth?: boolean } = {}) {
+  // Options as a function — the documented form — so the full upload,
+  // completion and download round trip runs through first-use resolution.
   const { s3, config } = createUploadConfig()
-    .provider("minio", {
+    .provider("minio", () => ({
       endpoint: MINIO_ENDPOINT,
       bucket: BUCKET,
       accessKeyId: "minioadmin",
       secretAccessKey: "minioadmin",
       region: "us-east-1",
       useSSL: false,
-    })
+    }))
     .build();
 
   const base = s3.file().maxFileSize("10MB");

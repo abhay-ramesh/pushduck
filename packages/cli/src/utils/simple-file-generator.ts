@@ -250,11 +250,13 @@ async function createUploadConfig(
 
   const content = `import { createUploadConfig } from "pushduck/server";
 
-// Initialize upload configuration with simplified one-step process
+// One config for upload routes and server-side storage calls. The provider
+// options are a function, so they are read on the first upload rather than at
+// import — \`next build\` and other build steps run without credentials.
 const { s3, config } = createUploadConfig()
-  .provider("${providerKey}", {
+  .provider("${providerKey}", () => ({
     ${envVars}
-  })
+  }))
   .defaults({
     maxFileSize: "10MB",
   })
@@ -820,10 +822,10 @@ function getProviderEnvVars(
 ): string {
   switch (provider) {
     case "aws":
-      return "region: process.env.AWS_REGION!,\n      bucket: process.env.S3_BUCKET!,\n      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,";
+      return "region: process.env.AWS_REGION,\n      bucket: process.env.S3_BUCKET,\n      accessKeyId: process.env.AWS_ACCESS_KEY_ID,\n      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,";
     case "cloudflare-r2":
       return (
-        "accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,\n      bucket: process.env.R2_BUCKET!,\n      accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!," +
+        "accountId: process.env.CLOUDFLARE_ACCOUNT_ID,\n      bucket: process.env.R2_BUCKET,\n      accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID,\n      secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY," +
         // A literal rather than process.env: the option is typed as the
         // jurisdictions Cloudflare defines, and the jurisdiction is a fixed
         // property of the bucket, not a secret.
@@ -832,13 +834,13 @@ function getProviderEnvVars(
           : "")
       );
     case "digitalocean":
-      return "region: process.env.DO_SPACES_REGION!,\n      bucket: process.env.DO_SPACES_BUCKET!,\n      accessKeyId: process.env.DO_SPACES_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.DO_SPACES_SECRET_ACCESS_KEY!,";
+      return "region: process.env.DO_SPACES_REGION,\n      bucket: process.env.DO_SPACES_BUCKET,\n      accessKeyId: process.env.DO_SPACES_ACCESS_KEY_ID,\n      secretAccessKey: process.env.DO_SPACES_SECRET_ACCESS_KEY,";
     case "minio":
-      return "endpoint: process.env.MINIO_ENDPOINT!,\n      bucket: process.env.MINIO_BUCKET!,\n      accessKeyId: process.env.MINIO_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.MINIO_SECRET_ACCESS_KEY!,\n      region: process.env.MINIO_REGION!,";
+      return "endpoint: process.env.MINIO_ENDPOINT,\n      bucket: process.env.MINIO_BUCKET,\n      accessKeyId: process.env.MINIO_ACCESS_KEY_ID,\n      secretAccessKey: process.env.MINIO_SECRET_ACCESS_KEY,\n      region: process.env.MINIO_REGION,";
     case "neon":
-      return "endpoint: process.env.AWS_ENDPOINT_URL_S3!,\n      bucket: process.env.NEON_STORAGE_BUCKET!,\n      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,\n      region: process.env.AWS_REGION!,";
+      return "endpoint: process.env.AWS_ENDPOINT_URL_S3,\n      bucket: process.env.NEON_STORAGE_BUCKET,\n      accessKeyId: process.env.AWS_ACCESS_KEY_ID,\n      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,\n      region: process.env.AWS_REGION,";
     case "gcs":
-      return "bucket: process.env.GCS_BUCKET!,\n      accessKeyId: process.env.GCS_ACCESS_KEY_ID!, // HMAC access ID (GOOG…)\n      secretAccessKey: process.env.GCS_SECRET_ACCESS_KEY!,";
+      return "bucket: process.env.GCS_BUCKET,\n      accessKeyId: process.env.GCS_ACCESS_KEY_ID, // HMAC access ID (GOOG…)\n      secretAccessKey: process.env.GCS_SECRET_ACCESS_KEY,";
     default:
       return "";
   }
