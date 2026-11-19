@@ -12,8 +12,14 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { formatResults, runAll, type Fixture } from "./run";
+import { parseStorage } from "./storage";
 
-function parseArgs(argv: string[]): { url: string; auth?: string } {
+function parseArgs(argv: string[]): {
+  url: string;
+  auth?: string;
+  storage?: string;
+  receiptSecret?: string;
+} {
   const args = new Map<string, string>();
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -27,12 +33,19 @@ function parseArgs(argv: string[]): { url: string; auth?: string } {
   if (!url) {
     // A default would silently test the wrong thing; being told is better.
     throw new Error(
-      "Usage: conformance --url <base-url> [--auth <token>]\n" +
-        "  e.g. conformance --url http://localhost:3000/api/upload"
+      "Usage: conformance --url <base-url> [--storage <bucket-url>] [--receipt-secret <secret>]\n" +
+        "  e.g. conformance --url http://localhost:3000/api/upload\n" +
+        "  --storage http://KEY:SECRET@127.0.0.1:9000/bucket  the bucket the server writes to;\n" +
+        "      runs the cases that check what completion does with the stored object"
     );
   }
 
-  return { url, auth: args.get("auth") };
+  return {
+    url,
+    auth: args.get("auth"),
+    storage: args.get("storage"),
+    receiptSecret: args.get("receipt-secret"),
+  };
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -49,14 +62,18 @@ function loadFixtures(): Fixture[] {
 }
 
 async function main(): Promise<void> {
-  const { url } = parseArgs(process.argv.slice(2));
+  const { url, storage, receiptSecret } = parseArgs(process.argv.slice(2));
   const fixtures = loadFixtures();
 
   console.log(
     `Running ${fixtures.length} conformance cases against ${url}\n`
   );
 
-  const results = await runAll(fixtures, { url });
+  const results = await runAll(fixtures, {
+    url,
+    storage: storage ? parseStorage(storage) : undefined,
+    receiptSecret,
+  });
   console.log(formatResults(results));
 
   process.exit(results.some((result) => !result.passed) ? 1 : 0);
