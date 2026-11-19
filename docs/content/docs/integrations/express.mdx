@@ -180,12 +180,7 @@ const { s3, createS3Router } = createUploadConfig()
     bucket: process.env.S3_BUCKET_NAME!,
     accountId: process.env.R2_ACCOUNT_ID!,
   })
-  .paths({
-    prefix: 'uploads',
-    generateKey: (file, metadata) => {
-      return `${metadata.userId}/${Date.now()}/${file.name}`;
-    }
-  })
+  .paths({ prefix: 'uploads' })
   .build();
 
 export const uploadRouter = createS3Router({
@@ -210,7 +205,8 @@ export const uploadRouter = createS3Router({
         userRole: user.role,
         category: "profile"
       };
-    }),
+    })
+    .paths({ prefix: ({ metadata }) => `users/${metadata.userId}`, name: "unique" }),
 
   // Document uploads for authenticated users
   documents: s3
@@ -236,7 +232,8 @@ export const uploadRouter = createS3Router({
         userId: user.id,
         category: "documents"
       };
-    }),
+    })
+    .paths({ prefix: ({ metadata }) => `users/${metadata.userId}`, name: "unique" }),
 
   // Public uploads (no authentication)
   publicImages: s3
@@ -245,6 +242,7 @@ export const uploadRouter = createS3Router({
     .maxFiles(1)
     .accept(["image/jpeg", "image/png"])
     // No middleware = public access
+    .paths({ prefix: "public", name: "unique" })
 });
 
 async function verifyJWT(token: string) {

@@ -165,11 +165,12 @@ export function GalleryUpload() {
   };
 })
 .paths({
-  generateKey: (ctx) => {
-    const { metadata, file } = ctx;
-    // Use metadata in path generation
-    return `albums/${metadata.albumId}/${metadata.featured ? 'featured/' : ''}${file.name}`;
-  }
+  // Use metadata in path generation
+  prefix: ({ metadata }) =>
+    metadata.featured
+      ? `albums/${metadata.albumId}/featured`
+      : `albums/${metadata.albumId}`,
+  name: "unique",
 })
 ```
 

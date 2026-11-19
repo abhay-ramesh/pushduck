@@ -170,24 +170,25 @@ Set default file constraints and options:
 
 ### .paths()
 
-Configure global path structure:
+Set the folder every key lives under:
 
 ```typescript
-.paths({
-  // Global prefix for all uploads
-  prefix: 'uploads',
-  
-  // Global key generation function
-  generateKey: (file, metadata) => {
-    const userId = metadata.userId || 'anonymous'
-    const timestamp = Date.now()
-    const randomId = Math.random().toString(36).substring(2, 8)
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-    
-    return `${userId}/${timestamp}/${randomId}/${sanitizedName}`
-  },
-})
+.paths({ prefix: 'uploads' })
 ```
+
+Routes nest below it and choose their own folder and naming, with typed
+metadata:
+
+```typescript
+s3.image()
+  .middleware(async ({ req }) => ({ userId: await getUserId(req) }))
+  .paths({ prefix: ({ metadata }) => `users/${metadata.userId}`, name: 'unique' })
+// → uploads/users/42/avatar-k3x9m2a7qp.png
+```
+
+The global `.paths()` also takes `generateKey: (file, metadata) => string`,
+returning the part of the key below the prefixes for routes that do not set
+`name`. See [Path Configuration](/docs/api/configuration/path-configuration).
 
 ### .security()
 
@@ -270,19 +271,7 @@ const { storage, s3, config } = createUploadConfig()
     maxFileSize: '10MB',
     acl: 'public-read',
   })
-  .paths({
-    prefix: 'uploads',
-    generateKey: (file, metadata) => {
-      const userId = metadata.userId || 'anonymous'
-      const date = new Date()
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const day = String(date.getDate()).padStart(2, '0')
-      const randomId = Math.random().toString(36).substring(2, 8)
-      
-      return `${userId}/${year}/${month}/${day}/${randomId}/${file.name}`
-    },
-  })
+  .paths({ prefix: 'uploads' })
   .security({
     allowedOrigins: [
       'http://localhost:3000',

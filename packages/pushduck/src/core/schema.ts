@@ -57,7 +57,7 @@
  *
  */
 
-import { S3Route } from "./router/router-v2";
+import { S3Route, type S3RoutePathConfig } from "./router/router-v2";
 
 // ========================================
 // MIME Type Union
@@ -948,6 +948,21 @@ export class S3FileSchema extends S3Schema<File, File> {
   ) {
     // Import S3Route dynamically to avoid circular imports
     return new S3Route(this).middleware(middleware);
+  }
+
+  /**
+   * Sets how this route names its objects: `{global prefix}/{prefix}/{name}`.
+   * To build a key from metadata, call `.middleware()` first so `metadata` is
+   * typed.
+   *
+   * @example
+   * ```typescript
+   * s3.file().paths({ prefix: 'documents', name: 'unique' });
+   * // → documents/report-k3x9m2a7qp.pdf
+   * ```
+   */
+  paths(paths: S3RoutePathConfig) {
+    return new S3Route(this).paths(paths);
   }
 
   /**

@@ -204,12 +204,7 @@ const { s3, createS3Router } = createUploadConfig()
     bucket: process.env.S3_BUCKET_NAME!,
     accountId: process.env.R2_ACCOUNT_ID!,
   })
-  .paths({
-    prefix: 'uploads',
-    generateKey: (file, metadata) => {
-      return `${metadata.userId}/${Date.now()}/${file.name}`;
-    }
-  })
+  .paths({ prefix: 'uploads' })
   .build();
 
 export const uploadRouter = createS3Router({
@@ -221,7 +216,8 @@ export const uploadRouter = createS3Router({
     .middleware(async ({ req }) => {
       const userId = await getUserId(req);
       return { userId, category: "images" };
-    }),
+    })
+    .paths({ prefix: ({ metadata }) => `users/${metadata.userId}`, name: "unique" }),
 
   // Document uploads
   documentUpload: s3
@@ -231,7 +227,8 @@ export const uploadRouter = createS3Router({
     .middleware(async ({ req }) => {
       const userId = await getUserId(req);
       return { userId, category: "documents" };
-    }),
+    })
+    .paths({ prefix: ({ metadata }) => `users/${metadata.userId}`, name: "unique" }),
 
   // Video uploads
   videoUpload: s3
@@ -242,6 +239,7 @@ export const uploadRouter = createS3Router({
       const userId = await getUserId(req);
       return { userId, category: "videos" };
     })
+    .paths({ prefix: ({ metadata }) => `users/${metadata.userId}`, name: "unique" })
 });
 
 export type AppUploadRouter = typeof uploadRouter;

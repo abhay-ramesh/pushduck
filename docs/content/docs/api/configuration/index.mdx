@@ -104,14 +104,8 @@ export const { s3, storage } = createUploadConfig()
     maxFileSize: '100MB',
     acl: 'private',
   })
-  .paths({
-    prefix: 'uploads',
-    generateKey: (file, metadata) => {
-      const userId = metadata.userId || 'anonymous'
-      const timestamp = Date.now()
-      return `${userId}/${timestamp}/${file.name}`
-    },
-  })
+  // Per-user folders and unique names are set per route with .paths({ prefix, name })
+  .paths({ prefix: 'uploads' })
   .hooks({
     onUploadStart: async ({ file, metadata }) => {
       console.log(`Starting upload: ${file.name}`)

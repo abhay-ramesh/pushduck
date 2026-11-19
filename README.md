@@ -260,15 +260,7 @@ const { s3 } = createUploadConfig()
     maxFileSize: "10MB",
     acl: "public-read",
   })
-  .paths({
-    prefix: "uploads",
-    generateKey: (file, metadata) => {
-      const userId = metadata.userId || "anonymous";
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 8);
-      return `${userId}/${timestamp}/${randomId}/${file.name}`;
-    },
-  })
+  .paths({ prefix: "uploads" })
   .security({
     allowedOrigins: ["https://yourdomain.com"],
     rateLimiting: {

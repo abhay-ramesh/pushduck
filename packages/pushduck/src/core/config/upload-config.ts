@@ -276,10 +276,7 @@ function createS3Instance(config: UploadConfig): UploadBuilder {
  *     maxFileSize: '10MB',
  *     acl: 'public-read',
  *   },
- *   paths: {
- *     prefix: 'uploads',
- *     generateKey: (file, metadata) => `${metadata.userId}/${file.name}`,
- *   },
+ *   paths: { prefix: 'uploads' },
  * };
  * ```
  */
@@ -400,17 +397,21 @@ export interface UploadConfig {
     metadata?: Record<string, any>;
   };
 
-  /** Path configuration for organizing uploaded files */
+  /**
+   * Keys every route shares. A key is `{prefix}/{route prefix}/{name}`; routes
+   * set their own folder and name with `.paths({ prefix, name })`.
+   */
   paths?: {
-    /** Global prefix prepended to all file paths */
+    /** Folder every key lives under, e.g. `uploads`. */
     prefix?: string;
     /**
-     * Global key generation function for creating file paths.
-     * Route-level paths will be nested within this structure.
+     * The part of the key below the prefixes, for routes that do not set
+     * `name`. Do not include the prefix; it is added for you. Prefer a
+     * route's `name`, which receives typed metadata.
      *
      * @param file - File information object
-     * @param metadata - Upload metadata from the request
-     * @returns The generated file key/path
+     * @param metadata - Middleware output for the route
+     * @returns A relative path; each segment is sanitised
      */
     generateKey?: (
       file: { name: string; type: string },
@@ -494,14 +495,7 @@ export interface UploadConfig {
  *     allowedFileTypes: ['image/*', 'video/*'],
  *     acl: 'public-read',
  *   })
- *   .paths({
- *     prefix: 'user-content',
- *     generateKey: (file, metadata) => {
- *       const userId = metadata.userId || 'anonymous';
- *       const timestamp = Date.now();
- *       return `${userId}/${timestamp}/${file.name}`;
- *     },
- *   })
+ *   .paths({ prefix: 'user-content' })
  *   .security({
  *     requireAuth: true,
  *     allowedOrigins: ['https://myapp.com'],
@@ -653,15 +647,11 @@ export class UploadConfigBuilder {
    * @example Custom Key Generation
    * ```typescript
    * builder.paths({
-   *   prefix: 'user-content',
-   *   generateKey: (file, metadata) => {
-   *     const userId = metadata.userId || 'anonymous';
-   *     const timestamp = Date.now();
-   *     const randomId = Math.random().toString(36).substring(2, 8);
-   *     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-   *     return `${userId}/${timestamp}/${randomId}/${sanitizedName}`;
-   *   },
+   *   prefix: 'uploads',
    * });
+   * // Routes nest under it:
+   * // s3.image().paths({ prefix: ({ metadata }) => `users/${metadata.userId}`, name: 'unique' })
+   * // → uploads/users/42/avatar-k3x9m2a7qp.png
    * ```
    */
   paths(paths: UploadConfig["paths"]): UploadConfigBuilder {
@@ -1027,14 +1017,7 @@ export interface UploadInitResult {
  *     secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
  *     region: "auto",
  *   })
- *   .paths({
- *     prefix: 'user-uploads',
- *     generateKey: (file, metadata) => {
- *       const userId = metadata.userId || 'anonymous';
- *       const timestamp = Date.now();
- *       return `${userId}/${timestamp}/${file.name}`;
- *     },
- *   })
+ *   .paths({ prefix: 'user-uploads' })
  *   .hooks({
  *     onUploadComplete: async ({ file, url, metadata }) => {
  *       await logUpload(metadata.userId, file.name, url);

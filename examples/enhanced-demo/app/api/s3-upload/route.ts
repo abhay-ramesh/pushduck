@@ -9,7 +9,7 @@ import { s3 } from "@/lib/upload";
 
 // Define upload routes with simple, clear path configuration
 const s3Router = s3.createRouter({
-  // Image uploads: uploads/images/{userId}/{timestamp}/{randomId}/filename.jpg
+  // Image uploads: uploads/images/{userId}/{name}-{id}.jpg
   imageUpload: s3
     .image()
     .maxFileSize("1MB")
@@ -25,9 +25,9 @@ const s3Router = s3.createRouter({
       };
     })
     .paths({
-      // Simple: just add "images" folder under global prefix
-      // Result: uploads/images/{userId}/{timestamp}/{randomId}/filename.jpg
-      prefix: "images",
+      // Result: uploads/images/demo-user/photo-k3x9m2a7qp.jpg
+      prefix: ({ metadata }) => `images/${metadata.userId}`,
+      name: "unique",
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
       console.log(`Image upload complete: ${file.name} -> ${url}`, metadata);
@@ -46,7 +46,7 @@ const s3Router = s3.createRouter({
       console.error(`❌ Image upload failed: ${file.name}`, error);
     }),
 
-  // Document uploads: uploads/documents/{userId}/{timestamp}/{randomId}/filename.pdf
+  // Document uploads: uploads/documents/{userId}/{name}-{id}.pdf
   documentUpload: s3
     .file()
     .maxFileSize("10MB")
@@ -66,15 +66,15 @@ const s3Router = s3.createRouter({
       };
     })
     .paths({
-      // Simple: just add "documents" folder under global prefix
-      // Result: uploads/documents/{userId}/{timestamp}/{randomId}/filename.pdf
-      prefix: "documents",
+      // Result: uploads/documents/demo-user/report-k3x9m2a7qp.pdf
+      prefix: ({ metadata }) => `documents/${metadata.userId}`,
+      name: "unique",
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
       console.log(`Document uploaded: ${file.name} -> ${url}`);
     }),
 
-  // Custom organized images: uploads/gallery/2024/06/demo-user/filename.jpg
+  // Date-organized images: uploads/gallery/2024/06/demo-user/{name}-{id}.jpg
   galleryUpload: s3
     .image()
     .maxFileSize("5MB")
@@ -87,25 +87,18 @@ const s3Router = s3.createRouter({
       };
     })
     .paths({
-      // Custom organization with date-based structure
-      generateKey: (ctx) => {
-        const { file, metadata, globalConfig } = ctx;
-        const globalPrefix = globalConfig.prefix || "uploads";
+      prefix: ({ metadata }) => {
         const date = new Date();
-        const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, "0");
-        const userId = metadata.userId || "anonymous";
-
-        // Custom path: uploads/gallery/2024/06/demo-user/filename.jpg
-        return `${globalPrefix}/gallery/${year}/${month}/${userId}/${file.name}`;
+        return `gallery/${date.getFullYear()}/${month}/${metadata.userId}`;
       },
+      name: "unique",
     })
     .onUploadComplete(async ({ file, url, metadata }) => {
       console.log(`Gallery image uploaded: ${file.name} -> ${url}`);
     }),
 
-  // General uploads: uploads/{userId}/{timestamp}/{randomId}/filename.ext
-  // Uses pure global configuration - no route-level paths
+  // General uploads: uploads/general/{userId}/{name}-{id}.ext
   generalUpload: s3
     .file()
     .maxFileSize("20MB")
@@ -116,7 +109,7 @@ const s3Router = s3.createRouter({
         category: "general",
       };
     })
-    // No .paths() - uses global configuration only
+    .paths({ prefix: ({ metadata }) => `general/${metadata.userId}`, name: "unique" })
     .onUploadComplete(async ({ file, url, metadata }) => {
       console.log(`General file uploaded: ${file.name} -> ${url}`);
     }),

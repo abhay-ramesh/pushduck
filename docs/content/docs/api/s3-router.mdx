@@ -162,26 +162,25 @@ uploadFiles(files, {
 
 ### Path Configuration
 
-Control where files are stored:
+Control where files are stored. A key is `{global prefix}/{prefix}/{name}`:
 
 ```typescript
+.middleware(async ({ req }) => ({ userId: await getUserId(req) }))
 .paths({
-  // Simple prefix
-  prefix: 'user-uploads',
-  
-  // Custom path generation
-  generateKey: (ctx) => {
-    const { file, metadata, routeName } = ctx
-    const userId = metadata.userId
-    const timestamp = Date.now()
-    
-    return `${routeName}/${userId}/${timestamp}/${file.name}`
-  },
-  
-  // Simple suffix
-  suffix: 'processed',
+  // A fixed string, or computed from the middleware's (typed) output
+  prefix: ({ metadata }) => `users/${metadata.userId}`,
+
+  // "original" (default), "unique", or (ctx) => string
+  name: 'unique',
 })
+// "Q3 report.pdf" → users/42/Q3_report-k3x9m2a7qp.pdf
 ```
+
+Every key is sanitised segment by segment, and one that would escape its
+folder (`..`, an empty segment, an absolute path) fails that file. A route can
+return the whole key with `generateKey: (ctx) => string` when `{prefix}/{name}`
+does not fit; it is checked the same way. See
+[Path Configuration](/docs/api/configuration/path-configuration).
 
 ### Lifecycle Hooks
 
@@ -316,10 +315,8 @@ const productRouter = s3.createRouter({
       }
     })
     .paths({
-      generateKey: (ctx) => {
-        const { metadata } = ctx
-        return `products/${metadata.productId}/images/${Date.now()}.jpg`
-      }
+      prefix: ({ metadata }) => `products/${metadata.productId}/images`,
+      name: 'unique',
     })
     .onUploadComplete(async ({ url, metadata }) => {
       // Update product with new image
@@ -339,6 +336,7 @@ const productRouter = s3.createRouter({
     .accept(['application/pdf'])
     .paths({
       prefix: 'product-docs',
+      name: 'unique',
     })
     .onUploadComplete(async ({ url, metadata }) => {
       await db.productDocuments.create({
@@ -364,9 +362,9 @@ const profileRouter = s3.createRouter({
       return { userId: user.id, type: 'avatar' }
     })
     .paths({
-      generateKey: (ctx) => {
-        return `users/${ctx.metadata.userId}/avatar.jpg`
-      }
+      // One avatar per user: a fixed name, so a new upload replaces the old
+      prefix: ({ metadata }) => `users/${metadata.userId}`,
+      name: () => 'avatar.jpg',
     })
     .onUploadComplete(async ({ url, metadata }) => {
       // Update user profile
@@ -389,7 +387,8 @@ const profileRouter = s3.createRouter({
       return { userId: user.id }
     })
     .paths({
-      prefix: 'user-documents',
+      prefix: ({ metadata }) => `user-documents/${metadata.userId}`,
+      name: 'unique',
     }),
 })
 ```
