@@ -61,11 +61,13 @@ The storage instance organizes operations into logical namespaces:
 
 ```typescript
 storage.list.*       // File listing operations
-storage.metadata.*   // File metadata operations  
-storage.download.*   // Download and URL operations
-storage.upload.*     // Upload operations
+storage.metadata.*   // File metadata operations
+storage.download.*   // Read files, serve them, presigned/public URLs
+storage.upload.*     // Server-side uploads and presigned upload URLs
+storage.copy.*       // Server-side copy
+storage.move.*       // Copy + delete
 storage.delete.*     // Delete operations
-storage.validation.* // Validation operations
+storage.validation.* // Existence and validation checks
 ```
 
 ## Configuration Methods
@@ -90,7 +92,25 @@ const info = storage.getProviderInfo()
 
 ## Error Handling
 
-All storage operations throw structured `PushduckError` instances:
+Reads (`download.get`, `bytes`, `text`, `response`), metadata lookups,
+copies, moves and existence checks throw an `UploadError` whose `code` says what the provider
+answered: `NOT_FOUND` (404), `STORAGE_ACCESS_DENIED` (403) or
+`STORAGE_UNAVAILABLE` (anything else).
+
+```typescript
+import { isUploadError } from 'pushduck/server'
+
+try {
+  return await storage.download.response(key)
+} catch (error) {
+  if (isUploadError(error) && error.code === 'NOT_FOUND') {
+    return new Response('Not found', { status: 404 })
+  }
+  throw error
+}
+```
+
+Listing and delete operations throw structured `PushduckError` instances:
 
 ```typescript
 import { isPushduckError } from 'pushduck/server'

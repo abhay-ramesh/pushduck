@@ -423,3 +423,178 @@ describe.skipIf(!available)("Unicode object keys against real storage", () => {
     }
   }, 30_000);
 });
+
+describe.skipIf(!available)("Storage API against real storage", () => {
+  /**
+   * The server-side reads, copies and checks that replace a second S3 client.
+   * Each one is a differently-shaped signed request (GET with response
+   * overrides, PUT with x-amz-copy-source, HEAD), so each is proven against a
+   * server that verifies the signature rather than against our own encoder.
+   */
+  const { storage } = buildStack();
+  const run = `storage-api-${Date.now()}`;
+
+  async function put(key: string, body: string, contentType = "text/plain") {
+    await storage.upload.file(Buffer.from(body), key, { contentType });
+  }
+
+  it("stores Content-Type, Cache-Control and metadata from upload.file", async () => {
+    const key = `${run}/upload.txt`;
+    await storage.upload.file(Buffer.from("cached"), key, {
+      contentType: "text/plain",
+      cacheControl: "public, max-age=60",
+      metadata: { owner: "u1" },
+    });
+
+    const served = await fetch(await storage.download.presignedUrl(key, 60));
+    expect(served.headers.get("cache-control")).toBe("public, max-age=60");
+    expect(await storage.metadata.getCustom(key)).toEqual({ owner: "u1" });
+  });
+
+  it("reads an object as a stream, bytes and text", async () => {
+    const key = `${run}/read.txt`;
+    await put(key, "hello world");
+
+    const object = await storage.download.get(key);
+    expect(object.size).toBe(11);
+    expect(object.contentType).toBe("text/plain");
+    expect(object.etag).toMatch(/^[0-9a-f]{32}$/);
+    expect(object.lastModified).toBeInstanceOf(Date);
+    expect(await new Response(object.body).text()).toBe("hello world");
+
+    expect(await storage.download.text(key)).toBe("hello world");
+    expect(await storage.download.bytes(key)).toEqual(
+      new TextEncoder().encode("hello world")
+    );
+  });
+
+  it("throws NOT_FOUND reading a missing object", async () => {
+    await expect(storage.download.get(`${run}/nope.txt`)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("builds a Response with the object's headers and a download name", async () => {
+    const key = `${run}/report.pdf`;
+    await put(key, "%PDF-1.4", "application/pdf");
+
+    const response = await storage.download.response(key, {
+      filename: "Q3 報告.pdf",
+      cacheControl: "private, max-age=0",
+    });
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+    expect(response.headers.get("content-length")).toBe("8");
+    expect(response.headers.get("etag")).toMatch(/^"[0-9a-f]{32}"$/);
+    expect(response.headers.get("cache-control")).toBe("private, max-age=0");
+    expect(response.headers.get("content-disposition")).toBe(
+      `attachment; filename="Q3 __.pdf"; filename*=UTF-8''Q3%20%E5%A0%B1%E5%91%8A.pdf`
+    );
+    expect(await response.text()).toBe("%PDF-1.4");
+  });
+
+  it("serves a presigned URL with the signed Content-Disposition and Content-Type", async () => {
+    const key = `${run}/invoice.bin`;
+    await put(key, "data", "application/octet-stream");
+
+    const url = await storage.download.presignedUrl(key, {
+      expiresIn: 60,
+      disposition: "attachment",
+      filename: `Invoice "May" — résumé.pdf`,
+      contentType: "application/pdf",
+    });
+    const served = await fetch(url);
+
+    // The provider accepted the signature over the overrides and echoed them.
+    expect(served.status, await served.clone().text()).toBe(200);
+    expect(served.headers.get("content-disposition")).toBe(
+      `attachment; filename="Invoice May _ r_sum_.pdf"; ` +
+        `filename*=UTF-8''Invoice%20May%20%E2%80%94%20r%C3%A9sum%C3%A9.pdf`
+    );
+    expect(served.headers.get("content-type")).toBe("application/pdf");
+    expect(await served.text()).toBe("data");
+  });
+
+  it("rejects a presigned URL whose filename was changed after signing", async () => {
+    const key = `${run}/tamper.txt`;
+    await put(key, "x");
+
+    const url = new URL(
+      await storage.download.presignedUrl(key, { filename: "a.txt" })
+    );
+    url.searchParams.set("response-content-disposition", "attachment; filename=evil.exe");
+    expect((await fetch(url)).status).toBe(403);
+  });
+
+  it("copies an object whose key needs URL-encoding", async () => {
+    const from = `${run}/a b+c é.txt`;
+    const to = `${run}/copied.txt`;
+    await put(from, "copy me", "text/markdown");
+
+    await storage.copy.file(from, to);
+    expect(await storage.download.text(to)).toBe("copy me");
+    expect(await storage.metadata.getContentType(to)).toBe("text/markdown");
+    expect(await storage.validation.exists(from)).toBe(true);
+  });
+
+  it("replaces metadata on copy and keeps the content type", async () => {
+    const from = `${run}/meta-src.json`;
+    const to = `${run}/meta-dst.json`;
+    await storage.upload.file(Buffer.from("{}"), from, {
+      contentType: "application/json",
+      metadata: { stage: "draft" },
+    });
+
+    await storage.copy.file(from, to, { metadata: { stage: "final" } });
+    const info = await storage.metadata.getInfo(to);
+    expect(info.metadata).toEqual({ stage: "final" });
+    expect(info.contentType).toBe("application/json");
+  });
+
+  it("sets metadata in place", async () => {
+    const key = `${run}/in-place.txt`;
+    await put(key, "x");
+    await storage.metadata.setCustom(key, { reviewed: "yes" });
+    expect(await storage.metadata.getCustom(key)).toEqual({ reviewed: "yes" });
+    expect(await storage.metadata.getContentType(key)).toBe("text/plain");
+  });
+
+  it("moves an object", async () => {
+    const from = `${run}/move-src.txt`;
+    const to = `${run}/move-dst.txt`;
+    await put(from, "moving");
+
+    await storage.move.file(from, to);
+    expect(await storage.download.text(to)).toBe("moving");
+    expect(await storage.validation.exists(from)).toBe(false);
+  });
+
+  it("throws NOT_FOUND copying a missing object", async () => {
+    await expect(
+      storage.copy.file(`${run}/missing.txt`, `${run}/never.txt`)
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("exists: true, false for 404, and throws rather than false on 403", async () => {
+    const key = `${run}/exists.txt`;
+    await put(key, "x");
+    expect(await storage.validation.exists(key)).toBe(true);
+    expect(await storage.validation.exists(`${run}/absent.txt`)).toBe(false);
+    expect(await storage.validation.existsWithInfo(`${run}/absent.txt`)).toBeNull();
+
+    // A credential the server rejects: the 403 must surface, not read as
+    // "missing" — the bug that made apps treat every R2 403 as absent.
+    const { config: denied } = createUploadConfig()
+      .provider("minio", {
+        endpoint: MINIO_ENDPOINT,
+        bucket: BUCKET,
+        accessKeyId: "minioadmin",
+        secretAccessKey: "wrong-secret",
+        region: "us-east-1",
+        useSSL: false,
+      })
+      .build();
+    await expect(
+      createStorage(denied).validation.exists(key)
+    ).rejects.toMatchObject({ code: "STORAGE_ACCESS_DENIED" });
+  });
+});

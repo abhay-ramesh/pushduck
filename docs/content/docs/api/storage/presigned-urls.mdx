@@ -37,6 +37,36 @@ const url = await storage.download.presignedUrl('private/image.jpg', 3600) // 1 
 const url = await storage.download.presignedUrl('private/video.mp4', 86400) // 24 hours
 ```
 
+### Download with a Filename
+
+Objects are usually stored under a generated key, not the name the user
+uploaded. Pass a `filename` and the browser saves the file under that name —
+no proxy route needed:
+
+```typescript
+const url = await storage.download.presignedUrl(doc.key, {
+  expiresIn: 300,
+  filename: doc.originalName,       // "Q3 報告.pdf" — any Unicode
+  disposition: 'attachment',        // or 'inline' to open in the browser
+  contentType: 'application/pdf',   // optional: override the stored type
+})
+
+return Response.redirect(url, 302)
+```
+
+| Option | Default | Effect |
+|---|---|---|
+| `expiresIn` | `3600` | URL lifetime in seconds |
+| `filename` | — | Download name, encoded per RFC 6266 (`filename*=UTF-8''…` plus an ASCII fallback) |
+| `disposition` | `'attachment'` when `filename` is set | `'attachment'` saves, `'inline'` displays |
+| `contentType` | stored type | `Content-Type` the provider responds with |
+
+These become the `response-content-disposition` and `response-content-type`
+query parameters, which are covered by the signature: changing them on the URL
+makes the provider reject it. The URL is always signed against the provider's
+API endpoint, never your `customDomain` — a custom domain cannot verify a
+signature.
+
 ### Direct File URLs
 
 For public buckets, get direct URLs:
@@ -250,6 +280,13 @@ export async function POST(request: NextRequest) {
 ## Type Definitions
 
 ```typescript
+interface PresignedDownloadOptions {
+  expiresIn?: number
+  disposition?: 'inline' | 'attachment'
+  filename?: string
+  contentType?: string
+}
+
 interface PresignedUrlOptions {
   key: string
   contentType?: string

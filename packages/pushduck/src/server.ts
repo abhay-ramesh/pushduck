@@ -555,9 +555,12 @@ export type {
 
 // Storage types (shared across storage API and client)
 export type {
+  ContentDispositionType,
+  CopyFileOptions,
   DeleteByPrefixResult,
   DeleteError,
   DeleteFilesResult,
+  DownloadResponseOptions,
   FileInfo,
   FileInfoResult,
   FileKeyOptions,
@@ -565,9 +568,12 @@ export type {
   ListFilesOptions,
   ListFilesResult,
   PaginatedListOptions,
+  PresignedDownloadOptions,
   PresignedUrlOptions,
   PresignedUrlResult,
   ProgressCallback,
+  StoredObject,
+  UploadFileOptions,
   UploadProgress,
   ValidationRules,
 } from "./core/storage";

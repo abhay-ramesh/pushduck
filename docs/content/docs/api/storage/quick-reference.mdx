@@ -40,6 +40,28 @@ const info = await storage.metadata.getInfo('file.jpg')
 const exists = await storage.validation.exists('file.jpg')
 ```
 
+### Read Files
+```typescript
+const { body, size, contentType } = await storage.download.get('file.pdf')
+const bytes = await storage.download.bytes('photo.jpg')
+const text = await storage.download.text('data.csv')
+return storage.download.response('file.pdf', { filename: 'Report.pdf' }) // from a route handler
+```
+
+### Copy and Move
+```typescript
+await storage.copy.file('drafts/a.pdf', 'published/a.pdf')
+await storage.move.file('tmp/a.jpg', 'users/123/a.jpg') // copy + delete, not atomic
+```
+
+### Server-side Upload
+```typescript
+await storage.upload.file(buffer, 'reports/q3.pdf', {
+  contentType: 'application/pdf',
+  cacheControl: 'private, max-age=3600',
+})
+```
+
 ### Delete Files
 ```typescript
 await storage.delete.file('old-file.jpg')
@@ -50,6 +72,7 @@ await storage.delete.byPrefix('temp/')
 ### Presigned URLs
 ```typescript
 const downloadUrl = await storage.download.presignedUrl('private/file.pdf', 3600)
+const namedUrl = await storage.download.presignedUrl('private/file.pdf', { filename: 'Invoice.pdf' })
 const uploadUrl = await storage.upload.presignedUrl({ key: 'new-file.jpg', contentType: 'image/jpeg' })
 ```
 

@@ -59,9 +59,14 @@ import {
   type ProviderConfig,
   type StorageTarget,
 } from "../providers/providers";
+import { UploadError } from "../errors";
 import { createConfigError, createS3Error } from "../types/errors";
 import { logger } from "../utils/logger";
 import { md5Base64 } from "../utils/md5";
+import {
+  contentDisposition,
+  type ContentDispositionType,
+} from "./content-disposition";
 
 // ========================================
 // Configuration Helper
@@ -205,7 +210,13 @@ export function resetS3Client(): void {
  *
  * Use {@link buildCdnUrl} for URLs handed to end users.
  */
-function buildApiUrl(key: string, config: ClientTarget): string {
+function buildApiUrl(rawKey: string, config: ClientTarget): string {
+  // Each segment is percent-encoded, "/" kept as the separator. A literal "+"
+  // is the case that matters: aws4fetch canonicalises it as a space while S3
+  // reads it as "+", so a key containing "+" failed every signed request with
+  // SignatureDoesNotMatch. As %2B, signer and server read the same key.
+  const key = rawKey.split("/").map(encodeRfc3986).join("/");
+
   if (config.endpoint) {
     // Custom endpoint (MinIO, R2, etc.)
     const baseUrl = config.endpoint.replace(/\/$/, "");
@@ -237,14 +248,19 @@ function buildApiUrl(key: string, config: ClientTarget): string {
  * mistake that caused #168, where the download URL was built from the custom
  * domain and every signature was rejected.
  *
+ * `query` carries parameters that must be covered by the signature: multipart
+ * `partNumber`/`uploadId`, or a download's `response-content-disposition`.
+ * They are part of the canonical request, so they are set *before* signing.
+ *
  * @internal
  */
-async function presignApiRequest(
+export async function presignApiRequest(
   uploadConfig: UploadConfig,
   options: {
     key: string;
     method: "GET" | "PUT";
     expiresIn: number;
+    query?: Record<string, string>;
     headers?: Record<string, string>;
   }
 ): Promise<string> {
@@ -255,6 +271,9 @@ async function presignApiRequest(
   // `host` is part of the SigV4 canonical request so it cannot be swapped
   // after signing.
   const url = new URL(buildApiUrl(options.key, config));
+  for (const [name, value] of Object.entries(options.query ?? {})) {
+    url.searchParams.set(name, value);
+  }
   url.searchParams.set("X-Amz-Expires", options.expiresIn.toString());
 
   const signedRequest = await awsClient.sign(
@@ -265,7 +284,25 @@ async function presignApiRequest(
     { aws: { signQuery: true } }
   );
 
-  return signedRequest.url;
+  // aws4fetch signs the RFC 3986 encoding of the query but returns it
+  // serialised by URLSearchParams, which writes a space as "+" — a space only
+  // under form-encoding rules (the AWS SDKs send %20). A filename in
+  // `response-content-disposition` routinely contains spaces, so the URL is
+  // re-serialised in the exact encoding the signature was computed over,
+  // leaving the server nothing to interpret.
+  const signed = new URL(signedRequest.url);
+  signed.search = [...signed.searchParams]
+    .map(([name, value]) => `${encodeRfc3986(name)}=${encodeRfc3986(value)}`)
+    .join("&");
+  return signed.toString();
+}
+
+/** Percent-encodes everything outside RFC 3986 `unreserved`. */
+function encodeRfc3986(value: string): string {
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`
+  );
 }
 
 /**
@@ -390,6 +427,40 @@ export interface PresignedUrlResult {
 }
 
 /**
+ * Options for a presigned download URL.
+ *
+ * `disposition`, `filename` and `contentType` become the signed
+ * `response-content-disposition` / `response-content-type` query parameters;
+ * the provider sends them back as the response headers, so a private file can
+ * be served with a chosen download name without proxying it.
+ */
+export interface PresignedDownloadOptions {
+  /** URL lifetime in seconds. Default: 3600. */
+  expiresIn?: number;
+  /**
+   * `"attachment"` makes the browser save the file, `"inline"` displays it.
+   * Defaults to `"attachment"` when `filename` is given.
+   */
+  disposition?: ContentDispositionType;
+  /** Name to save the file as. Any Unicode; encoded per RFC 6266/5987. */
+  filename?: string;
+  /** Overrides the `Content-Type` the provider responds with. */
+  contentType?: string;
+}
+
+/** Shared by presigned URLs and {@link getObjectResponse}. */
+function dispositionFor(options: {
+  disposition?: ContentDispositionType;
+  filename?: string;
+}): string | undefined {
+  if (!options.disposition && !options.filename) return undefined;
+  return contentDisposition(
+    options.disposition ?? "attachment",
+    options.filename
+  );
+}
+
+/**
  * Generates a presigned URL for downloading/viewing a file from S3.
  *
  * The URL is always signed against the provider's S3 API endpoint, never a
@@ -407,19 +478,35 @@ export interface PresignedUrlResult {
  *
  * If your bucket is public, prefer `getFileUrl()`, which returns the clean
  * custom-domain URL and keeps CDN caching intact.
+ *
+ * @param options - Lifetime in seconds, or {@link PresignedDownloadOptions}.
  */
 export async function generatePresignedDownloadUrl(
   uploadConfig: UploadConfig,
   key: string,
-  expiresIn: number = 3600
+  options: number | PresignedDownloadOptions = {}
 ): Promise<string> {
   const config = resolveTarget(uploadConfig.provider);
+  const { expiresIn = 3600, contentType, ...disposition } =
+    typeof options === "number" ? { expiresIn: options } : options;
+
+  // Response overrides are query parameters, so they are signed with the URL:
+  // nobody can swap the filename or type on a URL you hand out.
+  const query: Record<string, string> = {};
+  const dispositionHeader = dispositionFor(disposition);
+  if (dispositionHeader) {
+    query["response-content-disposition"] = dispositionHeader;
+  }
+  if (contentType) {
+    query["response-content-type"] = contentType;
+  }
 
   try {
     const signedUrl = await presignApiRequest(uploadConfig, {
       key,
       method: "GET",
       expiresIn,
+      query,
     });
 
     if (config.debug) {
@@ -498,10 +585,7 @@ export async function generatePresignedDownloadUrl(
  */
 function prepareS3UploadHeaders(
   uploadConfig: UploadConfig,
-  options: {
-    contentType?: string;
-    metadata?: Record<string, string>;
-  }
+  options: Omit<UploadFileOptions, "onProgress">
 ): Record<string, string> {
   const headers: Record<string, string> = {};
   const { supportsAcl, acl: providerAcl } = toStorageTarget(
@@ -510,6 +594,10 @@ function prepareS3UploadHeaders(
 
   if (options.contentType) {
     headers["Content-Type"] = options.contentType;
+  }
+
+  if (options.cacheControl) {
+    headers["Cache-Control"] = options.cacheControl;
   }
 
   // Providers without per-object ACLs answer x-amz-acl with 400/501; they
@@ -584,45 +672,6 @@ function preparePresignHeaders(
  */
 export function buildApiUrlFor(key: string, uploadConfig: UploadConfig): string {
   return buildApiUrl(key, resolveTarget(uploadConfig.provider));
-}
-
-/**
- * Presigns a request that carries extra query parameters.
- *
- * Multipart part uploads are `PUT ?partNumber=N&uploadId=X`, and those
- * parameters are part of the canonical request — they must be present *before*
- * signing, or the provider computes a different signature and rejects the PUT.
- *
- * @internal
- */
-export async function presignApiRequestWithQuery(
-  uploadConfig: UploadConfig,
-  options: {
-    key: string;
-    method: "GET" | "PUT";
-    expiresIn: number;
-    query?: Record<string, string>;
-    headers?: Record<string, string>;
-  }
-): Promise<string> {
-  const awsClient = createS3Client(uploadConfig);
-  const config = resolveTarget(uploadConfig.provider);
-
-  const url = new URL(buildApiUrl(options.key, config));
-  for (const [name, value] of Object.entries(options.query ?? {})) {
-    url.searchParams.set(name, value);
-  }
-  url.searchParams.set("X-Amz-Expires", options.expiresIn.toString());
-
-  const signedRequest = await awsClient.sign(
-    new Request(url.toString(), {
-      method: options.method,
-      headers: options.headers,
-    }),
-    { aws: { signQuery: true } }
-  );
-
-  return signedRequest.url;
 }
 
 export async function generatePresignedUploadUrl(
@@ -721,28 +770,95 @@ export async function generatePresignedUploadUrls(
 // ========================================
 
 /**
- * Checks if a file exists in S3
+ * Turns a refused storage request into a typed {@link UploadError}.
+ *
+ * 403 is never read as "missing". S3 and R2 answer 403 rather than 404 for an
+ * object that does not exist when the credential lacks `s3:ListBucket` — so a
+ * 403 may well mean "missing", but it may equally mean the credential cannot
+ * read the bucket at all, and reporting `false`/`null` would hide that.
+ *
+ * @internal
+ */
+async function storageError(
+  response: Response,
+  operation: string,
+  key: string
+): Promise<UploadError> {
+  // HEAD responses have no body; others carry the provider's XML <Code>.
+  const body = await response.text().catch(() => "");
+  const meta = {
+    key,
+    operation,
+    status: response.status,
+    providerCode: extractXmlValue(body, "Code") ?? undefined,
+  };
+
+  if (response.status === 404) {
+    return new UploadError("NOT_FOUND", `No object at "${key}"`, { meta });
+  }
+  if (response.status === 403) {
+    return new UploadError(
+      "STORAGE_ACCESS_DENIED",
+      `Storage denied ${operation} "${key}" (403). If the object may not exist: ` +
+        `S3 and R2 answer 403 instead of 404 for a missing object when the ` +
+        `credential lacks s3:ListBucket on the bucket — grant it to get a 404.`,
+      { meta }
+    );
+  }
+  return new UploadError(
+    "STORAGE_UNAVAILABLE",
+    `Storage ${operation} "${key}" failed: ${response.status} ${response.statusText}`,
+    // A 4xx will fail the same way again; only server-side failures are retried.
+    { meta, retryable: response.status >= 500 || response.status === 429 }
+  );
+}
+
+/**
+ * HEADs an object: the response when it exists, `null` for 404, and a typed
+ * error for anything else (see {@link storageError} for why 403 throws).
+ *
+ * Every existence and metadata check goes through here.
+ *
+ * @internal
+ */
+async function headObject(
+  uploadConfig: UploadConfig,
+  key: string
+): Promise<Response | null> {
+  const awsClient = createS3Client(uploadConfig);
+  const config = resolveTarget(uploadConfig.provider);
+
+  const response = await awsClient.fetch(buildApiUrl(key, config), {
+    method: "HEAD",
+  });
+
+  if (response.status === 404) return null;
+  if (!response.ok) throw await storageError(response, "HEAD", key);
+  return response;
+}
+
+/** The facts S3 reports about an object in its HEAD/GET response headers. */
+function readObjectHeaders(headers: Headers) {
+  const lastModified = headers.get("last-modified");
+  return {
+    size: parseInt(headers.get("content-length") || "0"),
+    contentType: headers.get("content-type") || "application/octet-stream",
+    etag: headers.get("etag")?.replace(/"/g, "") || "",
+    lastModified: lastModified ? new Date(lastModified) : new Date(),
+  };
+}
+
+/**
+ * Checks whether an object exists.
+ *
+ * @returns `true` if it exists, `false` if the provider answers 404.
+ * @throws {UploadError} `STORAGE_ACCESS_DENIED` on 403 — see {@link storageError}.
  */
 export async function checkFileExists(
   uploadConfig: UploadConfig,
   key: string
 ): Promise<boolean> {
-  const awsClient = createS3Client(uploadConfig);
-  const config = resolveTarget(uploadConfig.provider);
-
-  try {
-    const s3Url = buildApiUrl(key, config);
-    const response = await awsClient.fetch(s3Url, {
-      method: "HEAD",
-    });
-
-    return response.ok;
-  } catch (error: any) {
-    if (error.status === 404) {
-      return false;
-    }
-    throw error;
-  }
+  return (await headObject(uploadConfig, key)) !== null;
 }
 
 /**
@@ -751,6 +867,229 @@ export async function checkFileExists(
 export function getFileUrl(uploadConfig: UploadConfig, key: string): string {
   const config = resolveTarget(uploadConfig.provider);
   return buildCdnUrl(key, config);
+}
+
+// ========================================
+// Reading Objects
+// ========================================
+
+/** An object read from storage, with the body as a stream. */
+export interface StoredObject {
+  /** The object's bytes. Read it once — it is a stream, not a buffer. */
+  body: ReadableStream<Uint8Array>;
+  /** Size in bytes, as stored. */
+  size: number;
+  contentType: string;
+  /** Without the surrounding quotes, matching {@link FileInfo.etag}. */
+  etag: string;
+  lastModified: Date;
+}
+
+/** Headers for {@link getObjectResponse}. */
+export interface DownloadResponseOptions {
+  /** Defaults to `"attachment"` when `filename` is given; omitted otherwise. */
+  disposition?: ContentDispositionType;
+  /** Name to save the file as. Any Unicode; encoded per RFC 6266/5987. */
+  filename?: string;
+  /** `Cache-Control` for the response, e.g. `"private, max-age=300"`. */
+  cacheControl?: string;
+}
+
+/** Signed GET of an object; a typed error unless the provider answers 2xx. */
+async function fetchObject(
+  uploadConfig: UploadConfig,
+  key: string
+): Promise<Response> {
+  const awsClient = createS3Client(uploadConfig);
+  const config = resolveTarget(uploadConfig.provider);
+
+  const response = await awsClient.fetch(buildApiUrl(key, config), {
+    method: "GET",
+  });
+  if (!response.ok) throw await storageError(response, "GET", key);
+  return response;
+}
+
+/**
+ * Reads an object as a stream.
+ *
+ * @throws {UploadError} `NOT_FOUND` when there is no object at `key`.
+ */
+export async function getObject(
+  uploadConfig: UploadConfig,
+  key: string
+): Promise<StoredObject> {
+  const response = await fetchObject(uploadConfig, key);
+  return {
+    // A successful GET always has a body; an empty object is an empty stream.
+    body: response.body ?? new Response(new Uint8Array()).body!,
+    ...readObjectHeaders(response.headers),
+  };
+}
+
+/** Reads a whole object into memory. */
+export async function getObjectBytes(
+  uploadConfig: UploadConfig,
+  key: string
+): Promise<Uint8Array> {
+  const response = await fetchObject(uploadConfig, key);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+/** Reads a whole object as UTF-8 text. */
+export async function getObjectText(
+  uploadConfig: UploadConfig,
+  key: string
+): Promise<string> {
+  const response = await fetchObject(uploadConfig, key);
+  return response.text();
+}
+
+/**
+ * Streams an object as a web `Response`, ready to return from a route handler.
+ *
+ * For when the file must pass through your server (an auth check per request,
+ * a stable URL that never expires). When it need not, redirect to
+ * {@link generatePresignedDownloadUrl} with the same `filename` instead — the
+ * bytes then never touch your server.
+ */
+export async function getObjectResponse(
+  uploadConfig: UploadConfig,
+  key: string,
+  options: DownloadResponseOptions = {}
+): Promise<Response> {
+  const upstream = await fetchObject(uploadConfig, key);
+  const headers = new Headers();
+
+  // An object stored with Content-Encoding (e.g. pre-gzipped) is decoded by
+  // fetch, so the stored Content-Length no longer describes the body we send.
+  const forwarded = upstream.headers.has("content-encoding")
+    ? ["content-type", "etag", "last-modified"]
+    : ["content-type", "content-length", "etag", "last-modified"];
+  for (const name of forwarded) {
+    const value = upstream.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+
+  const disposition = dispositionFor(options);
+  if (disposition) headers.set("content-disposition", disposition);
+  if (options.cacheControl) headers.set("cache-control", options.cacheControl);
+
+  return new Response(upstream.body, { status: 200, headers });
+}
+
+// ========================================
+// Copying Objects
+// ========================================
+
+export interface CopyFileOptions {
+  /**
+   * Replaces the copy's custom metadata. Without it, the source's metadata is
+   * copied unchanged.
+   */
+  metadata?: Record<string, string>;
+}
+
+/**
+ * Headers S3 keeps with an object that `x-amz-metadata-directive: REPLACE`
+ * would otherwise reset. Carried over from the source so replacing custom
+ * metadata does not also turn a PDF into `binary/octet-stream`.
+ */
+const PRESERVED_ON_REPLACE = [
+  "content-type",
+  "cache-control",
+  "content-disposition",
+  "content-encoding",
+  "content-language",
+  "expires",
+];
+
+/**
+ * Copies an object within the bucket, server-side (S3 CopyObject).
+ *
+ * @throws {UploadError} `NOT_FOUND` when there is no object at `from`.
+ */
+export async function copyFile(
+  uploadConfig: UploadConfig,
+  from: string,
+  to: string,
+  options: CopyFileOptions = {}
+): Promise<void> {
+  const awsClient = createS3Client(uploadConfig);
+  const config = resolveTarget(uploadConfig.provider);
+
+  // ACL as for any server-side write; Content-Type is added below if needed.
+  const headers = prepareS3UploadHeaders(uploadConfig, {
+    metadata: options.metadata,
+  });
+
+  // The source is read as a URL path, so the key is percent-encoded — one
+  // segment at a time, keeping "/" as the separator. An unencoded "+" or
+  // space names a different key.
+  headers["x-amz-copy-source"] = `/${config.bucket}/${from
+    .split("/")
+    .map(encodeRfc3986)
+    .join("/")}`;
+
+  if (options.metadata) {
+    headers["x-amz-metadata-directive"] = "REPLACE";
+    const source = await headObject(uploadConfig, from);
+    if (!source) {
+      throw new UploadError("NOT_FOUND", `No object at "${from}"`, {
+        meta: { key: from, operation: "COPY", status: 404 },
+      });
+    }
+    for (const name of PRESERVED_ON_REPLACE) {
+      const value = source.headers.get(name);
+      if (value) headers[name] = value;
+    }
+  }
+
+  const response = await awsClient.fetch(buildApiUrl(to, config), {
+    method: "PUT",
+    headers,
+  });
+  if (!response.ok) throw await storageError(response, "COPY", from);
+
+  // S3 may fail a copy after it has already sent 200 OK; the error is then
+  // the response body. Treating the status as the result would report a copy
+  // that never happened.
+  const body = await response.text();
+  if (body.includes("<Error>")) {
+    throw new UploadError(
+      "STORAGE_UNAVAILABLE",
+      `Copy "${from}" → "${to}" failed: ${
+        extractXmlValue(body, "Message") ?? "storage reported an error"
+      }`,
+      {
+        meta: {
+          key: from,
+          to,
+          operation: "COPY",
+          providerCode: extractXmlValue(body, "Code") ?? undefined,
+        },
+      }
+    );
+  }
+
+  if (config.debug) {
+    logger.fileOperation("copy-success", `${from} -> ${to}`);
+  }
+}
+
+/**
+ * Moves an object: {@link copyFile} then {@link deleteFile}.
+ *
+ * Not atomic — S3 has no rename. If the delete fails, both keys exist and the
+ * error is thrown; if the copy fails, nothing was deleted.
+ */
+export async function moveFile(
+  uploadConfig: UploadConfig,
+  from: string,
+  to: string
+): Promise<void> {
+  await copyFile(uploadConfig, from, to);
+  await deleteFile(uploadConfig, from);
 }
 
 // ========================================
@@ -938,6 +1277,18 @@ export interface UploadProgress {
 
 export type ProgressCallback = (progress: UploadProgress) => void;
 
+/** Options for a server-side upload ({@link uploadFileToS3}). */
+export interface UploadFileOptions {
+  /** Stored as the object's `Content-Type` and served back with it. */
+  contentType?: string;
+  /** Custom metadata, stored as `x-amz-meta-*` headers. */
+  metadata?: Record<string, string>;
+  /** Stored as the object's `Cache-Control` and served back with it. */
+  cacheControl?: string;
+  /** Called at the start and end of the upload. */
+  onProgress?: ProgressCallback;
+}
+
 /**
  * Uploads a file directly to S3 with progress tracking
  * Note: This is for server-side uploads. Client-side uploads use presigned URLs.
@@ -946,11 +1297,7 @@ export async function uploadFileToS3(
   uploadConfig: UploadConfig,
   file: File | Buffer,
   key: string,
-  options: {
-    contentType?: string;
-    metadata?: Record<string, string>;
-    onProgress?: ProgressCallback;
-  } = {}
+  options: UploadFileOptions = {}
 ): Promise<string> {
   const awsClient = createS3Client(uploadConfig);
   const config = resolveTarget(uploadConfig.provider);
@@ -1368,56 +1715,42 @@ export interface ValidationRules {
 }
 
 /**
- * Gets detailed information about a file
+ * Gets detailed information about a file.
+ *
+ * @throws {UploadError} `NOT_FOUND` when there is no object at `key`.
  */
 export async function getFileInfo(
   uploadConfig: UploadConfig,
   key: string
 ): Promise<FileInfo> {
-  const awsClient = createS3Client(uploadConfig);
-  const config = resolveTarget(uploadConfig.provider);
-
-  try {
-    const s3Url = buildApiUrl(key, config);
-    const response = await awsClient.fetch(s3Url, {
-      method: "HEAD",
+  const response = await headObject(uploadConfig, key);
+  if (!response) {
+    throw new UploadError("NOT_FOUND", `No object at "${key}"`, {
+      meta: { key, operation: "HEAD", status: 404 },
     });
-
-    if (!response.ok) {
-      throw new Error(`File not found: ${key}`);
-    }
-
-    const size = parseInt(response.headers.get("content-length") || "0");
-    const contentType =
-      response.headers.get("content-type") || "application/octet-stream";
-    const lastModifiedStr = response.headers.get("last-modified");
-    const etag = response.headers.get("etag")?.replace(/"/g, "") || "";
-
-    // Extract metadata from x-amz-meta-* headers
-    const metadata: Record<string, string> = {};
-    response.headers.forEach((value, name) => {
-      if (name.startsWith("x-amz-meta-")) {
-        const metaKey = name.substring(11); // Remove 'x-amz-meta-' prefix
-        metadata[metaKey] = value;
-      }
-    });
-
-    return {
-      key,
-      url: getFileUrl(uploadConfig, key),
-      size,
-      contentType,
-      lastModified: lastModifiedStr ? new Date(lastModifiedStr) : new Date(),
-      etag,
-      metadata,
-    };
-  } catch (error) {
-    throw new Error(
-      `Failed to get file info for ${key}: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`
-    );
   }
+  return toFileInfo(uploadConfig, key, response.headers);
+}
+
+function toFileInfo(
+  uploadConfig: UploadConfig,
+  key: string,
+  headers: Headers
+): FileInfo {
+  // Custom metadata arrives as x-amz-meta-* headers.
+  const metadata: Record<string, string> = {};
+  headers.forEach((value, name) => {
+    if (name.startsWith("x-amz-meta-")) {
+      metadata[name.substring("x-amz-meta-".length)] = value;
+    }
+  });
+
+  return {
+    key,
+    url: getFileUrl(uploadConfig, key),
+    ...readObjectHeaders(headers),
+    metadata,
+  };
 }
 
 /**
@@ -1503,70 +1836,28 @@ export async function getFileMetadata(
 }
 
 /**
- * Sets custom metadata for a file
+ * Replaces the custom metadata of a file — a copy of the object onto itself
+ * with new metadata, which is the only way S3 changes metadata.
  */
 export async function setFileMetadata(
   uploadConfig: UploadConfig,
   key: string,
   metadata: Record<string, string>
 ): Promise<void> {
-  const awsClient = createS3Client(uploadConfig);
-  const config = resolveTarget(uploadConfig.provider);
-
-  try {
-    // First get current file info
-    const currentInfo = await getFileInfo(uploadConfig, key);
-
-    // Copy the file to itself with new metadata
-    const sourceUrl = `${config.bucket}/${key}`;
-    const s3Url = buildApiUrl(key, config);
-
-    const headers: Record<string, string> = {
-      "x-amz-copy-source": sourceUrl,
-      "x-amz-metadata-directive": "REPLACE",
-    };
-
-    // Add new metadata headers
-    Object.entries(metadata).forEach(([metaKey, value]) => {
-      headers[`x-amz-meta-${metaKey}`] = value;
-    });
-
-    // Preserve original content type
-    if (currentInfo.contentType) {
-      headers["Content-Type"] = currentInfo.contentType;
-    }
-
-    const response = await awsClient.fetch(s3Url, {
-      method: "PUT",
-      headers,
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Failed to set metadata: ${response.status} ${response.statusText}`
-      );
-    }
-  } catch (error) {
-    throw new Error(
-      `Failed to set metadata for ${key}: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`
-    );
-  }
+  await copyFile(uploadConfig, key, key, { metadata });
 }
 
 /**
- * Checks if a file exists and returns its info if it does
+ * Returns a file's info, or `null` if there is no object at `key`.
+ *
+ * @throws {UploadError} `STORAGE_ACCESS_DENIED` on 403 — never `null`.
  */
 export async function fileExistsWithInfo(
   uploadConfig: UploadConfig,
   key: string
 ): Promise<FileInfo | null> {
-  try {
-    return await getFileInfo(uploadConfig, key);
-  } catch (error) {
-    return null;
-  }
+  const response = await headObject(uploadConfig, key);
+  return response ? toFileInfo(uploadConfig, key, response.headers) : null;
 }
 
 /**

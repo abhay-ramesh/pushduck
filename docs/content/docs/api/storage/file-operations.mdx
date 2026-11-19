@@ -1,7 +1,9 @@
 ---
 title: File Operations
-description: Complete guide to file listing, metadata, and delete operations
+description: Complete guide to listing, reading, copying, moving, uploading, deleting and checking files from your server
 ---
+
+import { Callout } from "fumadocs-ui/components/callout";
 
 ## File Management Operations
 
@@ -126,6 +128,112 @@ await storage.metadata.setCustom('file.jpg', {
 })
 ```
 
+## Reading Files
+
+Read an object's bytes on the server — to parse an upload, generate a
+thumbnail, or hand it to another API. These are signed requests to your
+bucket, so they work on private buckets.
+
+### As a Stream
+
+```typescript
+const file = await storage.download.get('uploads/report.pdf')
+
+file.body          // ReadableStream<Uint8Array> — read it once
+file.size          // 1024000
+file.contentType   // 'application/pdf'
+file.etag          // 'd41d8cd98f00b204e9800998ecf8427e'
+file.lastModified  // Date
+```
+
+### As Bytes or Text
+
+```typescript
+const bytes = await storage.download.bytes('uploads/photo.jpg')  // Uint8Array
+const csv = await storage.download.text('imports/contacts.csv')  // string
+```
+
+All three throw an `UploadError` with code `NOT_FOUND` when there is no
+object at the key.
+
+### Serving a File Through Your Server
+
+`storage.download.response()` returns a web `Response` that streams the object
+with its `Content-Type`, `Content-Length`, `ETag` and `Last-Modified`, plus the
+`Content-Disposition` and `Cache-Control` you ask for. Return it from any
+framework's route handler:
+
+```typescript
+// app/api/files/[id]/route.ts
+import { storage } from '@/lib/upload'
+
+export async function GET(req: Request, { params }: { params: { id: string } }) {
+  const user = await auth(req)
+  if (!user) return new Response('Unauthorized', { status: 401 })
+
+  const doc = await db.document.findFirst({
+    where: { id: params.id, ownerId: user.id },
+  })
+  if (!doc) return new Response('Not found', { status: 404 })
+
+  return storage.download.response(doc.key, {
+    filename: doc.originalName,   // saved as this name, any Unicode
+    cacheControl: 'private, max-age=300',
+  })
+}
+```
+
+`filename` implies `disposition: 'attachment'` (save the file); pass
+`disposition: 'inline'` to display it in the browser instead.
+
+<Callout type="info">
+  When the file does not need to pass through your server, redirect to a
+  [presigned URL with a filename](/docs/api/storage/presigned-urls#download-with-a-filename)
+  instead — the browser then downloads straight from storage.
+</Callout>
+
+## Copy and Move
+
+Copies happen inside the provider (S3 `CopyObject`); the bytes never pass
+through your server.
+
+```typescript
+// Copy, keeping the source's content type and metadata
+await storage.copy.file('drafts/report.pdf', 'published/report.pdf')
+
+// Copy with new custom metadata (content type and cache headers are kept)
+await storage.copy.file('drafts/report.pdf', 'published/report.pdf', {
+  metadata: { publishedBy: user.id },
+})
+
+// Move = copy, then delete the source
+await storage.move.file('tmp/upload-123.jpg', `users/${user.id}/avatar.jpg`)
+```
+
+<Callout type="warn">
+  `move.file` is not atomic — S3 has no rename. If the copy fails, nothing is
+  deleted; if the delete fails, the error is thrown and both keys exist.
+</Callout>
+
+## Server-side Upload
+
+Write a file from your server, for example a generated PDF:
+
+```typescript
+const url = await storage.upload.file(pdfBuffer, `invoices/${invoice.id}.pdf`, {
+  contentType: 'application/pdf',
+  cacheControl: 'private, max-age=31536000, immutable',
+  metadata: { invoiceId: invoice.id },
+})
+```
+
+| Option | Stored as |
+|---|---|
+| `contentType` | `Content-Type`, served back on download |
+| `cacheControl` | `Cache-Control`, served back on download |
+| `metadata` | `x-amz-meta-*` custom metadata |
+| `onProgress` | — called at the start and end of the upload |
+
 ## Delete Operations
 
 ### Single File Delete
@@ -183,12 +291,19 @@ if (result.dryRun) {
 // Simple existence check
 const exists = await storage.validation.exists('file.jpg')
 
-// Existence with metadata
-const result = await storage.validation.existsWithInfo('file.jpg')
-if (result.exists) {
-  console.log('File size:', result.info.size)
+// Existence with metadata: FileInfo, or null when missing
+const info = await storage.validation.existsWithInfo('file.jpg')
+if (info) {
+  console.log('File size:', info.size)
 }
 ```
+
+`exists` returns `false` only when the provider answers **404**. A **403**
+throws an `UploadError` with code `STORAGE_ACCESS_DENIED` instead of returning
+`false`: S3 and R2 answer 403 rather than 404 for a missing object when the
+credential lacks `s3:ListBucket`, so a 403 cannot tell "missing" from "this
+credential cannot read the bucket". Grant `s3:ListBucket` on the bucket and
+missing objects come back as `false`.
 
 ### File Validation
 
@@ -245,5 +360,30 @@ interface ValidationRules {
   min?: string | number
   types?: string[]
   requiredMetadata?: string[]
+}
+
+interface StoredObject {           // storage.download.get()
+  body: ReadableStream<Uint8Array>
+  size: number
+  contentType: string
+  etag: string
+  lastModified: Date
+}
+
+interface DownloadResponseOptions { // storage.download.response()
+  disposition?: 'inline' | 'attachment'
+  filename?: string
+  cacheControl?: string
+}
+
+interface CopyFileOptions {         // storage.copy.file()
+  metadata?: Record<string, string>
+}
+
+interface UploadFileOptions {       // storage.upload.file()
+  contentType?: string
+  metadata?: Record<string, string>
+  cacheControl?: string
+  onProgress?: (progress: UploadProgress) => void
 }
 ``` 
