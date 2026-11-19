@@ -196,6 +196,11 @@ export async function presignUploadPart(
     key: string;
     uploadId: string;
     partNumber: number;
+    /**
+     * Exact size of the part in bytes. Signed, so storage refuses a part of
+     * any other length — as a single PUT's declared size is.
+     */
+    contentLength?: number;
     expiresIn?: number;
   }
 ): Promise<string> {
@@ -209,6 +214,10 @@ export async function presignUploadPart(
       partNumber: String(options.partNumber),
       uploadId: options.uploadId,
     },
+    headers:
+      options.contentLength === undefined
+        ? undefined
+        : { "content-length": String(options.contentLength) },
   });
 }
 

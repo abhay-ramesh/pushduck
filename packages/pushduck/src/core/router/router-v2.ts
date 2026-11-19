@@ -1441,14 +1441,15 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           );
         }
 
+        const range = partRange(partNumber, plan.partSize, upload.file.size);
         const url = await presignUploadPart(uploadConfig, {
           key: upload.key,
           uploadId: plan.uploadId,
           partNumber,
+          contentLength: range.size,
           expiresIn: this.#routeExpiry(routeName),
         });
 
-        const range = partRange(partNumber, plan.partSize, upload.file.size);
         return { partNumber, url, size: range.size };
       })
     );
