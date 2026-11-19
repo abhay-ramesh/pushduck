@@ -164,11 +164,128 @@ jobs:
       - name: 🧪 Test with Node.js ${{ matrix.node }}
         run: pnpm test
 
+  # 🐹 The Go server
+  #
+  # The conformance suite is language-neutral and the TypeScript package's
+  # cross-language suite drives the real upload client against this server, but
+  # both skip themselves when no Go server is listening — and the quality job
+  # has none. Without this job the Go implementation is only ever checked on a
+  # contributor's machine. Runs alongside quality rather than after it: it
+  # shares nothing with the TypeScript build.
+  go:
+    name: 🐹 Go Server
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v6
+
+      - name: 🪣 Start MinIO
+        run: ./packages/pushduck/scripts/minio.sh start
+
+      # go.mod's `go` line is the floor the module claims, so that is what is
+      # tested. No go.sum — the module has no dependencies — so nothing to cache.
+      - name: 🐹 Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: packages/pushduck-go/go.mod
+          cache: false
+
+      # Node is for the conformance runner and the JavaScript client, which
+      # are the two things that judge this server from outside it.
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 🔍 Vet
+        working-directory: packages/pushduck-go
+        run: go vet ./...
+
+      - name: 🧪 Tests
+        working-directory: packages/pushduck-go
+        run: go test ./...
+        env:
+          MINIO_ENDPOINT: http://127.0.0.1:9010
+
+      - name: 📐 Conformance
+        run: |
+          (cd packages/pushduck-go && go build -o "$RUNNER_TEMP/conformance-server" ./cmd/conformance-server)
+          "$RUNNER_TEMP/conformance-server" &
+          curl -sf --retry 30 --retry-connrefused --retry-delay 1 -o /dev/null http://localhost:4320/api/upload
+          pnpm conformance --url http://localhost:4320/api/upload
+
+      # cross-language.test.ts skips when the server is unreachable, which
+      # would let this step pass having run nothing. Here the server is ours
+      # to provide, so every case must have run and passed.
+      - name: 🌉 JavaScript client against the Go server
+        run: |
+          (cd packages/pushduck-go && go build -o "$RUNNER_TEMP/minio-server" ./cmd/minio-server)
+          "$RUNNER_TEMP/minio-server" &
+          curl -sf --retry 30 --retry-connrefused --retry-delay 1 -o /dev/null http://localhost:4321/api/upload
+          cd packages/pushduck
+          pnpm exec vitest run src/__tests__/cross-language.test.ts --project unit \
+            --reporter=default --reporter=json --outputFile.json="$RUNNER_TEMP/cross-language.json"
+          jq -e '.numTotalTests > 0 and .numPassedTests == .numTotalTests' "$RUNNER_TEMP/cross-language.json" >/dev/null \
+            || { echo "::error::cross-language suite skipped cases with the Go server running"; exit 1; }
+        env:
+          MINIO_ENDPOINT: http://127.0.0.1:9010
+
+  # 🐍 The Python server
+  #
+  # Tested at both ends of `requires-python`: the floor is the compatibility
+  # promise, the newest release is what a new project installs.
+  python:
+    name: 🐍 Python ${{ matrix.python }} Server
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.14"]
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v6
+
+      - name: 🪣 Start MinIO
+        run: ./packages/pushduck/scripts/minio.sh start
+
+      # uv rather than actions/setup-python: the latter has no 3.9 build for
+      # the current ubuntu-latest image, and testing the floor is the point of
+      # the 3.9 leg. uv's standalone builds still cover it.
+      - name: 🐍 Setup Python
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+          activate-environment: true
+
+      # The `test` dependency group includes every framework test_frameworks.py
+      # mounts into; each skips when absent, so installing them is what makes
+      # those tests run rather than vanish.
+      - name: 📥 Install test dependencies
+        working-directory: packages/pushduck-py
+        run: uv pip install --group test
+
+      - name: 🧪 Tests
+        working-directory: packages/pushduck-py
+        run: python -m pytest -rs
+        env:
+          MINIO_ENDPOINT: http://127.0.0.1:9010
+
+      - name: 🏗️ Setup project
+        uses: ./.github/actions/setup
+
+      - name: 📐 Conformance
+        run: |
+          python packages/pushduck-py/cmd/conformance_server.py &
+          curl -sf --retry 30 --retry-connrefused --retry-delay 1 -o /dev/null http://localhost:4322/api/upload
+          pnpm conformance --url http://localhost:4322/api/upload
+
   # ✅ All checks passed
   all-checks:
     name: ✅ All Checks Passed
     runs-on: ubuntu-latest
-    needs: [quality, build, security, compatibility]
+    needs: [quality, build, security, compatibility, go, python]
     if: always()
 
     steps:
