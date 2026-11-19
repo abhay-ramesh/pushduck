@@ -105,7 +105,10 @@ async function presign(router: ReturnType<typeof build>["router"], route = "atta
     metadata: { slug: "abc" },
   });
   const body = await response.json();
-  return body.results[0] as { key: string; completionToken: string; metadata: unknown };
+  const issued = body.results[0] as { key: string; completionToken: string; metadata: unknown };
+  // The browser's PUT: completion verifies the stored object.
+  await storage.upload(issued.key, new Uint8Array(FILE.size), FILE.type);
+  return issued;
 }
 
 describe("completion acts on the receipt, not the request", () => {
@@ -206,6 +209,7 @@ describe("completion acts on the receipt, not the request", () => {
       route: "attachment",
     });
 
+    await storage.upload("photo.jpg", new Uint8Array(FILE.size), FILE.type);
     const response = await call(router, "attachment", "complete", {
       completions: [
         { key: "photo.jpg", file: FILE, metadata: { slug: "abc" }, completionToken: token },

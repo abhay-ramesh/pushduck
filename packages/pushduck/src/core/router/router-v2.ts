@@ -87,6 +87,9 @@ import { normalizeServerError } from "../errors/from-pushduck-error";
 import { createUniversalHandler } from "../handler/universal-handler";
 import { InferS3Input, InferS3Output, S3Schema } from "../schema";
 import {
+  deleteFile,
+  fileExistsWithInfo,
+  type FileInfo,
   generateFileKey,
   generatePresignedDownloadUrl,
   generatePresignedUploadUrl,
@@ -192,8 +195,16 @@ export interface S3LifecycleContext<T = any> {
    * Absent only for uploads presigned before 0.8.
    */
   uploadId?: string;
-  /** File metadata */
+  /**
+   * The file as stored: `size` and `type` are what the provider reports, not
+   * what the client declared. `name` is the client's original filename.
+   */
   file: S3FileMetadata;
+  /**
+   * The stored object, as the provider reports it. Use `size` for billing
+   * and quotas — never a client-declared size.
+   */
+  object?: FileInfo;
   /**
    * The metadata your middleware returned at presign — never the client's
    * claims, whatever the completion request contains.
@@ -1745,9 +1756,17 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
   }
 
   /**
-   * The one place an upload is finished, for single-PUT and multipart alike:
-   * build its URLs and run the route's completion hook with the upload's
-   * authoritative record.
+   * The one place an upload is finished, for single-PUT and multipart alike.
+   *
+   * 1. **Observe the object.** Everything the client said about the file was
+   *    a claim: a presigned PUT does not bind the bytes that arrive to the
+   *    declared size, and the browser chooses the Content-Type. So the
+   *    provider is asked what it holds. Nothing there means the upload never
+   *    happened; an object that breaks the route's rules — too large, a type
+   *    it does not accept — is deleted, so the route's limits hold for what is
+   *    stored and not only for what was declared.
+   * 2. **Run the hook** with the upload's authoritative record: the metadata
+   *    sealed at presign and the file as observed.
    *
    * A presigned download URL is a read capability on the object, so it is
    * issued only when the caller proved, with a receipt or v1 token, that they
@@ -1759,6 +1778,38 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     { verified }: { verified: boolean }
   ): Promise<CompletionResponse> {
     const routeConfig = this.getRoute(routeName)!._getConfig();
+
+    // A 403 here throws STORAGE_ACCESS_DENIED: an upload that cannot be
+    // verified is not accepted.
+    const object = await fileExistsWithInfo(this.config, upload.key);
+    if (!object) {
+      throw new UploadError(
+        "NOT_FOUND",
+        "No object was uploaded to this key — the upload did not finish",
+        { meta: { key: upload.key } }
+      );
+    }
+
+    const file: S3FileMetadata = {
+      name: upload.file.name,
+      size: object.size,
+      type: object.contentType,
+    };
+
+    const stored = new File([], file.name, { type: file.type });
+    Object.defineProperty(stored, "size", { value: file.size });
+    const validation = await routeConfig.schema.validate(stored);
+    if (!validation.success) {
+      await deleteFile(this.config, upload.key);
+      throw new UploadError(
+        "VALIDATION_FAILED",
+        `The stored file was rejected and removed: ${
+          validation.error?.message || "it does not satisfy this route"
+        }`,
+        { meta: { key: upload.key, size: file.size, type: file.type } }
+      );
+    }
+
     const url = getFileUrl(this.config, upload.key);
 
     const presignedUrl = verified
@@ -1773,7 +1824,8 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     if (onCompleteHook) {
       await onCompleteHook({
         uploadId: upload.id,
-        file: upload.file,
+        file,
+        object,
         metadata: upload.metadata,
         storagePath: upload.key,
         publicUrl: url,
@@ -1791,7 +1843,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
       url,
       publicUrl: url,
       presignedUrl,
-      file: upload.file,
+      file,
     };
   }
 }
