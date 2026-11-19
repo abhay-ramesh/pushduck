@@ -54,6 +54,36 @@ func putTo(t *testing.T, url string, headers map[string]string, body string) int
 	return response.StatusCode
 }
 
+func TestPresignedPutRefusesAnyLengthButTheDeclaredOne(t *testing.T) {
+	if !minioAvailable() {
+		t.Skip("MinIO unreachable")
+	}
+
+	// MaxSize is checked against the declared size; signing that size is what
+	// makes it hold for the bytes that arrive.
+	router := NewRouter(minioConfig(), Routes{"docUpload": File(MaxSize("1MB"))})
+	name := fmt.Sprintf("go-sized-%d.txt", time.Now().UnixNano())
+
+	url, headers, _ := presignOne(t, router, "docUpload", FileMeta{Name: name, Size: 5, Type: "text/plain"})
+
+	if strings.Contains(strings.ToLower(fmt.Sprint(headers)), "content-length") {
+		t.Errorf("content-length handed to the client, which a browser cannot set: %v", headers)
+	}
+	if !strings.Contains(url, "content-length") {
+		t.Errorf("content-length is not among the signed headers: %s", url)
+	}
+
+	for body, want := range map[string]int{
+		"hello, and then some": http.StatusForbidden,
+		"hi":                   http.StatusForbidden,
+		"hello":                http.StatusOK,
+	} {
+		if got := putTo(t, url, headers, body); got != want {
+			t.Errorf("PUT %q = %d, want %d", body, got, want)
+		}
+	}
+}
+
 func TestHeadObjectReportsWhatWasStored(t *testing.T) {
 	if !minioAvailable() {
 		t.Skip("MinIO unreachable")

@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -207,13 +208,20 @@ func (router *Router) presign(
 		}
 		host, path := router.config.objectAddress(key)
 
-		headers := map[string]string{"x-amz-acl": "private"}
+		// The declared size is signed, so storage refuses a body of any other
+		// length and MaxSize holds for the bytes that arrive, not only for the
+		// number the client sent. It is not handed back in requiredHeaders: a
+		// browser sets Content-Length from the body and will not let script
+		// set it.
 		url := router.config.presign(presignOptions{
-			Method:    http.MethodPut,
-			Host:      host,
-			Path:      path,
-			Region:    router.config.Region,
-			Headers:   headers,
+			Method: http.MethodPut,
+			Host:   host,
+			Path:   path,
+			Region: router.config.Region,
+			Headers: map[string]string{
+				"x-amz-acl":      "private",
+				"content-length": strconv.FormatInt(file.Size, 10),
+			},
 			ExpiresIn: router.config.uploadExpiry(),
 			Now:       router.config.now(),
 		})
