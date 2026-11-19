@@ -9,29 +9,36 @@ and a framework nobody has written an adapter for can still be served.
 
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
 import contextlib
 import json
-from dataclasses import dataclass, replace as _replace
+from dataclasses import dataclass, field, replace as _replace
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 from urllib.parse import parse_qs, quote
 
+from . import tokens
 from .config import FileMeta, Schema, UploadConfig, choose_part_size
 from .errors import UploadError, as_upload_error, problem_document
 from .keys import generate_key, resolve_key
-from .routes import Completion, Context, Route
+from .receipt import (
+    COMPLETION_GRACE_SECONDS,
+    MULTIPART_RECEIPT_SECONDS,
+    MultipartPlan,
+    Receipt,
+    new_upload_id,
+    open_receipt,
+    seal_receipt,
+)
+from .routes import Completion, Context, Phase, Route
 from .multipart import (
     abort_multipart_upload,
     complete_multipart_upload,
     create_multipart_upload,
     list_uploaded_parts,
     presign_upload_part,
-    sign_session,
     verify_session,
 )
 from .sign import presign
+from .storage import delete_object, head_object
 
 #: The wire contract this implementation speaks.
 PROTOCOL_VERSION = 1
@@ -69,6 +76,37 @@ class Response:
     status: int
     headers: Dict[str, str]
     body: bytes
+
+
+@dataclass(frozen=True)
+class _Upload:
+    """What a request after presign acts on: a receipt, or — for tokens issued
+    before receipts existed — the same shape rebuilt the old way."""
+
+    key: str
+    file: FileMeta
+    metadata: Dict[str, Any]
+    #: The client metadata presign received.
+    input: Dict[str, Any] = field(default_factory=dict)
+    #: The receipt's upload id; ``None`` for a v1 token.
+    id: Optional[str] = None
+    multipart: Optional[MultipartPlan] = None
+
+    @classmethod
+    def of(cls, receipt: Receipt) -> "_Upload":
+        return cls(
+            key=receipt.key,
+            file=receipt.file,
+            metadata=dict(receipt.metadata),
+            input=dict(receipt.input),
+            id=receipt.id,
+            multipart=receipt.multipart,
+        )
+
+    def plan(self) -> MultipartPlan:
+        if self.multipart is None:
+            raise UploadError("BAD_REQUEST", "This upload is not a multipart upload")
+        return self.multipart
 
 
 async def _invoke(channel: Any, *args: Any) -> Any:
@@ -294,6 +332,7 @@ class Router:
         request: Request,
         route_name: str,
         client_metadata: Mapping[str, Any],
+        phase: Phase = "presign",
     ) -> Context[Any]:
         """Run the per-request channels and build the context.
 
@@ -301,6 +340,9 @@ class Router:
         handler inside the file loop, so a 50-file batch performed 50 session
         lookups — an amplification primitive reachable by anyone who could
         reach the endpoint.
+
+        Runs on every request of an upload, so a caller who has lost access
+        since presign is refused at the next one.
         """
         for check in route.authorize:
             await _invoke(check, request)
@@ -314,6 +356,7 @@ class Router:
             # Kept, but never merged into `metadata`. The name is the warning.
             client_metadata=dict(client_metadata),
             metadata={},
+            phase=phase,
         )
 
     @contextlib.asynccontextmanager
@@ -427,6 +470,11 @@ class Router:
 
                 scheme, host, path = self.config.object_address(key)
 
+                # The declared size is signed, so storage refuses a body of any
+                # other length and `max_size` holds for the bytes that arrive,
+                # not only for the number the client sent. It is not handed back
+                # in requiredHeaders: a browser sets Content-Length from the
+                # body and will not let script set it.
                 url = presign(
                     access_key_id=self.config.access_key_id,
                     secret_access_key=self.config.secret_access_key,
@@ -436,7 +484,7 @@ class Router:
                     host=host,
                     path=path,
                     region=self.config.region,
-                    headers={"x-amz-acl": "private"},
+                    headers={"x-amz-acl": "private", "content-length": str(file.size)},
                     expires_in=self.config.upload_expiry,
                     now=self.config.now(),
                 )
@@ -453,7 +501,24 @@ class Router:
                         "key": key,
                         "requiredHeaders": required,
                         "metadata": metadata,
-                        "completionToken": self._sign_completion(key, route_name),
+                        # The upload's receipt: completion reads the key, the
+                        # file and the metadata back from it instead of
+                        # trusting the request, so a caller can neither finish
+                        # someone else's upload nor rewrite what the channels
+                        # decided here.
+                        "completionToken": self._seal(
+                            Receipt(
+                                id=new_upload_id(),
+                                route=route_name,
+                                key=key,
+                                file=file,
+                                input=dict(ctx.client_metadata),
+                                metadata=metadata,
+                                exp=self._expiry(
+                                    self.config.upload_expiry + COMPLETION_GRACE_SECONDS
+                                ),
+                            )
+                        ),
                     }
                 )
 
@@ -464,33 +529,71 @@ class Router:
     async def _complete(
         self, request: Request, route_name: str, route: Route, telemetry: Dict[str, str]
     ) -> Response:
+        """Finish single-PUT uploads.
+
+        Each completion presents the receipt its presign issued, and the receipt
+        is the authority on what is being finished — which key, which file,
+        which metadata. ``authorize`` and ``user`` still run, so a caller who
+        has lost access since presign is refused; the ``metadata`` channel does
+        not, because its answer was sealed at presign.
+        """
         payload = request.json()
         completions = payload.get("completions")
         if not isinstance(completions, list):
             raise UploadError("BAD_REQUEST", "`completions` must be an array")
 
-        ctx = await self._open(route, request, route_name, {})
-        results = []
+        receipts: List[Optional[Receipt]] = []
+        refusal: Optional[UploadError] = None
+        for entry in completions:
+            if not isinstance(entry, dict):
+                raise UploadError("BAD_REQUEST", "each completion must be an object")
+            try:
+                receipts.append(self._unseal(entry.get("completionToken")))
+            except UploadError as error:
+                receipts.append(None)
+                refusal = refusal or error
+
+        # The request-level context carries the client metadata its uploads
+        # were presigned with — one presign request, one input, in practice.
+        # Entries from different presigns share none; each `on_complete` still
+        # sees its own upload's.
+        inputs = [receipt.input for receipt in receipts if receipt is not None]
+        shared = inputs[0] if inputs and all(i == inputs[0] for i in inputs) else {}
+
+        # Caller first, then token: an anonymous caller gets the 401 that tells
+        # them to sign in, not a 403 about a token they could not have.
+        ctx = await self._open(route, request, route_name, shared, phase="complete")
+        if refusal is not None:
+            raise refusal
+
+        mismatch = UploadError(
+            "FORBIDDEN", "This completion does not match the upload it was issued for"
+        )
+        results: List[Dict[str, Any]] = []
 
         async with self._around(route, ctx):
             # Every entry is authorised before any `on_complete` fires, so a
             # batch containing one unauthorised entry cannot commit the others.
-            verified: List[Tuple[str, FileMeta, Dict[str, Any]]] = []
+            authorised: List[_Upload] = []
 
-            for entry in completions:
-                if not isinstance(entry, dict):
-                    raise UploadError("BAD_REQUEST", "each completion must be an object")
-
+            for entry, receipt in zip(completions, receipts):
                 key = str(entry.get("key", ""))
                 token = entry.get("completionToken")
 
+                if receipt is not None:
+                    if receipt.route != route_name or receipt.key != key or receipt.multipart:
+                        raise mismatch
+                    authorised.append(_Upload.of(receipt))
+                    continue
+
+                # ── no receipt: a v1 token or none (deprecated; remove in 0.9) ──
+                # An upload presigned before receipts and completed after the
+                # deploy keeps the behaviour it was issued under: the metadata
+                # channel runs again at completion.
                 if token:
                     claim = self._verify_completion(str(token))
                     if claim.get("key") != key or claim.get("route") != route_name:
-                        raise UploadError(
-                            "FORBIDDEN",
-                            "This completion does not match the upload it was issued for",
-                        )
+                        raise mismatch
                 elif route.require_completion_token:
                     raise UploadError(
                         "FORBIDDEN",
@@ -498,62 +601,138 @@ class Router:
                     )
 
                 file = FileMeta.from_json(entry.get("file") or {"name": key, "size": 0})
-
-                # The metadata channel runs again rather than trusting what the
-                # client echoed back. Its input is the server's context, so the
-                # result cannot contain a claim the application never made.
                 scoped = _replace(ctx, storage_path=key, metadata={})
                 metadata: Dict[str, Any] = {}
                 if route.metadata is not None:
                     produced = await _invoke(route.metadata, scoped, file)
                     metadata = dict(produced) if isinstance(produced, Mapping) else {}
 
-                verified.append((key, file, metadata))
+                authorised.append(_Upload(key=key, file=file, metadata=metadata))
 
-            for key, file, metadata in verified:
-                scheme, host, path = self.config.object_address(key)
-                url = f"{scheme}://{host}{path}"
-
-                for observer in route.on_complete:
-                    await _invoke(
-                        observer,
-                        _replace(ctx, storage_path=key, metadata=metadata),
-                        Completion(key=key, file=file, url=url),
+            for upload in authorised:
+                try:
+                    results.append(await self._finalize(route, ctx, upload))
+                except UploadError as error:
+                    if error.status >= 500:
+                        # Storage or configuration at fault: not a property of
+                        # this file, as at presign.
+                        raise
+                    await self._report(route, ctx, upload.file, error)
+                    results.append(
+                        {
+                            "success": False,
+                            "key": upload.key,
+                            "error": error.message,
+                            "code": error.code,
+                        }
                     )
-
-                results.append(
-                    {
-                        "success": True,
-                        "key": key,
-                        "url": url,
-                        "file": file.to_json(),
-                        "metadata": metadata,
-                    }
-                )
 
         return self._json(200, telemetry, {"success": True, "results": results})
 
+    async def _finalize(self, route: Route, ctx: Context[Any], upload: "_Upload") -> Dict[str, Any]:
+        """The one place an upload is finished, single-PUT and multipart alike.
+
+        Nothing about an upload's outcome depends on how large the file was:
+        the same observers fire with the same record.
+
+        1. **Observe the object.** Everything the client said about the file
+           was a claim: the browser chooses the Content-Type, and signed
+           lengths bind only the URLs this server issued, not every way an
+           object can reach the key. So storage is asked what it holds.
+           Nothing there means the upload never happened; an object that breaks
+           the route's schema — too large, a type it does not accept — is
+           deleted, so the schema holds for what is stored and not only for
+           what was declared.
+        2. **Run** ``on_complete`` with the upload's authoritative record: the
+           metadata sealed at presign and the file as observed.
+        """
+        # A 403 here is STORAGE_ACCESS_DENIED: an upload that cannot be
+        # verified is not accepted.
+        stored_object = head_object(self.config, upload.key)
+        if stored_object is None:
+            raise UploadError(
+                "NOT_FOUND", "No object was uploaded to this key — the upload did not finish"
+            )
+
+        stored = FileMeta(
+            name=upload.file.name, size=stored_object.size, type=stored_object.content_type
+        )
+        message = route.schema.validate(stored) if route.schema is not None else None
+        if message:
+            delete_object(self.config, upload.key)
+            raise UploadError(
+                "VALIDATION_FAILED", f"The stored file was rejected and removed: {message}"
+            )
+        upload = _replace(upload, file=stored)
+
+        scheme, host, path = self.config.object_address(upload.key)
+        url = f"{scheme}://{host}{path}"
+
+        scoped = _replace(
+            ctx,
+            storage_path=upload.key,
+            client_metadata=dict(upload.input),
+            metadata=dict(upload.metadata),
+            phase="complete",
+        )
+        for observer in route.on_complete:
+            await _invoke(
+                observer,
+                scoped,
+                Completion(
+                    key=upload.key,
+                    file=upload.file,
+                    url=url,
+                    upload_id=upload.id,
+                    object=stored_object,
+                ),
+            )
+
+        return {
+            "success": True,
+            "key": upload.key,
+            "url": url,
+            "file": upload.file.to_json(),
+            "metadata": upload.metadata,
+        }
+
     # ─── multipart ───────────────────────────────────────────────────────────
 
-    async def _authorize_session(
-        self, request: "Request", route_name: str, route: Route, token: Any
-    ) -> Dict[str, Any]:
-        """Verify the token *and* re-run the route's handler.
+    async def _open_upload(
+        self, request: Request, route_name: str, route: Route, token: Any, phase: Phase
+    ) -> Tuple[Context[Any], "_Upload"]:
+        """Read a multipart upload back from its session and authorise the caller.
 
-        Both are required. The token proves which object is being acted on; the
-        handler proves the caller is still allowed to act. Checking only the
-        token would let a revoked user finish an upload they started.
+        ``authorize`` and ``user`` run on every call, over the client metadata
+        presign received, so a revoked user cannot finish an upload they
+        started. A session minted for one route never acts on another, even
+        for a caller authorised on both.
         """
-        session = verify_session(self.config.secret_access_key, token)
+        receipt = self._unseal(token)
 
+        if receipt is not None:
+            ctx = await self._open(route, request, route_name, receipt.input, phase=phase)
+            if receipt.route != route_name:
+                raise UploadError("FORBIDDEN", "This upload does not belong to this route")
+            if receipt.multipart is None:
+                raise UploadError("BAD_REQUEST", "This upload is not a multipart upload")
+            return ctx, _Upload.of(receipt)
+
+        # ── v1 multipart session (deprecated; remove in 0.9) ──────────────────
+        session = verify_session(self.config.secret_access_key, token)
         if session.get("route") != route_name:
             raise UploadError("FORBIDDEN", "Invalid or expired multipart session")
+        ctx = await self._open(route, request, route_name, {}, phase=phase)
 
-        # Re-runs `authorize` and `user`, so a revoked user cannot finish
-        # an upload they were allowed to start.
-        await self._open(route, request, route_name, {})
-
-        return session
+        key = str(session["key"])
+        return ctx, _Upload(
+            key=key,
+            file=FileMeta(name=key, size=int(session["totalSize"])),
+            metadata={},
+            multipart=MultipartPlan(
+                upload_id=str(session["uploadId"]), part_size=int(session["partSize"])
+            ),
+        )
 
     async def _multipart_init(
         self, request: "Request", route_name: str, route: Route, telemetry: Dict[str, str]
@@ -571,20 +750,25 @@ class Router:
         # CVEs found while designing this were a second entry point that skipped
         # stages the first one ran.
         ctx = await self._open(route, request, route_name, payload.get("metadata") or {})
-        key, metadata = await self._prepare(route, ctx, file)
+        async with self._around(route, ctx):
+            key, metadata = await self._prepare(route, ctx, file)
         upload_id = create_multipart_upload(self.config, key, file.type)
         part_size = choose_part_size(file.size, payload.get("partSize"))
 
         try:
-            token = sign_session(
-                self.config.secret_access_key,
-                {
-                    "key": key,
-                    "uploadId": upload_id,
-                    "route": route_name,
-                    "partSize": part_size,
-                    "totalSize": file.size,
-                },
+            # The session *is* the upload's receipt, with the part plan
+            # attached: every part request and the final assembly read it back.
+            session = self._seal(
+                Receipt(
+                    id=new_upload_id(),
+                    route=route_name,
+                    key=key,
+                    file=file,
+                    input=dict(ctx.client_metadata),
+                    metadata=metadata,
+                    multipart=MultipartPlan(upload_id=upload_id, part_size=part_size),
+                    exp=self._expiry(MULTIPART_RECEIPT_SECONDS),
+                )
             )
         except Exception:
             # The session exists at the provider but cannot be handed out, so it
@@ -597,7 +781,7 @@ class Router:
             telemetry,
             {
                 "success": True,
-                "session": token,
+                "session": session,
                 "key": key,
                 "partSize": part_size,
                 "metadata": metadata,
@@ -612,13 +796,21 @@ class Router:
         if not isinstance(part_numbers, list):
             raise UploadError("BAD_REQUEST", "`partNumbers` must be an array")
 
-        session = await self._authorize_session(
-            request, route_name, route, payload.get("session")
+        ctx, upload = await self._open_upload(
+            request, route_name, route, payload.get("session"), "upload"
         )
+        plan = upload.plan()
 
-        total = int(session["totalSize"])
-        part_size = int(session["partSize"])
-        max_part = max(1, -(-total // part_size))
+        async with self._around(route, ctx):
+            signed = self._sign_parts(upload, plan, part_numbers)
+
+        return self._json(200, telemetry, signed)
+
+    def _sign_parts(
+        self, upload: "_Upload", plan: MultipartPlan, part_numbers: List[Any]
+    ) -> List[Dict[str, Any]]:
+        total = upload.file.size
+        max_part = max(1, -(-total // plan.part_size))
 
         signed = []
         for raw in part_numbers:
@@ -628,99 +820,94 @@ class Router:
             if part_number < 1 or part_number > max_part:
                 raise UploadError("BAD_REQUEST", "Part number is outside this upload")
 
-            start = (part_number - 1) * part_size
+            start = (part_number - 1) * plan.part_size
+            size = min(plan.part_size, total - start)
             signed.append(
                 {
                     "partNumber": part_number,
                     "url": presign_upload_part(
-                        self.config, str(session["key"]), str(session["uploadId"]), part_number
+                        self.config, upload.key, plan.upload_id, part_number, size
                     ),
-                    "size": min(part_size, total - start),
+                    "size": size,
                 }
             )
-
-        return self._json(200, telemetry, signed)
+        return signed
 
     async def _multipart_complete(
         self, request: "Request", route_name: str, route: Route, telemetry: Dict[str, str]
     ) -> "Response":
+        """Stitch the parts, then finish exactly as a single-PUT completion does."""
         payload = request.json()
         parts = payload.get("parts")
         if not isinstance(parts, list):
             raise UploadError("BAD_REQUEST", "`parts` must be an array")
 
-        session = await self._authorize_session(
-            request, route_name, route, payload.get("session")
+        ctx, upload = await self._open_upload(
+            request, route_name, route, payload.get("session"), "complete"
         )
 
-        complete_multipart_upload(
-            self.config, str(session["key"]), str(session["uploadId"]), parts
-        )
+        # A v1 session never carried the file. It takes the name the client
+        # gives, and still no metadata: this server never trusted the body's.
+        if upload.id is None and isinstance(payload.get("file"), dict):
+            upload = _replace(upload, file=FileMeta.from_json(payload["file"]))
 
-        scheme, host, path = self.config.object_address(str(session["key"]))
-        return self._json(
-            200,
-            telemetry,
-            {"success": True, "key": session["key"], "url": f"{scheme}://{host}{path}"},
-        )
+        async with self._around(route, ctx):
+            complete_multipart_upload(self.config, upload.key, upload.plan().upload_id, parts)
+            result = await self._finalize(route, ctx, upload)
+
+        return self._json(200, telemetry, result)
 
     async def _multipart_abort(
         self, request: "Request", route_name: str, route: Route, telemetry: Dict[str, str]
     ) -> "Response":
-        session = await self._authorize_session(
-            request, route_name, route, request.json().get("session")
+        ctx, upload = await self._open_upload(
+            request, route_name, route, request.json().get("session"), "upload"
         )
-        abort_multipart_upload(self.config, str(session["key"]), str(session["uploadId"]))
+        async with self._around(route, ctx):
+            abort_multipart_upload(self.config, upload.key, upload.plan().upload_id)
         return self._json(200, telemetry, {"success": True})
 
     async def _multipart_parts(
         self, request: "Request", route_name: str, route: Route, telemetry: Dict[str, str]
     ) -> "Response":
-        session = await self._authorize_session(
-            request, route_name, route, request.json().get("session")
+        ctx, upload = await self._open_upload(
+            request, route_name, route, request.json().get("session"), "upload"
         )
-        parts = list_uploaded_parts(self.config, str(session["key"]), str(session["uploadId"]))
+        async with self._around(route, ctx):
+            parts = list_uploaded_parts(self.config, upload.key, upload.plan().upload_id)
         return self._json(200, telemetry, {"success": True, "parts": parts})
 
-    # ─── completion tokens ───────────────────────────────────────────────────
+    # ─── receipts ────────────────────────────────────────────────────────────
 
-    def _completion_signature(self, payload: str) -> str:
-        # Same construction as the TypeScript and Go servers, including the
-        # secret prefix, so the three remain interchangeable rather than merely
-        # similar.
-        signature = hmac.new(
-            f"pushduck-multipart:completion:{self.config.secret_access_key}".encode("utf-8"),
-            payload.encode("utf-8"),
-            hashlib.sha256,
-        ).digest()
-        return base64.urlsafe_b64encode(signature).rstrip(b"=").decode("ascii")
+    def _seal(self, receipt: Receipt) -> str:
+        return seal_receipt(self.config.secret_access_key, receipt)
+
+    def _unseal(self, token: Any) -> Optional[Receipt]:
+        return open_receipt(self.config.secret_access_key, token, self.config.now())
+
+    def _expiry(self, seconds: int) -> int:
+        return int(self.config.now().timestamp()) + seconds
+
+    # ─── completion tokens (v1, deprecated; remove in 0.9) ───────────────────
+    #
+    # Presign issues receipts now. These bound only a key to a route; they are
+    # still accepted for uploads in flight across the deploy, and minted only by
+    # tests.
 
     def _sign_completion(self, key: str, route: str) -> str:
-        claim = json.dumps({"key": key, "route": route}, separators=(",", ":"))
-        payload = base64.urlsafe_b64encode(claim.encode("utf-8")).rstrip(b"=").decode("ascii")
-        return f"{payload}.{self._completion_signature(payload)}"
+        # Same construction as the TypeScript and Go servers, including the
+        # purpose prefix, so the three remain interchangeable rather than
+        # merely similar.
+        return tokens.seal(
+            self.config.secret_access_key, tokens.COMPLETION, {"key": key, "route": route}
+        )
 
     def _verify_completion(self, token: str) -> Dict[str, Any]:
-        # One message for every failure mode, so a probe learns nothing about
-        # which part was wrong.
-        rejection = UploadError("FORBIDDEN", "Invalid completion token")
-
-        parts = token.split(".")
-        if len(parts) != 2 or not parts[0] or not parts[1]:
-            raise rejection
-
-        if not hmac.compare_digest(parts[1], self._completion_signature(parts[0])):
-            raise rejection
-
-        try:
-            padded = parts[0] + "=" * (-len(parts[0]) % 4)
-            claim = json.loads(base64.urlsafe_b64decode(padded))
-        except (ValueError, UnicodeDecodeError):
-            raise rejection from None
-
+        claim = tokens.unseal(self.config.secret_access_key, tokens.COMPLETION, token)
         if not isinstance(claim, dict) or not claim.get("key"):
-            raise rejection
-
+            # One message for every failure mode, so a probe learns nothing
+            # about which part was wrong.
+            raise UploadError("FORBIDDEN", "Invalid completion token")
         return claim
 
     # ─── helpers ─────────────────────────────────────────────────────────────

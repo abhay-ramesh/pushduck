@@ -1,9 +1,5 @@
 """Multipart uploads: provider operations and session tokens.
 
-The four S3 calls are made with ``urllib.request`` and parsed with
-``xml.etree``, both stdlib, so this package still installs nothing. Pulling in
-boto3 for four requests would be larger than everything else here combined.
-
 Three provider behaviours below are not obvious from the API documentation. They
 were learnt expensively in the TypeScript implementation and reproduced here
 rather than rediscovered, which is the whole point of having a shared protocol:
@@ -20,110 +16,14 @@ rather than rediscovered, which is the whole point of having a shared protocol:
 
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
-import json
-import urllib.error
-import urllib.request
 import xml.etree.ElementTree as ElementTree
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional
 
+from . import tokens
 from .config import UploadConfig
 from .errors import UploadError
 from .sign import presign
-
-#: S3 namespaces every element in these responses.
-_NS = {"s3": "http://s3.amazonaws.com/doc/2006-03-01/"}
-
-
-def _text(element: Optional[ElementTree.Element], path: str) -> str:
-    if element is None:
-        return ""
-    # Try namespaced first, then bare: MinIO and AWS agree, but some
-    # S3-compatible providers omit the namespace entirely.
-    found = element.find(f"s3:{path}", _NS)
-    if found is None:
-        found = element.find(path)
-    return (found.text or "").strip() if found is not None else ""
-
-
-def _provider_error(operation: str, code: str, message: str) -> UploadError:
-    """Map a provider code onto a protocol code.
-
-    The provider's own code stays in the message because that is what a
-    developer searches for; the protocol code is what a client branches on.
-    """
-    if code in ("AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch"):
-        return UploadError(
-            "STORAGE_ACCESS_DENIED", f"{operation} denied by storage ({code}): {message}"
-        )
-    if code == "NoSuchUpload":
-        return UploadError(
-            "NOT_FOUND", f"{operation} failed: the multipart session no longer exists"
-        )
-    if code in ("EntityTooSmall", "InvalidPart", "InvalidPartOrder"):
-        return UploadError("BAD_REQUEST", f"{operation} rejected ({code}): {message}")
-    return UploadError("STORAGE_UNAVAILABLE", f"{operation} failed ({code}): {message}")
-
-
-def _signed_request(
-    config: UploadConfig,
-    method: str,
-    key: str,
-    *,
-    query: Optional[Mapping[str, str]] = None,
-    body: bytes = b"",
-    headers: Optional[Mapping[str, str]] = None,
-    operation: str = "storage request",
-) -> bytes:
-    """Sign, send, and return the body — converting any failure into an UploadError."""
-    scheme, host, path = config.object_address(key)
-
-    url = presign(
-        access_key_id=config.access_key_id,
-        secret_access_key=config.secret_access_key,
-        session_token=config.session_token,
-        method=method,
-        scheme=scheme,
-        host=host,
-        path=path,
-        region=config.region,
-        query=query,
-        headers=headers,
-        expires_in=900,
-        now=config.now(),
-    )
-
-    request = urllib.request.Request(url, data=body or None, method=method)
-    for name, value in (headers or {}).items():
-        request.add_header(name, value)
-
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = response.read()
-            status = response.status
-    except urllib.error.HTTPError as error:
-        payload = error.read()
-        status = error.code
-    except OSError as error:  # DNS, refused connection, TLS
-        raise UploadError("STORAGE_UNAVAILABLE", "Could not reach storage") from error
-
-    # An error document can arrive with a 200, so the body is inspected
-    # regardless of status.
-    if b"<Error" in payload:
-        try:
-            root = ElementTree.fromstring(payload)
-            code = _text(root, "Code")
-            if code:
-                raise _provider_error(operation, code, _text(root, "Message"))
-        except ElementTree.ParseError:
-            pass
-
-    if status >= 400:
-        raise _provider_error(operation, f"HTTP{status}", payload.decode("utf-8", "replace")[:200])
-
-    return payload
+from .storage import NS as _NS, signed_request as _signed_request, text as _text
 
 
 def create_multipart_upload(config: UploadConfig, key: str, content_type: str) -> str:
@@ -149,12 +49,15 @@ def create_multipart_upload(config: UploadConfig, key: str, content_type: str) -
 
 
 def presign_upload_part(
-    config: UploadConfig, key: str, upload_id: str, part_number: int
+    config: UploadConfig, key: str, upload_id: str, part_number: int, size: int
 ) -> str:
     """Return a URL the browser can PUT one part to.
 
     ``partNumber`` and ``uploadId`` go into the canonical request *before*
     signing. Appending them afterwards signs a different URL than the one used.
+    The part's ``size`` is signed too, so storage refuses a part of any other
+    length and the parts cannot add up to more than the declared file — as a
+    single PUT's declared size is.
     """
     scheme, host, path = config.object_address(key)
 
@@ -168,6 +71,7 @@ def presign_upload_part(
         path=path,
         region=config.region,
         query={"partNumber": str(part_number), "uploadId": upload_id},
+        headers={"content-length": str(size)},
         expires_in=config.upload_expiry,
         now=config.now(),
     )
@@ -277,15 +181,6 @@ def list_uploaded_parts(
 # ─── session tokens ──────────────────────────────────────────────────────────
 
 
-def _session_signature(secret: str, payload: str) -> str:
-    signature = hmac.new(
-        f"pushduck-multipart:{secret}".encode("utf-8"),
-        payload.encode("utf-8"),
-        hashlib.sha256,
-    ).digest()
-    return base64.urlsafe_b64encode(signature).rstrip(b"=").decode("ascii")
-
-
 def sign_session(secret: str, session: Mapping[str, Any]) -> str:
     """Issue a token binding a key, upload id and route.
 
@@ -294,9 +189,7 @@ def sign_session(secret: str, session: Mapping[str, Any]) -> str:
     user's upload. Middleware authenticates the caller; nothing would tie the
     caller to the object.
     """
-    claim = json.dumps(dict(session), separators=(",", ":"), sort_keys=True)
-    payload = base64.urlsafe_b64encode(claim.encode("utf-8")).rstrip(b"=").decode("ascii")
-    return f"{payload}.{_session_signature(secret, payload)}"
+    return tokens.seal(secret, tokens.SESSION, dict(session))
 
 
 def verify_session(secret: str, token: Any) -> Dict[str, Any]:
@@ -305,23 +198,7 @@ def verify_session(secret: str, token: Any) -> Dict[str, Any]:
     One message for every failure mode, so a probe learns nothing about which
     part was wrong.
     """
-    rejection = UploadError("FORBIDDEN", "Invalid or expired multipart session")
-
-    if not isinstance(token, str):
-        raise rejection
-
-    parts = token.split(".")
-    if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise rejection
-
-    if not hmac.compare_digest(parts[1], _session_signature(secret, parts[0])):
-        raise rejection
-
-    try:
-        padded = parts[0] + "=" * (-len(parts[0]) % 4)
-        session = json.loads(base64.urlsafe_b64decode(padded))
-    except (ValueError, UnicodeDecodeError) as error:
-        raise rejection from error
+    session = tokens.unseal(secret, tokens.SESSION, token)
 
     # A valid signature over a malformed payload must still not proceed.
     if (
@@ -330,6 +207,6 @@ def verify_session(secret: str, token: Any) -> Dict[str, Any]:
         or not session.get("uploadId")
         or int(session.get("partSize") or 0) <= 0
     ):
-        raise rejection
+        raise UploadError("FORBIDDEN", "Invalid or expired multipart session")
 
     return session

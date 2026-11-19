@@ -1,0 +1,171 @@
+"""Single-object storage operations against a real S3-compatible server.
+
+Requires MinIO (``pnpm minio``). Skips honestly when there is not one.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import sys
+import time
+import unittest
+import urllib.error
+import urllib.request
+from dataclasses import replace
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from pushduck import Request, Route, Router, UploadConfig, UploadError, file  # noqa: E402
+from pushduck.storage import delete_object, head_object  # noqa: E402
+
+MINIO = os.environ.get("MINIO_ENDPOINT", "http://127.0.0.1:9010")
+
+
+def minio_available() -> bool:
+    try:
+        with urllib.request.urlopen(f"{MINIO}/minio/health/live", timeout=2) as response:
+            return response.status == 200
+    except OSError:
+        return False
+
+
+def put(url: str, headers: dict, body: bytes) -> int:
+    """Send a body to a presigned URL the way a browser would."""
+    request = urllib.request.Request(url, data=body, method="PUT", headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return response.status
+    except urllib.error.HTTPError as error:
+        return error.code
+
+
+@unittest.skipUnless(minio_available(), f"MinIO unreachable at {MINIO}")
+class SingleObjects(unittest.TestCase):
+    def setUp(self) -> None:
+        self.config = UploadConfig(
+            bucket="test-uploads",
+            region="us-east-1",
+            access_key_id="minioadmin",
+            secret_access_key="minioadmin",
+            endpoint=MINIO,
+            force_path_style=True,
+        )
+        self.router = Router(self.config)
+        self.router.add("docUpload", Route(schema=file(max_size="1MB")))
+
+    def presign(self, size: int) -> dict:
+        name = f"py-object-{time.time_ns()}.txt"
+        response = asyncio.run(self.router.handle(Request(
+            method="POST",
+            path="/api/upload",
+            query={"route": "docUpload", "action": "presign"},
+            headers={},
+            body=json.dumps({"files": [{"name": name, "size": size, "type": "text/plain"}]}).encode(),
+        )))
+        self.assertEqual(response.status, 200, response.body)
+        return json.loads(response.body)["results"][0]
+
+    def test_head_reports_what_was_stored_and_delete_removes_it(self) -> None:
+        issued = self.presign(5)
+        key = issued["key"]
+
+        self.assertIsNone(head_object(self.config, key))
+
+        self.assertEqual(put(issued["presignedUrl"], issued["requiredHeaders"], b"hello"), 200)
+
+        info = head_object(self.config, key)
+        assert info is not None
+        self.assertEqual((info.size, info.content_type), (5, "text/plain"))
+        self.assertTrue(info.etag and '"' not in info.etag, info.etag)
+        self.assertIsNotNone(info.last_modified)
+
+        delete_object(self.config, key)
+        self.assertIsNone(head_object(self.config, key))
+        # Already gone is the desired end state.
+        delete_object(self.config, key)
+
+    def test_a_presigned_put_refuses_any_length_but_the_declared_one(self) -> None:
+        # max_size is checked against the declared size; signing that size is
+        # what makes it hold for the bytes that arrive.
+        issued = self.presign(5)
+        url, headers = issued["presignedUrl"], issued["requiredHeaders"]
+
+        self.assertIn("content-length", url)
+        self.assertNotIn("content-length", {name.lower() for name in headers})
+
+        self.assertEqual(put(url, headers, b"hello, and then some"), 403)
+        self.assertEqual(put(url, headers, b"hi"), 403)
+        self.assertEqual(put(url, headers, b"hello"), 200)
+
+    def test_a_part_url_refuses_any_length_but_the_parts_own(self) -> None:
+        # Each part URL signs the part's size, so a client cannot push more
+        # bytes through a part than the declared file size accounts for.
+        def call(action: str, body: dict) -> object:
+            response = asyncio.run(self.router.handle(Request(
+                method="POST",
+                path="/api/upload",
+                query={"route": "docUpload", "action": action},
+                headers={},
+                body=json.dumps(body).encode(),
+            )))
+            return json.loads(response.body)
+
+        mib = 1 << 20
+        declared = {"name": f"py-part-{time.time_ns()}.bin", "size": 5 * mib + 10,
+                    "type": "application/octet-stream"}
+        self.router.add("docUpload", Route(schema=file(max_size="50MB")))
+        started = call("multipart-init", {"file": declared})
+        parts = call("multipart-sign", {"session": started["session"], "partNumbers": [1, 2]})
+        last = parts[1]
+        self.assertEqual(last["size"], 10)
+
+        self.assertEqual(put(last["url"], {}, b"x" * 11), 403)
+        self.assertEqual(put(last["url"], {}, b"x" * 10), 200)
+
+        call("multipart-abort", {"session": started["session"]})
+
+    def test_completion_verifies_the_object(self) -> None:
+        completed = []
+        self.router.add("verified", Route(
+            schema=file(max_size="1MB"),
+            on_complete=[lambda ctx, done: completed.append(done)],
+        ))
+        name = f"py-verify-{time.time_ns()}.txt"
+
+        def call(action: str, body: dict) -> dict:
+            response = asyncio.run(self.router.handle(Request(
+                method="POST",
+                path="/api/upload",
+                query={"route": "verified", "action": action},
+                headers={},
+                body=json.dumps(body).encode(),
+            )))
+            return json.loads(response.body)
+
+        declared = {"name": name, "size": 5, "type": "text/plain"}
+        issued = call("presign", {"files": [declared]})["results"][0]
+        completion = {"completions": [{
+            "key": issued["key"], "file": declared, "completionToken": issued["completionToken"],
+        }]}
+
+        early = call("complete", completion)["results"][0]
+        self.assertEqual((early["success"], early["code"]), (False, "NOT_FOUND"))
+
+        self.assertEqual(put(issued["presignedUrl"], issued["requiredHeaders"], b"hello"), 200)
+
+        done = call("complete", completion)["results"][0]
+        self.assertTrue(done["success"], done)
+        self.assertEqual(len(completed), 1)
+        self.assertEqual((completed[0].object.size, completed[0].object.content_type), (5, "text/plain"))
+
+    def test_a_refused_credential_is_not_a_missing_object(self) -> None:
+        # Read as "missing", completion would refuse every upload as never
+        # having arrived, with the real cause invisible.
+        refused = replace(self.config, secret_access_key="not-the-secret")
+
+        with self.assertRaises(UploadError) as raised:
+            head_object(refused, "anything.txt")
+        self.assertEqual(raised.exception.code, "STORAGE_ACCESS_DENIED")

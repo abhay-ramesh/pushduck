@@ -47,6 +47,7 @@ from typing import (
     Dict,
     Generic,
     List,
+    Literal,
     Mapping,
     Optional,
     Sequence,
@@ -56,6 +57,7 @@ from typing import (
 
 from .config import FileMeta, Schema
 from .errors import UploadError
+from .storage import ObjectInfo
 
 TUser = TypeVar("TUser")
 
@@ -68,13 +70,40 @@ class Anonymous:
     __slots__ = ()
 
 
+#: Which request of an upload a channel is running for.
+#:
+#: * ``"presign"`` — the upload is being authorised: a key is chosen and a URL
+#:   or multipart session issued. The ``metadata`` channel runs here, and only
+#:   here; what it returns is sealed into the upload's receipt.
+#: * ``"upload"`` — a multipart upload is signing, listing or aborting parts.
+#: * ``"complete"`` — the upload is being finished; ``on_complete`` is next.
+#:
+#: ``authorize`` and ``user`` run in every phase, so a caller who has lost access
+#: since presign is refused. Work that must happen once — reserving quota,
+#: writing an audit row — belongs in ``metadata`` or behind ``ctx.phase``.
+Phase = Literal["presign", "upload", "complete"]
+
+
 @dataclass
 class Completion:
-    """A finished upload, as reported to ``on_complete``."""
+    """A finished upload, as reported to ``on_complete``.
+
+    Every field comes from the server's own record or from storage; none from
+    the completion request.
+    """
 
     key: str
+    #: The file as stored: ``name`` as declared, ``size`` and ``type`` as
+    #: storage reports them.
     file: FileMeta
     url: str
+    #: Unique per upload and the same on every retry of its completion: use it
+    #: as an idempotency key, since a client may retry a completion whose
+    #: response it never received. ``None`` for uploads presigned before
+    #: receipts existed.
+    upload_id: Optional[str] = None
+    #: The stored object. Use its ``size`` for billing and quotas.
+    object: Optional[ObjectInfo] = None
 
 
 @dataclass
@@ -95,14 +124,19 @@ class Context(Generic[TUser]):
     route: str
     #: Whatever the ``user`` channel returned, or ``None`` on an anonymous route.
     user: TUser
-    #: What the client sent. Untrusted, always. Never merged into ``metadata``.
+    #: What the client sent at presign. Untrusted, always. Never merged into
+    #: ``metadata``. The same on every request of an upload: later requests
+    #: read it back from the receipt rather than from the request.
     client_metadata: Mapping[str, Any] = field(default_factory=dict)
-    #: What the server vouches for. Starts empty; only ``metadata`` fills it.
+    #: What the server vouches for. Starts empty; only ``metadata`` fills it,
+    #: at presign. Later requests read it back from the receipt.
     metadata: Dict[str, Any] = field(default_factory=dict)
     #: The resolved storage path (the S3 object key). Populated before
     #: ``metadata`` runs, so metadata can reference it; ``None`` earlier in the
     #: lifecycle.
     storage_path: Optional[str] = None
+    #: Which request of the upload this is.
+    phase: Phase = "presign"
 
 
 # ─── channel signatures ──────────────────────────────────────────────────────
@@ -286,6 +320,7 @@ def _as_async(fn: Callable[..., Any]) -> Callable[..., Awaitable[Any]]:
 
 __all__ = [
     "Anonymous",
+    "Phase",
     "Completion",
     "Context",
     "Route",
