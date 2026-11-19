@@ -102,6 +102,7 @@ export const neonStorage = defineProvider<NeonStorageConfig>({
     return errors;
   },
   supportsAcl: false,
+  cors: { api: "s3" },
   addressing: (config) => ({
     endpoint: config.endpoint,
     region: awsSigningRegion(config.region),

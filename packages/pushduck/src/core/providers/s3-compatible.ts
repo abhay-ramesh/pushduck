@@ -36,6 +36,9 @@ export const s3Compatible = defineProvider<S3CompatibleConfig>({
   defaults: { region: "us-east-1", acl: "private", forcePathStyle: true },
   required: ["endpoint", "accessKeyId", "secretAccessKey"],
   supportsAcl: true,
+  // Most S3-compatible services implement PutBucketCors; the CLI reports the
+  // service's own error for one that does not.
+  cors: { api: "s3" },
   addressing: (config) => ({
     endpoint: config.endpoint,
     region: awsSigningRegion(config.region || "us-east-1"),

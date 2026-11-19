@@ -55,6 +55,8 @@
 import { AwsClient } from "aws4fetch";
 import type { UploadConfig } from "../config";
 import {
+  encodeRfc3986,
+  objectApiUrl,
   toStorageTarget,
   type ProviderConfig,
   type StorageTarget,
@@ -210,34 +212,8 @@ export function resetS3Client(): void {
  *
  * Use {@link buildCdnUrl} for URLs handed to end users.
  */
-function buildApiUrl(rawKey: string, config: ClientTarget): string {
-  // Each segment is percent-encoded, "/" kept as the separator. A literal "+"
-  // is the case that matters: aws4fetch canonicalises it as a space while S3
-  // reads it as "+", so a key containing "+" failed every signed request with
-  // SignatureDoesNotMatch. As %2B, signer and server read the same key.
-  const key = rawKey.split("/").map(encodeRfc3986).join("/");
-
-  if (config.endpoint) {
-    // Custom endpoint (MinIO, R2, etc.)
-    const baseUrl = config.endpoint.replace(/\/$/, "");
-    // For custom endpoints, always use path-style or follow the forcePathStyle setting
-    if (config.forcePathStyle !== false) {
-      return `${baseUrl}/${config.bucket}/${key}`;
-    } else {
-      // Virtual hosted-style for custom endpoints (e.g., Backblaze B2)
-      // Convert https://s3.region.provider.com to https://bucket.s3.region.provider.com
-      const url = new URL(baseUrl);
-      url.hostname = `${config.bucket}.${url.hostname}`;
-      return `${url.origin}/${key}`;
-    }
-  }
-
-  // Standard AWS S3 URL
-  if (config.forcePathStyle) {
-    return `https://s3.${config.region}.amazonaws.com/${config.bucket}/${key}`;
-  } else {
-    return `https://${config.bucket}.s3.${config.region}.amazonaws.com/${key}`;
-  }
+function buildApiUrl(key: string, config: ClientTarget): string {
+  return objectApiUrl(config, key);
 }
 
 /**
@@ -298,14 +274,6 @@ export async function presignApiRequest(
     .map(([name, value]) => `${encodeRfc3986(name)}=${encodeRfc3986(value)}`)
     .join("&");
   return signed.toString();
-}
-
-/** Percent-encodes everything outside RFC 3986 `unreserved`. */
-function encodeRfc3986(value: string): string {
-  return encodeURIComponent(value).replace(
-    /[!'()*]/g,
-    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`
-  );
 }
 
 /**

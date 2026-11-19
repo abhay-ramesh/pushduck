@@ -7,13 +7,15 @@
  * to get there from the options a user writes: which options it accepts, what
  * it can derive (R2's endpoint from an account ID, Neon's region from its
  * endpoint), what it requires, and the few ways it differs (path-style
- * addressing, ACL support, signing region).
+ * addressing, ACL support, signing region, how bucket CORS is managed).
  *
  * That knowledge lives in one {@link ProviderDefinition} per provider. Nothing
  * outside `core/providers` branches on a provider's name: the client, the
  * router, validation and the health check read the definition or the target.
  * Adding a provider is one definition file and one line in the registry.
  */
+
+import type { BucketCorsSupport } from "./cors";
 
 /**
  * Valid S3 ACL values for controlling object access.
@@ -145,6 +147,12 @@ export interface ProviderDefinition<TConfig extends BaseProviderConfig> {
   readonly check?: (config: TConfig) => string[];
   /** Whether the provider accepts per-object ACLs (`x-amz-acl`). */
   readonly supportsAcl: boolean;
+  /**
+   * How the bucket's CORS rules are read and written — browser uploads need
+   * them (see `cors.ts`). `pushduck cors` and `pushduck init` follow this
+   * instead of failing on a provider that does not take `PutBucketCors`.
+   */
+  readonly cors: BucketCorsSupport;
   /** Where requests for this config go and how they are signed. */
   readonly addressing: (config: TConfig) => ProviderAddressing;
 }
@@ -157,6 +165,51 @@ export function defineProvider<TConfig extends BaseProviderConfig>(
   definition: ProviderDefinition<TConfig>
 ): ProviderDefinition<TConfig> {
   return definition;
+}
+
+/**
+ * The S3 API URL of an object: `endpoint/bucket/key` when path-style,
+ * `bucket.host/key` otherwise, and AWS's regional hostname when there is no
+ * endpoint. The key is percent-encoded one segment at a time, `/` kept as the
+ * separator.
+ *
+ * The one place an object URL is built from a target — the storage client
+ * signs requests against it and the CLI sends CORS preflights to it, so both
+ * reach the same host.
+ */
+export function objectApiUrl(
+  target: Pick<StorageTarget, "endpoint" | "bucket" | "region" | "forcePathStyle">,
+  rawKey: string
+): string {
+  // A literal "+" is the case that matters: aws4fetch canonicalises it as a
+  // space while S3 reads it as "+", so a key containing "+" failed every
+  // signed request with SignatureDoesNotMatch. As %2B, signer and server
+  // read the same key.
+  const key = rawKey.split("/").map(encodeRfc3986).join("/");
+
+  if (target.endpoint) {
+    const baseUrl = target.endpoint.replace(/\/$/, "");
+    if (target.forcePathStyle !== false) {
+      return `${baseUrl}/${target.bucket}/${key}`;
+    }
+    // Virtual-hosted style on a custom endpoint (e.g. Backblaze B2):
+    // https://s3.region.provider.com → https://bucket.s3.region.provider.com
+    const url = new URL(baseUrl);
+    url.hostname = `${target.bucket}.${url.hostname}`;
+    return `${url.origin}/${key}`;
+  }
+
+  return target.forcePathStyle
+    ? `https://s3.${target.region}.amazonaws.com/${target.bucket}/${key}`
+    : `https://${target.bucket}.s3.${target.region}.amazonaws.com/${key}`;
+}
+
+/** Percent-encodes everything outside RFC 3986 `unreserved`. */
+export function encodeRfc3986(value: string): string {
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`
+  );
 }
 
 /**

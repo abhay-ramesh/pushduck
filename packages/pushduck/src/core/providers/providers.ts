@@ -72,12 +72,22 @@ import { s3Compatible } from "./s3-compatible";
 
 export type { AWSProviderConfig } from "./aws";
 export type { CloudflareR2Config, R2Jurisdiction } from "./cloudflare-r2";
+export {
+  CORS_MAX_AGE_SECONDS,
+  CORS_RULE_ID,
+  corsRequirements,
+  corsRule,
+  type BucketCorsSupport,
+  type CorsRequirement,
+  type CorsRule,
+} from "./cors";
 export type {
   BaseProviderConfig,
   ProviderDefinition,
   S3AclValue,
   StorageTarget,
 } from "./define";
+export { encodeRfc3986, objectApiUrl } from "./define";
 export type { DigitalOceanSpacesConfig } from "./digitalocean-spaces";
 export type { GoogleCloudStorageConfig } from "./gcs";
 export type { MinIOConfig } from "./minio";

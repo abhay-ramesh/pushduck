@@ -59,6 +59,7 @@ export const aws = defineProvider<AWSProviderConfig>({
   defaults: { region: "us-east-1", acl: "private" },
   required: ["accessKeyId", "secretAccessKey", "region"],
   supportsAcl: true,
+  cors: { api: "s3" },
   // No endpoint: the hostname is built from the region.
   addressing: (config) => ({
     region: config.region,

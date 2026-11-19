@@ -1,3 +1,4 @@
+import type { CorsRule } from "./cors";
 import {
   awsSigningRegion,
   defineProvider,
@@ -78,6 +79,28 @@ function minioEndpoint(config: MinIOConfig): string {
   return `${config.useSSL ? "https" : "http"}://${endpoint}${port}`;
 }
 
+/**
+ * How to allow the rules' origins on a MinIO server.
+ *
+ * MinIO's CORS is server-wide (`MINIO_API_CORS_ALLOW_ORIGIN`, default `*`),
+ * allows any method and header, and exposes `ETag` — so only the origins
+ * carry over.
+ */
+function minioCorsInstructions(rules: readonly CorsRule[]): string {
+  const origins = [...new Set(rules.flatMap((rule) => rule.allowedOrigins))];
+
+  return [
+    "MinIO sets CORS for the whole server, not per bucket (it answers PutBucketCors with 501 NotImplemented).",
+    "It allows every origin unless MINIO_API_CORS_ALLOW_ORIGIN is set. To allow only these, start the server with",
+    "",
+    `  MINIO_API_CORS_ALLOW_ORIGIN="${origins.join(",")}"`,
+    "",
+    "or, on a running server:",
+    "",
+    `  mc admin config set <alias> api cors_allow_origin="${origins.join(",")}"`,
+  ].join("\n");
+}
+
 export const minio = defineProvider<MinIOConfig>({
   id: "minio",
   name: "MinIO",
@@ -98,6 +121,10 @@ export const minio = defineProvider<MinIOConfig>({
   }),
   required: ["endpoint", "accessKeyId", "secretAccessKey"],
   supportsAcl: false,
+  // Open-source MinIO answers PutBucketCors with 501 NotImplemented and
+  // GetBucketCors with NoSuchCORSConfiguration, whatever it allows: CORS is
+  // one server-wide setting.
+  cors: { api: "external", instructions: minioCorsInstructions },
   addressing: (config) => ({
     endpoint: minioEndpoint(config),
     region: awsSigningRegion(config.region || "us-east-1"),
