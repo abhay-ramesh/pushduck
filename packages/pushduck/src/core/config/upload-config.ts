@@ -355,7 +355,7 @@ export interface UploadConfig {
     /** Maximum file size (string like '10MB' or number in bytes) */
     maxFileSize?: string | number;
     /** Allowed MIME types (e.g., ['image/*', 'application/pdf']) */
-    allowedFileTypes?: string[];
+    allowedFileTypes?: readonly string[];
     /**
      * S3 ACL for uploaded objects.
      * Not supported on Cloudflare R2, MinIO or Neon Object Storage — ignored on
@@ -389,7 +389,7 @@ export interface UploadConfig {
     /** Whether authentication is required for uploads */
     requireAuth?: boolean;
     /** Allowed origins for CORS (if applicable) */
-    allowedOrigins?: string[];
+    allowedOrigins?: readonly string[];
     /** Rate limiting configuration */
     rateLimiting?: {
       /** Maximum uploads per window */

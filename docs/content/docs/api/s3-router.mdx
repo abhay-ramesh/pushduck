@@ -60,6 +60,17 @@ s3.file()
   .accept(['application/pdf', 'text/plain', 'application/json'])
 ```
 
+`accept` reads like HTML `<input accept>`: MIME types, wildcards such as `image/*`, and dot-prefixed extensions. It takes a readonly list, so one `as const` array can drive both the route and the file input:
+
+```typescript title="One accept list for route and input"
+export const LOGO_ACCEPT = ['image/png', 'image/svg+xml', '.svg'] as const
+
+s3.image().accept(LOGO_ACCEPT)
+
+// In the client component
+<input type="file" accept={LOGO_ACCEPT.join(',')} />
+```
+
 ### Object Schema (Multiple Files)
 
 ```typescript title="Object Schema Configuration"
