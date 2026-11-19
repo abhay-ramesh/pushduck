@@ -44,6 +44,47 @@ describe("storage targets", () => {
     });
   });
 
+  it.each(["eu", "fedramp", "us"] as const)(
+    "Cloudflare R2: jurisdiction %s puts its infix in the endpoint",
+    (jurisdiction) => {
+      // https://developers.cloudflare.com/r2/reference/data-location/#using-jurisdictions-with-the-s3-api
+      // A bucket in a jurisdiction is only reachable through that
+      // jurisdiction's endpoint; the default one answers 403.
+      expect(
+        toStorageTarget(
+          createProvider("cloudflareR2", { ...KEYS, accountId: "acct", jurisdiction })
+        )
+      ).toMatchObject({
+        endpoint: `https://acct.${jurisdiction}.r2.cloudflarestorage.com`,
+        region: "auto",
+        forcePathStyle: true,
+      });
+    }
+  );
+
+  it("Cloudflare R2: an explicit endpoint is used as written", () => {
+    expect(
+      toStorageTarget(
+        createProvider("cloudflareR2", {
+          ...KEYS,
+          accountId: "acct",
+          jurisdiction: "eu",
+          endpoint: "https://proxy.example.com",
+        })
+      ).endpoint
+    ).toBe("https://proxy.example.com");
+  });
+
+  it("Cloudflare R2: rejects a jurisdiction Cloudflare does not define", () => {
+    expect(() =>
+      createProvider("cloudflareR2", {
+        ...KEYS,
+        accountId: "acct",
+        jurisdiction: "EU" as never,
+      })
+    ).toThrow(/jurisdiction must be one of "eu", "fedramp", "us", got "EU"/);
+  });
+
   it("DigitalOcean Spaces: endpoint from the region, virtual-hosted, ACLs allowed", () => {
     expect(
       toStorageTarget(

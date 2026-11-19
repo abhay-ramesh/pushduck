@@ -41,6 +41,12 @@ export interface ProviderCredentials {
   bucket: string;
   endpoint?: string;
   accountId?: string;
+  /**
+   * Cloudflare R2: the bucket's jurisdiction (`eu`, `fedramp`, `us`), from
+   * `CLOUDFLARE_R2_JURISDICTION`. Buckets in a jurisdiction are only
+   * reachable through that jurisdiction's endpoint.
+   */
+  jurisdiction?: string;
 }
 
 const PROVIDER_INFO = {
@@ -201,6 +207,7 @@ export function resolveTarget(
       region: credentials.region,
       endpoint: credentials.endpoint,
       accountId: credentials.accountId,
+      jurisdiction: credentials.jurisdiction,
     }).filter(([option, value]) => accepted.has(option) && value)
   );
 
@@ -281,6 +288,8 @@ export async function detectExistingCredentials(
         process.env.R2_BUCKET || process.env.CLOUDFLARE_R2_BUCKET;
       credentials.accountId =
         process.env.CLOUDFLARE_ACCOUNT_ID || process.env.R2_ACCOUNT_ID;
+      credentials.jurisdiction =
+        process.env.CLOUDFLARE_R2_JURISDICTION || process.env.R2_JURISDICTION;
       credentials.region = "auto";
       break;
 
@@ -402,6 +411,7 @@ export async function promptForMissingCredentials(
     bucket: existing.bucket || answers.bucket,
     endpoint: existing.endpoint || answers.endpoint,
     accountId: existing.accountId || answers.accountId,
+    jurisdiction: existing.jurisdiction,
   };
 }
 

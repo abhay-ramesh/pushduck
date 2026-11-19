@@ -29,6 +29,8 @@ const READ_VARS = [
   "CLOUDFLARE_R2_BUCKET",
   "CLOUDFLARE_ACCOUNT_ID",
   "R2_ACCOUNT_ID",
+  "CLOUDFLARE_R2_JURISDICTION",
+  "R2_JURISDICTION",
   "DO_SPACES_ACCESS_KEY_ID",
   "DO_SPACES_SECRET_ACCESS_KEY",
   "DO_SPACES_REGION",
@@ -157,6 +159,14 @@ describe("detectExistingCredentials", () => {
       const credentials = await detectExistingCredentials("cloudflare-r2");
       expect(credentials.accessKeyId).toBe("long-key");
       expect(credentials.accountId).toBe("long-account");
+    });
+
+    it("reads the bucket's jurisdiction, preferring the CLOUDFLARE_* name", async () => {
+      setEnv({ R2_JURISDICTION: "fedramp" });
+      expect((await detectExistingCredentials("cloudflare-r2")).jurisdiction).toBe("fedramp");
+
+      setEnv({ CLOUDFLARE_R2_JURISDICTION: "eu" });
+      expect((await detectExistingCredentials("cloudflare-r2")).jurisdiction).toBe("eu");
     });
 
     it("reports region auto even when nothing is set", async () => {

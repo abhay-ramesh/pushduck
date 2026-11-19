@@ -24,6 +24,45 @@ Set up Cloudflare R2 for lightning-fast file uploads with zero egress fees.
 5. Select your preferred location (Auto for global performance)
 6. Click **"Create bucket"**
 
+### Buckets in a jurisdiction (EU, FedRAMP)
+
+If you chose **Specify jurisdiction** under Location — for example to keep
+data in the EU for GDPR — the bucket is only reachable through that
+jurisdiction's S3 endpoint, `https://<ACCOUNT_ID>.<JURISDICTION>.r2.cloudflarestorage.com`.
+The default endpoint answers 403 for it
+([Cloudflare: Using jurisdictions with the S3 API](https://developers.cloudflare.com/r2/reference/data-location/#using-jurisdictions-with-the-s3-api)).
+
+Set `jurisdiction` and pushduck derives the endpoint; don't build it by hand:
+
+```typescript
+.provider("cloudflareR2", {
+  accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
+  bucket: process.env.R2_BUCKET!,
+  accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
+  jurisdiction: "eu", // → https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com
+})
+```
+
+Accepted values are the jurisdictions Cloudflare defines: `"eu"`, `"fedramp"`
+and `"us"`
+([available jurisdictions](https://developers.cloudflare.com/r2/reference/data-location/#available-jurisdictions)).
+Anything else fails when the config is created. An explicit `endpoint` still
+wins, for routing through a proxy.
+
+The CLI reads `CLOUDFLARE_R2_JURISDICTION` (or `R2_JURISDICTION`) for
+`init` and `test`, and writes `jurisdiction` into the config it generates.
+
+<Callout type="warn">
+**Content Security Policy:** browsers upload straight to the presigned URL, so
+`connect-src` must allow the jurisdiction's host, not only the default one:
+`https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com`. If you render presigned
+GET URLs with `next/image`, note that `*` in `images.remotePatterns` matches a
+single subdomain level — `*.r2.cloudflarestorage.com` does not match
+`<ACCOUNT_ID>.eu.r2.cloudflarestorage.com`; list the exact host or use
+`**.r2.cloudflarestorage.com`.
+</Callout>
+
 ## 2. Configure Public Access (Optional)
 
 ### For Public Files (Images, Documents)
