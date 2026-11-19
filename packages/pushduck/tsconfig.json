@@ -118,6 +118,10 @@
     // Deno source, not TypeScript-for-Node. Deno requires explicit `.ts`
     // extensions on relative imports, which this tsconfig rejects, and it is
     // type-checked by Deno itself when `deno-runtime.test.ts` runs it.
-    "src/__tests__/fixtures/deno-server.ts"
+    "src/__tests__/fixtures/deno-server.ts",
+    // A consumer package, compiled against the built `dist` through the
+    // exports map by `declaration-consumer.test.ts`. From here its
+    // `pushduck/*` imports would be self-references to an unbuilt package.
+    "src/__tests__/fixtures/declaration-consumer"
   ]
 }

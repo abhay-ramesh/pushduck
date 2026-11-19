@@ -346,10 +346,13 @@ export type {
 export type {
   ClientConfig,
   InferClientRouter,
+  RouteUploadOptions,
   RouterRouteNames,
   S3Router,
   TypedRouteHook,
   TypedUploadedFile,
+  UploadAdvancedConfig,
+  UploadRouteConfig,
   // Provider-neutral aliases
   UploadRouter,
   UploadedFile,
