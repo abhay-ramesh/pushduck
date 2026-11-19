@@ -27,16 +27,18 @@ interface UploadMetadata {
 // Provider Configuration
 // ========================================
 
-// Configure and initialize upload client directly
+// One config for the upload routes and server-side storage calls. The
+// provider options are a function, so they are read on the first upload rather
+// than when this module is imported — `next build` runs without credentials.
 const { s3, config, storage } = createUploadConfig()
-  .provider("cloudflareR2", {
+  .provider("cloudflareR2", () => ({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     region: "auto",
     endpoint: process.env.AWS_ENDPOINT_URL,
     bucket: process.env.S3_BUCKET_NAME,
     accountId: process.env.R2_ACCOUNT_ID,
-  })
+  }))
   .defaults({
     maxFileSize: "10MB",
     acl: "public-read", // Make uploaded files publicly accessible

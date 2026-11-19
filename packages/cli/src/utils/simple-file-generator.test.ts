@@ -79,4 +79,17 @@ describe("generated upload config", () => {
     );
     expect(await generatedConfig("cloudflare-r2")).not.toContain("jurisdiction");
   });
+
+  it.each<ProviderType>(["aws", "cloudflare-r2", "digitalocean", "minio", "neon", "gcs"])(
+    "%s: reads the provider options on first use, so a build needs no credentials",
+    async (provider) => {
+      const content = await generatedConfig(provider);
+
+      // `next build` imports this module on a machine without storage
+      // credentials; options given as an object are validated right there.
+      expect(content).toMatch(/\.provider\("[^"]+", \(\) => \(\{/);
+      // Nothing to assert non-null: missing values are reported on first use.
+      expect(content).not.toMatch(/process\.env\.\w+!/);
+    }
+  );
 });

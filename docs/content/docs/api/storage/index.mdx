@@ -97,17 +97,17 @@ The Storage API provides direct access to file operations, metadata retrieval, a
 // lib/upload.ts
 import { createUploadConfig } from 'pushduck/server'
 
-const { storage } = createUploadConfig()
-  .provider("cloudflareR2", {
+export const { upload, storage, isConfigured } = createUploadConfig()
+  .provider("cloudflareR2", () => ({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     accountId: process.env.R2_ACCOUNT_ID,
     bucket: process.env.S3_BUCKET_NAME,
-  })
+  }))
   .build()
-
-export { storage }
 ```
+
+`storage` comes from the same config as your upload routes — export it from the module that already builds that config rather than building a second one. Because the options are a function, they are read on the first `storage` call, not at import; use `isConfigured()` to check for them without throwing. See [when provider options are read](/docs/api/configuration/upload-config#when-provider-options-are-read).
 
 ### Using in API Routes
 

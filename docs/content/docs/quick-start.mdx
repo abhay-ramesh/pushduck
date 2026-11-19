@@ -36,17 +36,17 @@ One file with your S3 config and upload route:
 ```ts title="app/api/upload/route.ts"
 import { createUploadConfig } from 'pushduck/server';
 
-const { s3 } = createUploadConfig()
-  .provider("aws", {
-    bucket: process.env.AWS_BUCKET_NAME!,
-    region: process.env.AWS_REGION!,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  })
+const { upload } = createUploadConfig()
+  .provider("aws", () => ({
+    bucket: process.env.AWS_BUCKET_NAME,
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  }))
   .build();
 
-const router = s3.createRouter({
-  imageUpload: s3.image().maxFileSize('5MB'),
+const router = upload.createRouter({
+  imageUpload: upload.image().maxFileSize('5MB'),
 });
 
 export const { GET, POST } = router.handlers;
@@ -54,7 +54,7 @@ export type AppRouter = typeof router;
 ```
 
 <Callout type="info">
-  **Environment variables**: Add your S3 credentials to `.env.local`. See [Provider Setup](/docs/providers) for getting credentials.
+  **Environment variables**: Add your S3 credentials to `.env.local`. See [Provider Setup](/docs/providers) for getting credentials. Passing the options as a function means they are read on the first upload, not at import, so `next build` works without them. See [when provider options are read](/docs/api/configuration/upload-config#when-provider-options-are-read).
 </Callout>
 
 <Callout type="tip">

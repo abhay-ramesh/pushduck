@@ -48,13 +48,16 @@ pnpm add pushduck
 // lib/upload.ts
 import { createUploadConfig } from 'pushduck/server';
 
-const { s3, config } = createUploadConfig()
-  .provider("aws", {
-    bucket: process.env.AWS_BUCKET_NAME!,
-    region: process.env.AWS_REGION!,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  })
+// One config serves your upload routes (`upload`) and server-side storage
+// calls (`storage`). Options passed as a function are read on the first
+// upload, not at import, so `next build` runs without credentials.
+export const { upload, storage, isConfigured } = createUploadConfig()
+  .provider("aws", () => ({
+    bucket: process.env.AWS_BUCKET_NAME,
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  }))
   .defaults({
     maxFileSize: '10MB',
     acl: 'public-read',
@@ -71,10 +74,10 @@ const { s3, config } = createUploadConfig()
   .build();
 
 // Create router with your upload routes
-const router = s3.createRouter({
-  imageUpload: s3.image().maxFileSize('5MB'),
-  documentUpload: s3.file({ maxSize: '10MB' }),
-  avatarUpload: s3.image().maxFileSize('2MB').middleware(async ({ metadata }) => ({
+const router = upload.createRouter({
+  imageUpload: upload.image().maxFileSize('5MB'),
+  documentUpload: upload.file({ maxSize: '10MB' }),
+  avatarUpload: upload.image().maxFileSize('2MB').middleware(async ({ metadata }) => ({
     ...metadata,
     userId: metadata.userId || 'anonymous',
   })),
@@ -234,6 +237,10 @@ onStart: (files) => {
 ## Configuration
 
 ### Provider Setup
+
+Each provider's options can be passed as an object, validated immediately, or
+as a function, `() => ({ ... })`, read and validated on first use. Prefer the
+function when the values come from the environment.
 
 #### AWS S3
 
