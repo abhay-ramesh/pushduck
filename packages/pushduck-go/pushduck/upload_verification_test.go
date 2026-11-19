@@ -2,8 +2,8 @@ package pushduck
 
 // Completion accepts what was stored, not what was claimed.
 //
-// The browser chooses the Content-Type it sends, and a multipart part's length
-// is not signed. So a route's MaxSize and AllowTypes, enforced at presign
+// The browser chooses the Content-Type it sends, and a signed length binds only
+// the URLs this server issued. So a route's MaxSize and AllowTypes, enforced at presign
 // against the client's declaration, are only a promise until completion checks
 // the object itself. These tests pin that check: completion HEADs the key,
 // refuses an upload that never arrived, deletes and refuses one that breaks the
@@ -191,8 +191,8 @@ func TestMultipartAssemblyIsVerifiedToo(t *testing.T) {
 	}
 	decode(t, init, &started)
 
-	// A part's length is not signed, so the assembled object can exceed what
-	// was declared. Stand in for that by storing the parts directly.
+	// Whatever reaches the key — here, parts stored behind the server's back —
+	// is what completion judges, not what was declared.
 	v.storage.mu.Lock()
 	for id := range v.storage.uploads {
 		v.storage.uploads[id][1] = make([]byte, 5000)

@@ -117,8 +117,9 @@ func (router *Router) openUpload(
 // was.
 //
 //  1. Observe the object. Everything the client said about the file was a
-//     claim: the browser chooses the Content-Type, and a multipart part's
-//     length is not signed. So storage is asked what it holds. Nothing there
+//     claim: the browser chooses the Content-Type, and signed lengths bind
+//     only the URLs this server issued, not every way an object can reach
+//     the key. So storage is asked what it holds. Nothing there
 //     means the upload never happened; an object that breaks the route's
 //     rules — too large, a type it does not accept — is deleted, so the
 //     route's limits hold for what is stored and not only for what was
