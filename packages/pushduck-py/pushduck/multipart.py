@@ -49,12 +49,15 @@ def create_multipart_upload(config: UploadConfig, key: str, content_type: str) -
 
 
 def presign_upload_part(
-    config: UploadConfig, key: str, upload_id: str, part_number: int
+    config: UploadConfig, key: str, upload_id: str, part_number: int, size: int
 ) -> str:
     """Return a URL the browser can PUT one part to.
 
     ``partNumber`` and ``uploadId`` go into the canonical request *before*
     signing. Appending them afterwards signs a different URL than the one used.
+    The part's ``size`` is signed too, so storage refuses a part of any other
+    length and the parts cannot add up to more than the declared file — as a
+    single PUT's declared size is.
     """
     scheme, host, path = config.object_address(key)
 
@@ -68,6 +71,7 @@ def presign_upload_part(
         path=path,
         region=config.region,
         query={"partNumber": str(part_number), "uploadId": upload_id},
+        headers={"content-length": str(size)},
         expires_in=config.upload_expiry,
         now=config.now(),
     )

@@ -1,7 +1,7 @@
 """Completion accepts what was stored, not what was claimed.
 
-The browser chooses the Content-Type it sends, and a multipart part's length is
-not signed. So a route's schema, enforced at presign against the client's
+The browser chooses the Content-Type it sends, and a signed length binds only the
+URLs this server issued. So a route's schema, enforced at presign against the client's
 declaration, is only a promise until completion checks the object itself. These
 tests pin that check: completion HEADs the key, refuses an upload that never
 arrived, deletes and refuses one that breaks the schema, and hands
@@ -123,8 +123,8 @@ def test_one_failed_file_does_not_fail_its_siblings(verification):
 def test_multipart_assembly_is_verified_too(verification):
     _, started = verification.call("multipart-init", {"file": {**DECLARED, "name": "big.jpg"}})
 
-    # A part's length is not signed, so the assembled object can exceed what
-    # was declared. Stand in for that by storing the part directly.
+    # Whatever reaches the key — here, a part stored behind the server's back —
+    # is what completion judges, not what was declared.
     for _, parts in verification.storage.uploads.values():
         parts[1] = b"\0" * 5000
 

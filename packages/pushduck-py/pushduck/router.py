@@ -636,8 +636,9 @@ class Router:
         the same observers fire with the same record.
 
         1. **Observe the object.** Everything the client said about the file
-           was a claim: the browser chooses the Content-Type, and a multipart
-           part's length is not signed. So storage is asked what it holds.
+           was a claim: the browser chooses the Content-Type, and signed
+           lengths bind only the URLs this server issued, not every way an
+           object can reach the key. So storage is asked what it holds.
            Nothing there means the upload never happened; an object that breaks
            the route's schema — too large, a type it does not accept — is
            deleted, so the schema holds for what is stored and not only for
@@ -820,13 +821,14 @@ class Router:
                 raise UploadError("BAD_REQUEST", "Part number is outside this upload")
 
             start = (part_number - 1) * plan.part_size
+            size = min(plan.part_size, total - start)
             signed.append(
                 {
                     "partNumber": part_number,
                     "url": presign_upload_part(
-                        self.config, upload.key, plan.upload_id, part_number
+                        self.config, upload.key, plan.upload_id, part_number, size
                     ),
-                    "size": min(plan.part_size, total - start),
+                    "size": size,
                 }
             )
         return signed

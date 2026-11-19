@@ -100,6 +100,33 @@ class SingleObjects(unittest.TestCase):
         self.assertEqual(put(url, headers, b"hi"), 403)
         self.assertEqual(put(url, headers, b"hello"), 200)
 
+    def test_a_part_url_refuses_any_length_but_the_parts_own(self) -> None:
+        # Each part URL signs the part's size, so a client cannot push more
+        # bytes through a part than the declared file size accounts for.
+        def call(action: str, body: dict) -> object:
+            response = asyncio.run(self.router.handle(Request(
+                method="POST",
+                path="/api/upload",
+                query={"route": "docUpload", "action": action},
+                headers={},
+                body=json.dumps(body).encode(),
+            )))
+            return json.loads(response.body)
+
+        mib = 1 << 20
+        declared = {"name": f"py-part-{time.time_ns()}.bin", "size": 5 * mib + 10,
+                    "type": "application/octet-stream"}
+        self.router.add("docUpload", Route(schema=file(max_size="50MB")))
+        started = call("multipart-init", {"file": declared})
+        parts = call("multipart-sign", {"session": started["session"], "partNumbers": [1, 2]})
+        last = parts[1]
+        self.assertEqual(last["size"], 10)
+
+        self.assertEqual(put(last["url"], {}, b"x" * 11), 403)
+        self.assertEqual(put(last["url"], {}, b"x" * 10), 200)
+
+        call("multipart-abort", {"session": started["session"]})
+
     def test_completion_verifies_the_object(self) -> None:
         completed = []
         self.router.add("verified", Route(
