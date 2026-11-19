@@ -84,6 +84,45 @@ func TestPresignedPutRefusesAnyLengthButTheDeclaredOne(t *testing.T) {
 	}
 }
 
+func TestAPartURLRefusesAnyLengthButThePartsOwn(t *testing.T) {
+	if !minioAvailable() {
+		t.Skip("MinIO unreachable")
+	}
+
+	// Each part URL signs the part's size, so a client cannot push more bytes
+	// through a part than the declared file size accounts for.
+	router := NewRouter(minioConfig(), Routes{"bigUpload": File(MaxSize("50MB"))})
+	file := FileMeta{Name: fmt.Sprintf("go-part-%d.bin", time.Now().UnixNano()), Size: 5*mib + 10, Type: "application/octet-stream"}
+
+	init := postTo(t, router, "bigUpload", "multipart-init", map[string]any{"file": file})
+	var started struct {
+		Session string `json:"session"`
+	}
+	decode(t, init, &started)
+
+	sign := postTo(t, router, "bigUpload", "multipart-sign", map[string]any{
+		"session": started.Session, "partNumbers": []int{1, 2},
+	})
+	var parts []struct {
+		URL  string `json:"url"`
+		Size int64  `json:"size"`
+	}
+	decode(t, sign, &parts)
+	last := parts[1]
+	if last.Size != 10 {
+		t.Fatalf("last part size = %d, want 10", last.Size)
+	}
+
+	if status := putTo(t, last.URL, nil, strings.Repeat("x", 5*mib)); status != http.StatusForbidden {
+		t.Errorf("oversized part = %d, want 403", status)
+	}
+	if status := putTo(t, last.URL, nil, strings.Repeat("x", 10)); status != http.StatusOK {
+		t.Errorf("exact part = %d, want 200", status)
+	}
+
+	postTo(t, router, "bigUpload", "multipart-abort", map[string]any{"session": started.Session})
+}
+
 func TestHeadObjectReportsWhatWasStored(t *testing.T) {
 	if !minioAvailable() {
 		t.Skip("MinIO unreachable")

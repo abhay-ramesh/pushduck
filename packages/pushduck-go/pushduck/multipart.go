@@ -221,7 +221,7 @@ func (router *Router) multipartSign(
 
 		signed = append(signed, map[string]any{
 			"partNumber": partNumber,
-			"url":        router.config.presignUploadPart(current.Key, plan.UploadID, partNumber),
+			"url":        router.config.presignUploadPart(current.Key, plan.UploadID, partNumber, size),
 			"size":       size,
 		})
 	}
