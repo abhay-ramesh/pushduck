@@ -7,6 +7,7 @@
 
 import type { UploadConfig } from "../config/upload-config";
 import * as client from "./client";
+import { inScope } from "./keys";
 
 // Types re-export for convenience
 export type {
@@ -188,6 +189,16 @@ export class StorageInstance {
   move = {
     file: (from: string, to: string) =>
       client.moveFile(this.config, from, to),
+  };
+
+  // Key operations - pure, no request to the provider
+  keys = {
+    /**
+     * Whether `key` lies inside the folder `prefix`, segment by segment:
+     * `users/1` does not contain `users/10/a.png`. Use it before acting on a
+     * key a client sent back. Fails closed on any key pushduck would refuse.
+     */
+    inScope: (key: string, prefix: string) => inScope(key, prefix),
   };
 }
 

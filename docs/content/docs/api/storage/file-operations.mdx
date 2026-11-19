@@ -234,6 +234,43 @@ const url = await storage.upload.file(pdfBuffer, `invoices/${invoice.id}.pdf`, {
 | `metadata` | `x-amz-meta-*` custom metadata |
 | `onProgress` | — called at the start and end of the upload |
 
+## Ownership Checks
+
+Before acting on a key a client sent back (delete this file, sign a download
+for that one), check that it lies inside the caller's folder:
+
+```typescript
+export async function DELETE(req: Request) {
+  const user = await requireUser(req)
+  const { key } = await req.json()
+
+  // The same prefix the upload route used: .paths({ prefix: ({ metadata }) => `users/${metadata.userId}` })
+  if (!storage.keys.inScope(key, `users/${user.id}`)) {
+    return new Response('Not found', { status: 404 })
+  }
+
+  await storage.delete.file(key)
+  return new Response(null, { status: 204 })
+}
+```
+
+`inScope(key, prefix)` compares whole segments, so `users/1` does not contain
+`users/10/a.png`, which `key.startsWith(prefix)` gets wrong. It sanitises the
+prefix's segments the way `.paths()` does, and it fails closed: it answers
+`false` for a key with a `..` or empty segment, for any key pushduck would not
+have produced, and for a prefix that does not resolve, such as `users/` built
+from a missing id.
+
+| `storage.keys.inScope(key, prefix)` | Result |
+|---|---|
+| `("users/1/a.png", "users/1")` | `true` |
+| `("users/10/a.png", "users/1")` | `false` |
+| `("users/1/../2/a.png", "users/1")` | `false` |
+| `("users/1", "users/1")` | `false` (the folder itself) |
+| `("users/1/a.png", "users/")` | `false` (unresolvable prefix) |
+
+It is a pure function: no request reaches the provider.
+
 ## Delete Operations
 
 ### Single File Delete
