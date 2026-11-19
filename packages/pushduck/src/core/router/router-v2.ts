@@ -71,9 +71,15 @@ import {
   partRange,
 } from "../upload/multipart/plan";
 import {
-  signCompletion,
+  COMPLETION_GRACE_SECONDS,
+  MULTIPART_RECEIPT_SECONDS,
+  newUploadId,
+  openReceipt,
+  sealReceipt,
+  type UploadReceipt,
+} from "./receipt";
+import {
   verifyCompletion,
-  signSession,
   verifySession,
   type MultipartSession,
 } from "./multipart-session";
@@ -138,7 +144,28 @@ export interface S3FileMetadata {
 export interface S3MiddlewareContext extends S3RouteContext {
   /** Metadata about the file being processed */
   file: S3FileMetadata;
+  /**
+   * Which request of the upload this is. Middleware runs on every one of them,
+   * always over the same `file` and the same client `metadata` presign
+   * received, so it can authorise each request the same way. Work that must
+   * happen once — reserving quota, writing an audit row — belongs in
+   * `"presign"`; checks that must hold until the end (the caller is still
+   * signed in, still a member) belong in all of them.
+   */
+  phase: UploadPhase;
 }
+
+/**
+ * The request of an upload that middleware is running for.
+ *
+ * - `"presign"` — the upload is being authorised: a key is chosen and a
+ *   presigned URL (or multipart session) issued. Middleware's return value
+ *   becomes the upload's metadata here, and only here.
+ * - `"upload"` — a multipart upload is signing, listing or aborting parts.
+ * - `"complete"` — the upload is being finished and `onUploadComplete` is
+ *   about to run with the metadata decided at presign.
+ */
+export type UploadPhase = "presign" | "upload" | "complete";
 
 /**
  * Context object for lifecycle hooks.
@@ -158,9 +185,19 @@ export interface S3MiddlewareContext extends S3RouteContext {
  * ```
  */
 export interface S3LifecycleContext<T = any> {
+  /**
+   * Unique, stable id for this upload, the same on every retry of its
+   * completion. Use it as an idempotency key when the hook writes a row:
+   * a client may retry a completion whose response it never received.
+   * Absent only for uploads presigned before 0.8.
+   */
+  uploadId?: string;
   /** File metadata */
   file: S3FileMetadata;
-  /** Processed metadata from middleware */
+  /**
+   * The metadata your middleware returned at presign — never the client's
+   * claims, whatever the completion request contains.
+   */
   metadata: T;
   /**
    * Permanent storage path (e.g. 'uploads/user123/photo.jpg').
@@ -857,6 +894,45 @@ function generateHierarchicalPath<TMetadata>(
  * ID is public — it is in the `X-Amz-Credential` of every presigned URL — so a
  * token keyed with it could be minted by anyone who has seen one upload.
  */
+/** Presigned upload URLs live this long unless a route sets `expiresIn`. */
+const DEFAULT_UPLOAD_EXPIRY_SECONDS = 3600;
+
+function nowSeconds(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Middleware may return anything; a receipt stores an object. */
+function asRecord(value: unknown): Record<string, unknown> {
+  return isPlainRecord(value) ? value : {};
+}
+
+/**
+ * What a request after presign acts on: the receipt, or — for tokens issued
+ * before receipts existed — the same shape reconstructed the old way.
+ */
+interface OpenUpload {
+  route: string;
+  key: string;
+  file: S3FileMetadata;
+  metadata: Record<string, unknown>;
+  multipart?: { uploadId: string; partSize: number };
+  /** The receipt's upload id; absent for legacy tokens. */
+  id?: string;
+  /** Issued before receipts: act on it the way it was issued. */
+  legacy?: boolean;
+}
+
+function requireMultipart(upload: OpenUpload): { uploadId: string; partSize: number } {
+  if (!upload.multipart) {
+    throw new UploadError("BAD_REQUEST", "This upload is not a multipart upload");
+  }
+  return upload.multipart;
+}
+
 function multipartSessionSecret(config: UploadConfig): string {
   const { secretAccessKey } = config.provider as { secretAccessKey?: unknown };
 
@@ -1059,7 +1135,10 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
        * for the onUploadError hook. This ensures error hooks receive the enriched
        * metadata even when validation or presigned URL generation fails.
        */
-      let fileMetadata = metadata || {};
+      // The client's input, kept exactly as received: every later request of
+      // this upload runs middleware over this same value (see receipt.ts).
+      const input: Record<string, unknown> = isPlainRecord(metadata) ? metadata : {};
+      let fileMetadata: any = input;
 
       try {
         /**
@@ -1081,6 +1160,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
             req,
             file,
             metadata: fileMetadata,
+            phase: "presign",
           });
         }
 
@@ -1163,16 +1243,26 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           requiredHeaders: presignedResult.requiredHeaders,
           metadata: fileMetadata,
           /**
-           * Binds this key to this route, so completion can verify that the
-           * caller is finishing an upload the server actually authorised
-           * rather than naming someone else's object. Issued unconditionally,
-           * and required at completion unless a route opts out with
+           * The upload's receipt: the server's sealed record of this
+           * decision. Completion reads the key, the file and the metadata
+           * back from it instead of trusting the request, so a caller can
+           * neither finish someone else's upload nor rewrite what middleware
+           * decided. Required at completion unless a route opts out with
            * `requireCompletionToken(false)` for older clients.
            */
-          completionToken: await signCompletion(
-            multipartSessionSecret(uploadConfig),
-            { key: presignedResult.key, route: String(routeName) }
-          ),
+          completionToken: await sealReceipt(multipartSessionSecret(uploadConfig), {
+            v: 2,
+            id: newUploadId(),
+            route: String(routeName),
+            key: presignedResult.key,
+            file: { name: file.name, type: file.type, size: file.size },
+            input,
+            metadata: asRecord(fileMetadata),
+            exp:
+              nowSeconds() +
+              (this.#routeExpiry(routeName) ?? DEFAULT_UPLOAD_EXPIRY_SECONDS) +
+              COMPLETION_GRACE_SECONDS,
+          }),
         });
       } catch (error) {
         const err = normalizeServerError(error);
@@ -1235,9 +1325,15 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     const routeConfig = route._getConfig();
     const uploadConfig = this.config;
 
-    let fileMetadata = metadata || {};
+    const input: Record<string, unknown> = isPlainRecord(metadata) ? metadata : {};
+    let fileMetadata: any = input;
     for (const middleware of routeConfig.middleware || []) {
-      fileMetadata = await middleware({ req, file, metadata: fileMetadata });
+      fileMetadata = await middleware({
+        req,
+        file,
+        metadata: fileMetadata,
+        phase: "presign",
+      });
     }
 
     // Same validation as the single-PUT path: size and type constraints apply
@@ -1277,16 +1373,19 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
       contentType: file.type,
     });
 
-    const session = await signSession(
-      multipartSessionSecret(uploadConfig),
-      {
-        key: created.key,
-        uploadId: created.uploadId,
-        route: String(routeName),
-        partSize,
-        totalSize: file.size,
-      }
-    );
+    // The multipart session *is* the upload's receipt, with the part plan
+    // attached: every part request and the final assembly read it back.
+    const session = await sealReceipt(multipartSessionSecret(uploadConfig), {
+      v: 2,
+      id: newUploadId(),
+      route: String(routeName),
+      key: created.key,
+      file: { name: file.name, type: file.type, size: file.size },
+      input,
+      metadata: asRecord(fileMetadata),
+      multipart: { uploadId: created.uploadId, partSize },
+      exp: nowSeconds() + MULTIPART_RECEIPT_SECONDS,
+    });
 
     return {
       session,
@@ -1310,9 +1409,10 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     input: { session: unknown; partNumbers: number[] }
   ): Promise<Array<{ partNumber: number; url: string; size: number }>> {
     const uploadConfig = this.config;
-    const session = await this.#authorizeSession(routeName, req, input.session);
+    const upload = await this.#openUpload(routeName, req, input.session, "upload");
+    const plan = requireMultipart(upload);
 
-    const maxPart = Math.max(1, Math.ceil(session.totalSize / session.partSize));
+    const maxPart = Math.max(1, Math.ceil(upload.file.size / plan.partSize));
 
     return Promise.all(
       input.partNumbers.map(async (partNumber) => {
@@ -1331,52 +1431,57 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         }
 
         const url = await presignUploadPart(uploadConfig, {
-          key: session.key,
-          uploadId: session.uploadId,
+          key: upload.key,
+          uploadId: plan.uploadId,
           partNumber,
           expiresIn: this.#routeExpiry(routeName),
         });
 
-        const range = partRange(partNumber, session.partSize, session.totalSize);
+        const range = partRange(partNumber, plan.partSize, upload.file.size);
         return { partNumber, url, size: range.size };
       })
     );
   }
 
-  /** Stitches the parts and runs the route's completion hook. */
+  /**
+   * Stitches the parts, then finishes the upload exactly as a single-PUT
+   * completion does — same hook, same metadata, same guarantees — so nothing
+   * about an upload's outcome depends on how large the file was.
+   */
   async completeMultipartUpload<K extends keyof TRoutes>(
     routeName: K,
     req: Request,
     input: {
       session: unknown;
       parts: UploadedPart[];
-      file: S3FileMetadata;
+      /** @deprecated Ignored: the file is read from the receipt. */
+      file?: S3FileMetadata;
+      /** @deprecated Ignored: the metadata is read from the receipt. */
       metadata?: any;
     }
-  ): Promise<{ success: true; key: string; url: string }> {
-    const uploadConfig = this.config;
-    const route = this.getRoute(routeName)!;
-    const session = await this.#authorizeSession(routeName, req, input.session);
+  ): Promise<CompletionResponse> {
+    const upload = await this.#openUpload(routeName, req, input.session, "complete");
+    const plan = requireMultipart(upload);
 
-    await completeMultipartUpload(uploadConfig, {
-      key: session.key,
-      uploadId: session.uploadId,
+    await completeMultipartUpload(this.config, {
+      key: upload.key,
+      uploadId: plan.uploadId,
       parts: input.parts,
     });
 
-    const url = getFileUrl(uploadConfig, session.key);
-
-    const routeConfig = route._getConfig();
-    if (routeConfig.onUploadComplete) {
-      await routeConfig.onUploadComplete({
-        file: input.file,
-        metadata: input.metadata ?? {},
-        url,
-        key: session.key,
-      });
-    }
-
-    return { success: true, key: session.key, url };
+    // A v1 session never carried the file or the metadata; it keeps the
+    // behaviour it had, the body's claims, until it is removed.
+    return this.#finalize(
+      routeName,
+      upload.legacy
+        ? {
+            ...upload,
+            file: input.file ?? upload.file,
+            metadata: input.metadata ?? {},
+          }
+        : upload,
+      { verified: true }
+    );
   }
 
   /** Discards a multipart upload. Abandoned parts are billed until removed. */
@@ -1385,11 +1490,11 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     req: Request,
     input: { session: unknown }
   ): Promise<{ success: true }> {
-    const session = await this.#authorizeSession(routeName, req, input.session);
+    const upload = await this.#openUpload(routeName, req, input.session, "upload");
 
     await abortMultipartUpload(this.config, {
-      key: session.key,
-      uploadId: session.uploadId,
+      key: upload.key,
+      uploadId: requireMultipart(upload).uploadId,
     });
 
     return { success: true };
@@ -1407,56 +1512,85 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     req: Request,
     input: { session: unknown }
   ): Promise<UploadedPart[]> {
-    const session = await this.#authorizeSession(routeName, req, input.session);
+    const upload = await this.#openUpload(routeName, req, input.session, "upload");
 
     return listUploadedParts(this.config, {
-      key: session.key,
-      uploadId: session.uploadId,
+      key: upload.key,
+      uploadId: requireMultipart(upload).uploadId,
     });
   }
 
   /**
-   * Runs the route's middleware, then verifies the session token.
+   * Reads an upload's receipt back for a request after presign, and
+   * authorises the caller for it.
    *
-   * Middleware runs on **every** multipart call, not only `init`: a session
-   * that outlives the caller's authorisation must stop working, and a token is
-   * not a substitute for authentication.
+   * Middleware runs over the same `file` and client `metadata` presign saw,
+   * with `phase` saying which request this is; its return value is discarded —
+   * the upload's metadata was decided at presign and is in the receipt. A
+   * receipt minted for one route never acts on another, even for a caller
+   * authorised on both.
+   *
+   * Multipart sessions issued before receipts existed are still accepted for
+   * one release, with the behaviour they had: middleware over a placeholder.
    */
-  async #authorizeSession<K extends keyof TRoutes>(
+  async #openUpload<K extends keyof TRoutes>(
     routeName: K,
     req: Request,
-    token: unknown
-  ): Promise<MultipartSession> {
+    token: unknown,
+    phase: Exclude<UploadPhase, "presign">
+  ): Promise<OpenUpload> {
     const route = this.getRoute(routeName);
     if (!route) {
       throw new UploadError("NOT_FOUND", `Route "${String(routeName)}" not found`);
     }
 
     const routeConfig = route._getConfig();
+    const secret = multipartSessionSecret(this.config);
+    const receipt = await openReceipt(secret, token);
+
+    if (receipt) {
+      for (const middleware of routeConfig.middleware || []) {
+        await middleware({
+          req,
+          file: receipt.file,
+          metadata: receipt.input,
+          phase,
+        });
+      }
+
+      if (receipt.route !== String(routeName)) {
+        throw new UploadError("FORBIDDEN", "This upload does not belong to this route");
+      }
+
+      return receipt;
+    }
+
+    // ── v1 multipart session (deprecated; remove in 0.9) ──────────────────
     let metadata: any = {};
     for (const middleware of routeConfig.middleware || []) {
       metadata = await middleware({
         req,
-        // Middleware is shaped around a file; multipart calls after init do not
-        // carry one, so a placeholder keeps auth checks working unchanged.
         file: { name: "", size: 0, type: "" },
         metadata,
+        phase,
       });
     }
 
-    const session = await verifySession(
-      multipartSessionSecret(this.config),
-      token
-    );
-
-    // A token minted for one route must not act on another, even for a caller
-    // authorised on both.
+    const session: MultipartSession = await verifySession(secret, token);
     if (session.route !== String(routeName)) {
       throw new UploadError("FORBIDDEN", "Session does not belong to this route");
     }
 
-    return session;
+    return {
+      route: session.route,
+      key: session.key,
+      file: { name: "", type: "", size: session.totalSize },
+      metadata: {},
+      multipart: { uploadId: session.uploadId, partSize: session.partSize },
+      legacy: true,
+    };
   }
+
 
   /** Upload expiry for a route, falling back to the global default. */
   #routeExpiry<K extends keyof TRoutes>(routeName: K): number | undefined {
@@ -1469,6 +1603,20 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     return typeof expiresIn === "number" ? expiresIn : expiresIn?.upload;
   }
 
+  /**
+   * Finishes single-PUT uploads.
+   *
+   * Each completion presents the receipt its presign issued. The receipt is
+   * the authority on what is being finished — which key, which file, which
+   * metadata — so nothing in the request body can redirect a completion to
+   * someone else's object or rewrite what middleware decided at presign. The
+   * route's middleware still runs, over the same input as at presign, so a
+   * caller who has signed out (or lost access) since then is refused; its
+   * return value is not used.
+   *
+   * Caller first, then object: an anonymous caller gets the 401 that tells
+   * them to sign in, not a 403 about a token they could not have.
+   */
   async handleUploadComplete<K extends keyof TRoutes>(
     routeName: K,
     req: Request,
@@ -1484,89 +1632,72 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     }
 
     const routeConfig = route._getConfig();
-    const results: CompletionResponse[] = [];
-
-    /**
-     * Authorise every completion before any hook runs.
-     *
-     * `onUploadComplete` is where applications insert the database row, attach
-     * the file to a record, grant access, notify, or bill. This call used to
-     * reach it with no authorisation at all: `key` and `metadata` came
-     * straight from the request body, so an anonymous caller could drive an
-     * application's most consequential hook with values of their choosing.
-     * Presign has always run this chain, and multipart authorises against a
-     * signed session — completion was the one action that trusted the client.
-     *
-     * The chain runs *before* the loop below, and outside its try/catch, for
-     * two reasons. A rejection must fail the whole request with the
-     * middleware's own status rather than being caught and reported per-file
-     * as a 200 with `success: false`. And a batch containing one unauthorised
-     * entry must not fire the hook for the others.
-     *
-     * Client metadata seeds the chain exactly as it does at presign — it is
-     * untrusted input, and whatever the chain returns is authoritative — so a
-     * route with no middleware keeps forwarding client metadata unchanged and
-     * public routes are unaffected.
-     */
     const middlewareChain = routeConfig.middleware || [];
+    const secret = multipartSessionSecret(this.config);
+    const mismatch = () =>
+      new UploadError(
+        "FORBIDDEN",
+        "This completion does not match the upload it was issued for",
+        { meta: { reason: "completion-token-mismatch" } }
+      );
 
-    /**
-     * Per completion: the trusted metadata, and whether its key was *proved*.
-     *
-     * The two are separate authorities and were previously conflated. The
-     * middleware chain authenticates the **caller**; the completion token
-     * authenticates the **object**. A caller can be perfectly legitimate and
-     * still be naming a key that belongs to someone else.
-     */
-    const authorized: Array<{ metadata: unknown; verified: boolean }> = [];
+    // Authorise every completion before running any hook, so one forged entry
+    // fails the request without half the batch having been applied.
+    const authorized: Array<{ upload: OpenUpload; verified: boolean }> = [];
 
     for (const completion of completions) {
-      /**
-       * Verify the key against the token presign issued for it.
-       *
-       * Absent-token handling now defaults to rejection. Presign issues the
-       * token unconditionally and the client returns it unconditionally, so in
-       * a single-version deployment the only callers without one are callers
-       * who never presigned — which is precisely the request this check
-       * exists to refuse. A completion names its own key, so tolerating it
-       * meant anyone who could reach the endpoint could assert that an
-       * arbitrary object had been uploaded and fire `onComplete` for it.
-       */
-      /**
-       * Caller first, then object.
-       *
-       * The order is load-bearing for the status code, not just for style. An
-       * anonymous caller has neither a session nor a token, and "sign in" is
-       * the accurate, actionable answer — 401. Checking the token first would
-       * answer "your token is missing", a 403 that tells a logged-out user to
-       * fix something they cannot fix and hides the real reason.
-       */
-      let fileMetadata: unknown = completion.metadata || {};
+      let receipt: UploadReceipt | null = null;
+      let refusal: unknown;
+      try {
+        receipt = await openReceipt(secret, completion.completionToken);
+      } catch (error) {
+        refusal = error;
+      }
 
+      if (receipt) {
+        for (const middleware of middlewareChain) {
+          await middleware({
+            req,
+            file: receipt.file,
+            metadata: receipt.input,
+            phase: "complete",
+          });
+        }
+
+        if (
+          receipt.route !== String(routeName) ||
+          receipt.key !== completion.key ||
+          receipt.multipart
+        ) {
+          throw mismatch();
+        }
+
+        authorized.push({ upload: receipt, verified: true });
+        continue;
+      }
+
+      // ── no receipt: a v1 token or no token (deprecated; remove in 0.9) ──
+      // An upload presigned by the previous version and completed after the
+      // deploy keeps the behaviour it was issued under: middleware over the
+      // metadata the client echoes back.
+      let fileMetadata: unknown = completion.metadata || {};
       for (const middleware of middlewareChain) {
         fileMetadata = await middleware({
           req,
           file: completion.file,
           metadata: fileMetadata as Record<string, unknown>,
+          phase: "complete",
         });
       }
 
+      if (refusal) throw refusal;
+
       let verified = false;
-
       if (completion.completionToken !== undefined) {
-        const claim = await verifyCompletion(
-          multipartSessionSecret(this.config),
-          completion.completionToken
-        );
-
+        const claim = await verifyCompletion(secret, completion.completionToken);
         if (claim.key !== completion.key || claim.route !== String(routeName)) {
-          throw new UploadError(
-            "FORBIDDEN",
-            "This completion does not match the upload it was issued for",
-            { meta: { reason: "completion-token-mismatch" } }
-          );
+          throw mismatch();
         }
-
         verified = true;
       } else if (routeConfig.requireCompletionToken !== false) {
         throw new UploadError(
@@ -1576,92 +1707,92 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
         );
       }
 
-      authorized.push({ metadata: fileMetadata, verified });
+      authorized.push({
+        upload: {
+          route: String(routeName),
+          key: completion.key,
+          file: completion.file,
+          metadata: asRecord(fileMetadata),
+          legacy: true,
+        },
+        verified,
+      });
     }
 
-    for (const [index, completion] of completions.entries()) {
-      // The chain's output, not the client's claim.
-      const { metadata: trustedMetadata, verified } = authorized[index];
+    const results: CompletionResponse[] = [];
 
+    for (const { upload, verified } of authorized) {
       try {
-        // Get file URL
-        const url = getFileUrl(this.config, completion.key);
-
-        /**
-         * A presigned download URL is a *read capability* on the named object,
-         * issued only against proof that this caller presigned that key.
-         *
-         * This is the second layer, and it holds even where the first is
-         * switched off: a deployment that sets `requireCompletionToken(false)`
-         * for older clients buys them the ability to complete, not a signing
-         * oracle. Without it, opting out would reopen the whole hole —
-         * `completion.key` is client-supplied, so an untokened request naming
-         * `private/other-tenant/tax.pdf` would have been answered with a
-         * working signed GET URL for it.
-         *
-         * Download expiry is independent of the upload window: an upload
-         * window is typically minutes, a download link hours. Reusing
-         * `expiresIn` here would silently shorten download URLs for any route
-         * that tightened its upload window, and `expiresIn` is documented as
-         * the upload expiry. Set this with `.expiresIn({ download })`.
-         */
-        const presignedUrl = verified
-          ? await generatePresignedDownloadUrl(
-              this.config,
-              completion.key,
-              routeConfig.downloadExpiresIn ?? 3600
-            )
-          : undefined;
-
-        // Call onComplete hook (supports both new and deprecated name)
-        const onCompleteHook = routeConfig.onComplete || routeConfig.onUploadComplete;
-        if (onCompleteHook) {
-          await onCompleteHook({
-            file: completion.file,
-            metadata: (trustedMetadata || {}) as Record<string, unknown>,
-            storagePath: completion.key,
-            publicUrl: url,
-            presignedUrl,
-            // deprecated aliases
-            url,
-            key: completion.key,
-          });
-        }
-
-        results.push({
-          success: true,
-          key: completion.key,
-          storagePath: completion.key,
-          url,
-          publicUrl: url,
-          presignedUrl,
-          file: completion.file,
-        });
+        results.push(await this.#finalize(routeName, upload, { verified }));
       } catch (error) {
         const err =
-          error instanceof Error
-            ? error
-            : new Error("Upload completion failed");
+          error instanceof Error ? error : new Error("Upload completion failed");
 
-        // Call onError hook (supports both new and deprecated name)
         const onErrorHook = routeConfig.onError || routeConfig.onUploadError;
         if (onErrorHook) {
           await onErrorHook({
-            file: completion.file,
-            metadata: (trustedMetadata || {}) as Record<string, unknown>,
+            file: upload.file,
+            metadata: upload.metadata,
             error: err,
           });
         }
 
-        results.push({
-          success: false,
-          key: completion.key,
-          error: err.message,
-        });
+        results.push({ success: false, key: upload.key, error: err.message });
       }
     }
 
     return results;
+  }
+
+  /**
+   * The one place an upload is finished, for single-PUT and multipart alike:
+   * build its URLs and run the route's completion hook with the upload's
+   * authoritative record.
+   *
+   * A presigned download URL is a read capability on the object, so it is
+   * issued only when the caller proved, with a receipt or v1 token, that they
+   * presigned this key.
+   */
+  async #finalize<K extends keyof TRoutes>(
+    routeName: K,
+    upload: OpenUpload,
+    { verified }: { verified: boolean }
+  ): Promise<CompletionResponse> {
+    const routeConfig = this.getRoute(routeName)!._getConfig();
+    const url = getFileUrl(this.config, upload.key);
+
+    const presignedUrl = verified
+      ? await generatePresignedDownloadUrl(
+          this.config,
+          upload.key,
+          routeConfig.downloadExpiresIn ?? 3600
+        )
+      : undefined;
+
+    const onCompleteHook = routeConfig.onComplete || routeConfig.onUploadComplete;
+    if (onCompleteHook) {
+      await onCompleteHook({
+        uploadId: upload.id,
+        file: upload.file,
+        metadata: upload.metadata,
+        storagePath: upload.key,
+        publicUrl: url,
+        presignedUrl,
+        // deprecated aliases
+        url,
+        key: upload.key,
+      });
+    }
+
+    return {
+      success: true,
+      key: upload.key,
+      storagePath: upload.key,
+      url,
+      publicUrl: url,
+      presignedUrl,
+      file: upload.file,
+    };
   }
 }
 
