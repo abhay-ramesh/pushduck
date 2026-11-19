@@ -1362,8 +1362,9 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
       );
     }
 
-    if (routeConfig.onUploadStart) {
-      await routeConfig.onUploadStart({ file, metadata: fileMetadata });
+    const onStartHook = routeConfig.onStart || routeConfig.onUploadStart;
+    if (onStartHook) {
+      await onStartHook({ file, metadata: fileMetadata });
     }
 
     const key = generateHierarchicalPath(

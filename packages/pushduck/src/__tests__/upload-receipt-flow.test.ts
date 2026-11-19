@@ -305,6 +305,26 @@ describe("multipart uploads finish through the same pipeline", () => {
     });
   }
 
+  it("fires onStart at init, as presign does", async () => {
+    const { s3 } = createUploadConfig()
+      .provider("aws", {
+        bucket: "test-bucket",
+        region: "us-east-1",
+        accessKeyId: "key",
+        secretAccessKey: "secret",
+      })
+      .build();
+    const onStart = vi.fn();
+    const router = s3.createRouter({
+      attachment: s3.file().maxFileSize("50MB").onStart(onStart),
+    });
+
+    const response = await call(router, "attachment", "multipart-init", { file: FILE });
+
+    expect(response.status).toBe(200);
+    expect(onStart).toHaveBeenCalledWith(expect.objectContaining({ file: FILE }));
+  });
+
   it("fires onComplete — not only the deprecated onUploadComplete", async () => {
     const { router, onComplete } = build();
 
