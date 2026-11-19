@@ -11,11 +11,18 @@
 import { UploadError } from "../errors";
 
 /**
- * Control characters, and the invisible formatting characters used for
- * bidirectional-text spoofing. Neither belongs in a key or a header.
+ * Control characters (C0 and C1) and every Unicode format character (general
+ * category Cf): bidi overrides used to spoof extensions, zero-width
+ * characters, the soft hyphen, the word joiner. None is visible, so none
+ * belongs in a key a person reads. A category, not a hand-kept list, so the
+ * three implementations cannot drift; Python and Go use the same one.
  */
-const DANGEROUS = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/;
-const DANGEROUS_GLOBAL = new RegExp(DANGEROUS.source, "g");
+const DANGEROUS = /[\p{Cc}\p{Cf}]/u;
+const DANGEROUS_GLOBAL = /[\p{Cc}\p{Cf}]/gu;
+
+/** A lone UTF-16 surrogate: a string that has no UTF-8 encoding. */
+const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+const LONE_SURROGATE_GLOBAL = new RegExp(LONE_SURROGATE.source, "g");
 
 /**
  * Leaves room below S3's 1024-byte limit for a prefix. The limit is on
@@ -46,16 +53,26 @@ function basenameOf(name: string): string {
  * A short, stable identifier for a filename.
  *
  * Used only when sanitising removes every character, so that two such names do
- * not land on the same key. FNV-1a: not cryptographic, and does not need to be
- * — it exists to keep keys distinct, not to resist an attacker.
+ * not land on the same key. FNV-1a over the UTF-8 bytes, printed in hex: the
+ * same function as Go's `hash/fnv` and Python's, so a name gets the same key
+ * whichever server answers. Not cryptographic, and does not need to be — it
+ * exists to keep keys distinct, not to resist an attacker.
  */
 function fingerprintName(name: string): string {
   let hash = 0x811c9dc5;
-  for (const codeUnit of name) {
-    hash ^= codeUnit.codePointAt(0) ?? 0;
+  for (const byte of new TextEncoder().encode(name)) {
+    hash ^= byte;
     hash = Math.imul(hash, 0x01000193) >>> 0;
   }
-  return hash.toString(36);
+  return hash.toString(16);
+}
+
+/** The longest prefix of `bytes` of at most `max` bytes that ends on a character boundary. */
+function utf8Head(bytes: Uint8Array, max: number): string {
+  let end = Math.min(max, bytes.length);
+  // A continuation byte (10xxxxxx) at the cut means a character straddles it.
+  while (end > 0 && end < bytes.length && (bytes[end] & 0xc0) === 0x80) end--;
+  return new TextDecoder().decode(bytes.subarray(0, end));
 }
 
 /**
@@ -76,7 +93,7 @@ function fingerprintName(name: string): string {
  * rather than merely unfamiliar:
  *
  * - path separators, which would silently move the object
- * - control characters, which are invalid in a header and unprintable
+ * - control and format characters, which are invalid in a header or invisible
  * - the URL delimiters `? # %`, which change how a key parses in a URL
  *
  * ASCII names are unaffected — `my photo.jpg` is still `my_photo.jpg` — so
@@ -86,6 +103,14 @@ export function sanitizeFilename(
   originalName: string,
   { preserveExtension = true }: { preserveExtension?: boolean } = {}
 ): string {
+  // Nothing to keep, and nothing to fingerprint: the same placeholder Go and
+  // Python use.
+  if (!originalName) return "file";
+
+  // A lone surrogate has no UTF-8 encoding. It becomes U+FFFD, as it does
+  // when Go decodes the same JSON, so the name keys the same everywhere.
+  originalName = originalName.replace(LONE_SURROGATE_GLOBAL, "\ufffd");
+
   let filename = originalName
     .replace(DANGEROUS_GLOBAL, "")
     // Every *ASCII* character outside the old allow-list still becomes an
@@ -108,11 +133,11 @@ export function sanitizeFilename(
   const encoded = new TextEncoder().encode(filename);
 
   if (encoded.length > MAX_NAME_BYTES) {
-    const head = new TextDecoder().decode(encoded.slice(0, MAX_NAME_BYTES - 64));
     // A truncated head alone would collide for names sharing a long prefix, so
-    // the tail is appended to keep distinct names distinct.
-    const tail = filename.slice(-24);
-    filename = `${head.replace(/�/g, "")}${tail}`;
+    // the last 24 characters (code points, not UTF-16 units) are appended to
+    // keep distinct names distinct.
+    const tail = Array.from(filename).slice(-24).join("");
+    filename = `${utf8Head(encoded, MAX_NAME_BYTES - 64)}${tail}`;
   }
 
   /**
@@ -199,9 +224,6 @@ export function inScope(key: string, prefix: string): boolean {
   return key.startsWith(`${scope}/`);
 }
 
-/** A lone UTF-16 surrogate: a string that has no UTF-8 encoding. */
-const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
-
 /**
  * Turns a path fragment into an object key, or refuses it.
  *
@@ -209,7 +231,7 @@ const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[
  * `generateKey` escape hatch alike. Two halves, both required:
  *
  * 1. **Refuse** what cannot be made safe: an empty or absolute key, `? # %`,
- *    control and bidi characters, and empty, `.` or `..` segments. A
+ *    control and format (Cf) characters, and empty, `.` or `..` segments. A
  *    `generateKey` that interpolates `metadata.folder` would otherwise write
  *    `../../other-tenant/x` wherever the caller pointed it.
  * 2. **Re-sanitise** every segment with {@link sanitizeFilename}. Without it,
@@ -257,7 +279,7 @@ export function resolveKey(fragment: string): string {
     }
     if (DANGEROUS.test(char)) {
       const code = char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0");
-      throw reject(`contains U+${code}, a control or bidi character`);
+      throw reject(`contains U+${code}, a control or format character`);
     }
   }
 
