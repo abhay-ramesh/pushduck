@@ -103,7 +103,6 @@ export const cloudflareR2 = defineProvider<CloudflareR2Config>({
     "customDomain",
     "acl",
   ],
-  defaults: { acl: "private" },
   derive: (config) => ({
     endpoint:
       config.endpoint ||

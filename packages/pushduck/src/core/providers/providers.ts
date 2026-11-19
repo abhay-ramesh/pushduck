@@ -285,6 +285,35 @@ export function validateProviderConfig(config: ProviderConfig): {
   return { valid: errors.length === 0, errors };
 }
 
+/**
+ * Warns when an upload config sets an ACL its provider will not send.
+ *
+ * Providers without per-object ACLs (`supportsAcl: false`) reject
+ * `x-amz-acl`, so the storage client drops it and objects take whatever
+ * access the bucket grants. Dropping it silently is how `acl: "public-read"`
+ * on R2 produced private files and broken image links. Those providers
+ * declare no default ACL, so any `acl` seen here was written by the caller.
+ *
+ * @param acl - The ACL uploads would use: `.defaults({ acl })`, else the
+ *   provider's `acl` option.
+ * @internal
+ */
+export function warnIfAclIgnored(
+  config: ProviderConfig,
+  acl: string | undefined
+): void {
+  const definition = providerDefinition(config);
+  if (!acl || !definition || definition.supportsAcl) return;
+
+  logger.warn(
+    `${definition.name} does not support per-object ACLs, so acl: ${JSON.stringify(acl)} is ignored and objects get the bucket's access settings. ` +
+      `Remove acl from this config. To serve files publicly, grant public read on the bucket itself ` +
+      `(public access setting, bucket policy or IAM) and set customDomain to its public URL; ` +
+      `for private files, use presigned download URLs.`,
+    { provider: definition.id, acl }
+  );
+}
+
 // ========================================
 // Addressing
 // ========================================

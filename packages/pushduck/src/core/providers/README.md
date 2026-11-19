@@ -41,7 +41,9 @@ in addressing or ACL support.
    - `required` — options that must be non-empty after defaults and derivation.
    - `check` — anything beyond presence, such as "endpoint must be https"
      (optional).
-   - `supportsAcl` — `false` if the service rejects `x-amz-acl`.
+   - `supportsAcl` — `false` if the service rejects `x-amz-acl`. Such a
+     provider sets no `acl` default: `build()` warns whenever an `acl` is set
+     on it, so one there must have come from the user.
    - `addressing` — the endpoint, signing region and path style. Use
      `awsSigningRegion()` unless the service signs with a non-AWS region the
      way R2 signs with `"auto"`.

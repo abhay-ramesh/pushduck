@@ -320,6 +320,19 @@ const uploadConfig = createUploadConfig({
 
 ### Provider-Specific ACL Differences
 
+| Provider | Sends `acl`? | Make files public with |
+| --- | --- | --- |
+| AWS S3, DigitalOcean Spaces, S3-compatible | Yes | `acl`, or a bucket policy |
+| Cloudflare R2 | No | Bucket public access (custom domain or r2.dev) |
+| MinIO | No | A bucket policy (`mc anonymous set download`) |
+| Neon Object Storage | No | Create the bucket as `public_read` |
+| Google Cloud Storage | No | IAM on the bucket (`allUsers` → Storage Object Viewer) |
+
+On providers marked "No", pushduck never sends `x-amz-acl` (they reject it) and
+logs a warning when `acl` is set, either as a provider option or in
+`.defaults()`. Objects get the bucket's access settings. Set `customDomain` to
+the bucket's public URL so `file.url` points at it.
+
 #### AWS S3
 - **Full ACL Support**: Comprehensive ACL system
 - **Canned ACLs**: Predefined permission sets
