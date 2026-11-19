@@ -199,9 +199,9 @@ export async function presignUploadPart(
     expiresIn?: number;
   }
 ): Promise<string> {
-  const { presignApiRequestWithQuery } = await import("./client");
+  const { presignApiRequest } = await import("./client");
 
-  return presignApiRequestWithQuery(uploadConfig, {
+  return presignApiRequest(uploadConfig, {
     key: options.key,
     method: "PUT",
     expiresIn: options.expiresIn ?? 3600,

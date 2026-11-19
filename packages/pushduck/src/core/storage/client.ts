@@ -205,7 +205,13 @@ export function resetS3Client(): void {
  *
  * Use {@link buildCdnUrl} for URLs handed to end users.
  */
-function buildApiUrl(key: string, config: ClientTarget): string {
+function buildApiUrl(rawKey: string, config: ClientTarget): string {
+  // Each segment is percent-encoded, "/" kept as the separator. A literal "+"
+  // is the case that matters: aws4fetch canonicalises it as a space while S3
+  // reads it as "+", so a key containing "+" failed every signed request with
+  // SignatureDoesNotMatch. As %2B, signer and server read the same key.
+  const key = rawKey.split("/").map(encodeRfc3986).join("/");
+
   if (config.endpoint) {
     // Custom endpoint (MinIO, R2, etc.)
     const baseUrl = config.endpoint.replace(/\/$/, "");
@@ -237,14 +243,19 @@ function buildApiUrl(key: string, config: ClientTarget): string {
  * mistake that caused #168, where the download URL was built from the custom
  * domain and every signature was rejected.
  *
+ * `query` carries parameters that must be covered by the signature: multipart
+ * `partNumber`/`uploadId`, or a download's `response-content-disposition`.
+ * They are part of the canonical request, so they are set *before* signing.
+ *
  * @internal
  */
-async function presignApiRequest(
+export async function presignApiRequest(
   uploadConfig: UploadConfig,
   options: {
     key: string;
     method: "GET" | "PUT";
     expiresIn: number;
+    query?: Record<string, string>;
     headers?: Record<string, string>;
   }
 ): Promise<string> {
@@ -255,6 +266,9 @@ async function presignApiRequest(
   // `host` is part of the SigV4 canonical request so it cannot be swapped
   // after signing.
   const url = new URL(buildApiUrl(options.key, config));
+  for (const [name, value] of Object.entries(options.query ?? {})) {
+    url.searchParams.set(name, value);
+  }
   url.searchParams.set("X-Amz-Expires", options.expiresIn.toString());
 
   const signedRequest = await awsClient.sign(
@@ -265,7 +279,25 @@ async function presignApiRequest(
     { aws: { signQuery: true } }
   );
 
-  return signedRequest.url;
+  // aws4fetch signs the RFC 3986 encoding of the query but returns it
+  // serialised by URLSearchParams, which writes a space as "+" — a space only
+  // under form-encoding rules (the AWS SDKs send %20). A filename in
+  // `response-content-disposition` routinely contains spaces, so the URL is
+  // re-serialised in the exact encoding the signature was computed over,
+  // leaving the server nothing to interpret.
+  const signed = new URL(signedRequest.url);
+  signed.search = [...signed.searchParams]
+    .map(([name, value]) => `${encodeRfc3986(name)}=${encodeRfc3986(value)}`)
+    .join("&");
+  return signed.toString();
+}
+
+/** Percent-encodes everything outside RFC 3986 `unreserved`. */
+function encodeRfc3986(value: string): string {
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`
+  );
 }
 
 /**
@@ -584,45 +616,6 @@ function preparePresignHeaders(
  */
 export function buildApiUrlFor(key: string, uploadConfig: UploadConfig): string {
   return buildApiUrl(key, resolveTarget(uploadConfig.provider));
-}
-
-/**
- * Presigns a request that carries extra query parameters.
- *
- * Multipart part uploads are `PUT ?partNumber=N&uploadId=X`, and those
- * parameters are part of the canonical request — they must be present *before*
- * signing, or the provider computes a different signature and rejects the PUT.
- *
- * @internal
- */
-export async function presignApiRequestWithQuery(
-  uploadConfig: UploadConfig,
-  options: {
-    key: string;
-    method: "GET" | "PUT";
-    expiresIn: number;
-    query?: Record<string, string>;
-    headers?: Record<string, string>;
-  }
-): Promise<string> {
-  const awsClient = createS3Client(uploadConfig);
-  const config = resolveTarget(uploadConfig.provider);
-
-  const url = new URL(buildApiUrl(options.key, config));
-  for (const [name, value] of Object.entries(options.query ?? {})) {
-    url.searchParams.set(name, value);
-  }
-  url.searchParams.set("X-Amz-Expires", options.expiresIn.toString());
-
-  const signedRequest = await awsClient.sign(
-    new Request(url.toString(), {
-      method: options.method,
-      headers: options.headers,
-    }),
-    { aws: { signQuery: true } }
-  );
-
-  return signedRequest.url;
 }
 
 export async function generatePresignedUploadUrl(
