@@ -82,11 +82,7 @@ import { metrics } from "../utils/metrics";
 function smartCreateRouter<TRoutes extends Record<string, any>>(
   routes: TRoutes,
   config: UploadConfig
-): S3Router<{
-  [K in keyof TRoutes]: TRoutes[K] extends S3Route<any, any>
-    ? TRoutes[K]
-    : S3Route<any, any>;
-}> {
+): S3Router<RoutesOf<TRoutes>> {
   // Convert any schema objects to route objects
   const convertedRoutes: Record<string, S3Route<any, any>> = {};
 
@@ -105,11 +101,41 @@ function smartCreateRouter<TRoutes extends Record<string, any>>(
   }
 
   // ✅ Use config-aware router factory
-  return createS3RouterWithConfig(convertedRoutes, config) as any as S3Router<{
-    [K in keyof TRoutes]: TRoutes[K] extends S3Route<any, any>
-      ? TRoutes[K]
-      : S3Route<any, any>;
-  }>;
+  return createS3RouterWithConfig(convertedRoutes, config) as any as S3Router<
+    RoutesOf<TRoutes>
+  >;
+}
+
+/**
+ * The routes a router is built from: each entry as written when it is already
+ * a route, and wrapped in a plain `S3Route` when it is a bare schema.
+ */
+type RoutesOf<TRoutes extends Record<string, any>> = {
+  [K in keyof TRoutes]: TRoutes[K] extends S3Route<any, any>
+    ? TRoutes[K]
+    : S3Route<any, any>;
+};
+
+/**
+ * The `upload` object returned by `createUploadConfig().build()`: schema
+ * builders and a router factory bound to that config.
+ *
+ * Declared as a named interface rather than inferred from its factory so that
+ * a consumer compiling with `declaration: true` can name it. An inferred
+ * object type is printed structurally into the consumer's `.d.ts`, dragging
+ * every type it mentions along with it.
+ */
+export interface UploadBuilder {
+  /** A schema for any file, optionally constrained. */
+  file(constraints?: S3FileConstraints): S3FileSchema;
+  /** A schema for image files, optionally constrained. */
+  image(constraints?: S3FileConstraints): S3ImageSchema;
+  /** A schema for several named files uploaded together. */
+  object<T extends Record<string, any>>(shape: T): S3ObjectSchema<T>;
+  /** A router bound to this config, from schemas or routes. */
+  createRouter<TRoutes extends Record<string, any>>(
+    routes: TRoutes
+  ): S3Router<RoutesOf<TRoutes>>;
 }
 
 /**
@@ -135,7 +161,7 @@ function smartCreateRouter<TRoutes extends Record<string, any>>(
  * });
  * ```
  */
-function createS3Instance(config: UploadConfig) {
+function createS3Instance(config: UploadConfig): UploadBuilder {
   return {
     /**
      * Creates a file schema for general file uploads with optional constraints.
@@ -215,7 +241,7 @@ function createS3Instance(config: UploadConfig) {
      */
     createRouter: <TRoutes extends Record<string, any>>(routes: TRoutes) =>
       smartCreateRouter(routes, config),
-  } as const;
+  };
 }
 
 // ========================================
@@ -818,12 +844,12 @@ export interface UploadInitResult {
   /** Storage instance for file operations (list, delete, info, etc.) */
   storage: StorageInstance;
   /** Provider-neutral upload builder with schema builders and router factory */
-  upload: ReturnType<typeof createS3Instance>;
+  upload: UploadBuilder;
   /**
    * @deprecated Use `upload` instead.
    * The `s3` name is misleading when using Cloudflare R2, MinIO, or other providers.
    */
-  s3: ReturnType<typeof createS3Instance>;
+  s3: UploadBuilder;
 }
 
 /**

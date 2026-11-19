@@ -58,3 +58,21 @@ export { createProvider } from "./core/providers";
 
 // Upload configuration utilities
 export { createUploadConfig } from "./core/config/upload-config";
+
+// Every type `createUploadConfig()` hands back, so a consumer emitting
+// declarations can name what it exports (see declaration-consumer.test.ts).
+export type {
+  UploadBuilder,
+  UploadConfig,
+  UploadConfigBuilder,
+  UploadInitResult,
+} from "./core/config/upload-config";
+export type { ProviderConfig, ProviderType } from "./core/providers";
+export type {
+  S3FileConstraints,
+  S3FileSchema,
+  S3ImageSchema,
+  S3ObjectSchema,
+} from "./core/schema";
+export type { S3Route } from "./core/router/router-v2";
+export type { StorageInstance } from "./core/storage/storage-api";

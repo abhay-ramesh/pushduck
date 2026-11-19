@@ -80,6 +80,7 @@ export type {
   UploadFilesResult,
   UploadTransport,
   UploadTransportRequest,
+  UploadTransportResult,
 } from "./core/upload";
 
 export {

@@ -522,12 +522,16 @@ export type {
   MinIOConfig,
   NeonStorageConfig,
   ProviderConfig,
+  ProviderConfigMap,
   ProviderType,
+  S3AclValue,
   S3CompatibleConfig,
 } from "./core/providers";
 
 // Upload configuration types
 export type {
+  UploadBuilder,
+  UploadConfig,
   UploadConfigBuilder,
   UploadInitResult,
 } from "./core/config/upload-config";

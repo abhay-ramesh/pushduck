@@ -72,4 +72,8 @@ export {
   UploadAbortedError,
   xhrTransport,
 } from "./transport";
-export type { UploadTransport, UploadTransportRequest } from "./transport";
+export type {
+  UploadTransport,
+  UploadTransportRequest,
+  UploadTransportResult,
+} from "./transport";
