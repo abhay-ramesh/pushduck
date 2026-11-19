@@ -56,6 +56,55 @@ sanitises every segment exactly as a default key, so non-Latin names survive.
 Single-PUT and multipart uploads both use it, and the completion token binds the
 scoped key.
 
+## Completion: what `OnComplete` can trust
+
+Presign hands the client a **receipt**, an HMAC-sealed record of what it
+authorised: route, key, the file as declared, the client's metadata and what
+your metadata hooks returned. Completion reads the upload back from the
+receipt, so nothing in the completion request can redirect it to another key
+or change the metadata. The receipt format is shared with the TypeScript and
+Python servers, so a receipt issued by one completes on another.
+
+```go
+pushduck.OnComplete(func(r *http.Request, upload pushduck.Upload) error {
+    // upload.Metadata  — what your hooks returned at presign, sealed
+    // upload.File      — name as declared; size and type as stored
+    // upload.Object    — size, content type, ETag, last modified
+    // upload.ID        — stable across retries: use it as an idempotency key
+    return db.InsertFile(upload.ID, upload.Key, upload.Metadata["userId"], upload.Object.Size)
+})
+```
+
+Completion first `HEAD`s the object. No object is a per-file `NOT_FOUND`. An
+object that breaks the route's `MaxSize` or `AllowTypes` is deleted and
+reported as `VALIDATION_FAILED`, so the limits hold for what was stored.
+Single-PUT URLs also sign the declared size, so storage refuses a body of any
+other length.
+
+Metadata hooks run on every request of an upload: presign, each multipart
+call, and completion. Each run gets the same file and client metadata, with
+the phase telling them which request this is:
+
+```go
+func requireUser(r *http.Request, f pushduck.FileMeta) (map[string]any, error) {
+    user, err := authenticate(r)
+    if err != nil {
+        return nil, pushduck.NewError("UNAUTHORIZED", "Sign in to upload")
+    }
+    if pushduck.PhaseOf(r) == pushduck.PhasePresign {
+        // Once per upload: later phases only re-check the caller.
+        if err := quota.Reserve(user, f.Size); err != nil {
+            return nil, err
+        }
+    }
+    album, _ := pushduck.ClientMetadata(r)["albumId"].(string) // untrusted
+    return map[string]any{"userId": user.ID, "albumId": album}, nil
+}
+```
+
+Only the presign result is kept. Receipts are signed, not encrypted, so never
+return a secret from a hook.
+
 ## Why there is no adapter package
 
 `http.Handler` is the interface net/http, chi and gorilla already speak, and
@@ -109,9 +158,10 @@ the conformance fixtures deliberately match them by shape and cannot:
 
 Implemented: introspection, presign, complete, metadata hooks, key scoping
 (`WithStoragePath`), RFC 9457 errors,
-completion tokens, per-file validation, SigV4 with temporary credentials,
+upload receipts with stored-object verification, per-file validation, SigV4
+with temporary credentials, signed upload length,
 S3-compatible endpoints with path-style addressing, and **multipart uploads** —
-init, sign, complete, abort and list, with HMAC session tokens.
+init, sign, complete, abort and list, with the receipt as the session.
 
 Multipart is verified against a real MinIO, not a stub, because the two things
 most likely to be silently wrong are only observable against a real server:
