@@ -27,18 +27,12 @@ import (
 // than 1024 characters can exceed it.
 const maxKeyBytes = 900
 
+// isDangerous reports control characters (C0 and C1) and every Unicode format
+// character (general category Cf): bidi overrides, zero-width characters, the
+// soft hyphen, the word joiner. A category rather than a hand-kept list, so the
+// TypeScript and Python implementations, which use the same one, cannot drift.
 func isDangerous(r rune) bool {
-	switch {
-	case unicode.IsControl(r):
-		return true
-	case r >= 0x200B && r <= 0x200F, // zero-width and directional marks
-		r >= 0x202A && r <= 0x202E, // bidi overrides used for filename spoofing
-		r >= 0x2066 && r <= 0x2069,
-		r == 0xFEFF:
-		return true
-	default:
-		return false
-	}
+	return unicode.IsControl(r) || unicode.Is(unicode.Cf, r)
 }
 
 // generateKey sanitises a filename into an object key.
@@ -131,8 +125,10 @@ func basename(name string) string {
 	}
 }
 
-// fingerprint is FNV-1a: not cryptographic, and does not need to be. It exists
-// to keep keys distinct, not to resist an attacker.
+// fingerprint is FNV-1a over the UTF-8 bytes, in hex — the same function as
+// the TypeScript and Python servers', so a name gets the same key whichever
+// server answers. Not cryptographic, and does not need to be: it exists to keep
+// keys distinct, not to resist an attacker.
 func fingerprint(name string) string {
 	hash := fnv.New32a()
 	_, _ = hash.Write([]byte(name))
@@ -168,6 +164,10 @@ const maxTotalKeyBytes = 1024
 // objectKey mints the key for one file. Every place that creates an object —
 // single PUT presign and multipart init — goes through here, so the
 // completion token always binds the key the hook chose.
+//
+// A hook's own error is returned as it is, so a hook can still fail the whole
+// request (UNAUTHORIZED, say). A fragment resolveKey refuses comes back as a
+// *keyRefusal, which callers report against the one file.
 func (route Route) objectKey(r *http.Request, file FileMeta) (string, error) {
 	if route.StoragePath == nil {
 		return generateKey(file.Name), nil
@@ -177,8 +177,19 @@ func (route Route) objectKey(r *http.Request, file FileMeta) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return resolveKey(fragment)
+	key, err := resolveKey(fragment)
+	if err != nil {
+		return "", keyRefusal{err.(*Error)}
+	}
+	return key, nil
 }
+
+// keyRefusal marks a key resolveKey refused, as distinct from an error the
+// StoragePath hook returned itself. Only the refusal is a per-file outcome.
+type keyRefusal struct{ refused *Error }
+
+func (k keyRefusal) Error() string { return k.refused.Error() }
+func (k keyRefusal) Unwrap() error { return k.refused }
 
 // resolveKey turns a StoragePath hook's return value into an object key.
 //
@@ -191,11 +202,13 @@ func (route Route) objectKey(r *http.Request, file FileMeta) (string, error) {
 // start colliding again for exactly the deployments that customised their
 // keys.
 //
-// Returns CONFIG_INVALID rather than a 4xx: a hook returning `..` is a bug in
-// the application, not a malformed request from its caller.
+// Returns VALIDATION_FAILED, which fails the one file whose key it was while
+// the rest of the batch continues — as the TypeScript and Python servers do. A
+// key is usually built from a value the caller influences (a filename, a
+// folder), so the refusal belongs to that file, not to the request.
 func resolveKey(fragment string) (string, error) {
 	reject := func(why string) error {
-		return NewError("CONFIG_INVALID", fmt.Sprintf(
+		return NewError("VALIDATION_FAILED", fmt.Sprintf(
 			"the StoragePath hook returned %q, which %s. "+
 				"Return a path fragment; pushduck sanitises each segment.",
 			fragment, why,
@@ -226,7 +239,7 @@ func resolveKey(fragment string) (string, error) {
 			// the alternative is rejecting the user's upload. In a key the
 			// application chose, silently storing something other than what
 			// was asked for is the worse failure.
-			return "", reject(fmt.Sprintf("contains U+%04X, a control or bidi character", r))
+			return "", reject(fmt.Sprintf("contains U+%04X, a control or format character", r))
 		}
 	}
 

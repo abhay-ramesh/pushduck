@@ -10,6 +10,7 @@ package pushduck
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -50,6 +51,7 @@ type presignResult struct {
 	Metadata        map[string]any    `json:"metadata,omitempty"`
 	CompletionToken string            `json:"completionToken,omitempty"`
 	Error           string            `json:"error,omitempty"`
+	Code            string            `json:"code,omitempty"`
 }
 
 type completion struct {
@@ -190,6 +192,15 @@ func (router *Router) presign(
 		}
 
 		key, err := route.objectKey(r, file)
+		var refused keyRefusal
+		if errors.As(err, &refused) {
+			// The key this file would have had is unsafe: that file fails,
+			// the rest of the batch carries on.
+			results = append(results, presignResult{
+				Success: false, File: file, Error: refused.refused.Message, Code: refused.refused.Code,
+			})
+			continue
+		}
 		if err != nil {
 			return err
 		}

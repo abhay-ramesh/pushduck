@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 )
@@ -188,48 +189,76 @@ func TestStoragePathRunsOnlyForAcceptedFiles(t *testing.T) {
 
 // ─── the chokepoint ─────────────────────────────────────────────────────────
 
-func TestResolveKeyRejectsUnsafeFragments(t *testing.T) {
-	cases := []struct {
-		name, fragment string
-	}{
-		// The Python suite's cases, verbatim.
-		{"traversal", "../../etc/passwd"},
-		{"absolute", "/absolute/key.png"},
-		{"embedded traversal", "a/../../../b.png"},
-		{"empty segment", "tenant//double.png"},
-		{"query", "with?query.png"},
-		{"fragment", "with#fragment.png"},
-		// And the rest of the rules.
-		{"empty", ""},
-		{"dot", "."},
-		{"dot segment", "a/./b.png"},
-		{"bare dotdot", ".."},
-		{"leading traversal", "../x"},
-		{"trailing slash", "tenant/"},
-		{"percent", "a%2Fb.png"},
-		{"nul", "a\x00b.png"},
-		{"newline", "a\nb.png"},
-		{"bidi override", "invoice\u202Egnp.exe"},
-		{"zero width", "a\u200Bb.png"},
-		{"byte order mark", "\uFEFFa.png"},
-		{"invalid utf-8", "a\xffb.png"},
-		{"overlong", strings.Repeat("a/", 600) + "b.png"},
+// keyCasesPath is the case table the TypeScript and Python suites read too.
+// One file, so a rule changed in one language and not the others fails CI.
+const keyCasesPath = "../../pushduck/src/__tests__/fixtures/key-cases.json"
+
+type keyCases struct {
+	Accept []struct {
+		Fragment string `json:"fragment"`
+		Key      string `json:"key"`
+	} `json:"accept"`
+	Reject []struct {
+		Fragment string `json:"fragment"`
+		Rule     string `json:"rule"`
+	} `json:"reject"`
+	Default []struct {
+		Name string `json:"name"`
+		Key  string `json:"key"`
+	} `json:"default"`
+}
+
+func loadKeyCases(t *testing.T) keyCases {
+	t.Helper()
+	raw, err := os.ReadFile(keyCasesPath)
+	if err != nil {
+		t.Fatalf("read shared key cases: %v", err)
+	}
+	var cases keyCases
+	if err := json.Unmarshal(raw, &cases); err != nil {
+		t.Fatalf("decode shared key cases: %v", err)
+	}
+	if len(cases.Accept) == 0 || len(cases.Reject) == 0 || len(cases.Default) == 0 {
+		t.Fatalf("shared key cases are empty")
+	}
+	return cases
+}
+
+func TestSharedKeyCases(t *testing.T) {
+	cases := loadKeyCases(t)
+
+	for _, c := range cases.Accept {
+		if got, err := resolveKey(c.Fragment); err != nil || got != c.Key {
+			t.Errorf("resolveKey(%q) = %q, %v; want %q", c.Fragment, got, err, c.Key)
+		}
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			key, err := resolveKey(tc.fragment)
-			if err == nil {
-				t.Fatalf("%q was accepted as %q", tc.fragment, key)
-			}
-			var typed *Error
-			if !errors.As(err, &typed) || typed.Code != "CONFIG_INVALID" {
-				t.Fatalf("%q: error %v, want CONFIG_INVALID", tc.fragment, err)
-			}
-			if !strings.Contains(typed.Message, "StoragePath hook") {
-				t.Errorf("message does not name the hook: %s", typed.Message)
-			}
-		})
+	for _, c := range cases.Reject {
+		key, err := resolveKey(c.Fragment)
+		if err == nil {
+			t.Errorf("%s: %q was accepted as %q", c.Rule, c.Fragment, key)
+			continue
+		}
+		var typed *Error
+		if !errors.As(err, &typed) || typed.Code != "VALIDATION_FAILED" {
+			t.Errorf("%s: %q: error %v, want VALIDATION_FAILED", c.Rule, c.Fragment, err)
+		} else if !strings.Contains(typed.Message, "StoragePath hook") {
+			t.Errorf("message does not name the hook: %s", typed.Message)
+		}
+	}
+
+	for _, c := range cases.Default {
+		if got := generateKey(c.Name); got != c.Key {
+			t.Errorf("generateKey(%q) = %q, want %q", c.Name, got, c.Key)
+		}
+	}
+}
+
+func TestResolveKeyRejectsInvalidUTF8(t *testing.T) {
+	// JSON cannot carry invalid UTF-8 (a decoder substitutes U+FFFD), so this
+	// case is Go's own: a hook can build such a string from raw bytes.
+	if key, err := resolveKey("a\xffb.png"); err == nil {
+		t.Fatalf("invalid UTF-8 accepted as %q", key)
 	}
 }
 
@@ -287,11 +316,40 @@ func TestResolveKeyLimitIsOnBytesOfTheResult(t *testing.T) {
 	}
 }
 
-func TestInvalidStoragePathFailsPresignWithConfigInvalid(t *testing.T) {
-	router, _, _ := completionRouter(t, fixedPath("../escape.png"))
+func TestInvalidStoragePathFailsOnlyThatFile(t *testing.T) {
+	// The hook interpolates the filename, so one file's key escapes and the
+	// other's does not. The refusal is that file's result, not the batch's.
+	router, _, _ := completionRouter(t, WithStoragePath(func(r *http.Request, f FileMeta) (string, error) {
+		return "tenant/" + f.Name, nil
+	}))
+
+	escaping := FileMeta{Name: "../escape.png", Size: completionFile.Size, Type: completionFile.Type}
+	response := postAs(t, router, "", "presign", map[string]any{"files": []FileMeta{escaping, completionFile}})
+	if response.Code != http.StatusOK {
+		t.Fatalf("presign = %d: %s", response.Code, response.Body.String())
+	}
+
+	var body struct {
+		Results []presignResult `json:"results"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	refused, accepted := body.Results[0], body.Results[1]
+	if refused.Success || refused.Code != "VALIDATION_FAILED" || refused.PresignedURL != "" {
+		t.Errorf("escaping file: %+v", refused)
+	}
+	if !accepted.Success || accepted.Key != "tenant/photo.jpg" {
+		t.Errorf("other file: %+v", accepted)
+	}
+}
+
+func TestStoragePathHookErrorStillFailsTheRequest(t *testing.T) {
+	// A hook's own error (here, no user) is about the request, not a file.
+	router, _, _ := completionRouter(t, WithStoragePath(byUser))
 
 	response := postAs(t, router, "", "presign", map[string]any{"files": []FileMeta{completionFile}})
-	if response.Code != http.StatusInternalServerError || problemCode(t, response) != "CONFIG_INVALID" {
+	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("presign = %d: %s", response.Code, response.Body.String())
 	}
 }
@@ -364,7 +422,7 @@ func TestMultipartInitRejectsAnInvalidStoragePath(t *testing.T) {
 
 	file := FileMeta{Name: "video.mp4", Size: 50 << 20, Type: "video/mp4"}
 	response := postAs(t, router, "", "multipart-init", map[string]any{"file": file})
-	if response.Code != http.StatusInternalServerError || problemCode(t, response) != "CONFIG_INVALID" {
+	if response.Code != http.StatusBadRequest || problemCode(t, response) != "VALIDATION_FAILED" {
 		t.Fatalf("init = %d: %s", response.Code, response.Body.String())
 	}
 	if len(*paths) != 0 {

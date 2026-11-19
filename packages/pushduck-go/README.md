@@ -50,8 +50,9 @@ pushduck.Image(
 ```
 
 The hook returns a fragment and pushduck owns the result: it refuses an empty
-or absolute path, `?`, `#`, `%`, control and bidi characters, empty, `.` or
-`..` segments, and anything over 1024 bytes, with `CONFIG_INVALID`; then it
+or absolute path, `?`, `#`, `%`, control and Unicode format (Cf) characters,
+empty, `.` or `..` segments, and anything over 1024 bytes, failing that file
+with `VALIDATION_FAILED` while the rest of the batch continues; then it
 sanitises every segment exactly as a default key, so non-Latin names survive.
 Single-PUT and multipart uploads both use it, and the completion token binds the
 scoped key.
