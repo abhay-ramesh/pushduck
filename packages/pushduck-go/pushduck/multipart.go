@@ -1,50 +1,34 @@
 package pushduck
 
-// Multipart session tokens and the four multipart actions.
+// Multipart sessions and the five multipart actions.
 //
-// A multipart upload spans four requests, and the last three have to name the
-// object they act on. If the client sent `{key, uploadId}` directly, anyone
-// could sign parts for — or abort — someone else's upload by guessing or
+// A multipart upload spans several requests, and every one after `init` has to
+// name the object it acts on. If the client sent `{key, uploadId}` directly,
+// anyone could sign parts for — or abort — someone else's upload by guessing or
 // observing that pair. Route metadata hooks authenticate the *caller*; nothing
 // would tie the caller to the object.
 //
-// So `init` returns an opaque token binding the key, upload id and route under
-// an HMAC, and later calls present the token instead of raw identifiers. The
-// server re-derives the values rather than trusting anything the client sent.
-// Byte-compatible with the TypeScript implementation, including the secret
-// prefix, so the two remain interchangeable.
+// So `init` returns the upload's receipt with the part plan attached, and later
+// calls present it instead of raw identifiers. The server reads the key, the
+// upload id, the file and the client's metadata back from it rather than
+// trusting anything the client sent, and assembly finishes through the same
+// step as a single PUT.
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
-	"strings"
 )
 
-// multipartSession is what a token asserts once verified.
+// ─── v1 sessions (deprecated; remove in 0.9) ────────────────────────────────
+
+// multipartSession is what a v1 session asserted. Sessions are receipts now;
+// these are still accepted for uploads that were in flight across the deploy.
 type multipartSession struct {
 	Key       string `json:"key"`
 	UploadID  string `json:"uploadId"`
 	Route     string `json:"route"`
 	PartSize  int64  `json:"partSize"`
 	TotalSize int64  `json:"totalSize"`
-}
-
-func (router *Router) sessionSignature(payload string) string {
-	mac := hmac.New(sha256.New, []byte("pushduck-multipart:"+router.config.SecretAccessKey))
-	mac.Write([]byte(payload))
-	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
-}
-
-func (router *Router) signSession(session multipartSession) (string, error) {
-	claim, err := json.Marshal(session)
-	if err != nil {
-		return "", NewError("INTERNAL_ERROR", "Could not encode multipart session")
-	}
-	payload := base64.RawURLEncoding.EncodeToString(claim)
-	return payload + "." + router.sessionSignature(payload), nil
 }
 
 func (router *Router) verifySession(token string) (multipartSession, error) {
@@ -54,16 +38,8 @@ func (router *Router) verifySession(token string) (multipartSession, error) {
 		return multipartSession{}, NewError("FORBIDDEN", "Invalid or expired multipart session")
 	}
 
-	parts := strings.Split(token, ".")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return reject()
-	}
-	if !hmac.Equal([]byte(parts[1]), []byte(router.sessionSignature(parts[0]))) {
-		return reject()
-	}
-
-	raw, err := base64.RawURLEncoding.DecodeString(parts[0])
-	if err != nil {
+	raw, ok := router.openToken(purposeSession, token)
+	if !ok {
 		return reject()
 	}
 
@@ -74,32 +50,6 @@ func (router *Router) verifySession(token string) (multipartSession, error) {
 	// A valid signature over a malformed payload must still not proceed.
 	if session.Key == "" || session.UploadID == "" || session.PartSize <= 0 {
 		return reject()
-	}
-
-	return session, nil
-}
-
-// authorizeSession verifies the token *and* re-runs the route's metadata hooks.
-//
-// Both are required. The token proves which object is being acted on; the
-// hooks prove the caller is still allowed to act. Checking only the token
-// would let a revoked user finish an upload they started.
-func (router *Router) authorizeSession(
-	r *http.Request, routeName string, route Route, token string,
-) (multipartSession, error) {
-	session, err := router.verifySession(token)
-	if err != nil {
-		return multipartSession{}, err
-	}
-
-	if session.Route != routeName {
-		return multipartSession{}, NewError("FORBIDDEN", "Invalid or expired multipart session")
-	}
-
-	for _, hook := range route.Metadata {
-		if _, err := hook(r, FileMeta{Name: session.Key}); err != nil {
-			return multipartSession{}, err
-		}
 	}
 
 	return session, nil
@@ -158,10 +108,12 @@ type multipartSignRequest struct {
 }
 
 type multipartCompleteRequest struct {
-	Session  string          `json:"session"`
-	Parts    []CompletedPart `json:"parts"`
-	File     FileMeta        `json:"file"`
-	Metadata map[string]any  `json:"metadata"`
+	Session string          `json:"session"`
+	Parts   []CompletedPart `json:"parts"`
+	// Deprecated: read from the receipt. Used only for a v1 session, which
+	// never carried the file or the metadata.
+	File     FileMeta       `json:"file"`
+	Metadata map[string]any `json:"metadata"`
 }
 
 type multipartSessionRequest struct {
@@ -183,18 +135,9 @@ func (router *Router) multipartInit(
 
 	// Metadata hooks and validation run here exactly as they do for a single PUT,
 	// so a multipart upload cannot bypass a route's constraints.
-	metadata := map[string]any{}
-	for key, value := range request.Metadata {
-		metadata[key] = value
-	}
-	for _, hook := range route.Metadata {
-		produced, err := hook(r, request.File)
-		if err != nil {
-			return err
-		}
-		if produced != nil {
-			metadata = produced
-		}
+	metadata, err := route.runMetadata(r, PhasePresign, request.File, request.Metadata)
+	if err != nil {
+		return err
 	}
 
 	if message := route.validate(request.File); message != "" {
@@ -212,9 +155,17 @@ func (router *Router) multipartInit(
 
 	partSize := choosePartSize(request.File.Size, request.PartSize)
 
-	token, err := router.signSession(multipartSession{
-		Key: key, UploadID: uploadID, Route: routeName,
-		PartSize: partSize, TotalSize: request.File.Size,
+	// The session *is* the upload's receipt, with the part plan attached:
+	// every part request and the final assembly read it back.
+	session, err := router.sealReceipt(receipt{
+		ID:        newUploadID(),
+		Route:     routeName,
+		Key:       key,
+		File:      request.File,
+		Input:     request.Metadata,
+		Metadata:  metadata,
+		Multipart: &receiptMultipart{UploadID: uploadID, PartSize: partSize},
+		Exp:       router.config.now().Add(multipartReceiptLifetime).Unix(),
 	})
 	if err != nil {
 		// The session exists at the provider but cannot be handed out, so it
@@ -224,7 +175,7 @@ func (router *Router) multipartInit(
 	}
 
 	writeJSON(w, http.StatusOK, telemetry, map[string]any{
-		"success": true, "session": token, "key": key,
+		"success": true, "session": session, "key": key,
 		"partSize": partSize, "metadata": metadata,
 	})
 	return nil
@@ -242,12 +193,13 @@ func (router *Router) multipartSign(
 		return NewError("BAD_REQUEST", "`partNumbers` must be an array")
 	}
 
-	session, err := router.authorizeSession(r, routeName, route, request.Session)
+	current, err := router.openUpload(r, routeName, route, request.Session, PhaseUpload)
 	if err != nil {
 		return err
 	}
+	plan, total := current.Multipart, current.File.Size
 
-	maxPart := int((session.TotalSize + session.PartSize - 1) / session.PartSize)
+	maxPart := int((total + plan.PartSize - 1) / plan.PartSize)
 	if maxPart < 1 {
 		maxPart = 1
 	}
@@ -261,15 +213,15 @@ func (router *Router) multipartSign(
 				"Part number is outside this upload")
 		}
 
-		start := int64(partNumber-1) * session.PartSize
-		size := session.PartSize
-		if remaining := session.TotalSize - start; remaining < size {
+		start := int64(partNumber-1) * plan.PartSize
+		size := plan.PartSize
+		if remaining := total - start; remaining < size {
 			size = remaining
 		}
 
 		signed = append(signed, map[string]any{
 			"partNumber": partNumber,
-			"url":        router.config.presignUploadPart(session.Key, session.UploadID, partNumber),
+			"url":        router.config.presignUploadPart(current.Key, plan.UploadID, partNumber, size),
 			"size":       size,
 		})
 	}
@@ -278,6 +230,8 @@ func (router *Router) multipartSign(
 	return nil
 }
 
+// multipartComplete stitches the parts, then finishes the upload exactly as a
+// single-PUT completion does — same hook, same metadata, same guarantees.
 func (router *Router) multipartComplete(
 	w http.ResponseWriter, r *http.Request, routeName string, route Route,
 	telemetry map[string]string,
@@ -290,32 +244,35 @@ func (router *Router) multipartComplete(
 		return NewError("BAD_REQUEST", "`parts` must be an array")
 	}
 
-	session, err := router.authorizeSession(r, routeName, route, request.Session)
+	current, err := router.openUpload(r, routeName, route, request.Session, PhaseComplete)
 	if err != nil {
 		return err
 	}
 
-	if err := router.config.completeMultipartUpload(session.Key, session.UploadID, request.Parts); err != nil {
+	if err := router.config.completeMultipartUpload(current.Key, current.Multipart.UploadID, request.Parts); err != nil {
 		return err
 	}
 
-	if route.OnComplete != nil {
-		metadata := map[string]any{}
-		for key, value := range request.Metadata {
-			metadata[key] = value
-		}
-		if err := route.OnComplete(r, session.Key, request.File, metadata); err != nil {
-			return err
+	// A v1 session never carried the file or the metadata; it keeps the
+	// behaviour it had, the body's claims, until it is removed.
+	if current.ID == "" {
+		current.File = request.File
+		current.Metadata = request.Metadata
+		if current.Metadata == nil {
+			current.Metadata = map[string]any{}
 		}
 	}
 
-	host, path := router.config.objectAddress(session.Key)
-	writeJSON(w, http.StatusOK, telemetry, map[string]any{
-		"success": true, "key": session.Key, "url": "https://" + host + path,
-	})
+	result, err := router.finalize(r, route, current)
+	if err != nil {
+		return err
+	}
+
+	writeJSON(w, http.StatusOK, telemetry, result)
 	return nil
 }
 
+// multipartAbort discards an upload. Abandoned parts are billed until removed.
 func (router *Router) multipartAbort(
 	w http.ResponseWriter, r *http.Request, routeName string, route Route,
 	telemetry map[string]string,
@@ -325,12 +282,12 @@ func (router *Router) multipartAbort(
 		return NewError("BAD_REQUEST", "Request body must be JSON")
 	}
 
-	session, err := router.authorizeSession(r, routeName, route, request.Session)
+	current, err := router.openUpload(r, routeName, route, request.Session, PhaseUpload)
 	if err != nil {
 		return err
 	}
 
-	if err := router.config.abortMultipartUpload(session.Key, session.UploadID); err != nil {
+	if err := router.config.abortMultipartUpload(current.Key, current.Multipart.UploadID); err != nil {
 		return err
 	}
 
@@ -338,6 +295,8 @@ func (router *Router) multipartAbort(
 	return nil
 }
 
+// multipartParts lists the parts the provider actually holds, for resume. The
+// provider is the authority; a client's own record is a hint.
 func (router *Router) multipartParts(
 	w http.ResponseWriter, r *http.Request, routeName string, route Route,
 	telemetry map[string]string,
@@ -347,12 +306,12 @@ func (router *Router) multipartParts(
 		return NewError("BAD_REQUEST", "Request body must be JSON")
 	}
 
-	session, err := router.authorizeSession(r, routeName, route, request.Session)
+	current, err := router.openUpload(r, routeName, route, request.Session, PhaseUpload)
 	if err != nil {
 		return err
 	}
 
-	parts, err := router.config.listUploadedParts(session.Key, session.UploadID)
+	parts, err := router.config.listUploadedParts(current.Key, current.Multipart.UploadID)
 	if err != nil {
 		return err
 	}

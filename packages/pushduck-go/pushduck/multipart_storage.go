@@ -182,8 +182,10 @@ func (c *Config) createMultipartUpload(key, contentType string) (string, error) 
 //
 // `partNumber` and `uploadId` must be in the canonical request *before*
 // signing, not appended afterwards, or the signature covers a different URL
-// than the one used.
-func (c *Config) presignUploadPart(key, uploadID string, partNumber int) string {
+// than the one used. The part's size is signed too, so storage refuses a part
+// of any other length and the parts cannot add up to more than the declared
+// file — as a single PUT's declared size is.
+func (c *Config) presignUploadPart(key, uploadID string, partNumber int, size int64) string {
 	host, path := c.objectAddress(key)
 
 	query := url.Values{}
@@ -196,6 +198,7 @@ func (c *Config) presignUploadPart(key, uploadID string, partNumber int) string 
 		Path:      path,
 		Region:    c.Region,
 		Query:     query,
+		Headers:   map[string]string{"content-length": strconv.FormatInt(size, 10)},
 		ExpiresIn: c.uploadExpiry(),
 		Now:       c.now(),
 	})

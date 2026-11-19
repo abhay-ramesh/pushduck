@@ -96,7 +96,7 @@ func problemCode(t *testing.T, response *httptest.ResponseRecorder) string {
 // ─── default unchanged ──────────────────────────────────────────────────────
 
 func TestDefaultKeyIsTheSanitisedFilename(t *testing.T) {
-	router, _ := completionRouter(t)
+	router, _, _ := completionRouter(t)
 
 	for _, name := range []string{"photo.jpg", "写真 photo.png", "../../etc/passwd", "a?b#c%d.png"} {
 		file := FileMeta{Name: name, Size: 10, Type: "image/png"}
@@ -110,10 +110,12 @@ func TestDefaultKeyIsTheSanitisedFilename(t *testing.T) {
 // ─── scoping ────────────────────────────────────────────────────────────────
 
 func TestStoragePathSeparatesUsers(t *testing.T) {
-	router, fired := completionRouter(t, WithStoragePath(byUser))
+	router, fired, storage := completionRouter(t, WithStoragePath(byUser))
 
 	alice := presignAs(t, router, "alice", completionFile)
 	bob := presignAs(t, router, "bob", completionFile)
+	storage.put(alice.Key, int(completionFile.Size), completionFile.Type)
+	storage.put(bob.Key, int(completionFile.Size), completionFile.Type)
 
 	if alice.Key != "users/alice/photo.jpg" || bob.Key != "users/bob/photo.jpg" {
 		t.Fatalf("keys = %q, %q", alice.Key, bob.Key)
@@ -145,7 +147,7 @@ func TestStoragePathSeparatesUsers(t *testing.T) {
 }
 
 func TestStoragePathErrorPropagates(t *testing.T) {
-	router, _ := completionRouter(t, WithStoragePath(byUser))
+	router, _, _ := completionRouter(t, WithStoragePath(byUser))
 
 	response := postAs(t, router, "", "presign", map[string]any{"files": []FileMeta{completionFile}})
 	if response.Code != http.StatusUnauthorized || problemCode(t, response) != "UNAUTHORIZED" {
@@ -153,7 +155,7 @@ func TestStoragePathErrorPropagates(t *testing.T) {
 	}
 
 	// A bare error is withheld, exactly as a metadata hook's is.
-	router, _ = completionRouter(t, WithStoragePath(func(*http.Request, FileMeta) (string, error) {
+	router, _, _ = completionRouter(t, WithStoragePath(func(*http.Request, FileMeta) (string, error) {
 		return "", errors.New("dial tcp 10.0.0.5:5432: secret detail")
 	}))
 	response = postAs(t, router, "", "presign", map[string]any{"files": []FileMeta{completionFile}})
@@ -167,7 +169,7 @@ func TestStoragePathErrorPropagates(t *testing.T) {
 
 func TestStoragePathRunsOnlyForAcceptedFiles(t *testing.T) {
 	calls := 0
-	router, _ := completionRouter(t,
+	router, _, _ := completionRouter(t,
 		AllowTypes("image/*"),
 		WithStoragePath(func(_ *http.Request, f FileMeta) (string, error) {
 			calls++
@@ -286,7 +288,7 @@ func TestResolveKeyLimitIsOnBytesOfTheResult(t *testing.T) {
 }
 
 func TestInvalidStoragePathFailsPresignWithConfigInvalid(t *testing.T) {
-	router, _ := completionRouter(t, fixedPath("../escape.png"))
+	router, _, _ := completionRouter(t, fixedPath("../escape.png"))
 
 	response := postAs(t, router, "", "presign", map[string]any{"files": []FileMeta{completionFile}})
 	if response.Code != http.StatusInternalServerError || problemCode(t, response) != "CONFIG_INVALID" {
@@ -349,10 +351,10 @@ func TestMultipartInitUsesTheScopedKey(t *testing.T) {
 		t.Fatalf("storage was asked to create %v", *paths)
 	}
 
-	// The session token binds the scoped key, not the bare filename.
-	session, err := router.verifySession(body.Session)
-	if err != nil || session.Key != want {
-		t.Fatalf("session key = %q, %v", session.Key, err)
+	// The session binds the scoped key, not the bare filename.
+	session, err := router.openReceipt(body.Session)
+	if err != nil || session == nil || session.Key != want {
+		t.Fatalf("session = %+v, %v", session, err)
 	}
 }
 

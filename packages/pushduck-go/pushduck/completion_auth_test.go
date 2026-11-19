@@ -15,26 +15,19 @@ import (
 	"testing"
 )
 
-func completionRouter(t *testing.T, options ...RouteOption) (*Router, *int) {
+func completionRouter(t *testing.T, options ...RouteOption) (*Router, *int, *memoryStorage) {
 	t.Helper()
 
 	fired := 0
-	options = append(options, OnComplete(func(*http.Request, string, FileMeta, map[string]any) error {
+	options = append(options, OnComplete(func(*http.Request, Upload) error {
 		fired++
 		return nil
 	}))
 
-	router := NewRouter(
-		Config{
-			Bucket:          "test-bucket",
-			Region:          "us-east-1",
-			AccessKeyID:     "test-key",
-			SecretAccessKey: "test-secret",
-		},
-		Routes{"imageUpload": NewRoute(options...)},
-	)
+	storage := newMemoryStorage(t)
+	router := NewRouter(storage.config(), Routes{"imageUpload": NewRoute(options...)})
 
-	return router, &fired
+	return router, &fired, storage
 }
 
 func postAction(t *testing.T, router *Router, action string, body any) *httptest.ResponseRecorder {
@@ -58,7 +51,9 @@ func postAction(t *testing.T, router *Router, action string, body any) *httptest
 var completionFile = FileMeta{Name: "photo.jpg", Size: 1024, Type: "image/jpeg"}
 
 func TestUntokenedCompletionIsRefusedByDefault(t *testing.T) {
-	router, fired := completionRouter(t)
+	router, fired, storage := completionRouter(t)
+	// Even with the object present: the refusal is about the token.
+	storage.put("private/other-tenant/tax.pdf", 10, "application/pdf")
 
 	response := postAction(t, router, "complete", map[string]any{
 		"completions": []map[string]any{
@@ -75,7 +70,7 @@ func TestUntokenedCompletionIsRefusedByDefault(t *testing.T) {
 }
 
 func TestPresignedCompletionIsAccepted(t *testing.T) {
-	router, fired := completionRouter(t)
+	router, fired, storage := completionRouter(t)
 
 	issue := postAction(t, router, "presign", map[string]any{"files": []FileMeta{completionFile}})
 	if issue.Code != http.StatusOK {
@@ -91,6 +86,7 @@ func TestPresignedCompletionIsAccepted(t *testing.T) {
 	if err := json.Unmarshal(issue.Body.Bytes(), &presigned); err != nil {
 		t.Fatalf("decode presign: %v", err)
 	}
+	storage.put(presigned.Results[0].Key, int(completionFile.Size), completionFile.Type)
 
 	response := postAction(t, router, "complete", map[string]any{
 		"completions": []map[string]any{{
@@ -110,7 +106,8 @@ func TestPresignedCompletionIsAccepted(t *testing.T) {
 }
 
 func TestDeploymentsCanOptOutForOlderClients(t *testing.T) {
-	router, fired := completionRouter(t, AllowUntokenedCompletion())
+	router, fired, storage := completionRouter(t, AllowUntokenedCompletion())
+	storage.put("uploads/photo.jpg", int(completionFile.Size), completionFile.Type)
 
 	response := postAction(t, router, "complete", map[string]any{
 		"completions": []map[string]any{
