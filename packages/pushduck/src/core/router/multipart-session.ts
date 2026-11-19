@@ -18,6 +18,7 @@
  */
 
 import { UploadError } from "../errors";
+import { fromBase64Url, hmac, timingSafeEqual, toBase64Url } from "./token-crypto";
 
 /** What a session token asserts, once verified. */
 export interface MultipartSession {
@@ -31,55 +32,6 @@ export interface MultipartSession {
   partSize: number;
   /** Total object size, so a part number beyond the end can be rejected. */
   totalSize: number;
-}
-
-/** Base64url without padding — safe in a JSON body and in a URL. */
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function fromBase64Url(value: string): Uint8Array {
-  const padded = value.replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(padded + "=".repeat((4 - (padded.length % 4)) % 4));
-  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
-}
-
-async function hmac(secret: string, message: string): Promise<string> {
-  const encoder = new TextEncoder();
-
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(`pushduck-multipart:${secret}`),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    cryptoKey,
-    encoder.encode(message)
-  );
-
-  return toBase64Url(new Uint8Array(signature));
-}
-
-/**
- * Compares two strings without leaking their difference through timing.
- *
- * A naive `===` returns as soon as bytes differ, which over many attempts
- * reveals how much of a forged signature was correct.
- */
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-
-  let difference = 0;
-  for (let i = 0; i < a.length; i++) {
-    difference |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return difference === 0;
 }
 
 /** Issues a signed token for a newly created multipart session. */
