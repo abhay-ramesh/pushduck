@@ -193,4 +193,22 @@ describe("Presigned URL Signing", () => {
         const request = signMock.mock.calls[0][0] as Request;
         expect(request.headers.get("x-amz-acl")).toBeNull();
     });
+
+    it("signs the declared length, without handing it to the client", async () => {
+        const { config } = createUploadConfig().provider("aws", baseProvider).build();
+
+        const result = await generatePresignedUploadUrl(config, {
+            key: "test.txt",
+            contentType: "text/plain",
+            contentLength: 1234,
+        });
+
+        const request = signMock.mock.calls[0][0] as Request;
+        expect(request.headers.get("content-length")).toBe("1234");
+        // aws4fetch leaves content-length out of the signature unless told otherwise.
+        expect(signMock.mock.calls[0][1]).toMatchObject({ aws: { allHeaders: true } });
+        // The browser sets Content-Length from the body and refuses to let script set it.
+        expect(result.requiredHeaders?.["content-length"]).toBeUndefined();
+        expect(result.requiredHeaders?.["Content-Length"]).toBeUndefined();
+    });
 });

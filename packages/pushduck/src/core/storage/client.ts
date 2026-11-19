@@ -281,7 +281,10 @@ export async function presignApiRequest(
       method: options.method,
       headers: options.headers,
     }),
-    { aws: { signQuery: true } }
+    // Every header passed here is one the caller means to bind. aws4fetch
+    // otherwise drops `content-length` and `content-type` from the signature
+    // without a word.
+    { aws: { signQuery: true, allHeaders: true } }
   );
 
   // aws4fetch signs the RFC 3986 encoding of the query but returns it
@@ -373,7 +376,12 @@ export interface PresignedUrlOptions {
   key: string;
   /** MIME type of the file (optional to avoid signing issues) */
   contentType?: string;
-  /** Expected file size in bytes (for validation) */
+  /**
+   * Exact size of the body in bytes. Signed into the URL, so storage refuses a
+   * PUT of any other length — a route's `maxFileSize`, checked against the
+   * declared size, then holds for the bytes that arrive. The client does not
+   * send it as a header: the browser sets `Content-Length` from the body.
+   */
   contentLength?: number;
   /** URL expiration time in seconds (default: 3600 = 1 hour) */
   expiresIn?: number;
@@ -686,11 +694,16 @@ export async function generatePresignedUploadUrl(
     // by the client but not verified against the signature.
     const { signed, unsigned } = preparePresignHeaders(uploadConfig, options);
 
+    // The length is signed too, but not handed to the client: the browser
+    // derives Content-Length from the body and will not let script set it.
     const signedUrl = await presignApiRequest(uploadConfig, {
       key: options.key,
       method: "PUT",
       expiresIn,
-      headers: signed,
+      headers:
+        options.contentLength === undefined
+          ? signed
+          : { ...signed, "content-length": String(options.contentLength) },
     });
 
     // Merge signed + unsigned so the client has a single flat map to apply.

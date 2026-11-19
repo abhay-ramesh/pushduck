@@ -180,6 +180,31 @@ describe.skipIf(!available)("MinIO end-to-end", () => {
     expect(put.status).toBe(200);
   });
 
+  it("refuses a body of any size but the one declared at presign", async () => {
+    // The route's maxFileSize is checked against the declared size; signing
+    // that size is what makes it hold for the bytes that arrive.
+    const { router } = buildStack();
+
+    const response = await router.handler(
+      new Request("http://localhost/api/upload?route=docUpload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: [{ name: "sized.txt", size: 5, type: "text/plain" }],
+        }),
+      })
+    );
+
+    const { results } = await response.json();
+    const { presignedUrl, requiredHeaders } = results[0];
+    const put = (body: string) =>
+      fetch(presignedUrl, { method: "PUT", headers: requiredHeaders, body });
+
+    expect((await put("hello, and then some")).status).toBe(403);
+    expect((await put("hi")).status).toBe(403);
+    expect((await put("hello")).status).toBe(200);
+  });
+
   it("rejects a tampered presigned URL", async () => {
     // Confirms the signature actually covers the object key — if it did not,
     // any client could redirect an upload to an arbitrary path.

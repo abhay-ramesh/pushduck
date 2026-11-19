@@ -30,6 +30,7 @@ See [Philosophy](/docs/philosophy) for why the scope is what it is. See [Limitat
 - **Middleware chain** with typed metadata flowing through.
 - **Lifecycle hooks**: `onStart`, `onProgress`, `onSuccess`, `onError`, `onUploadComplete`.
 - **Schema chain**: `s3.image()`, `s3.file()`, `.accept()`, `.maxFileSize()`, `.maxFiles()`, `.middleware()`, `.paths()`, `.onUploadComplete()`.
+- **Size limits that hold for the bytes**: a presigned `PUT` signs the declared size, so storage refuses a body of any other length.
 - **Per-file and aggregate progress tracking** — progress %, upload speed, ETA.
 - **Client-side file metadata passthrough** — attach app-specific metadata on `uploadFiles(files, metadata)` and receive it in server middleware and lifecycle hooks.
 
@@ -70,7 +71,6 @@ These items are committed. They will ship, and they're the focus after the curre
 
 Before anything else. These are small, high-value fixes surfaced by code review.
 
-- **Verify `Content-Length` is signed** in presigned PUT URLs. If not, enforce server-side size limits via header signing so client-declared sizes can't be spoofed.
 - **Error-to-status-code mapping** in the universal handler. Thrown middleware errors should return `401`/`403`/`400` with the right shape, not always `500`.
 - **Body-size limit on `/presign`** — closes a DoS vector where a hostile client POSTs a huge JSON metadata blob.
 - **Replace `console.error` with the structured logger** in the universal handler.

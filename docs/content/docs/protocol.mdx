@@ -159,6 +159,11 @@ The client `PUT`s the bytes directly to `presignedUrl`.
 - When `requiredHeaders` is absent, the client **SHOULD** send
   `Content-Type: {file.type}`.
 - The client **MUST NOT** send credentials; the URL is already signed.
+- The body **MUST** be exactly `file.size` bytes. A server **SHOULD** sign
+  `content-length` into the URL (without listing it in `requiredHeaders` — a
+  browser sets it from the body), so storage refuses any other length and the
+  route's size limit holds for the bytes that arrive, not only the bytes
+  declared. The reference TypeScript server does.
 - This request does not reach the pushduck server.
 
 ## 3. Complete
