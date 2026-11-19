@@ -144,3 +144,57 @@ func TestHeadObjectReportsRefusedCredentials(t *testing.T) {
 		t.Fatalf("head with a wrong secret = %v, want STORAGE_ACCESS_DENIED", err)
 	}
 }
+
+func TestCompletionVerifiesTheObjectAgainstMinIO(t *testing.T) {
+	if !minioAvailable() {
+		t.Skip("MinIO unreachable")
+	}
+
+	var completed []Upload
+	router := NewRouter(minioConfig(), Routes{"docUpload": File(
+		MaxSize("1MB"),
+		OnComplete(func(_ *http.Request, done Upload) error {
+			completed = append(completed, done)
+			return nil
+		}),
+	)})
+	file := FileMeta{Name: fmt.Sprintf("go-verify-%d.txt", time.Now().UnixNano()), Size: 5, Type: "text/plain"}
+
+	response := postTo(t, router, "docUpload", "presign", map[string]any{"files": []FileMeta{file}})
+	var issued struct {
+		Results []struct {
+			Key             string            `json:"key"`
+			CompletionToken string            `json:"completionToken"`
+			PresignedURL    string            `json:"presignedUrl"`
+			RequiredHeaders map[string]string `json:"requiredHeaders"`
+		} `json:"results"`
+	}
+	decode(t, response, &issued)
+	result := issued.Results[0]
+
+	complete := func() completionEntry {
+		done := postTo(t, router, "docUpload", "complete", map[string]any{
+			"completions": []map[string]any{{
+				"key": result.Key, "file": file, "completionToken": result.CompletionToken,
+			}},
+		})
+		var body struct {
+			Results []completionEntry `json:"results"`
+		}
+		decode(t, done, &body)
+		return body.Results[0]
+	}
+
+	if early := complete(); early.Success || early.Code != "NOT_FOUND" {
+		t.Fatalf("completion before upload = %+v, want NOT_FOUND", early)
+	}
+
+	if status := putTo(t, result.PresignedURL, result.RequiredHeaders, "hello"); status != http.StatusOK {
+		t.Fatalf("PUT = %d", status)
+	}
+
+	if done := complete(); !done.Success || len(completed) != 1 ||
+		completed[0].Object.Size != 5 || completed[0].Object.ContentType != "text/plain" {
+		t.Fatalf("completion = %+v, hook saw %+v", done, completed)
+	}
+}

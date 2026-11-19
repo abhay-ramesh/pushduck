@@ -115,12 +115,44 @@ func (router *Router) openUpload(
 // finalize is the one place an upload is finished, single-PUT and multipart
 // alike, so nothing about an upload's outcome depends on how large the file
 // was.
+//
+//  1. Observe the object. Everything the client said about the file was a
+//     claim: the browser chooses the Content-Type, and a multipart part's
+//     length is not signed. So storage is asked what it holds. Nothing there
+//     means the upload never happened; an object that breaks the route's
+//     rules — too large, a type it does not accept — is deleted, so the
+//     route's limits hold for what is stored and not only for what was
+//     declared.
+//  2. Run OnComplete with the upload's authoritative record: the metadata
+//     sealed at presign and the file as observed.
 func (router *Router) finalize(r *http.Request, route Route, done upload) (completionResult, error) {
+	// A 403 here is STORAGE_ACCESS_DENIED: an upload that cannot be verified
+	// is not accepted.
+	object, err := router.config.headObject(done.Key)
+	if err != nil {
+		return completionResult{}, err
+	}
+	if object == nil {
+		return completionResult{}, NewError("NOT_FOUND",
+			"No object was uploaded to this key — the upload did not finish")
+	}
+
+	stored := FileMeta{Name: done.File.Name, Size: object.Size, Type: object.ContentType}
+
+	if message := route.validate(stored); message != "" {
+		if err := router.config.deleteObject(done.Key); err != nil {
+			return completionResult{}, err
+		}
+		return completionResult{}, NewError("VALIDATION_FAILED",
+			"The stored file was rejected and removed: "+message)
+	}
+
 	if route.OnComplete != nil {
 		err := route.OnComplete(withUpload(r, PhaseComplete, done.Input), Upload{
 			ID:       done.ID,
 			Key:      done.Key,
-			File:     done.File,
+			File:     stored,
+			Object:   *object,
 			Metadata: done.Metadata,
 		})
 		if err != nil {
@@ -133,7 +165,7 @@ func (router *Router) finalize(r *http.Request, route Route, done upload) (compl
 		Success: true,
 		Key:     done.Key,
 		URL:     "https://" + host + path,
-		File:    &done.File,
+		File:    &stored,
 	}, nil
 }
 
