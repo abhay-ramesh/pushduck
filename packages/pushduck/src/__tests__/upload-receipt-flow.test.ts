@@ -200,6 +200,62 @@ describe("completion acts on the receipt, not the request", () => {
     expect(onComplete).not.toHaveBeenCalled();
   });
 
+  it("refuses a forged token before middleware sees the request's metadata", async () => {
+    const { router, seen, onComplete } = build();
+    const issued = await presign(router);
+    const [payload] = issued.completionToken.split(".");
+
+    const response = await call(router, "attachment", "complete", {
+      completions: [
+        {
+          key: issued.key,
+          file: FILE,
+          metadata: { slug: "chosen-by-the-caller" },
+          completionToken: `${payload}.forged-signature`,
+        },
+      ],
+    });
+
+    expect(response.status).toBe(403);
+    expect(seen.map((s) => s.phase)).toEqual(["presign"]);
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it("refuses an expired receipt before middleware runs", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const { router, seen } = build();
+      const issued = await presign(router);
+      vi.setSystemTime(Date.now() + 30 * 24 * 3600 * 1000);
+
+      const response = await call(router, "attachment", "complete", {
+        completions: [
+          { key: issued.key, file: FILE, completionToken: issued.completionToken },
+        ],
+      });
+
+      expect(response.status).toBe(403);
+      expect(seen.map((s) => s.phase)).toEqual(["presign"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("authenticates a token-less completion over no input, then refuses it", async () => {
+    const { router, seen } = build();
+
+    // Anonymous: 401 from middleware, before the missing token is reported.
+    const anonymous = await router.handler(
+      new Request("http://localhost/api/upload?route=attachment&action=complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completions: [{ key: "k", file: FILE, metadata: { slug: "x" } }] }),
+      })
+    );
+    expect(anonymous.status).toBe(401);
+    expect(seen[0].metadata).toEqual({});
+  });
+
   it("accepts a v1 token minted before the deploy, with the old behaviour", async () => {
     const { router, onComplete } = build();
     // An upload presigned by the previous version, completing after the

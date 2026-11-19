@@ -1578,19 +1578,19 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     }
 
     // ── v1 multipart session (deprecated; remove in 0.9) ──────────────────
-    let metadata: any = {};
-    for (const middleware of routeConfig.middleware || []) {
-      metadata = await middleware({
-        req,
-        file: { name: "", size: 0, type: "" },
-        metadata,
-        phase,
-      });
-    }
-
+    // Verified before middleware runs: a forged session never reaches app code.
     const session: MultipartSession = await verifySession(secret, token);
     if (session.route !== String(routeName)) {
       throw new UploadError("FORBIDDEN", "Session does not belong to this route");
+    }
+
+    for (const middleware of routeConfig.middleware || []) {
+      await middleware({
+        req,
+        file: { name: "", size: 0, type: "" },
+        metadata: {},
+        phase,
+      });
     }
 
     return {
@@ -1658,13 +1658,10 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
     const authorized: Array<{ upload: OpenUpload; verified: boolean }> = [];
 
     for (const completion of completions) {
-      let receipt: UploadReceipt | null = null;
-      let refusal: unknown;
-      try {
-        receipt = await openReceipt(secret, completion.completionToken);
-      } catch (error) {
-        refusal = error;
-      }
+      // Every token is checked before middleware runs, so a forged or expired
+      // one is refused without app code ever seeing phase "complete" with
+      // input the server did not seal.
+      const receipt = await openReceipt(secret, completion.completionToken);
 
       if (receipt) {
         for (const middleware of middlewareChain) {
@@ -1689,6 +1686,32 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
       }
 
       // ── no receipt: a v1 token or no token (deprecated; remove in 0.9) ──
+      let verified = false;
+      if (completion.completionToken !== undefined) {
+        const claim = await verifyCompletion(secret, completion.completionToken);
+        if (claim.key !== completion.key || claim.route !== String(routeName)) {
+          throw mismatch();
+        }
+        verified = true;
+      } else if (routeConfig.requireCompletionToken !== false) {
+        // Authenticate first, so an anonymous caller gets 401 rather than 403
+        // (the protocol's order), over no input: nothing in this request is
+        // trusted, and it is refused either way.
+        for (const middleware of middlewareChain) {
+          await middleware({
+            req,
+            file: completion.file,
+            metadata: {},
+            phase: "complete",
+          });
+        }
+        throw new UploadError(
+          "FORBIDDEN",
+          "This route requires the completion token issued at presign",
+          { meta: { reason: "completion-token-missing" } }
+        );
+      }
+
       // An upload presigned by the previous version and completed after the
       // deploy keeps the behaviour it was issued under: middleware over the
       // metadata the client echoes back.
@@ -1700,23 +1723,6 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           metadata: fileMetadata as Record<string, unknown>,
           phase: "complete",
         });
-      }
-
-      if (refusal) throw refusal;
-
-      let verified = false;
-      if (completion.completionToken !== undefined) {
-        const claim = await verifyCompletion(secret, completion.completionToken);
-        if (claim.key !== completion.key || claim.route !== String(routeName)) {
-          throw mismatch();
-        }
-        verified = true;
-      } else if (routeConfig.requireCompletionToken !== false) {
-        throw new UploadError(
-          "FORBIDDEN",
-          "This route requires the completion token issued at presign",
-          { meta: { reason: "completion-token-missing" } }
-        );
       }
 
       authorized.push({
