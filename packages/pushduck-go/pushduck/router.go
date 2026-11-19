@@ -9,9 +9,6 @@ package pushduck
 // integration story.
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -342,39 +339,18 @@ func (router *Router) complete(
 // prefix on the secret, so the two are interchangeable behind a load balancer
 // rather than merely similar.
 func (router *Router) signCompletion(key, route string) (string, error) {
-	claim, err := json.Marshal(map[string]string{"key": key, "route": route})
-	if err != nil {
-		return "", NewError("INTERNAL_ERROR", "Could not encode completion token")
-	}
-
-	payload := base64.RawURLEncoding.EncodeToString(claim)
-	return payload + "." + router.completionSignature(payload), nil
-}
-
-func (router *Router) completionSignature(payload string) string {
-	mac := hmac.New(sha256.New, []byte("pushduck-multipart:completion:"+router.config.SecretAccessKey))
-	mac.Write([]byte(payload))
-	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	return router.sealToken(purposeCompletion, map[string]string{"key": key, "route": route})
 }
 
 func (router *Router) verifyCompletion(token string) (string, string, error) {
+	// One message for every failure mode, so probing reveals nothing about
+	// which part was wrong.
 	reject := func() (string, string, error) {
-		// One message for every failure mode, so probing reveals nothing about
-		// which part was wrong.
 		return "", "", NewError("FORBIDDEN", "Invalid completion token")
 	}
 
-	parts := strings.Split(token, ".")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return reject()
-	}
-
-	if !hmac.Equal([]byte(parts[1]), []byte(router.completionSignature(parts[0]))) {
-		return reject()
-	}
-
-	raw, err := base64.RawURLEncoding.DecodeString(parts[0])
-	if err != nil {
+	raw, ok := router.openToken(purposeCompletion, token)
+	if !ok {
 		return reject()
 	}
 

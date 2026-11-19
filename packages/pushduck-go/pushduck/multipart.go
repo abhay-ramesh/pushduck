@@ -15,12 +15,8 @@ package pushduck
 // prefix, so the two remain interchangeable.
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
-	"strings"
 )
 
 // multipartSession is what a token asserts once verified.
@@ -32,19 +28,8 @@ type multipartSession struct {
 	TotalSize int64  `json:"totalSize"`
 }
 
-func (router *Router) sessionSignature(payload string) string {
-	mac := hmac.New(sha256.New, []byte("pushduck-multipart:"+router.config.SecretAccessKey))
-	mac.Write([]byte(payload))
-	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
-}
-
 func (router *Router) signSession(session multipartSession) (string, error) {
-	claim, err := json.Marshal(session)
-	if err != nil {
-		return "", NewError("INTERNAL_ERROR", "Could not encode multipart session")
-	}
-	payload := base64.RawURLEncoding.EncodeToString(claim)
-	return payload + "." + router.sessionSignature(payload), nil
+	return router.sealToken(purposeSession, session)
 }
 
 func (router *Router) verifySession(token string) (multipartSession, error) {
@@ -54,16 +39,8 @@ func (router *Router) verifySession(token string) (multipartSession, error) {
 		return multipartSession{}, NewError("FORBIDDEN", "Invalid or expired multipart session")
 	}
 
-	parts := strings.Split(token, ".")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return reject()
-	}
-	if !hmac.Equal([]byte(parts[1]), []byte(router.sessionSignature(parts[0]))) {
-		return reject()
-	}
-
-	raw, err := base64.RawURLEncoding.DecodeString(parts[0])
-	if err != nil {
+	raw, ok := router.openToken(purposeSession, token)
+	if !ok {
 		return reject()
 	}
 
