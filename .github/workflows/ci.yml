@@ -62,6 +62,16 @@ jobs:
           # MinIO outage degrades coverage rather than breaking the build.
           MINIO_ENDPOINT: http://127.0.0.1:9010
 
+      # The in-process conformance test skips the cases that need a bucket;
+      # the reference server over HTTP, on MinIO, runs them.
+      - name: 📐 Conformance (reference server, on MinIO)
+        run: |
+          pnpm conformance:serve &
+          curl -sf --retry 30 --retry-connrefused --retry-delay 1 -o /dev/null http://localhost:4319/api/upload
+          pnpm conformance --url http://localhost:4319/api/upload --storage "$CONFORMANCE_STORAGE"
+        env:
+          CONFORMANCE_STORAGE: http://minioadmin:minioadmin@127.0.0.1:9010/test-uploads
+
       - name: 📊 Coverage Report
         uses: codecov/codecov-action@v5
         if: github.event_name == 'pull_request'
@@ -207,12 +217,15 @@ jobs:
         env:
           MINIO_ENDPOINT: http://127.0.0.1:9010
 
+      # On the MinIO bucket, so the cases about the stored object run too.
       - name: 📐 Conformance
         run: |
           (cd packages/pushduck-go && go build -o "$RUNNER_TEMP/conformance-server" ./cmd/conformance-server)
           "$RUNNER_TEMP/conformance-server" &
           curl -sf --retry 30 --retry-connrefused --retry-delay 1 -o /dev/null http://localhost:4320/api/upload
-          pnpm conformance --url http://localhost:4320/api/upload
+          pnpm conformance --url http://localhost:4320/api/upload --storage "$CONFORMANCE_STORAGE"
+        env:
+          CONFORMANCE_STORAGE: http://minioadmin:minioadmin@127.0.0.1:9010/test-uploads
 
       # cross-language.test.ts skips when the server is unreachable, which
       # would let this step pass having run nothing. Here the server is ours
@@ -279,7 +292,9 @@ jobs:
         run: |
           python packages/pushduck-py/cmd/conformance_server.py &
           curl -sf --retry 30 --retry-connrefused --retry-delay 1 -o /dev/null http://localhost:4322/api/upload
-          pnpm conformance --url http://localhost:4322/api/upload
+          pnpm conformance --url http://localhost:4322/api/upload --storage "$CONFORMANCE_STORAGE"
+        env:
+          CONFORMANCE_STORAGE: http://minioadmin:minioadmin@127.0.0.1:9010/test-uploads
 
   # ✅ All checks passed
   all-checks:
