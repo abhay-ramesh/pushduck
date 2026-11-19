@@ -1,0 +1,210 @@
+[
+  {
+    "name": "a completion token edited by the client is refused",
+    "spec": "The reference servers' token: a receipt",
+    "why": "The token carries the metadata the completion hook receives. If a client could rewrite it and keep the signature, it could attach its upload to any record — the bug completion tokens exist to close.",
+    "steps": [
+      {
+        "request": {
+          "query": { "route": "fileUpload" },
+          "body": { "files": [{ "name": "conformance-forged.bin", "size": 10, "type": "application/octet-stream" }] }
+        },
+        "expect": { "status": 200 },
+        "save": { "key": "results.0.key", "token": "results.0.completionToken" }
+      },
+      {
+        "request": {
+          "query": { "route": "fileUpload", "action": "complete" },
+          "body": {
+            "completions": [
+              {
+                "key": "${key}",
+                "file": { "name": "conformance-forged.bin", "size": 10, "type": "application/octet-stream" },
+                "completionToken": { "$tamper": { "token": "${token}", "set": { "metadata": { "userId": "admin" } } } }
+              }
+            ]
+          }
+        },
+        "expect": { "status": 403, "body": { "code": "FORBIDDEN" } }
+      }
+    ]
+  },
+  {
+    "name": "an expired completion token is refused",
+    "spec": "The reference servers' token: a receipt",
+    "why": "A token that never expires is a standing capability: anyone who ever saw one could complete — and fire the hook for — that upload for as long as the key exists.",
+    "request": {
+      "query": { "route": "fileUpload", "action": "complete" },
+      "body": {
+        "completions": [
+          {
+            "key": "conformance-expired.bin",
+            "file": { "name": "conformance-expired.bin", "size": 10, "type": "application/octet-stream" },
+            "completionToken": {
+              "$seal": {
+                "v": 2,
+                "id": "conformance-expired",
+                "route": "fileUpload",
+                "key": "conformance-expired.bin",
+                "file": { "name": "conformance-expired.bin", "size": 10, "type": "application/octet-stream" },
+                "input": {},
+                "metadata": {},
+                "exp": 1
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expect": { "status": 403, "body": { "code": "FORBIDDEN" } }
+  },
+  {
+    "name": "a completion token is refused on another route",
+    "spec": "The reference servers' token: a receipt",
+    "why": "Routes differ in who may upload and what the hook does. A token earned on a permissive route must not finish an upload on a stricter one, even for the same key.",
+    "steps": [
+      {
+        "request": {
+          "query": { "route": "fileUpload" },
+          "body": { "files": [{ "name": "conformance-cross-route.png", "size": 10, "type": "image/png" }] }
+        },
+        "expect": { "status": 200 },
+        "save": { "key": "results.0.key", "token": "results.0.completionToken" }
+      },
+      {
+        "request": {
+          "query": { "route": "imageUpload", "action": "complete" },
+          "body": {
+            "completions": [
+              {
+                "key": "${key}",
+                "file": { "name": "conformance-cross-route.png", "size": 10, "type": "image/png" },
+                "completionToken": "${token}"
+              }
+            ]
+          }
+        },
+        "expect": { "status": 403, "body": { "code": "FORBIDDEN" } }
+      }
+    ]
+  },
+  {
+    "name": "a completion before the upload arrived fails that file",
+    "spec": "3. Complete",
+    "why": "A completion is a claim that bytes landed. The hook is where an application inserts the row and grants access, so it must not run for an object that does not exist. The failure is per file: the request itself was authorised.",
+    "needs": ["storage"],
+    "steps": [
+      {
+        "request": {
+          "query": { "route": "fileUpload" },
+          "body": { "files": [{ "name": "conformance-never-uploaded.bin", "size": 10, "type": "application/octet-stream" }] }
+        },
+        "expect": { "status": 200 },
+        "save": { "key": "results.0.key", "token": "results.0.completionToken" }
+      },
+      {
+        "request": {
+          "query": { "route": "fileUpload", "action": "complete" },
+          "body": {
+            "completions": [
+              {
+                "key": "${key}",
+                "file": { "name": "conformance-never-uploaded.bin", "size": 10, "type": "application/octet-stream" },
+                "completionToken": "${token}"
+              }
+            ]
+          }
+        },
+        "expect": {
+          "status": 200,
+          "body": { "results": [{ "success": false, "key": "${key}", "error": { "$type": "string" } }] }
+        }
+      }
+    ]
+  },
+  {
+    "name": "an object larger than the route allows is refused and deleted",
+    "spec": "3. Complete",
+    "why": "The size limit is checked against the size the client declared. Unless completion checks what was stored, any client can declare a small file and store a large one, and the application bills, scans and serves the large one.",
+    "needs": ["storage"],
+    "steps": [
+      {
+        "request": {
+          "query": { "route": "imageUpload" },
+          "body": { "files": [{ "name": "conformance-oversize.png", "size": 1000, "type": "image/png" }] }
+        },
+        "expect": { "status": 200 },
+        "save": { "key": "results.0.key", "token": "results.0.completionToken" }
+      },
+      {
+        "store": { "key": "${key}", "size": 5242881, "type": "image/png" },
+        "expect": { "status": 200 }
+      },
+      {
+        "request": {
+          "query": { "route": "imageUpload", "action": "complete" },
+          "body": {
+            "completions": [
+              {
+                "key": "${key}",
+                "file": { "name": "conformance-oversize.png", "size": 1000, "type": "image/png" },
+                "completionToken": "${token}"
+              }
+            ]
+          }
+        },
+        "expect": {
+          "status": 200,
+          "body": { "results": [{ "success": false, "key": "${key}", "error": { "$type": "string" } }] }
+        }
+      },
+      {
+        "head": { "key": "${key}" },
+        "expect": { "status": 404 }
+      }
+    ]
+  },
+  {
+    "name": "a completed upload reports the stored file",
+    "spec": "3. Complete",
+    "why": "The control for the two cases above: an upload sent exactly as presigned completes, so their failures are about the object, not about the setup.",
+    "needs": ["storage"],
+    "steps": [
+      {
+        "request": {
+          "query": { "route": "fileUpload" },
+          "body": { "files": [{ "name": "conformance-uploaded.bin", "size": 11, "type": "application/octet-stream" }] }
+        },
+        "expect": { "status": 200 },
+        "save": {
+          "key": "results.0.key",
+          "token": "results.0.completionToken",
+          "url": "results.0.presignedUrl",
+          "headers": "results.0.requiredHeaders"
+        }
+      },
+      {
+        "upload": { "url": "${url}", "headers": "${headers}", "size": 11 },
+        "expect": { "status": 200 }
+      },
+      {
+        "request": {
+          "query": { "route": "fileUpload", "action": "complete" },
+          "body": {
+            "completions": [
+              {
+                "key": "${key}",
+                "file": { "name": "conformance-uploaded.bin", "size": 11, "type": "application/octet-stream" },
+                "completionToken": "${token}"
+              }
+            ]
+          }
+        },
+        "expect": {
+          "status": 200,
+          "body": { "results": [{ "success": true, "key": "${key}" }] }
+        }
+      }
+    ]
+  }
+]
