@@ -1,74 +1,94 @@
+/**
+ * @fileoverview `customDomain` is normalised once, where configs are created.
+ *
+ * Public URLs are `${customDomain}/${key}`, so the value has to be an origin
+ * (plus, optionally, a path prefix) with a scheme and no trailing slash. It
+ * was used exactly as written: `cdn.example.com` — the form pushduck's own
+ * examples showed — produced `cdn.example.com/key`, which a browser resolves
+ * as a path relative to the current page. Apps stripped and re-added schemes
+ * around it to compensate.
+ */
+
 import { describe, expect, it } from "vitest";
 import { createUploadConfig } from "../core/config/upload-config";
-import { getFileUrl } from "../core/storage/client";
+import {
+  createProvider,
+  toStorageTarget,
+  validateProviderConfig,
+} from "../core/providers/providers";
+import { createStorage } from "../core/storage/storage-api";
 
-describe("Custom Domain Support", () => {
-  it("should use custom domain for public URLs when configured", () => {
-    const { config } = createUploadConfig()
-      .provider("aws", {
-        accessKeyId: "test-key",
-        secretAccessKey: "test-secret",
-        region: "us-east-1",
-        bucket: "test-bucket",
-        customDomain: "https://cdn.example.com",
-      })
-      .build();
+const KEYS = { accessKeyId: "key", secretAccessKey: "secret", bucket: "b" };
 
-    // Test that getFileUrl uses custom domain for public URLs
-    const publicUrl = getFileUrl(config, "uploads/test.jpg");
+function publicUrl(customDomain: string, key = "avatars/a.png"): string {
+  const { config } = createUploadConfig()
+    .provider("cloudflareR2", { ...KEYS, accountId: "acct", customDomain })
+    .build();
+  return createStorage(config).download.url(key);
+}
 
-    expect(publicUrl).toBe("https://cdn.example.com/uploads/test.jpg");
+describe("customDomain", () => {
+  it.each([
+    // Bare host — the form the JSDoc examples used to show.
+    ["cdn.example.com", "https://cdn.example.com/avatars/a.png"],
+    ["https://cdn.example.com", "https://cdn.example.com/avatars/a.png"],
+    // An explicit scheme is kept: local MinIO and dev CDNs serve plain http.
+    ["http://localhost:9000", "http://localhost:9000/avatars/a.png"],
+    ["https://cdn.example.com/", "https://cdn.example.com/avatars/a.png"],
+    ["https://cdn.example.com//", "https://cdn.example.com/avatars/a.png"],
+    // A path prefix is a CDN behaviour mapped onto the bucket; keys go below it.
+    ["https://cdn.example.com/media/", "https://cdn.example.com/media/avatars/a.png"],
+    ["  pub-123.r2.dev  ", "https://pub-123.r2.dev/avatars/a.png"],
+  ])("%j makes public URLs like %s", (customDomain, expected) => {
+    expect(publicUrl(customDomain)).toBe(expected);
   });
 
-  it("should fall back to S3 URLs when custom domain is not configured", () => {
-    const { config } = createUploadConfig()
-      .provider("aws", {
-        accessKeyId: "test-key",
-        secretAccessKey: "test-secret",
-        region: "us-east-1",
-        bucket: "test-bucket",
-      })
-      .build();
+  it("is stored normalised, so every reader sees the same value", () => {
+    const config = createProvider("aws", { ...KEYS, customDomain: "cdn.example.com/" });
+    expect(config.customDomain).toBe("https://cdn.example.com");
+    expect(toStorageTarget(config).customDomain).toBe("https://cdn.example.com");
+  });
 
-    // Test that getFileUrl falls back to S3 URLs
-    const publicUrl = getFileUrl(config, "uploads/test.jpg");
+  it.each(["aws", "digitalOceanSpaces", "gcs"] as const)(
+    "%s normalises it too",
+    (provider) => {
+      expect(
+        createProvider(provider, { ...KEYS, customDomain: "cdn.example.com" })
+          .customDomain
+      ).toBe("https://cdn.example.com");
+    }
+  );
 
-    expect(publicUrl).toBe(
-      "https://test-bucket.s3.us-east-1.amazonaws.com/uploads/test.jpg"
+  it("leaves an omitted customDomain absent, so URLs fall back to the provider", () => {
+    expect(publicUrl("")).toBe(
+      "https://acct.r2.cloudflarestorage.com/b/avatars/a.png"
     );
   });
 
-  it("should handle custom domain with trailing slash", () => {
-    const { config } = createUploadConfig()
-      .provider("aws", {
-        accessKeyId: "test-key",
-        secretAccessKey: "test-secret",
-        region: "us-east-1",
-        bucket: "test-bucket",
-        customDomain: "https://cdn.example.com/",
-      })
-      .build();
-
-    // Test that getFileUrl handles trailing slash correctly
-    const publicUrl = getFileUrl(config, "uploads/test.jpg");
-
-    expect(publicUrl).toBe("https://cdn.example.com/uploads/test.jpg");
+  it("a hand-written config must already be in normal form", () => {
+    // `.provider(configObject)` skips createProvider; build() validates it.
+    const handWritten = {
+      ...createProvider("aws", KEYS),
+      customDomain: "cdn.example.com/",
+    };
+    expect(validateProviderConfig(handWritten).errors).toEqual([
+      'customDomain must include the scheme and no trailing slash: use "https://cdn.example.com" instead of "cdn.example.com/"',
+    ]);
+    expect(() =>
+      createUploadConfig().provider(handWritten).build()
+    ).toThrow(/customDomain must include the scheme/);
   });
 
-  it("should prioritize custom domain over endpoint", () => {
-    const { config } = createUploadConfig()
-      .provider("aws", {
-        accessKeyId: "test-key",
-        secretAccessKey: "test-secret",
-        region: "us-east-1",
-        bucket: "test-bucket",
-        customDomain: "https://cdn.example.com",
-      })
-      .build();
-
-    // Test that custom domain takes precedence
-    const publicUrl = getFileUrl(config, "uploads/test.jpg");
-
-    expect(publicUrl).toBe("https://cdn.example.com/uploads/test.jpg");
+  it.each([
+    // `${base}/${key}` would put the key inside the query or fragment.
+    ["https://cdn.example.com?v=1", /query string or fragment/],
+    ["https://cdn.example.com/#top", /query string or fragment/],
+    ["ftp://cdn.example.com", /http:\/\/ or https:\/\//],
+    ["https://user:pw@cdn.example.com", /credentials/],
+    ["https://cdn example.com", /not a valid URL/],
+  ])("rejects %j", (customDomain, message) => {
+    expect(() =>
+      createProvider("aws", { ...KEYS, customDomain })
+    ).toThrow(message);
   });
 });

@@ -26,7 +26,7 @@ import { defineProvider, type BaseProviderConfig } from "./define";
  *   accountId: 'abc123',
  *   accessKeyId: 'key123',
  *   secretAccessKey: 'secret123',
- *   customDomain: 'assets.myapp.com',
+ *   customDomain: 'https://assets.myapp.com',
  * };
  * ```
  */

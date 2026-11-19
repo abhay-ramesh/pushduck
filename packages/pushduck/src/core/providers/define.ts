@@ -48,7 +48,18 @@ export interface BaseProviderConfig {
    * Object Storage).
    */
   acl?: S3AclValue;
-  /** Custom domain for file URLs (e.g., 'cdn.example.com') */
+  /**
+   * Where public files are served from, e.g. `'https://cdn.example.com'`.
+   * Public URLs are `<customDomain>/<key>`.
+   *
+   * A bare host (`'cdn.example.com'`) gets `https://`; an explicit `http://`
+   * is kept. Trailing slashes are removed, and a path prefix
+   * (`'https://cdn.example.com/media'`) is allowed. A query string, fragment
+   * or credentials are rejected: the key is appended to the value as text.
+   *
+   * Used only for public URLs. Presigned URLs are always signed against the
+   * provider's API endpoint.
+   */
   customDomain?: string;
   /** Force path-style URLs instead of virtual-hosted style */
   forcePathStyle?: boolean;
@@ -155,6 +166,67 @@ export function awsSigningRegion(region: string): string {
   return region === "auto" ? "us-east-1" : region;
 }
 
+/**
+ * Puts a `customDomain` in the one form public URLs are built from:
+ * a scheme, and no trailing slash, so `${customDomain}/${key}` is an absolute
+ * URL. `createProvider` applies it to every provider; {@link checkCustomDomain}
+ * then rejects what it cannot fix.
+ *
+ * Without a scheme, `cdn.example.com/key` is a *relative* URL — a browser
+ * resolves it against the current page — so a bare host gets `https://`.
+ * An explicit `http://` is kept for local and development servers.
+ *
+ * @internal
+ */
+export function normalizeCustomDomain(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+  return withScheme.replace(/\/+$/, "");
+}
+
+/**
+ * Problems with a `customDomain` that would break `${customDomain}/${key}`.
+ *
+ * A path prefix is fine — a CDN behaviour such as `/media` mapped onto the
+ * bucket. A query string or fragment is not: the key would land inside it.
+ *
+ * Configs from `createProvider` are already normalised; a config object
+ * written by hand is not, so the normal form is required here rather than
+ * re-applied wherever a URL is built.
+ */
+function checkCustomDomain(value: string): string[] {
+  const normalized = normalizeCustomDomain(value);
+  if (normalized !== value) {
+    return [
+      `customDomain must include the scheme and no trailing slash: use ${JSON.stringify(normalized)} instead of ${JSON.stringify(value)}`,
+    ];
+  }
+
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return [`customDomain ${JSON.stringify(value)} is not a valid URL`];
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    return [
+      `customDomain must use http:// or https://, got ${JSON.stringify(value)}`,
+    ];
+  }
+  if (url.username || url.password) {
+    return [`customDomain must not contain credentials`];
+  }
+  if (url.search || url.hash || /[?#]/.test(value)) {
+    return [
+      `customDomain must not have a query string or fragment, got ${JSON.stringify(value)} — public URLs are <customDomain>/<key>`,
+    ];
+  }
+  return [];
+}
+
 /** How each option is named in a "required" message. */
 const FIELD_LABELS: Record<string, string> = {
   accessKeyId: "Access Key ID",
@@ -193,6 +265,10 @@ export function checkProviderConfig<TConfig extends BaseProviderConfig>(
     errors.push(
       `forcePathStyle must be true or false, got ${JSON.stringify(forcePathStyle)} — convert environment strings, e.g. process.env.S3_FORCE_PATH_STYLE === "true"`
     );
+  }
+
+  if (config.customDomain) {
+    errors.push(...checkCustomDomain(config.customDomain));
   }
 
   for (const field of definition.required) {
