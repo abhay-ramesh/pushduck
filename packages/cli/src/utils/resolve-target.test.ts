@@ -55,6 +55,12 @@ describe("resolveTarget", () => {
     });
   });
 
+  it("cloudflare-r2 sends a jurisdiction's buckets to that jurisdiction's endpoint", () => {
+    expect(
+      resolveTarget({ ...KEYS, accountId: "acct", region: "auto", jurisdiction: "eu" }, "cloudflare-r2")
+    ).toMatchObject({ endpoint: "https://acct.eu.r2.cloudflarestorage.com" });
+  });
+
   it("gcs addresses the XML API", () => {
     expect(resolveTarget({ ...KEYS, region: "us-central1" }, "gcs")).toMatchObject({
       endpoint: "https://storage.googleapis.com",

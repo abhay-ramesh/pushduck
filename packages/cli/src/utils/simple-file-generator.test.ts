@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ProjectInfo } from "./project-detector";
-import type { ProviderType } from "./provider-setup";
+import type { ProviderCredentials, ProviderType } from "./provider-setup";
 import { generateFiles } from "./simple-file-generator";
 
 let rootDir: string;
@@ -28,7 +28,10 @@ afterEach(async () => {
   await rm(rootDir, { recursive: true, force: true });
 });
 
-async function generatedConfig(provider: ProviderType): Promise<string> {
+async function generatedConfig(
+  provider: ProviderType,
+  extra: Partial<ProviderCredentials> = {}
+): Promise<string> {
   const projectInfo: ProjectInfo = {
     framework: "nextjs",
     version: "15.0.0",
@@ -50,6 +53,7 @@ async function generatedConfig(provider: ProviderType): Promise<string> {
       secretAccessKey: "secret",
       region: "us-east-1",
       bucket: "b",
+      ...extra,
     },
     apiPath: "/api/upload",
     generateExamples: false,
@@ -68,4 +72,11 @@ describe("generated upload config", () => {
       expect(content).not.toMatch(/\bacl\s*:/);
     }
   );
+
+  it("cloudflare-r2: keeps the bucket's jurisdiction, so the app reaches the bucket init did", async () => {
+    expect(await generatedConfig("cloudflare-r2", { jurisdiction: "eu" })).toContain(
+      'jurisdiction: "eu",'
+    );
+    expect(await generatedConfig("cloudflare-r2")).not.toContain("jurisdiction");
+  });
 });

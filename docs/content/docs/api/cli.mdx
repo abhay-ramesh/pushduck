@@ -343,8 +343,12 @@ The CLI automatically creates `.env.example` and prompts for missing values:
 # Cloudflare R2 Configuration (Recommended)
 CLOUDFLARE_R2_ACCESS_KEY_ID=your_access_key_here
 CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_secret_key_here
-CLOUDFLARE_R2_ACCOUNT_ID=your_account_id_here
-CLOUDFLARE_R2_BUCKET_NAME=your-bucket-name
+CLOUDFLARE_ACCOUNT_ID=your_account_id_here
+R2_BUCKET=your-bucket-name
+# Only for a bucket created in a jurisdiction (eu, fedramp or us): the CLI
+# then reaches it through https://<account>.<jurisdiction>.r2.cloudflarestorage.com
+# and writes `jurisdiction` into the generated upload config.
+# CLOUDFLARE_R2_JURISDICTION=eu
 
 # Alternative: AWS S3 Configuration
 # AWS_ACCESS_KEY_ID=your_access_key_here

@@ -71,7 +71,7 @@ import { neonStorage } from "./neon-storage";
 import { s3Compatible } from "./s3-compatible";
 
 export type { AWSProviderConfig } from "./aws";
-export type { CloudflareR2Config } from "./cloudflare-r2";
+export type { CloudflareR2Config, R2Jurisdiction } from "./cloudflare-r2";
 export type {
   BaseProviderConfig,
   ProviderDefinition,

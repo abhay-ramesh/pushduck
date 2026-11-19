@@ -102,7 +102,7 @@ export async function generateFiles(
 
   // Create files
   await createApiRoute(projectInfo, apiPath, verbose);
-  await createUploadConfig(projectInfo, provider, verbose);
+  await createUploadConfig(projectInfo, provider, credentials, verbose);
   await createUploadClient(projectInfo, apiPath, verbose);
   await updateEnvFile(projectInfo, provider, credentials, verbose);
 
@@ -237,6 +237,7 @@ export const { GET, POST } = uploadRouter.handlers;
 async function createUploadConfig(
   projectInfo: ProjectInfo,
   provider: ProviderType,
+  credentials: ProviderCredentials,
   verbose?: boolean
 ): Promise<void> {
   const { rootDir, typescript, useSrcDir } = projectInfo;
@@ -245,7 +246,7 @@ async function createUploadConfig(
   const filePath = path.join(rootDir, `${libDir}/upload-config.${ext}`);
 
   const providerKey = getProviderConfigKey(provider);
-  const envVars = getProviderEnvVars(provider);
+  const envVars = getProviderEnvVars(provider, credentials);
 
   const content = `import { createUploadConfig } from "pushduck/server";
 
@@ -813,12 +814,23 @@ function getProviderConfigKey(provider: ProviderType): string {
   }
 }
 
-function getProviderEnvVars(provider: ProviderType): string {
+function getProviderEnvVars(
+  provider: ProviderType,
+  credentials: ProviderCredentials
+): string {
   switch (provider) {
     case "aws":
       return "region: process.env.AWS_REGION!,\n      bucket: process.env.S3_BUCKET!,\n      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,";
     case "cloudflare-r2":
-      return "accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,\n      bucket: process.env.R2_BUCKET!,\n      accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,";
+      return (
+        "accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,\n      bucket: process.env.R2_BUCKET!,\n      accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!," +
+        // A literal rather than process.env: the option is typed as the
+        // jurisdictions Cloudflare defines, and the jurisdiction is a fixed
+        // property of the bucket, not a secret.
+        (credentials.jurisdiction
+          ? `\n      jurisdiction: ${JSON.stringify(credentials.jurisdiction)},`
+          : "")
+      );
     case "digitalocean":
       return "region: process.env.DO_SPACES_REGION!,\n      bucket: process.env.DO_SPACES_BUCKET!,\n      accessKeyId: process.env.DO_SPACES_ACCESS_KEY_ID!,\n      secretAccessKey: process.env.DO_SPACES_SECRET_ACCESS_KEY!,";
     case "minio":

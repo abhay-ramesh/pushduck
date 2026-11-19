@@ -32,6 +32,7 @@ export type {
   AWSProviderConfig,
   BaseProviderConfig,
   CloudflareR2Config,
+  R2Jurisdiction,
   DigitalOceanSpacesConfig,
   GoogleCloudStorageConfig,
   MinIOConfig,
