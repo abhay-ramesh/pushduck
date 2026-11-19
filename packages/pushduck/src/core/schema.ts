@@ -147,15 +147,41 @@ export interface S3FileConstraints {
    * and extensions with dots (`'.pdf'`). Mixes are allowed.
    * @example s3.file({ accept: ['image/*', '.pdf'] })
    */
-  accept?: string | string[];
+  accept?: string | readonly string[];
   /** Allowed MIME types (e.g., ['image/jpeg', 'application/pdf']) */
-  allowedTypes?: string[];
+  allowedTypes?: readonly string[];
   /** Allowed file extensions (e.g., ['.jpg', '.pdf']) */
-  allowedExtensions?: string[];
+  allowedExtensions?: readonly string[];
   /** Whether the file is required (default: true) */
   required?: boolean;
   /** Maximum number of files allowed for this route */
   maxFiles?: number;
+}
+
+/**
+ * Splits an `accept` list into the MIME types and extensions it names.
+ *
+ * Mirrors HTML `<input accept>`: an entry starting with a dot is an extension
+ * (stored without the dot), anything else is a MIME type or wildcard. A side
+ * the list does not mention is left out of the result, not set empty, so
+ * spreading it over existing constraints keeps what was there.
+ *
+ * Takes a readonly list because callers share one `as const` array between
+ * the route and the client's `<input accept>`; it is only ever read.
+ */
+function parseAccept(
+  accept: string | readonly string[]
+): Pick<S3FileConstraints, "allowedTypes" | "allowedExtensions"> {
+  const entries = typeof accept === "string" ? [accept] : accept;
+  const allowedTypes = entries.filter((t) => !t.startsWith("."));
+  const allowedExtensions = entries
+    .filter((t) => t.startsWith("."))
+    .map((e) => e.slice(1));
+
+  return {
+    ...(allowedTypes.length > 0 && { allowedTypes }),
+    ...(allowedExtensions.length > 0 && { allowedExtensions }),
+  };
 }
 
 /**
@@ -652,18 +678,12 @@ export class S3FileSchema extends S3Schema<File, File> {
     super();
     // Process `accept` shorthand into allowedTypes / allowedExtensions
     if (constraints.accept) {
-      const acceptArray = Array.isArray(constraints.accept)
-        ? constraints.accept
-        : [constraints.accept];
-      const mimeTypes = acceptArray.filter((t) => !t.startsWith("."));
-      const exts = acceptArray
-        .filter((t) => t.startsWith("."))
-        .map((e) => e.slice(1)); // strip leading dot for internal storage
-      if (mimeTypes.length && !constraints.allowedTypes) {
-        constraints = { ...constraints, allowedTypes: mimeTypes };
+      const { allowedTypes, allowedExtensions } = parseAccept(constraints.accept);
+      if (allowedTypes && !constraints.allowedTypes) {
+        constraints = { ...constraints, allowedTypes };
       }
-      if (exts.length && !constraints.allowedExtensions) {
-        constraints = { ...constraints, allowedExtensions: exts };
+      if (allowedExtensions && !constraints.allowedExtensions) {
+        constraints = { ...constraints, allowedExtensions };
       }
       this.constraints = constraints;
     }
@@ -838,20 +858,12 @@ export class S3FileSchema extends S3Schema<File, File> {
    * upload.file().accept(['image/*', '.pdf']) // mixed
    * ```
    */
-  accept(types: string | string[]): S3FileSchema {
-    const typeArray = Array.isArray(types) ? types : [types];
-    const mimeTypes = typeArray.filter((t) => !t.startsWith("."));
-    const exts = typeArray
-      .filter((t) => t.startsWith("."))
-      .map((e) => e.slice(1)); // strip leading dot
-    const newConstraints = { ...this.constraints };
-    if (mimeTypes.length > 0) newConstraints.allowedTypes = mimeTypes;
-    if (exts.length > 0) newConstraints.allowedExtensions = exts;
-    return new S3FileSchema(newConstraints);
+  accept(types: string | readonly string[]): S3FileSchema {
+    return new S3FileSchema({ ...this.constraints, ...parseAccept(types) });
   }
 
   /** @deprecated Use `.accept()` instead. */
-  types(allowedTypes: string[]): S3FileSchema {
+  types(allowedTypes: readonly string[]): S3FileSchema {
     console.warn(
       "⚠️ pushduck: .types() is deprecated. Use .accept() instead."
     );
@@ -859,7 +871,7 @@ export class S3FileSchema extends S3Schema<File, File> {
   }
 
   /** @deprecated Use `.accept(['.ext'])` instead. */
-  extensions(allowedExtensions: string[]): S3FileSchema {
+  extensions(allowedExtensions: readonly string[]): S3FileSchema {
     console.warn(
       "⚠️ pushduck: .extensions() is deprecated. Use .accept() with dot-prefixed extensions instead, e.g. .accept([\'.pdf\', \'.doc\'])."
     );
@@ -1260,7 +1272,7 @@ export class S3ImageSchema extends S3FileSchema {
   /**
    * @deprecated Use `accept()` instead with MIME types (e.g., `accept(['image/jpeg', 'image/png', 'image/webp'])`).
    */
-  formats(formats: string[]): S3ImageSchema {
+  formats(formats: readonly string[]): S3ImageSchema {
     console.warn("⚠️  The `formats()` method is deprecated. Use `accept()` with MIME types instead.");
     const mimeMap: Record<string, string> = {
       jpg: "image/jpeg",
@@ -1302,24 +1314,18 @@ export class S3ImageSchema extends S3FileSchema {
     return new S3ImageSchema({ ...this.constraints, minSize: size });
   }
 
-  override accept(types: string | string[]): S3ImageSchema {
-    const typeArray = Array.isArray(types) ? types : [types];
-    const mimeTypes = typeArray.filter((t) => !t.startsWith("."));
-    const exts = typeArray.filter((t) => t.startsWith(".")).map((e) => e.slice(1));
-    const newConstraints = { ...this.constraints };
-    if (mimeTypes.length > 0) newConstraints.allowedTypes = mimeTypes;
-    if (exts.length > 0) newConstraints.allowedExtensions = exts;
-    return new S3ImageSchema(newConstraints);
+  override accept(types: string | readonly string[]): S3ImageSchema {
+    return new S3ImageSchema({ ...this.constraints, ...parseAccept(types) });
   }
 
   /** @deprecated Use `.accept()` instead. */
-  override types(allowedTypes: string[]): S3ImageSchema {
+  override types(allowedTypes: readonly string[]): S3ImageSchema {
     console.warn("⚠️ pushduck: .types() is deprecated. Use .accept() instead.");
     return this.accept(allowedTypes);
   }
 
   /** @deprecated Use `.accept(['.ext'])` instead. */
-  override extensions(allowedExtensions: string[]): S3ImageSchema {
+  override extensions(allowedExtensions: readonly string[]): S3ImageSchema {
     console.warn("⚠️ pushduck: .extensions() is deprecated. Use .accept() with dot-prefixed extensions instead.");
     return this.accept(allowedExtensions.map((e) => (e.startsWith(".") ? e : `.${e}`)));
   }
