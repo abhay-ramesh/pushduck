@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from pushduck import Request, Route, Router, UploadConfig, UploadError, file  # noqa: E402
 from pushduck.config import MAX_PARTS, MIN_PART_SIZE, choose_part_size  # noqa: E402
 from pushduck.multipart import sign_session, verify_session  # noqa: E402
+from pushduck.receipt import open_receipt  # noqa: E402
 
 MINIO = os.environ.get("MINIO_ENDPOINT", "http://127.0.0.1:9010")
 
@@ -364,8 +365,9 @@ class MinioRoundTrip(unittest.TestCase):
 
         self._upload_parts(session, payload, initiated["partSize"], [1, 2, 3])
 
-        session_claim = verify_session(self.config.secret_access_key, session)
-        upload_id = str(session_claim["uploadId"])
+        receipt = open_receipt(self.config.secret_access_key, session, self.config.now())
+        assert receipt is not None and receipt.multipart is not None
+        upload_id = receipt.multipart.upload_id
 
         # One part per page: the provider truncates, and only a loop that
         # follows NextPartNumberMarker sees all three.
