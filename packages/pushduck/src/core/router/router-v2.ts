@@ -57,7 +57,7 @@
  */
 
 import { UploadConfig } from "../config/upload-config";
-import { isRequestScoped, UploadError } from "../errors";
+import { isRequestScoped, UploadError, type UploadErrorCode } from "../errors";
 import {
   abortMultipartUpload,
   completeMultipartUpload,
@@ -1298,6 +1298,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           success: false,
           file,
           error: err.message,
+          code: err.code,
         });
       }
     }
@@ -1743,8 +1744,7 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
       try {
         results.push(await this.#finalize(routeName, upload, { verified }));
       } catch (error) {
-        const err =
-          error instanceof Error ? error : new Error("Upload completion failed");
+        const err = normalizeServerError(error);
 
         const onErrorHook = routeConfig.onError || routeConfig.onUploadError;
         if (onErrorHook) {
@@ -1755,7 +1755,12 @@ export class S3Router<TRoutes extends S3RouterDefinition> {
           });
         }
 
-        results.push({ success: false, key: upload.key, error: err.message });
+        results.push({
+          success: false,
+          key: upload.key,
+          error: err.message,
+          code: err.code,
+        });
       }
     }
 
@@ -1876,6 +1881,8 @@ export interface PresignedUrlResponse {
    */
   completionToken?: string;
   error?: string;
+  /** Why this file failed, when `success` is false. Branch on this, not `error`. */
+  code?: UploadErrorCode;
 }
 
 export interface UploadCompletion {
@@ -1907,6 +1914,12 @@ export interface CompletionResponse {
   url?: string;
   file?: S3FileMetadata;
   error?: string;
+  /**
+   * Why this file failed, when `success` is false: `NOT_FOUND` when nothing
+   * was uploaded to the key, `VALIDATION_FAILED` when the stored object broke
+   * the route's rules and was removed. Branch on this, not `error`.
+   */
+  code?: UploadErrorCode;
 }
 
 // ========================================

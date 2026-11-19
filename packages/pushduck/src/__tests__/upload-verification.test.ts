@@ -120,7 +120,7 @@ describe("completion verifies the stored object", () => {
 
     const { body } = await upload(router, { declared: PHOTO, skipPut: true });
 
-    expect(body.results[0]).toMatchObject({ success: false });
+    expect(body.results[0]).toMatchObject({ success: false, code: "NOT_FOUND" });
     expect(body.results[0].error).toMatch(/no object/i);
     expect(onComplete).not.toHaveBeenCalled();
     expect(onError).toHaveBeenCalledTimes(1);
@@ -132,7 +132,7 @@ describe("completion verifies the stored object", () => {
     // Declared within the 2KB limit, so presign agreed; then 5KB arrived.
     const { body, key } = await upload(router, { declared: PHOTO, bytes: 5000 });
 
-    expect(body.results[0]).toMatchObject({ success: false });
+    expect(body.results[0]).toMatchObject({ success: false, code: "VALIDATION_FAILED" });
     expect(onComplete).not.toHaveBeenCalled();
     expect(storage.objects.has(key)).toBe(false);
   });

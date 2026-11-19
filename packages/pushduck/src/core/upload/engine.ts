@@ -46,7 +46,9 @@ import type {
 import {
   fromProblemDetails,
   toUploadError,
+  UPLOAD_ERROR_CODES,
   UploadError,
+  type UploadErrorCode,
 } from "../errors";
 import { getInputMeta, isFile, toBlob } from "./input";
 import { shouldUseMultipart } from "./multipart/plan";
@@ -546,10 +548,10 @@ export function createUploadEngine<
   } | null> {
     if (!result?.success) {
       // A per-file rejection from the route's validation chain.
-      const failure = new UploadError(
-        "VALIDATION_FAILED",
-        result?.error || "Failed to get presigned URL",
-        { meta: { file: track.meta.name } }
+      const failure = fileFailure(
+        result,
+        "Failed to get presigned URL",
+        track.meta.name
       );
       patchFile(track.id, {
         status: "error",
@@ -744,46 +746,81 @@ export function createUploadEngine<
   }
 
   /**
-   * Notifies the server that objects landed, and folds the returned URLs back
-   * into file state.
+   * Tells the server the objects landed, and folds the result back into file
+   * state.
    *
-   * Deliberately non-fatal: the bytes are already in storage, so a failure here
-   * must not turn a successful upload into a failed one.
+   * Completion is where the server checks the stored object and runs the
+   * route's completion hook, so a file is uploaded only once its completion
+   * succeeds. A refusal (nothing at the key, or an object that broke the
+   * route's rules and was removed) fails that file, as does a completion
+   * request that never got an answer.
    */
   async function notifyCompletion(
-    completions: Array<{ key: string; clientFileId: string; completionToken?: string }>
+    completions: Array<{
+      key: string;
+      clientFileId: string;
+      file: S3FileMetadata;
+      completionToken?: string;
+    }>
   ): Promise<void> {
+    const fail = (clientFileId: string, failure: UploadError) => {
+      patchFile(clientFileId, {
+        status: "error",
+        error: failure.message,
+        errorCode: failure.code,
+      });
+      onError?.(failure);
+    };
+    const failAll = (failure: UploadError) => {
+      for (const { clientFileId } of completions) fail(clientFileId, failure);
+    };
+
+    let response: Response;
     try {
-      const response = await fetcher(
-        `${endpoint}?route=${route}&action=complete`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ completions }),
-        }
+      response = await fetcher(`${endpoint}?route=${route}&action=complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          completions: completions.map(({ key, file, completionToken }) => ({
+            key,
+            file,
+            completionToken,
+          })),
+        }),
+      });
+    } catch (error) {
+      failAll(toUploadError(error, "NETWORK_ERROR"));
+      return;
+    }
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.success || !Array.isArray(data.results)) {
+      failAll(fromProblemDetails(data, response.status));
+      return;
+    }
+
+    for (const completion of completions) {
+      const result = data.results.find(
+        (candidate: { key?: string } | null) => candidate?.key === completion.key
       );
+      // A server that answers without this key has not refused it.
+      if (!result) continue;
 
-      if (!response.ok) return;
-
-      const data = await response.json();
-      if (!data?.success || !Array.isArray(data.results)) return;
-
-      for (const result of data.results) {
-        if (!result?.success || !result.key) continue;
-
-        const match = completions.find((c) => c.key === result.key);
-        if (!match) continue;
-
-        patchFile(match.clientFileId, {
-          status: "success",
-          progress: 100,
-          key: result.key,
-          url: result.url,
-          presignedUrl: result.presignedUrl,
-        });
+      if (!result.success) {
+        fail(
+          completion.clientFileId,
+          fileFailure(result, "Upload completion failed", completion.file.name)
+        );
+        continue;
       }
-    } catch {
-      // Swallowed by design — see the doc comment above.
+
+      patchFile(completion.clientFileId, {
+        status: "success",
+        progress: 100,
+        key: result.key,
+        url: result.url,
+        presignedUrl: result.presignedUrl,
+      });
     }
   }
 
@@ -952,4 +989,23 @@ export function createUploadEngine<
       };
     },
   };
+}
+
+/**
+ * A per-file failure reported inside a `200`, with the server's code when it
+ * sent a recognised one. Servers that predate per-file codes only rejected
+ * files for failing validation.
+ */
+function fileFailure(
+  result: { code?: unknown; error?: unknown } | null | undefined,
+  fallbackMessage: string,
+  fileName: string
+): UploadError {
+  const code =
+    typeof result?.code === "string" && result.code in UPLOAD_ERROR_CODES
+      ? (result.code as UploadErrorCode)
+      : "VALIDATION_FAILED";
+  const message =
+    typeof result?.error === "string" && result.error ? result.error : fallbackMessage;
+  return new UploadError(code, message, { meta: { file: fileName } });
 }
