@@ -26,7 +26,7 @@ import { defineProvider, type BaseProviderConfig } from "./define";
  *   region: 'us-east-1',
  *   accessKeyId: 'AKIA...',
  *   secretAccessKey: 'secret...',
- *   customDomain: 'cdn.myapp.com',
+ *   customDomain: 'https://cdn.myapp.com',
  *   acl: 'public-read',
  * };
  * ```

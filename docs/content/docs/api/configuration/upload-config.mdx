@@ -343,6 +343,26 @@ file.url = "https://cdn.yourdomain.com/path/file.jpg"
 
 **Note**: Internal operations (upload, delete) still use the storage provider's endpoints. Only public URLs are affected by the custom domain.
 
+### Accepted forms
+
+Public URLs are `<customDomain>/<key>`, so the value is normalised when the
+config is created:
+
+| You pass | Stored as |
+| --- | --- |
+| `https://cdn.yourdomain.com` | `https://cdn.yourdomain.com` |
+| `cdn.yourdomain.com` | `https://cdn.yourdomain.com` (a bare host gets `https://`) |
+| `http://localhost:9000` | `http://localhost:9000` (an explicit scheme is kept) |
+| `https://cdn.yourdomain.com/` | `https://cdn.yourdomain.com` (trailing slashes removed) |
+| `https://cdn.yourdomain.com/media` | `https://cdn.yourdomain.com/media` (keys go below the path) |
+
+A value with a query string or fragment (`?v=1`, `#x`), credentials, or a
+scheme other than `http`/`https` is rejected when the config is created: the
+key is appended as text, so it would end up inside the query.
+
+Pass the URL you serve files from as-is (for example `R2_PUBLIC_URL`); there is
+no need to strip the scheme first.
+
 ## Client Upload Results
 
 After successful upload completion, clients receive file objects with both permanent and temporary URLs:

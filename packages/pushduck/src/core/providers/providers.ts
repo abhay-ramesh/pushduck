@@ -60,6 +60,7 @@ import { aws } from "./aws";
 import { cloudflareR2 } from "./cloudflare-r2";
 import {
   checkProviderConfig,
+  normalizeCustomDomain,
   type ProviderDefinition,
   type StorageTarget,
 } from "./define";
@@ -196,6 +197,13 @@ export function createProvider<T extends ProviderType>(
   // ?? rather than || so that false, 0 and "" are preserved.
   for (const key of definition.fields) {
     result[key] = input[key] ?? defaults[key] ?? "";
+  }
+
+  // Every provider takes customDomain, and public URLs are built from it as
+  // `${customDomain}/${key}`; normalising here means nothing downstream has
+  // to re-check its scheme or trailing slash.
+  if (typeof result.customDomain === "string") {
+    result.customDomain = normalizeCustomDomain(result.customDomain);
   }
 
   // One object throughout: derive and validation see the same config.

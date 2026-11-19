@@ -498,6 +498,9 @@ export class UploadConfigBuilder {
    * @returns This builder instance for method chaining
    *
    * @example Direct Provider Config
+   * A config object is used as given — not defaulted, derived or normalised
+   * — and only validated by `build()`. Prefer the `(type, options)` form, or
+   * pass the result of `createProvider`.
    * ```typescript
    * builder.provider({
    *   provider: "aws",

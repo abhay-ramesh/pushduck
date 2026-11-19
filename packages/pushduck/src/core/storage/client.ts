@@ -317,10 +317,9 @@ function encodeRfc3986(value: string): string {
  * Use {@link buildApiUrl} for anything that talks to the provider.
  */
 function buildCdnUrl(key: string, config: ClientTarget): string {
-  // If custom domain is configured, use it for public URLs
+  // createProvider stores customDomain with a scheme and no trailing slash.
   if (config.customDomain) {
-    const baseUrl = config.customDomain.replace(/\/$/, "");
-    return `${baseUrl}/${key}`;
+    return `${config.customDomain}/${key}`;
   }
 
   // Fall back to S3 URL for public access
