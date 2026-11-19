@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // ProtocolVersion is the wire contract this implementation speaks.
@@ -63,10 +64,15 @@ type completeRequest struct {
 }
 
 type completionResult struct {
-	Success bool     `json:"success"`
-	Key     string   `json:"key"`
-	URL     string   `json:"url"`
-	File    FileMeta `json:"file"`
+	Success bool      `json:"success"`
+	Key     string    `json:"key"`
+	URL     string    `json:"url,omitempty"`
+	File    *FileMeta `json:"file,omitempty"`
+	Error   string    `json:"error,omitempty"`
+	// Code is the failure's protocol code, so a client can tell an upload
+	// that never arrived (NOT_FOUND) from one that was refused
+	// (VALIDATION_FAILED) without parsing Error.
+	Code string `json:"code,omitempty"`
 }
 
 // ─── dispatch ───────────────────────────────────────────────────────────────
@@ -171,28 +177,9 @@ func (router *Router) presign(
 		// Metadata hooks authenticate the *request*, so a rejection fails all of
 		// it. This is the distinction the conformance suite pins down: a
 		// request-scoped failure is a status, a file-scoped one is an entry.
-		metadata := map[string]any{}
-		for key, value := range request.Metadata {
-			metadata[key] = value
-		}
-
-		for _, hook := range route.Metadata {
-			produced, err := hook(r, file)
-			if err != nil {
-				return err
-			}
-			// Assigned unconditionally. Keeping the previous value when a
-			// hook returns nil sounds harmless and is not: that value is
-			// the *client's* metadata, so an authenticate-only hook —
-			// the most natural shape there is — would silently promote the
-			// caller's own identity claims to the ones the application trusts.
-			metadata = produced
-		}
-
-		// A hook ran and returned nothing, so the upload has no
-		// metadata. Never the client's.
-		if metadata == nil {
-			metadata = map[string]any{}
+		metadata, err := route.runMetadata(r, PhasePresign, file, request.Metadata)
+		if err != nil {
+			return err
 		}
 
 		if message := route.validate(file); message != "" {
@@ -231,7 +218,20 @@ func (router *Router) presign(
 			required["Content-Type"] = file.Type
 		}
 
-		token, err := router.signCompletion(key, routeName)
+		// The completion token is the upload's receipt: completion reads the
+		// key, the file and the metadata back from it instead of trusting the
+		// request, so a caller can neither finish someone else's upload nor
+		// rewrite what the hooks decided here.
+		token, err := router.sealReceipt(receipt{
+			ID:       newUploadID(),
+			Route:    routeName,
+			Key:      key,
+			File:     file,
+			Input:    request.Metadata,
+			Metadata: metadata,
+			Exp: router.config.now().
+				Add(time.Duration(router.config.uploadExpiry())*time.Second + completionGrace).Unix(),
+		})
 		if err != nil {
 			return err
 		}
@@ -255,6 +255,13 @@ func (router *Router) presign(
 
 // ─── complete ───────────────────────────────────────────────────────────────
 
+// complete finishes single-PUT uploads.
+//
+// Each completion presents the receipt its presign issued, and the receipt is
+// the authority on what is being finished — which key, which file, which
+// metadata. The metadata hooks still run, over the same input as at presign,
+// so a caller who has lost access since is refused; what they return is
+// discarded.
 func (router *Router) complete(
 	w http.ResponseWriter, r *http.Request, routeName string, route Route,
 	telemetry map[string]string,
@@ -268,11 +275,11 @@ func (router *Router) complete(
 		return NewError("BAD_REQUEST", "`completions` must be an array")
 	}
 
-	results := make([]completionResult, 0, len(request.Completions))
+	mismatch := NewError("FORBIDDEN", "This completion does not match the upload it was issued for")
 
 	// Authorised in full before any hook runs, so a batch containing one
 	// unauthorised entry cannot fire the hook for the others.
-	trusted := make([]map[string]any, 0, len(request.Completions))
+	authorised := make([]upload, 0, len(request.Completions))
 
 	for _, entry := range request.Completions {
 		// Caller first, then object.
@@ -281,56 +288,59 @@ func (router *Router) complete(
 		// session nor a token, and "sign in" is the accurate, actionable answer
 		// — 401. Checking the token first answers "your token is missing", a
 		// 403 that tells a logged-out user to fix something they cannot fix.
-		metadata := map[string]any{}
-		for key, value := range entry.Metadata {
-			metadata[key] = value
-		}
+		issued, refusal := router.openReceipt(entry.CompletionToken)
 
-		for _, hook := range route.Metadata {
-			produced, err := hook(r, entry.File)
-			if err != nil {
+		if issued != nil {
+			if _, err := route.runMetadata(r, PhaseComplete, issued.File, issued.Input); err != nil {
 				return err
 			}
-			// As at presign: nil means "no metadata", never "keep the
-			// client's".
-			metadata = produced
+			if issued.Route != routeName || issued.Key != entry.Key || issued.Multipart != nil {
+				return mismatch
+			}
+			authorised = append(authorised, issued.upload())
+			continue
+		}
+
+		// ── no receipt: a v1 token or none (deprecated; remove in 0.9) ──────
+		// An upload presigned before receipts and completed after the deploy
+		// keeps the behaviour it was issued under: the hooks run over the
+		// metadata the client echoes back.
+		metadata, err := route.runMetadata(r, PhaseComplete, entry.File, entry.Metadata)
+		if err != nil {
+			return err
+		}
+
+		if refusal != nil {
+			return refusal
 		}
 
 		if entry.CompletionToken != "" {
-			key, route_, err := router.verifyCompletion(entry.CompletionToken)
+			key, issuedRoute, err := router.verifyCompletion(entry.CompletionToken)
 			if err != nil {
 				return err
 			}
-			if key != entry.Key || route_ != routeName {
-				return NewError("FORBIDDEN",
-					"This completion does not match the upload it was issued for")
+			if key != entry.Key || issuedRoute != routeName {
+				return mismatch
 			}
 		} else if !route.AllowUntokenedCompletion {
 			return NewError("FORBIDDEN",
 				"This route requires the completion token issued at presign")
 		}
 
-		if metadata == nil {
-			metadata = map[string]any{}
-		}
-
-		trusted = append(trusted, metadata)
+		authorised = append(authorised, upload{
+			Route: routeName, Key: entry.Key, File: entry.File, Metadata: metadata,
+		})
 	}
 
-	for index, entry := range request.Completions {
-		if route.OnComplete != nil {
-			if err := route.OnComplete(r, entry.Key, entry.File, trusted[index]); err != nil {
-				return err
-			}
+	results := make([]completionResult, 0, len(authorised))
+	for _, done := range authorised {
+		result, err := router.finalize(r, route, done)
+		if err != nil {
+			// One file's outcome, reported in its own entry: the batch was
+			// authorised, and the others may well have finished.
+			result = failedCompletion(done.Key, err)
 		}
-
-		host, path := router.config.objectAddress(entry.Key)
-		results = append(results, completionResult{
-			Success: true,
-			Key:     entry.Key,
-			URL:     "https://" + host + path,
-			File:    entry.File,
-		})
+		results = append(results, result)
 	}
 
 	writeJSON(w, http.StatusOK, telemetry, map[string]any{
@@ -339,17 +349,11 @@ func (router *Router) complete(
 	return nil
 }
 
-// ─── completion tokens ──────────────────────────────────────────────────────
+// ─── completion tokens (v1, deprecated; remove in 0.9) ──────────────────────
 
-// signCompletion binds a key to the route that presigned it.
-//
-// Same construction as the TypeScript server, including the `completion:`
-// prefix on the secret, so the two are interchangeable behind a load balancer
-// rather than merely similar.
-func (router *Router) signCompletion(key, route string) (string, error) {
-	return router.sealToken(purposeCompletion, map[string]string{"key": key, "route": route})
-}
-
+// verifyCompletion reads a v1 completion token, which bound only a key to a
+// route. Presign issues receipts now; these are still accepted for uploads
+// that were in flight across the deploy.
 func (router *Router) verifyCompletion(token string) (string, string, error) {
 	// One message for every failure mode, so probing reveals nothing about
 	// which part was wrong.

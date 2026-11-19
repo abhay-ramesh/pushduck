@@ -70,6 +70,13 @@ type FileMeta struct {
 
 // MetadataHook authenticates a request and returns metadata for the upload.
 //
+// It runs on every request of an upload — presign, each multipart call, and
+// completion — always with the file and client metadata presign received
+// (ClientMetadata(r)), and PhaseOf(r) saying which request this is. Only the
+// value returned at presign is kept: it is sealed into the upload's receipt
+// and handed to OnComplete. Later runs exist to reject a caller who has lost
+// access since.
+//
 // Returning an error rejects the whole request. Return an *Error to control
 // the status; any other error becomes a 500 with its detail withheld.
 type MetadataHook func(r *http.Request, file FileMeta) (map[string]any, error)
@@ -86,12 +93,35 @@ type MetadataHook func(r *http.Request, file FileMeta) (map[string]any, error)
 // Returning an error rejects the whole request, as a MetadataHook's does.
 type StoragePathHook func(r *http.Request, file FileMeta) (string, error)
 
-// CompleteHook runs once an upload finishes.
+// CompleteHook runs once an upload finishes and its object has been checked.
 //
 // This is where an application inserts the database row, attaches the file to
-// a record, or grants access to it — which is why the protocol authenticates
-// the call and binds the key to a token.
-type CompleteHook func(r *http.Request, key string, file FileMeta, metadata map[string]any) error
+// a record, or grants access to it — which is why every field of Upload comes
+// from the server's own record or from storage, and none from the completion
+// request.
+//
+// Returning an error fails that file's completion; the others in the batch
+// are unaffected.
+type CompleteHook func(r *http.Request, upload Upload) error
+
+// Upload is a finished upload, as OnComplete receives it.
+type Upload struct {
+	// ID is unique per upload and the same on every retry of its completion:
+	// use it as an idempotency key, since a client may retry a completion
+	// whose response it never received. Empty for uploads presigned before
+	// receipts existed.
+	ID string
+	// Key is the object key presign chose.
+	Key string
+	// File is the file as stored: Name as declared, Size and Type as storage
+	// reports them.
+	File FileMeta
+	// Object is the stored object. Use its Size for billing and quotas.
+	Object ObjectInfo
+	// Metadata is what the metadata hooks returned at presign — never the
+	// client's claims, whatever the completion request contains.
+	Metadata map[string]any
+}
 
 // Route is one named upload endpoint.
 type Route struct {

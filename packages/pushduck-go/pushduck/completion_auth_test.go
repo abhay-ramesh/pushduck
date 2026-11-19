@@ -19,7 +19,7 @@ func completionRouter(t *testing.T, options ...RouteOption) (*Router, *int) {
 	t.Helper()
 
 	fired := 0
-	options = append(options, OnComplete(func(*http.Request, string, FileMeta, map[string]any) error {
+	options = append(options, OnComplete(func(*http.Request, Upload) error {
 		fired++
 		return nil
 	}))

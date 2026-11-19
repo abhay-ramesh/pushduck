@@ -349,10 +349,10 @@ func TestMultipartInitUsesTheScopedKey(t *testing.T) {
 		t.Fatalf("storage was asked to create %v", *paths)
 	}
 
-	// The session token binds the scoped key, not the bare filename.
-	session, err := router.verifySession(body.Session)
-	if err != nil || session.Key != want {
-		t.Fatalf("session key = %q, %v", session.Key, err)
+	// The session binds the scoped key, not the bare filename.
+	session, err := router.openReceipt(body.Session)
+	if err != nil || session == nil || session.Key != want {
+		t.Fatalf("session = %+v, %v", session, err)
 	}
 }
 
