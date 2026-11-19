@@ -88,8 +88,13 @@ by shape and therefore cannot:
   another; that fix is ported rather than reinvented, with the same test cases.
 
 ```bash
-python3 -m unittest discover -s tests
+pip install --group test   # pytest, plus the frameworks test_frameworks.py mounts into
+python -m pytest
 ```
+
+MinIO is optional: the storage round trips in `tests/test_multipart.py` skip
+without it (`packages/pushduck/scripts/minio.sh start` starts one). CI provides it
+and runs this suite on the oldest and newest supported Python.
 
 ## Status
 

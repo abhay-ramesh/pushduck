@@ -14,6 +14,24 @@ keywords = ["s3", "upload", "presigned", "asgi", "fastapi", "django"]
 # every application that installs it.
 dependencies = []
 
+# Development only — never installed with the package. pytest is the runner
+# (tests/test_channels.py uses its fixtures, and plain `test_*` functions are
+# invisible to unittest). The frameworks are here because tests/test_frameworks.py
+# executes every documented mounting snippet and skips a framework that is not
+# installed; CI installs this group so those skips cannot hide a broken guide.
+#
+#   pip install --group test   # pip >= 25.1
+#   python -m pytest
+[dependency-groups]
+test = [
+  "pytest",
+  "fastapi",
+  "starlette",
+  "httpx",
+  "flask",
+  "django",
+]
+
 [project.urls]
 Homepage = "https://pushduck.org"
 Documentation = "https://pushduck.org/docs/protocol"
