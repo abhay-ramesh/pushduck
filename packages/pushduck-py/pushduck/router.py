@@ -457,14 +457,18 @@ class Router:
                     key, metadata = await self._prepare(route, ctx, file)
                 except UploadError as error:
                     if error.status >= 500:
-                        # The server is at fault — a key channel returning `..`,
-                        # a misconfiguration. Failing one entry of a batch would
-                        # report a bug in this deployment as a property of the
-                        # user's file.
+                        # The server is at fault — a misconfiguration. Failing
+                        # one entry of a batch would report a bug in this
+                        # deployment as a property of the user's file.
                         raise
                     await self._report(route, ctx, file, error)
                     results.append(
-                        {"success": False, "file": file.to_json(), "error": error.message}
+                        {
+                            "success": False,
+                            "file": file.to_json(),
+                            "error": error.message,
+                            "code": error.code,
+                        }
                     )
                     continue
 
