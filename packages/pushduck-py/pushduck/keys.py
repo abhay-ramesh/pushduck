@@ -21,18 +21,22 @@ import unicodedata
 #: characters can exceed it.
 MAX_KEY_BYTES = 900
 
-_BIDI_AND_INVISIBLE = frozenset(
-    list(range(0x200B, 0x2010))  # zero-width and directional marks
-    + list(range(0x202A, 0x202F))  # bidi overrides used for filename spoofing
-    + list(range(0x2066, 0x206A))
-    + [0xFEFF]
-)
-
-
 def _is_dangerous(char: str) -> bool:
-    if unicodedata.category(char) in ("Cc", "Cf") and ord(char) not in (0x200D,):
-        return True
-    return ord(char) in _BIDI_AND_INVISIBLE
+    """Control characters (C0 and C1) and every Unicode format character
+    (general category Cf): bidi overrides, zero-width characters, the soft
+    hyphen, the word joiner. A category rather than a hand-kept list, so the
+    TypeScript and Go implementations, which use the same one, cannot drift."""
+    return unicodedata.category(char) in ("Cc", "Cf")
+
+
+def _is_lone_surrogate(char: str) -> bool:
+    return 0xD800 <= ord(char) <= 0xDFFF
+
+
+def _well_formed(name: str) -> str:
+    """Lone surrogates, which JSON can carry and UTF-8 cannot encode, become
+    U+FFFD, as they do when Go decodes the same JSON."""
+    return "".join("\ufffd" if _is_lone_surrogate(c) else c for c in name)
 
 
 def _basename(name: str) -> str:
@@ -52,11 +56,13 @@ def _basename(name: str) -> str:
 
 
 def _fingerprint(name: str) -> str:
-    """FNV-1a. Not cryptographic and does not need to be — it exists to keep
-    keys distinct, not to resist an attacker."""
+    """FNV-1a over the UTF-8 bytes, in hex: the same function as Go's
+    ``hash/fnv`` and the TypeScript server's, so a name gets the same key
+    whichever server answers. Not cryptographic and does not need to be — it
+    exists to keep keys distinct, not to resist an attacker."""
     value = 0x811C9DC5
-    for char in name:
-        value ^= ord(char) & 0xFFFFFFFF
+    for byte in name.encode("utf-8"):
+        value ^= byte
         value = (value * 0x01000193) & 0xFFFFFFFF
     return format(value, "x")
 
@@ -65,6 +71,8 @@ def generate_key(original_name: str) -> str:
     """Sanitise a filename into an object key."""
     if not original_name:
         return "file"
+
+    original_name = _well_formed(original_name)
 
     out = []
     for char in original_name:
@@ -138,21 +146,23 @@ def resolve_key(fragment: str, original_name: str) -> str:
     renamed its old default ``unsafeGetKey`` — both relocated the guarantee
     rather than documenting the hazard.
 
-    Raises ``CONFIG_INVALID`` rather than a 4xx: a key hook returning ``..`` is
-    a bug in the application, not a malformed request from its caller.
+    Raises ``VALIDATION_FAILED``, which fails the one file whose key it was
+    while the rest of the batch continues — as the TypeScript and Go servers
+    do. A key is usually built from a value the caller influences (a filename,
+    a folder), so the refusal belongs to that file, not to the request.
     """
     from .errors import UploadError
 
     def reject(why: str) -> "UploadError":
         return UploadError(
-            "CONFIG_INVALID",
+            "VALIDATION_FAILED",
             f"the `key` channel returned {fragment!r}, which {why}. "
             "Return a path fragment; pushduck adds the prefix and sanitises it.",
         )
 
     if not isinstance(fragment, str):
         raise UploadError(
-            "CONFIG_INVALID",
+            "VALIDATION_FAILED",
             f"the `key` channel returned {type(fragment).__name__}, expected a string",
         )
 
@@ -165,6 +175,9 @@ def resolve_key(fragment: str, original_name: str) -> str:
         # breaks every URL built by concatenation.
         raise reject("is absolute")
 
+    if any(_is_lone_surrogate(c) for c in fragment):
+        raise reject("is not well-formed Unicode")
+
     for char in fragment:
         if char in _REJECTED_CHARS:
             raise reject(f"contains {char!r}, which changes how the key parses in a URL")
@@ -173,7 +186,7 @@ def resolve_key(fragment: str, original_name: str) -> str:
             # there the alternative is rejecting the user's upload. In a key the
             # application chose, silently returning something other than what
             # was asked for is the worse failure.
-            raise reject(f"contains U+{ord(char):04X}, a control or bidi character")
+            raise reject(f"contains U+{ord(char):04X}, a control or format character")
 
     segments = fragment.split("/")
     for segment in segments:

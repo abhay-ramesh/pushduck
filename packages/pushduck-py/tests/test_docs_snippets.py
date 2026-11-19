@@ -72,7 +72,9 @@ def _body() -> None:
 
 
     st, body = presign(Route(schema=image(), storage_path=lambda ctx,f: "../../etc/passwd"), "a.png")
-    assert st == 500 and body["code"] == "CONFIG_INVALID", body
+    assert st == 200, body
+    refused = body["results"][0]
+    assert not refused["success"] and refused["code"] == "VALIDATION_FAILED", body
 
 
     # --- snippet 4: replace()

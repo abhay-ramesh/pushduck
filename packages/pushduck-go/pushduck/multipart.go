@@ -16,6 +16,7 @@ package pushduck
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 )
 
@@ -145,6 +146,11 @@ func (router *Router) multipartInit(
 	}
 
 	key, err := route.objectKey(r, request.File)
+	var refused keyRefusal
+	if errors.As(err, &refused) {
+		// One file per init, so the file's refusal is the response: a 400.
+		return refused.refused
+	}
 	if err != nil {
 		return err
 	}

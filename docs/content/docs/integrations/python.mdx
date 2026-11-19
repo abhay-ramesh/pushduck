@@ -92,8 +92,12 @@ paths and URL delimiters, then re-sanitises every segment before signing:
 ```python
 storage_path=lambda ctx, f: f"{ctx.user.tenant}/{f.name}"
 # "acme/写真 photo.png"  ->  "acme/写真_photo.png"
-# "../../etc/passwd"    ->  CONFIG_INVALID, refused
+# "../../etc/passwd"    ->  refused: that file fails with VALIDATION_FAILED
 ```
+
+A refused key fails only its own file; the rest of the batch is still signed.
+The rules are the same in all three servers, and so is every key: one table of
+cases drives the TypeScript, Python and Go test suites.
 
 This is deliberate and not adjustable. A path hook that is trusted verbatim is
 how CVE-2024-39330 (Django) and CVE-2026-34750 (Payload CMS) happened; both

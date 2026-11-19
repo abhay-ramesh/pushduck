@@ -3,9 +3,9 @@
  *
  * Every key a route produces passes through `resolveKey`, which refuses what
  * cannot be made safe and re-sanitises each segment of what is left. The
- * cases live in `fixtures/key-cases.json`, shared with the Python
- * (`resolve_key`) and Go (`resolveKey`) servers, so a fragment resolves to the
- * same key — or is refused — whichever server answers.
+ * cases live in `fixtures/key-cases.json`, which the Python and Go suites read
+ * too, so a fragment resolves to the same key — or is refused — and a filename
+ * gets the same default key, whichever server answers.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -19,7 +19,7 @@ import { installFakeStorage, type FakeStorage } from "./fixtures/fake-storage";
 interface KeyCases {
   accept: Array<{ fragment: string; key: string }>;
   reject: Array<{ fragment: string; rule: string }>;
-  divergent: Array<{ fragment: string; ts: string | null; note: string }>;
+  default: Array<{ name: string; key: string }>;
 }
 
 const cases: KeyCases = JSON.parse(
@@ -54,16 +54,10 @@ describe("resolveKey: the shared case table", () => {
     }
   );
 
-  it.each(cases.divergent.map((c) => [c.fragment, c] as const))(
-    "divergent %j matches TypeScript's recorded behaviour",
-    (_label, c) => {
-      if (c.ts === null) {
-        // The fingerprint for an all-stripped segment is base 36 here and hex
-        // in Python and Go. Recorded, not resolved, in this change.
-        expect(resolveKey(c.fragment)).toMatch(/file-[0-9a-z]+/);
-      } else {
-        expect(resolveKey(c.fragment)).toBe(c.ts);
-      }
+  it.each(cases.default.map((c) => [c.name.slice(0, 40), c] as const))(
+    "gives %j its default key",
+    (_label, { name, key }) => {
+      expect(sanitizeFilename(name)).toBe(key);
     }
   );
 });

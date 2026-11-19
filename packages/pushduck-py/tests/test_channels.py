@@ -221,13 +221,32 @@ def test_key_channel_cannot_escape(fragment):
 
     response = run(router, presign_request([{"name": "a.png", "size": 10, "type": "image/png"}]))
 
-    assert response.status == 500, f"{fragment!r} was accepted"
-    document = body_of(response)
-    assert document["code"] == "CONFIG_INVALID"
-    # The message names the channel and says what to return instead: this is a
-    # bug in the application, and the person reading it is the one who can fix
-    # it.
-    assert "`key` channel" in document["detail"]
+    # The refusal is that file's result, as in the TypeScript and Go servers.
+    assert response.status == 200
+    result = body_of(response)["results"][0]
+    assert not result["success"], f"{fragment!r} was accepted"
+    assert result["code"] == "VALIDATION_FAILED"
+    assert "presignedUrl" not in result
+    # The message names the channel and says what to return instead.
+    assert "`key` channel" in result["error"]
+
+
+def test_a_refused_key_fails_only_its_file():
+    """The channel interpolates the filename, so one file's key escapes and
+    the other's does not. The other file is still signed."""
+    router = Router(CONFIG)
+    router.add("avatar", Route(schema=image(), storage_path=lambda ctx, f: f"tenant/{f.name}"))
+
+    files = [
+        {"name": "../escape.png", "size": 10, "type": "image/png"},
+        {"name": "a.png", "size": 10, "type": "image/png"},
+    ]
+    response = run(router, presign_request(files))
+
+    assert response.status == 200
+    refused, accepted = body_of(response)["results"]
+    assert not refused["success"] and refused["code"] == "VALIDATION_FAILED"
+    assert accepted["success"] and accepted["key"] == "tenant/a.png"
 
 
 def test_key_channel_output_is_re_sanitised():

@@ -132,7 +132,8 @@ A key is **refused** when it:
 
 - is empty or absolute (starts with `/`)
 - contains `?`, `#` or `%`, which change how a key parses in a URL
-- contains a control character or an invisible bidi or zero-width character
+- contains a control character or a Unicode format character (category Cf:
+  bidi overrides, zero-width characters, the soft hyphen and the like)
 - has an empty, `.` or `..` segment (`a//b`, `a/./b`, `../b`)
 - is longer than 1024 bytes once sanitised (S3's limit is on bytes, and a CJK
   character costs three)
